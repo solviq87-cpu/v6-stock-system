@@ -134,8 +134,8 @@ async function run(){
     await page.getByText('逐项交付状态（78项）',{exact:true}).click();
     const checklist=page.locator('details').filter({has:page.locator('summary').filter({hasText:'逐项交付状态（78项）'})});
     assert.equal(await checklist.locator('tbody tr').count(),78);
-    assert.match(await checklist.locator('tbody tr').first().innerText(),/沿用原任务，等待对应组证据/);
-    assert.equal((await checklist.locator('tbody tr').first().locator('td').allTextContents()).slice(2).every(v=>v==='证据不足'),true);
+    assert.match(await checklist.locator('tbody tr').first().innerText(),/统一风险工作台/);
+    assert.deepEqual((await checklist.locator('tbody tr').first().locator('td').allTextContents()).slice(2),['部分具备','证据不足','证据不足','部分具备','证据不足','待验证']);
     assert.match(await page.locator('#research').innerText(),/尚未通过/);
     const acceptance=responses.filter(r=>r.path.endsWith('/acceptance')&&r.ok===true).at(-1).result;
     assert.equal(acceptance.observation.observedTradingDays,0);assert.equal(acceptance.observation.completeObservationDays,0);

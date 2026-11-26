@@ -18,9 +18,8 @@ const number = value => typeof value === 'number' && Number.isFinite(value) ? va
 const truth = value => typeof value === 'boolean' ? value : null;
 const version = value => typeof value === 'string' && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
 const yieldTurn = () => new Promise(resolve => setImmediate(resolve));
-const TASK_TITLES = Object.freeze({67:'事件影响研究库',68:'预期差分析',69:'产业与公司关系图谱',70:'盘口与竞价研究',
-  71:'交易时段策略适用性',72:'主题拥挤与集中风险',73:'组合目标权重研究',74:'换仓收益与成本门槛',
-  75:'决策稳健性检查',76:'事前决策对照复盘',77:'交付来源与版本可信验证',78:'全系统真实运行验收'});
+// Names come only from the existing repository task inventory, not request evidence.
+const TASK_TITLES = Object.freeze(Object.fromEntries(require('../../config/deep-research-tasks.json').map(row=>[row.id,row.title])));
 const DEFAULT_CRITERIA = Object.freeze({version:'runtime-observation-v1', minimumSlots:40, minimumSessionSlots:20,
   minimumFreshCoverage:0.8, maximumCollectionP95Ms:5000, maximumDeliveryDelayMs:30000,
   minimumMatureSamples:null, maximumDrawdownPct:null, maximumCalibrationError:null});
@@ -345,7 +344,7 @@ function buildUnifiedTaskStatus(evidence = []) {
   for (const item of Array.isArray(evidence) ? evidence : []) if (Number.isInteger(item?.id) && item.id >= 1 && item.id <= 78 && !byId.has(item.id)) byId.set(item.id,item);
   return Array.from({length:78},(_,index) => {
     const id = index + 1, item = byId.get(id);
-    const row = {id,title:TASK_TITLES[id] || null,source:id <= 66?'existing-six-group-evidence-required':'depth-decision-increment',
+    const row = {id,title:TASK_TITLES[id] || null,source:item?.sourceState==='integrated-candidate-inventory'?'integrated-candidate-inventory':id <= 66?'existing-six-group-evidence-required':'depth-decision-increment',
       sourceSha:SHA.test(item?.sourceSha || '')?item.sourceSha:null};
     for (const axis of axes) {
       const value = item?.[axis], refs = Array.isArray(value?.evidence) ? value.evidence.filter(safeRef).slice(0,12) : [];

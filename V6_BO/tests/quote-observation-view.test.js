@@ -33,3 +33,19 @@ test('snapshot regeneration expires original rows without changing their price o
  assert.equal(a.rows[0].quoteStatus,'recent-unverified');assert.equal(b.rows[0].quoteStatus,'stale');assert.equal(b.riskEvidence.marketQuotes.recent,0);
  assert.deepEqual(b.rows.map(r=>[r.code,r.price]),[['600519',10],['000001',9]]);
 });
+test('explicit conflicts survive quote snapshots and never grant automatic trade or notification permission',()=>{
+ const {quoteUseEligibility:use,quoteSnapshotFields:snapshot}=require('../src/core/quote-observation-view');
+ const valid={...row,receivedAt:now,canTrade:true,canNotify:true};
+ assert.equal(use(valid,now).canTrade,true);
+ for(const patch of [{sourceConflict:true},{conflict:true},{evidenceStatus:'conflict'},{quoteStatus:'conflict'},{tradeDate:'2026-11-05'}]){
+  const q={...valid,...patch};
+  for(const r of [q,{...valid,...snapshot(q)}]){
+   assert.equal(use(r,now).canTrade,false,JSON.stringify(patch));
+   assert.equal(use(r,now).canNotify,false,JSON.stringify(patch));
+   assert.equal(view(r,now).missingReason,'conflicting-quote-evidence');
+   assert.equal(view(r,now).quoteStatus,'unknown');
+  }
+ }
+ assert.equal(use({...valid,sourceConflict:false,conflict:false},now).canTrade,true);
+ assert.equal(use({...valid,tradeDate:'2026-11-06'},now).canTrade,true);
+});

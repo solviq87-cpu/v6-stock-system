@@ -1,4 +1,8 @@
 'use strict';
+// A conflict is not an eligible original observation, even if its timestamp is fresh.
+function explicitQuoteConflict(row){
+ return row?.sourceConflict===true||row?.conflict===true||row?.evidenceStatus==='conflict'||row?.quoteStatus==='conflict';
+}
 // Describe this exact row; borrowing another price's timestamp would invent provenance.
 function quoteObservationView(row,now=Date.now()){
  if(!Number.isFinite(now)||now<=0)throw Error('报价视图时钟无效');
@@ -11,7 +15,9 @@ function quoteObservationView(row,now=Date.now()){
  if(quoteAt!==null&&receivedAt!==null&&(quoteAt>receivedAt||receivedAt>now))quoteStatus='future';
  const mode=typeof (row?.quoteMode||row?.mode)==='string'?String(row.quoteMode||row.mode).slice(0,80):'public-unverified';
  const tradeDate=quoteAt!==null?new Date(quoteAt+28800000).toISOString().slice(0,10):/^\d{4}-\d{2}-\d{2}$/.test(row?.tradeDate||'')?row.tradeDate:null;
- const missingReason=price===null?'invalid-price':!quoteSource?'missing-source':quoteAt===null?'missing-original-time':quoteAt>now?'future-original-time':receivedAt!==null&&(receivedAt>now||quoteAt>receivedAt)?'invalid-reception-time':quoteStatus==='stale'?'stale-original-time':receivedAt===null?'missing-received-time':null;
+ const conflicting=explicitQuoteConflict(row)||(quoteAt!==null&&row?.tradeDate!=null&&row.tradeDate!==tradeDate);
+ if(conflicting)quoteStatus='unknown';
+ const missingReason=conflicting?'conflicting-quote-evidence':price===null?'invalid-price':!quoteSource?'missing-source':quoteAt===null?'missing-original-time':quoteAt>now?'future-original-time':receivedAt!==null&&(receivedAt>now||quoteAt>receivedAt)?'invalid-reception-time':quoteStatus==='stale'?'stale-original-time':receivedAt===null?'missing-received-time':null;
  return {quoteAt,quoteSource:quoteSource||null,source:quoteSource||null,receivedAt,tradeDate,mode,
    quoteAgeMs,quoteStatus,freshness:quoteStatus,missingReason,canTrade:false,canNotify:false,verifiedLive:false};
 }
@@ -47,7 +53,7 @@ function quoteSnapshotFields(row){
  const flags=Object.fromEntries(['simulated','readOnlyBackup','imported','fixture','mock','synthetic','tradable','suspended']
    .filter(flag=>typeof row?.[flag]==='boolean').map(flag=>[flag,row[flag]]));
  return {quoteAt,quoteSource:source||null,receivedAt,...(row?.canTrade===false?{canTrade:false}:{}),
-   ...flags,...(typeof (row?.quoteMode||row?.mode)==='string'?{quoteMode:row.quoteMode||row.mode}:{}),
+   ...flags,...(explicitQuoteConflict(row)?{sourceConflict:true}:{}),...(typeof (row?.quoteMode||row?.mode)==='string'?{quoteMode:row.quoteMode||row.mode}:{}),
    ...(typeof row?.tradeDate==='string'?{tradeDate:row.tradeDate}:{}),
    ...(typeof row?.canNotify==='boolean'?{canNotify:row.canNotify}:{})};
 }

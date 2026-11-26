@@ -5,6 +5,7 @@ const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':
  'observed-research':'已有研究记录','candidate':'研究候选','prospective':'事前冻结','post-hoc-exploration':'事后探索',
  'development-modified':'开发副本有改动','development-source-only':'源码副本，尚非安装验收','verified-local-manifest':'本地安装文件校验一致',
  'pending-real-observation':'等待真实运行积累','evidence-or-remediation-required':'需补齐证据或修复问题','ready-for-independent-review':'达到观察窗口，等待独立复核',
+ 'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
  'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败'};
 const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
  symbol:'股票',eventType:'事件类型',title:'事件',revision:'修订',publishedAt:'公开时点',firstKnownAt:'首次获知',recordedAt:'保存时点',
@@ -133,7 +134,7 @@ export function renderDeepResearch(ctx){
     table([{label:'观察窗口',value:r=>r.tradingDays+'个交易日'},{label:observation.elapsedTradingDaysComplete===true?'已到交易日':'已知交易日（范围待核）',value:r=>r.elapsedTradingDays},{label:'完整观察日',value:r=>r.completeObservationDays},
      {label:'状态',value:r=>value(r.status)},{label:'待核对',value:r=>arr(r.blockers).join('；')}],arr(observation.stages)),
     renderRuntimeObservationCoverage(observation),
-    h('details',{class:'fy-details'},h('summary',{},'逐项交付状态（78项）'),table([{label:'编号',value:r=>r.id},{label:'任务与依据',value:r=>h('details',{class:'fy-details'},
+    h('details',{class:'fy-details'},h('summary',{},'逐项交付状态（78项）'),note('部分具备表示已有对应代码或局部验证，不代表整项验收；真实数据、部署及运行观察独立核对。'),table([{label:'编号',value:r=>r.id},{label:'任务与依据',value:r=>h('details',{class:'fy-details'},
      h('summary',{},r.title||'沿用原任务，等待对应组证据'),evidence(r))},
      ...[['code','代码'],['interface','接线'],['realData','真实数据'],['validation','验证'],['deployed','部署'],['observation','观察']].map(([key,label])=>({label,value:r=>value(r[key]?.status)}))],arr(acceptance.tasks||observation.tasks))),
     h('details',{class:'fy-details'},h('summary',{},'逐日缺口与版本分段'),evidence({days:observation.days,versionSegments:observation.versionSegments,criteria:observation.criteria})),

@@ -126,10 +126,10 @@ test('calendar closes lunch and afternoon boundaries; data before known scope ca
  assert.equal(marketSlot(at(days[0],9,29)),null);assert.equal(marketSlot(at(days[0],9,30)),0);assert.equal(marketSlot(at(days[0],11,30)),null);
  assert.equal(marketSlot(at(days[0],13,0)),24);assert.equal(marketSlot(at(days[0],14,59)),47);assert.equal(marketSlot(at(days[0],15,0)),null);
 });
-test('all 78 tasks keep six independent evidence axes and original task names remain unknown',()=>{
+test('all 78 tasks keep six independent evidence axes and use trusted task inventory names',()=>{
  const rows=buildUnifiedTaskStatus([{id:77,sourceSha:sha,code:{status:'implemented',evidence:['V6_BO/src/core/release-provenance.js']},
    deployed:{status:'deployed',evidence:[]},validation:{status:'passed',evidence:['https://github.com/solviq87-cpu/v6-stock-system/actions/runs/123?token=secret']}}]);
- assert.equal(rows.length,78);assert.equal(rows[0].title,null);assert.equal(rows[76].code.status,'implemented');
+ assert.equal(rows.length,78);assert.equal(rows[0].title,'统一风险工作台');assert.equal(rows[76].code.status,'implemented');
  assert.equal(rows[76].deployed.status,'unknown');assert.equal(rows[76].validation.status,'unknown');assert.equal(rows[77].observation.status,'unknown');
 });
 test('existing-group PR references can be retained without inventing their task contents or completion',()=>{
@@ -139,7 +139,7 @@ test('existing-group PR references can be retained without inventing their task 
  const row=buildUnifiedTaskStatus([{id:1,title:'unverified declaration',code:{evidence:[reference,
   'V6_BO/../../private.json','https://github.com/solviq87-cpu/v6-stock-system/pull/not-a-pr',
   'https://github.com/solviq87-cpu/v6-stock-system/pull/219?token=secret']}}])[0];
- assert.equal(row.title,null);assert.equal(row.sourceSha,null);assert.deepEqual(row.code.evidence,[reference]);
+ assert.equal(row.title,'统一风险工作台');assert.equal(row.sourceSha,null);assert.deepEqual(row.code.evidence,[reference]);
  for(const axis of ['code','interface','realData','validation','deployed','observation'])assert.equal(row[axis].status,'unknown');
 });
 
