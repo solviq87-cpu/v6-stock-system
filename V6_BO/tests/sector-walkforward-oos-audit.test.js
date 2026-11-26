@@ -41,8 +41,10 @@ function episode(index,{testPeriod=false,version='stable-csrc-classification',mi
  const baseline=market(dates[index],{version});
  const cohort=freeze(baseline.snapshot,baseline.membership,
   {now:clock(dates[index])+1000});
+ // Training reports are sealed before the holdout, without its future labels.
+ const reportIndex=testPeriod?80:49,reportAt=clock(dates[reportIndex])+2000;
  const positions=[1,5,20];
- const next=positions.filter(p=>!(missing20&&p===20)).map((p,i)=>{
+ const next=positions.filter(p=>index+p<=reportIndex&&!(missing20&&p===20)).map((p,i)=>{
   const leader=testPeriod?[.98,1.00,1.02][i]:[1.05,1.12,1.08][i];
   const peers=testPeriod?[1.03,1.04,1.05][i]:[1.01,1.02,1.03][i];
   return market(dates[index+p],{version,ratios:[leader,peers,peers]}).snapshot;
@@ -50,10 +52,10 @@ function episode(index,{testPeriod=false,version='stable-csrc-classification',mi
  const covered=baseline.snapshot.stocks.map(s=>s.code);
  const corporateActions={schemaVersion:1,source:'imported',
   provider:'operator-unverified-actions',datasetId:'toy-fixture-not-real',
-  completed:true,observedAt:asOf-1000,completeThrough:dates[80],
+  completed:true,observedAt:reportAt-1000,completeThrough:dates[reportIndex],
   coveredSymbols:covered,events:[]};
  const observation=evaluate(cohort,next,{
-  tradeDates:dates,corporateActions,asOf});
+  tradeDates:dates,corporateActions,asOf:reportAt});
  assert.equal(observation.status,'research-observation-unverified');
  return {cohort,observation};
 }
