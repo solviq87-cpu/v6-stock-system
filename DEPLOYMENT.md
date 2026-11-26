@@ -433,3 +433,11 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 ### 2026-11-26 原04/05/22/49/60 全量CI失败回归接续
 - 核对 `a40fda3d` 的 GitHub Actions [实际失败运行45757929804](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45757929804) 的 verify job 139700864419：11个失败均位于 decision-evidence-server-contract（6）和 paper-conditional-http（5）。测试原报价日字段使用旧紧凑格式而实时源契约为ISO，或继续使用早于冻结计划的报价，不能通过已加强的原门禁。仅修改原隔离测试夹具：使用实际实时报价日字段口径，推进测试时钟后明确注入新报价；新增真实HTTP断言，未更新的冻结前报价保持pending且账本字节不变。原策略批次、仓位、费用、撤权、取消、T+1、幂等和通知断言全部保留，生产代码及权限不放宽。
 - 在已校验的隔离运行载荷上核对父提交 server/条件单/共享报价及两个测试与原helper blob，Node v22.16.0 实测两文件17/17通过、0失败0跳过，语法通过。TAP SHA256 `f7cb9c2c1d834e013e86cbfa6e3f1e4e84599a1154853bfe9cbd05d6e7ec3934`，实测测试blob `6f41c9ad7c1664445749497fca2af48011e2dde1`、`cc4b0c9bf84f5de72f500132ae0b05c62c8f8133`。组合最新精确SHA的全量CI仍待，不等同全部78项验收。未合入dev、未部署，不新增自动化或开发锁。
+
+
+## 2026-11-26 · 原77/78：统一合并后的逐提交验证容量修复
+
+- PR #368 已于北京时间16:17:42合入 dev，合并SHA `1474cfff32269e0093d00748efd70040e6c922d3`，候选 `9c949f77878409c5f61e09c15e5a1716002d545a`。旧PR覆盖失败 `pr-head-or-base-changed` 已被同候选、正确目标的 [45780553309](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45780553309) 成功检查替代，保留历史记录。
+- 合并后 [45781953372](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45781953372) 实际失败 `nonforward-or-over-32-commit-push`。GitHub compare 确认原dev至合并SHA为完整58个新增提交，behind=0，直接双亲分别为原dev和已核对的PR头。原PR允许64提交，旧逐push上限32未考虑合并提交。复用原工作流，仅直接双亲合并上限65（64+1）；普通push仍32，拒绝强推、非前进、错误父关系、缺页、重复或超限；选择及状态写入一致，逐SHA真实测试和原官方回执检查全部保留。无业务、账户、数据、发布owner、自动任务或开发锁变更。
+- 本地恢复旧包的工作流和原测试与当前dev目标blob逐字相同；所依赖的四个其他workflow及发布owner配置也与当前dev一致。Node22.16.0，`node --test V6_BO/tests/commit-check-triggers.test.js` 修前6/9（新增容量反例3失败），修后9/9、0失败0跳过。实测workflow blob `635650db382a5a2aebd2b06dfc6afbb951a028a3`，测试blob `edb7e3858bff30f55470b5f5ee9237ef42a10eec`；TAP SHA256 修前 `269f872d5fe5ed4613f2ba648310faf5eb5f98a1d56df545db949823d0c4bb98`，修后 `7e579cc76dfea30f6025109e54ff1015e77b54af7e2887466a54617bfe5ffb0d`。当前环境直接Git DNS仍不通，仅核对目标文件与运行专项，未声称完整最新工程测试已执行。
+- 从精确已合并SHA建立本修复分支，既有新分支push检查会对该SHA单独产生真实回执；不改写原失败workflow或主线历史。后续独立修复PR以最新head和dev验证，实际CI和部署另验；不以修复容量或局部测试替代78项完整验收。回退只反向本次工作流和测试/说明，不动业务数据。
