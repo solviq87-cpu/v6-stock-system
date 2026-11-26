@@ -81,6 +81,10 @@ function readDay(root, day) {
           !Number.isSafeInteger(row.observedAt) || row.observedAt <= priorAt || aShareCalendarDate(row.observedAt) !== day ||
           row.slot !== marketSlot(row.observedAt) || !HASH.test(row.criteriaHash || '') || !row.metrics ||
           row.businessRecordsMutated !== false || row.origin !== 'server-collector') throw Error('acceptance-history-integrity-failed');
+      if(Object.hasOwn(row,'evidenceReadyAt')){
+        const ready=row.evidenceReadyAt,late=Array.isArray(row.exclusions)&&row.exclusions.includes('collection-window-exceeded');
+        if(ready===null?!late:!Number.isSafeInteger(ready)||ready<row.observedAt||(ready-row.observedAt>15000&&!late))throw Error('acceptance-history-integrity-failed');
+      }
       previous = fingerprint; priorAt = row.observedAt;
     }
     return rows;
@@ -384,7 +388,8 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
       if(metrics.market.quoteEvidence.truncated===true)exclusions.push('quote-input-limit-exceeded');
       if(metrics.market.expectedSymbols!=null&&metrics.market.observedSymbols>metrics.market.expectedSymbols)exclusions.push('quote-population-mismatch');
       if (collectFailed) exclusions.push('collector-failure');
-      if (clock() < now || clock() - now > 15000) exclusions.push('collection-window-exceeded');
+      const collectedAt=clock();
+      if(!Number.isSafeInteger(collectedAt)||collectedAt<now||collectedAt-now>15000)exclusions.push('collection-window-exceeded');
       if (canWrite() !== true) return {recorded:false,reason:'write-authorization-changed'};
       privateRoot(root,true);
       const receipt = withAccountLock(path.join(root,'observations'),()=>{
@@ -396,8 +401,11 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
         if (previous && now <= previous.observedAt) throw Error('acceptance-clock-regressed');
         if (previous && Math.floor(now/60000) === Math.floor(previous.observedAt/60000)) return {recorded:false,reason:'already-observed-minute'};
         if (rows.length >= MAX_SAMPLES) throw Error('acceptance-sample-limit');
+        // Receipt preparation time is local evidence, not an external clock or fsync attestation.
+        const ready=clock(),evidenceReadyAt=Number.isSafeInteger(ready)&&Number.isSafeInteger(collectedAt)&&collectedAt>=now&&ready>=collectedAt?ready:null;
+        if((evidenceReadyAt===null||evidenceReadyAt-now>15000)&&!exclusions.includes('collection-window-exceeded'))exclusions.push('collection-window-exceeded');
         const body = {schemaVersion:1,kind:'server-runtime-observation',origin:'server-collector',sequence:rows.length+1,previous:previous?.fingerprint || null,
-          day,observedAt:now,slot,sourceSha:SHA.test(proof?.sourceSha || '')?proof.sourceSha:null,criteriaHash:profileHash,
+          day,observedAt:now,evidenceReadyAt,slot,sourceSha:SHA.test(proof?.sourceSha || '')?proof.sourceSha:null,criteriaHash:profileHash,
           calendar:{source:cal.source,hash:cal.hash,runtimeEligible:cal.runtimeEligible,sourceAuthenticated:cal.sourceAuthenticated},
           releaseCheckedAt,liveEligible:exclusions.length===0,
           // A verified live collector may attempt and fail. Preserve the day in
@@ -419,7 +427,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
   }
   async function report() {
     const now=clock();privateRoot(root);const names=listDays(root), byDay=new Map();
-    for(const day of names){const rows=readDay(root,day);if(rows.some(r=>r.observedAt>now))throw Error('acceptance-future-record');byDay.set(day,summarizeDay(day,rows,now,profile));await yieldTurn();}
+    for(const day of names){const rows=readDay(root,day);if(rows.some(r=>r.observedAt>now||r.evidenceReadyAt>now))throw Error('acceptance-future-record');byDay.set(day,summarizeDay(day,rows,now,profile));await yieldTurn();}
     let cal;
     try{cal=calendarView(await calendar({asOf:now}),now);}catch{cal=calendarView(null,now);}
     const attemptedDays=names.filter(d=>byDay.get(d).attemptSamples>0),first=attemptedDays[0]||null,today=aShareCalendarDate(now);
@@ -481,6 +489,15 @@ function runtimeQualityAttempt(row){
   return qualifiedRuntimeRow(row)&&(row.attemptEligible===true||row.liveEligible===true)&&Array.isArray(row.exclusions)&&
     row.exclusions.every(reason=>RUNTIME_ATTEMPT_REASONS.has(reason));
 }
+// Old on-time rows only establish an upper bound on collection completion.
+// Untimed late/clock-regressed rows are known on a current local read, but
+// must not invent a completion time in an earlier point-in-time projection.
+function runtimeEvidenceAvailable(row,cutoff,now){
+  if(Number.isSafeInteger(row.evidenceReadyAt))return row.evidenceReadyAt<=cutoff;
+  if(cutoff===now)return true;
+  return !Object.hasOwn(row,'evidenceReadyAt')&&Array.isArray(row.exclusions)&&
+    !row.exclusions.includes('collection-window-exceeded')&&row.observedAt+15000<=cutoff;
+}
 function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
   const {evaluateProductQuality,fingerprintPlan}=require('./product-quality-evaluation');
   if(!input||Array.isArray(input)||typeof input!=='object'||Object.keys(input).some(key=>!['revision','asOf','window','scope','plan'].includes(key)))
@@ -519,8 +536,8 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
   const days=listDays(directory).filter(day=>day>=first&&day<=last);
   const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,verifiedLocalAccountChecks=0,operationSamples=0,operationFailures=0,heldSamples=0,heldFresh=0;
   for(const day of days)for(const row of readDay(directory,day)){
-    if(row.observedAt>now)throw Error('acceptance-future-record');
-    if(row.observedAt<start||row.observedAt>=end||row.observedAt>cutoff)continue;
+    if(row.observedAt>now||row.evidenceReadyAt>now)throw Error('acceptance-future-record');
+    if(row.observedAt<start||row.observedAt>=end||row.observedAt>cutoff||!runtimeEvidenceAvailable(row,cutoff,now))continue;
     const minute=Math.floor(row.observedAt/60000)*60000;
     if(seen.has(minute))throw Error('acceptance-quality-duplicate-minute');
     seen.add(minute);
@@ -566,6 +583,7 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
     expectedMinutes:expected.size,recordedMinutes:records.length,comparableOperationMinutes:operationSamples,incomparableMinutes:incomparable,
     unsuccessfulJointAccountChecks:knownAccountFailures,verifiedLocalJointAccountChecks:verifiedLocalAccountChecks,unprovenJointAccountChecks:unknownAccountChecks,
     rowHashesFingerprint:refs[0].sha256,calendarSource:schedule.calendarSource,calendarHash:schedule.calendarHash,
+    evidenceTimeBasis:'local-receipt-preparation; legacy-on-time-15s-collection-bound; untimed-late-current-read-only',
     scheduleVerification:'input-declared-not-independently-certified',operationScope:'local-runtime-observation-tick-not-all-business-operations',
     accountScope:'original-paper-local-joint-reconciliation-only-no-external-broker-verification',
     heldCoverage:heldPopulation?{scope:'original-monitor-held-symbols-v1',expectedSymbolMinutes:expected.size*heldPopulation.count,

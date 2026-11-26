@@ -38,3 +38,28 @@ test('a late attempt explicitly blocks the day even when other live slots cover 
  f.setNow(Date.parse(day+'T14:56:00+08:00'));f.delay(15001);const late=await f.ops.tick();assert.equal(late.recorded,true);assert.ok(late.exclusions.includes('collection-window-exceeded'));
  f.setNow(Date.parse(day+'T16:00:00+08:00'));const d=(await f.ops.report()).days[0];assert.equal(d.completeObservation,true);assert.equal(d.liveSamples,48);assert.equal(d.attemptSamples,49);assert.ok(d.failures.includes('collection-window-exceeded'));assert.equal(d.status,'observed-with-failures');
 });
+
+test('historical quality excludes a receipt prepared after its as-of cutoff',async t=>{
+ const f=fixture(t);f.delay(10000);assert.equal((await f.ops.tick()).liveEligible,true);
+ const receipt=JSON.parse(fs.readFileSync(path.join(f.root,day+'.jsonl'),'utf8'));
+ const review=asOf=>evaluateRuntimeQuality({root:f.root,input:{...f.input,asOf:iso(asOf)},now:start+20*60000});
+ const earlier=review(start+9999),later=review(start+10000);
+ assert.equal(earlier.runtimeEvidence.recordedMinutes,0);assert.equal(row(earlier,'operation-failure').sampleCount,0);assert.equal(row(earlier,'operation-failure').value,null);
+ assert.equal(later.runtimeEvidence.recordedMinutes,1);assert.equal(row(later,'operation-failure').sampleCount,1);assert.equal(receipt.evidenceReadyAt,start+10000);
+});
+test('late receipts preserve the actual failure only after it became locally known',async t=>{
+ const f=fixture(t);f.delay(15001);await f.ops.tick();
+ const review=asOf=>evaluateRuntimeQuality({root:f.root,input:{...f.input,asOf:iso(asOf)},now:start+20*60000});
+ assert.equal(review(start+15000).runtimeEvidence.recordedMinutes,0);
+ const known=review(start+60000),m=row(known,'operation-failure');assert.deepEqual([m.numerator,m.sampleCount,m.status],[1,1,'fail']);
+});
+test('legacy untimed records retain the conservative on-time bound and never invent a historical late receipt time',async t=>{
+ for(const delay of [0,15001]){
+  const f=fixture(t);f.delay(delay);await f.ops.tick();const file=path.join(f.root,day+'.jsonl'),record=JSON.parse(fs.readFileSync(file,'utf8'));
+  const {fingerprint,evidenceReadyAt,...body}=record;fs.writeFileSync(file,JSON.stringify({...body,fingerprint:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')})+'\n');
+  const before=fs.readFileSync(file),review=(asOf,now=start+20*60000)=>evaluateRuntimeQuality({root:f.root,input:{...f.input,asOf:iso(asOf)},now});
+  assert.equal(review(start+14999).runtimeEvidence.recordedMinutes,0);
+  assert.equal(review(start+60000).runtimeEvidence.recordedMinutes,delay?0:1);
+  assert.equal(review(start+20*60000).runtimeEvidence.recordedMinutes,1);assert.deepEqual(fs.readFileSync(file),before);
+ }
+});

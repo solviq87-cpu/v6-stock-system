@@ -411,3 +411,8 @@ python3 V6_BO/scripts/build-complete-engineering-bundle.py verify --repo . --sha
 ### 2026-11-26 接续：原78/22 运行采样失败门禁
 - 当前统一候选父提交 `86d2d253dbda4c7b726e481afe7f48e5ce7f9036`；从该提交的 Windows CI artifact 15087502506 恢复隔离运行源码，内层 ZIP SHA256 `8d5a5f0cd09e6039dc8e3f19f5df39c4d4d4c98946f08ca695fa833b5af96fa1`，CRC、SHA256SUMS、sourceSha 及原采样模块 blob 均核验。混合有效报价与未来原时点、非法接收时间或非法价格的批次不能取得有效盘中时段，但保留实际失败采样与冻结统计分母；历史已有异常的 live 标记读取时重新校验，不改原哈希链。超过15秒的采样在日级与阶段验收中明确阻断，即使其他采样覆盖全部时段。无账户写入、交易、调度或发布机制改动。
 - Node v22.16.0，`TZ=Asia/Shanghai node --test tests/runtime-acceptance-quality-boundaries.test.js` 实际修复前 0/3（3失败），修复后 3/3（0失败0跳过）；修前及修后 TAP SHA256 分别为 `80dd15cc2d65a6e6ddb988eaf08b7df64a1288473879ee46265ca85fc0753183`、`ded461f558197b2ed1fc4905ce2d8e00d4349822d77572f4be772c519c49ab0b`；两文件语法检查通过。恢复仓库目录结构并复用未变更的 .github 配置后 npm run check 通过。修后源码与测试的预期 Git blob 为 `0838d55d5a1e1d3f8b5316d74c7dc55638649c13`、`af78eca6fdc9e1056c826ccd515fd76a8cb403eb`。此运行包没有完整测试集；精确新提交的远端全量、双端和真实交易日验收仍待。未合并 dev、未部署。
+
+
+### 2026-11-26 接续：运行质量历史截点门禁（原22/78）
+- 接续 `564d3946b50c19c842bb69910a3e955aeaeec3c0`，复用原运行观察档案，记录本地回执准备时点 evidenceReadyAt；无外部时钟、实际持久化时点或真实外部可知性认证。历史评价不计入截止时点后才准备的成功或失败回执。旧正常记录只采用原15秒采集上界，旧超时/无可靠时钟回执仅允许当前本地读确认存在，历史截点保留未知；原文件不重写。无新增账户、锁、自动任务或发布入口。
+- 在已校验的原86d2d253运行包上使用与父提交相同的目标源码和测试 blob 实际复现：原3项通过、新3项失败；修后 `TZ=Asia/Shanghai node --test tests/runtime-acceptance-quality-boundaries.test.js` 6/6通过，0失败0跳过，npm run check 与两文件语法通过。TAP SHA256 修前 `530ffc49b37336ba33f55a8a9799e9ffa43f90a6e1498f333358a7ef13a57e19`，修后 `d87db3a742c0bdc4a1a8935b2927bf3733074a29042b05c399a65c4374bb0043`。实测源码/测试 blob `cbaae2cf1dfe546973b6529efb6dba3be57fbb40` / `f42dc4fc3ac3ebcd18486b12ed9b4d23cea5d17c`；隔离运行包未包含完整新提交测试与其他新增工作台源码，不能据此称组合全量通过。精确新提交CI、双端、真实运行及dev集成仍待。
