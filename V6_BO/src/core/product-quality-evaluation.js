@@ -93,6 +93,7 @@ function evaluateProductQuality({revision,asOf,window=null,scope,plan=null,obser
    if(!count(o.numerator)||!count(o.denominator)||!count(o.sampleCount)||o.numerator>o.sampleCount||o.sampleCount>o.denominator)return unknown('分子、全量分母或有效样本数量无效；未知不能填零');
    Object.assign(row,{numerator:o.numerator,denominator:o.denominator,sampleCount:o.sampleCount,missingCount:o.denominator-o.sampleCount});
    if(!o.denominator)return unknown('分母为零，未产生可评价样本');
+   if(!o.sampleCount)return unknown('尚无有效样本；未知不填零');
    row.value=o.numerator/o.denominator;
   }else{
    if(!Array.isArray(o.samples)||o.samples.length>10000||o.samples.some(x=>!finite(x)||metric.unit==='ms'&&x<0||metric.unit==='ratio'&&(x<0||x>1))||!count(o.expectedCount)||o.expectedCount<o.samples.length)return unknown('分布样本或应取得样本分母无效');

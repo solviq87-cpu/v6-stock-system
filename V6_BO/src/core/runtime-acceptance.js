@@ -190,13 +190,12 @@ function normalizeMetrics(input, now, collectionMs) {
 function summarizeDay(day, rows, now, criteria) {
   // Older records remain intact, but a prior boolean without the now-required
   // runtime calendar and quote audit evidence cannot certify a real day.
-  const attemptedReasons=['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded','quote-source-conflict','quote-input-limit-exceeded','quote-population-mismatch','invalid-quote-identity'];
-  const qualified=row=>row.calendar?.runtimeEligible===true&&SHA.test(row.sourceSha||'')&&row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.nonLiveQuotes===0;
+
   const populationMismatch=m=>m.expectedSymbols!=null&&m.observedSymbols>m.expectedSymbols;
-  const live=rows.filter(row=>row.liveEligible&&qualified(row)&&row.metrics.market.freshQuotes>0&&
+  const live=rows.filter(row=>row.liveEligible&&qualifiedRuntimeRow(row)&&row.metrics.market.freshQuotes>0&&
     row.metrics.market.quoteEvidence.truncated!==true&&!(row.metrics.market.conflictingSymbols>0)&&!(row.metrics.market.invalidIdentities>0)&&
     !populationMismatch(row.metrics.market)),liveSet=new Set(live),slots=new Set(live.map(r=>r.slot));
-  const attempts=rows.filter(row=>liveSet.has(row)||qualified(row)&&(row.attemptEligible===true||row.liveEligible===true)&&Array.isArray(row.exclusions)&&row.exclusions.every(reason=>attemptedReasons.includes(reason)));
+  const attempts=rows.filter(row=>liveSet.has(row)||runtimeQualityAttempt(row));
   const morning = [...slots].filter(n => n < 24).length, afternoon = [...slots].filter(n => n >= 24).length;
   const ended = day < aShareCalendarDate(now) || day === aShareCalendarDate(now) && new Date(now + 8 * 3600000).getUTCHours() >= 16;
   const fullCoverage = slots.size >= criteria.minimumSlots && morning >= criteria.minimumSessionSlots && afternoon >= criteria.minimumSessionSlots &&
@@ -324,7 +323,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
           releaseCheckedAt,liveEligible:exclusions.length===0,
           // A verified live collector may attempt and fail. Preserve the day in
           // the original review window without counting it as valid coverage.
-          attemptEligible:exclusions.every(reason=>['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded','quote-source-conflict','quote-input-limit-exceeded','quote-population-mismatch','invalid-quote-identity'].includes(reason))&&metrics.market.nonLiveQuotes===0,
+          attemptEligible:exclusions.every(reason=>RUNTIME_ATTEMPT_REASONS.has(reason))&&metrics.market.nonLiveQuotes===0,
           exclusions,collectFailed,metrics,businessRecordsMutated:false};
         const row = {...body,fingerprint:digest(body)}, bytes=JSON.stringify(row)+'\n', file=path.join(root,day+'.jsonl');
         if (Buffer.byteLength(bytes)>16384) throw Error('acceptance-record-limit');
@@ -393,4 +392,91 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
   return {tick,report,status};
 }
 
-module.exports={createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot,DEFAULT_CRITERIA,TASK_TITLES};
+// Explicit operator-only quality projection. The original sampler remains the
+// sole writer; no caller-supplied observations can be promoted to live evidence.
+const RUNTIME_QUALITY_POPULATION='original-runtime-collector-and-dual-account-minute-checks';
+const RUNTIME_ATTEMPT_REASONS=new Set(['no-original-fresh-market-evidence','collector-failure','collection-window-exceeded','quote-source-conflict','quote-input-limit-exceeded','quote-population-mismatch','invalid-quote-identity']);
+const qualifiedRuntimeRow=row=>row.calendar?.runtimeEligible===true&&SHA.test(row.sourceSha||'')&&
+  row.metrics?.market?.quoteEvidence?.schemaVersion===1&&row.metrics.market.nonLiveQuotes===0;
+function runtimeQualityAttempt(row){
+  return qualifiedRuntimeRow(row)&&(row.attemptEligible===true||row.liveEligible===true)&&Array.isArray(row.exclusions)&&
+    row.exclusions.every(reason=>RUNTIME_ATTEMPT_REASONS.has(reason));
+}
+function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
+  const {evaluateProductQuality,fingerprintPlan}=require('./product-quality-evaluation');
+  if(!input||Array.isArray(input)||typeof input!=='object'||Object.keys(input).some(key=>!['revision','asOf','window','scope','plan'].includes(key)))
+    throw Error('acceptance-quality-plan-only');
+  const {revision,asOf,window,scope,plan}=input;
+  // Reuse the original metric, date, scope and safety-threshold validation.
+  evaluateProductQuality({...input,observations:[]});
+  if(scope.kind!=='real-market-paper'||scope.population!==RUNTIME_QUALITY_POPULATION||!window||!plan)
+    throw Error('acceptance-quality-scope-required');
+  const start=Date.parse(window.start),end=Date.parse(window.end),cutoff=Date.parse(asOf),schedule=plan.runtimeSchedule;
+  if(!Number.isSafeInteger(now)||cutoff>now||start%60000||end%60000||end-start>120*86400000)
+    throw Error('acceptance-quality-window-invalid');
+  if(!schedule||Array.isArray(schedule)||Object.keys(schedule).some(key=>!['calendarSource','calendarHash','tradeDates'].includes(key))||
+     typeof schedule.calendarSource!=='string'||version(schedule.calendarSource)!==schedule.calendarSource||
+     typeof schedule.calendarHash!=='string'||!HASH.test(schedule.calendarHash)||
+     !Array.isArray(schedule.tradeDates)||!schedule.tradeDates.length||schedule.tradeDates.length>60||
+     !schedule.tradeDates.every((day,index)=>validDay(day)&&(!index||day>schedule.tradeDates[index-1])))
+    throw Error('acceptance-quality-schedule-invalid');
+  const expected=new Set();
+  for(const day of schedule.tradeDates){
+    const midnight=Date.parse(day+'T00:00:00+08:00');let minutes=0;
+    for(let m=570;m<900;m++){
+      const at=midnight+m*60000;
+      if(marketSlot(at)===null||at<start||at>=end)continue;
+      expected.add(at);minutes++;
+    }
+    if(!minutes)throw Error('acceptance-quality-schedule-outside-window');
+  }
+  if(!expected.size)throw Error('acceptance-quality-schedule-empty');
+  const directory=privateRoot(root),first=aShareCalendarDate(start),last=aShareCalendarDate(end-1),records=[];
+  const days=listDays(directory).filter(day=>day>=first&&day<=last);
+  const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,operationSamples=0,operationFailures=0;
+  for(const day of days)for(const row of readDay(directory,day)){
+    if(row.observedAt>now)throw Error('acceptance-future-record');
+    if(row.observedAt<start||row.observedAt>=end||row.observedAt>cutoff)continue;
+    const minute=Math.floor(row.observedAt/60000)*60000;
+    if(seen.has(minute))throw Error('acceptance-quality-duplicate-minute');
+    seen.add(minute);
+    const qualified=runtimeQualityAttempt(row),sameVersion=row.sourceSha===revision;
+    if(qualified&&sameVersion&&!expected.has(minute))throw Error('acceptance-quality-schedule-omits-observation');
+    if(!expected.has(minute))continue;
+    records.push(row.fingerprint);
+    const sameCalendar=row.calendar?.source===schedule.calendarSource&&row.calendar?.hash===schedule.calendarHash;
+    if(!qualified||!sameVersion){incomparable++;continue;}
+    // A known unsuccessful original joint-account check is a safety failure,
+    // not a claim that balances actually mismatched. Older positive booleans
+    // do not prove opening/quantity-flow or external reconciliation.
+    if(row.metrics?.execution?.reconciled===false)knownAccountFailures++;
+    else unknownAccountChecks++;
+    if(!sameCalendar||row.metrics.market.quoteEvidence.conflictPolicy!=='explicit-and-duplicate-v1'){
+      incomparable++;continue;
+    }
+    const m=row.metrics.market;
+    const failed=row.collectFailed===true||row.exclusions.length>0||m.futureQuotes>0||m.invalidPrice>0||
+      m.conflictingSymbols>0||m.invalidIdentities>0||m.quoteEvidence.truncated===true||
+      m.expectedSymbols!=null&&m.observedSymbols>m.expectedSymbols;
+    if(failed){operationSamples++;operationFailures++;}
+    else if(row.collectFailed===false&&row.liveEligible===true&&m.freshQuotes>0){operationSamples++;}
+  }
+  // This fingerprint references the exact locally-read row hash chain subset,
+  // including excluded versions/failed rows. Empty reads are not live evidence.
+  const refs=[{id:'runtime-observation-window-row-hashes-v1',sha256:digest({revision,window,cutoff,schedule,records})}];
+  const common={revision,window,scopeKind:scope.kind,population:scope.population,planVersion:plan.version,planFingerprint:fingerprintPlan(plan),
+    unit:'ratio',denominator:expected.size,evidenceRefs:refs};
+  const report=evaluateProductQuality({...input,observations:[
+    {...common,metricId:'operation-failure',numerator:operationFailures,sampleCount:operationSamples},
+    {...common,metricId:'ledger-reconciliation',numerator:0,sampleCount:knownAccountFailures}
+  ]});
+  return {...report,runtimeEvidence:{mode:'original-runtime-journal-readonly',population:RUNTIME_QUALITY_POPULATION,
+    expectedMinutes:expected.size,recordedMinutes:records.length,comparableOperationMinutes:operationSamples,incomparableMinutes:incomparable,
+    unsuccessfulJointAccountChecks:knownAccountFailures,unprovenJointAccountChecks:unknownAccountChecks,
+    rowHashesFingerprint:refs[0].sha256,calendarSource:schedule.calendarSource,calendarHash:schedule.calendarHash,
+    scheduleVerification:'input-declared-not-independently-certified',operationScope:'local-runtime-observation-tick-not-all-business-operations',
+    accountScope:'known-unsuccessful-original-joint-checks-only-positive-completeness-unverified',
+    sourceRecordsMutated:false,verifiedExternal:false}};
+}
+
+module.exports={createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot,DEFAULT_CRITERIA,TASK_TITLES,evaluateRuntimeQuality,RUNTIME_QUALITY_POPULATION};

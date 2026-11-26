@@ -12,7 +12,9 @@ function readInput(file){
 }
 function run(args=process.argv.slice(2)){
  let input;if(args.length===0){const revision=execFileSync('git',['rev-parse','HEAD'],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8',timeout:3000}).trim();input={revision,asOf:new Date().toISOString(),scope:{kind:'isolated-test',population:'未提供评价输入；本命令未读取账户或运行数据'}};}
- else if(args.length===2&&args[0]==='--input')input=readInput(args[1]);else throw Error('用法：npm run quality:audit -- [--input 证据.json]');
+ else if(args.length===2&&args[0]==='--input')input=readInput(args[1]);
+ else if(args.length===4&&args[0]==='--runtime-root'&&args[2]==='--input')return require('../src/core/runtime-acceptance').evaluateRuntimeQuality({root:args[1],input:readInput(args[3])});
+ else throw Error('用法：npm run quality:audit -- [--input 证据.json | --runtime-root 私有绝对路径 --input 预登记计划.json]');
  return evaluateProductQuality(input);
 }
 if(require.main===module){try{const report=run();process.stdout.write(JSON.stringify(report,null,2)+'\n');if(report.criticalReview.state==='blocked')process.exitCode=2;}catch(error){process.stderr.write('质量评价输入无效：'+error.message+'\n');process.exitCode=1;}}
