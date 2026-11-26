@@ -16,11 +16,28 @@ const median=xs=>{
 };
 const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const REGIMES=['systemic-selloff','not-systemic-selloff'];
+const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
+ Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
+function assertChronology(rows){
+ if(!Array.isArray(rows)||rows.length>400||
+    rows.some((r,i)=>!validDay(r?.day)||(i>0&&rows[i-1].day>=r.day)))
+  throw Error('因子研究日期必须有效、唯一且严格递增');
+}
+// The native scorer receives exactly one cross-section. Zero comparable
+// observations carry no IC, and one observation must be a correlation.
+function assertPair(a,b,coverageError,icError){
+ if(!a||!b||a.days!==b.days)throw Error(coverageError);
+ if(![0,1].includes(a.days)||
+    (a.days===0?(a.meanIC!==null||b.meanIC!==null):
+     (!finite(a.meanIC)||!finite(b.meanIC)||Math.abs(a.meanIC)>1||Math.abs(b.meanIC)>1)))
+  throw Error(icError);
+}
 function assessFactorReliability(daily){
  if(!Array.isArray(daily)||daily.length>400)
   throw Error('单因子每日IC证据协议无效');
  const rows=daily.filter(r=>r&&finite(r.ic)&&r.ic>=-1&&r.ic<=1);
  if(rows.length!==daily.length)throw Error('单因子IC范围或证据无效');
+ assertChronology(rows);
  const ics=rows.map(r=>r.ic),n=ics.length;
  const overall=mean(ics),mid=Math.floor(n/2);
  const early=mean(ics.slice(0,mid)),recent=mean(ics.slice(mid));
@@ -99,12 +116,13 @@ function assessFactorReliability(daily){
 }
 function pairedStability(days,ids,baseline,proposed,dailyScore){
  if(!Array.isArray(days)||days.length<5)throw Error('样本外稳定性比较缺少足够交易日');
+ if(typeof dailyScore!=='function')throw Error('样本外IC评估器无效');
+ assertChronology(days);
  const deltas=[];
  for(const d of days){
   const old=dailyScore([d],ids,baseline),next=dailyScore([d],ids,proposed);
-  if(old.days!==next.days)throw Error('新旧研究版本样本覆盖不一致');
+  assertPair(old,next,'新旧研究版本样本覆盖不一致','样本外IC证据无效');
   if(old.days===1){
-   if(!finite(old.meanIC)||!finite(next.meanIC))throw Error('样本外IC非有限值');
    deltas.push({date:d.day,delta:next.meanIC-old.meanIC});
   }
  }
@@ -129,15 +147,13 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
  if(!Array.isArray(days)||typeof dailyScore!=='function'||
     !Array.isArray(ids)||ids.length<2)
   throw Error('沙盒效果衰减的样本或因子协议无效');
+ assertChronology(days);
  const window=days.slice(-10),pairs=[];
  for(const d of window){
   const base=dailyScore([d],ids,baseWeights);
   const accepted=dailyScore([d],ids,acceptedWeights);
-  if(base.days!==accepted.days)throw Error('效果衰减基准与沙盒样本覆盖不一致');
+  assertPair(base,accepted,'效果衰减基准与沙盒样本覆盖不一致','效果衰减IC证据无效');
   if(base.days===1){
-   if(!finite(base.meanIC)||!finite(accepted.meanIC)||
-      Math.abs(base.meanIC)>1||Math.abs(accepted.meanIC)>1)
-    throw Error('效果衰减IC证据无效');
    pairs.push({date:d.day,baseIC:base.meanIC,shadowIC:accepted.meanIC,
     delta:accepted.meanIC-base.meanIC});
   }
@@ -175,16 +191,13 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
 function assessShadowRecovery(days,ids,baseWeights,acceptedWeights,dailyScore){
  if(!Array.isArray(days)||!Array.isArray(ids)||ids.length<2||
     typeof dailyScore!=='function')throw Error('恢复审核输入协议无效');
+ assertChronology(days);
  const recent=days.slice(-10),paired=[];
  for(const d of recent){
   const original=dailyScore([d],ids,baseWeights);
   const shadow=dailyScore([d],ids,acceptedWeights);
-  if(original.days!==shadow.days)
-   throw Error('恢复审核基础与沙盒样本覆盖不一致');
+  assertPair(original,shadow,'恢复审核基础与沙盒样本覆盖不一致','恢复审核IC证据无效');
   if(original.days===1){
-   if(!finite(original.meanIC)||!finite(shadow.meanIC)||
-      Math.abs(original.meanIC)>1||Math.abs(shadow.meanIC)>1)
-    throw Error('恢复审核IC证据无效');
    paired.push({date:d.day,baseline:original.meanIC,shadow:shadow.meanIC,
     delta:shadow.meanIC-original.meanIC});
   }
