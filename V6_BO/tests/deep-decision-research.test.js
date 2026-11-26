@@ -278,3 +278,59 @@ test('76 reduction still sells available shares and retains blocked quantities w
   assert.ok(blocked.orders.some(o=>o.side==='sell'&&o.status==='hypothetical-blocked'));
   assert.equal(blocked.orders.some(o=>o.side==='buy'),false);
 });
+
+
+test('73 requires consistent complete original order inventory before sizing',()=>{
+  for(const change of [
+    a=>delete a.pendingOrders,a=>delete a.pendingSellOrders,a=>a.pendingOrders=null,
+    a=>a.pendingOrders=1,a=>a.pendingSellOrders=1,a=>a.pendingSellOrders=-1,
+    a=>{a.pendingOrders=1;a.pendingSellOrders='1';}
+  ]){
+    const p=portfolio();change(p.account);
+    const r=D.researchPortfolioWeights(p,{asOf:now});
+    assert.equal(r.status,'no-adjust');assert.equal(r.candidate,null);
+    assert.ok(r.missing.some(x=>x.includes('挂单数量')));
+  }
+});
+
+test('73 original pending sell quantities must reconcile with held and unavailable shares',()=>{
+  for(const q of [null,undefined,-1,1001,'1000',0]){
+    const p=portfolio();p.account.pendingOrders=1;p.account.pendingSellOrders=1;
+    if(q!==undefined)p.account.positions[0].pendingSellQuantity=q;
+    const r=D.researchPortfolioWeights(p,{asOf:now});
+    assert.equal(r.status,'no-adjust');assert.equal(r.candidate,null);
+    assert.ok(r.missing.some(x=>x.includes('卖单')));
+  }
+  const p=portfolio();p.account.positions[0].pendingSellQuantity=100;
+  assert.equal(D.researchPortfolioWeights(p,{asOf:now}).candidate,null);
+});
+
+test('73 preserves valid original reserved sell shares and research-only sizing',()=>{
+  const p=portfolio();p.account.pendingOrders=1;p.account.pendingSellOrders=1;
+  p.account.positions[0].pendingSellQuantity=1000;
+  const before=copy(p),r=D.researchPortfolioWeights(p,{asOf:now});
+  assert.deepEqual(p,before);assert.equal(r.missing.length,0);assert.ok(r.candidate);
+  assert.ok(r.candidate.weights.find(x=>x.symbol==='600000').weight>=.1-1e-8);
+  assert.equal(r.canTrade,false);assert.equal(r.productionWeightsChanged,false);
+});
+
+test('73 malformed position entries fail closed without throwing',()=>{
+  for(const row of [null,{},false,0,'600000',{symbol:'600000',quantity:1,availableQuantity:2}]){
+    const p=portfolio();p.account.positions.push(row);
+    const r=D.researchPortfolioWeights(p,{asOf:now});
+    assert.equal(r.status,'no-adjust');assert.equal(r.candidate,null);assert.ok(r.missing.length);
+  }
+});
+
+test('73 sector exposure groups never collide with ordinary object prototype names',()=>{
+  for(const sector of ['__proto__','constructor','toString','hasOwnProperty','银行']){
+    const p=portfolio();p.account.positions.push({symbol:'600001',quantity:1000,availableQuantity:1000});
+    p.account.cash=40000;p.account.availableCash=40000;
+    p.candidates.forEach(row=>row.sector=sector);
+    const r=D.researchPortfolioWeights(p,{asOf:now});
+    assert.ok(r.current.violations.includes('sector:'+sector),sector);
+    assert.equal(r.current.constraintsSatisfied,false,sector);
+    if(r.candidate)assert.ok(r.candidate.weights.reduce((sum,row)=>sum+row.weight,0)<=.5+1e-8,sector);
+    assert.equal(r.canTrade,false);
+  }
+});
