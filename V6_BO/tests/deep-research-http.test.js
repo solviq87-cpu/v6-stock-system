@@ -38,7 +38,7 @@ async function invoke(options={}){
  const res={writeHead(status,headers){output.status=status;output.headers=headers;},end(raw){output.body=JSON.parse(raw);}};
  await deepResearchHttp(req,res,{url:new URL('http://localhost'+(options.url||endpoint)),body,
   authenticate:options.authenticate||(()=>true),isReplica:options.isReplica||(()=>false),
-  root:options.root,shortlineRoot:options.shortlineRoot,newsRoot:options.newsRoot,
+  root:options.root,shortlineRoot:options.shortlineRoot,newsRoot:options.newsRoot,backgroundRoot:options.backgroundRoot,
   readSnapshot:options.readSnapshot||(async()=>({})),job:options.job||runWorkspaceJob,
   readAcceptance:options.readAcceptance||(async()=>({longTermAccepted:false})),clock:Date.now});
  return output;
@@ -267,4 +267,24 @@ test('risk-center reuse preserves progressive levels, original evidence time and
   assert.deepEqual(item.restrictions,[raw[0].currentRestriction]);assert.equal(item.status,'observed');
   assert.ok(Object.values(item.lifecycle).every(value=>value===null));assert.equal(item.canTrade,false);assert.equal(item.canNotify,false);
  }
+});
+
+
+test('configured background archive is read through the original authorized research worker, with no new archive or trade writes',{timeout:15000},async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-background-http-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const root=path.join(dir,'research'),shortlineRoot=path.join(dir,'shortline'),newsRoot=path.join(dir,'news'),backgroundRoot=path.join(dir,'background');
+ const raw=Buffer.from(JSON.stringify([{pages:1},[{countryiso3code:'CHN',indicator:{id:'NY.GDP.MKTP.CD'},date:'2024',value:0}]]));
+ const observedAt=Date.now()-100;const archived=require('../src/core/market-data-evidence').appendBackgroundReceipt({root:backgroundRoot,provider:'worldbank',
+  scope:{country:'CHN',indicator:'NY.GDP.MKTP.CD',startYear:2024,endYear:2024},raw,byteBasis:'response-body',observedAt,requestStartedAt:observedAt-1});
+ const dependencies={root,shortlineRoot,newsRoot,backgroundRoot};const before=tree(dir);
+ const denied=await invoke({...dependencies,authenticate:()=>false});assert.equal(denied.status,403);assert.equal(denied.body.result,undefined);
+ for(const query of ['?backgroundRoot=/private/foreign','?asOf=1'])assert.equal((await invoke({...dependencies,url:endpoint+query})).status,400);
+ const r=await invoke(dependencies);assert.equal(r.status,200,JSON.stringify(r.body));const data=r.body.result;
+ assert.equal(data.background.mode,'official-background-archive-overview');assert.equal(data.background.status,'available');
+ assert.equal(data.background.rows[0].archiveHash,archived.hash);assert.equal(data.background.rows[0].records[0].value,0);assert.equal(data.background.rows[0].records[0].unit,null);
+ assert.equal(data.canTrade,false);assert.equal(data.background.canTrade,false);assert.equal(data.background.verifiedExternal,false);
+ assert.equal(data.research.modules['68'].status,'unknown','background statistics cannot become surprise estimates');
+ assert.doesNotMatch(JSON.stringify(data),/fayo-background-http-/);assert.deepEqual(tree(dir),before);
+ let allowed=true;const revoked=await invoke({...dependencies,authenticate:()=>allowed,job:async(payload,options)=>{const result=await runWorkspaceJob(payload,options);allowed=false;return result;}});
+ assert.equal(revoked.status,403);assert.equal(revoked.body.result,undefined);assert.deepEqual(tree(dir),before);
 });

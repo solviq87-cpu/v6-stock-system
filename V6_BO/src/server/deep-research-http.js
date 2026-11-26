@@ -1,7 +1,7 @@
 'use strict';
 const {safeMaterial}=require('../core/deep-research-workspace');
 
-async function deepResearchHttp(req,res,{body,url,authenticate,isReplica,root,shortlineRoot,newsRoot,
+async function deepResearchHttp(req,res,{body,url,authenticate,isReplica,root,shortlineRoot,newsRoot,backgroundRoot,
  readSnapshot,job,readAcceptance,onReport=()=>{},clock=Date.now}={}){
  const reply=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',
   'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
@@ -39,7 +39,7 @@ async function deepResearchHttp(req,res,{body,url,authenticate,isReplica,root,sh
     horizonDays:input.horizonDays,selectedId:input.selectedId,alternatives:input.alternatives
    }};
   }
-  const result=await job({action,root,shortlineRoot,newsRoot,now,snapshot,replica:isReplica(),...(input?{input}:{})},
+  const result=await job({action,root,shortlineRoot,newsRoot,now,snapshot,replica:isReplica(),...(action==='deep-research'&&backgroundRoot!==undefined?{backgroundRoot}:{}),...(input?{input}:{})},
    {authorize:()=>allowed()&&!isReplica()});
   if(!allowed()||writing&&isReplica())return reply(403,{ok:false,error:'编辑授权或实例角色已变化，请重新读取原档案'});
   if(!writing&&result.ok&&result.result?.mode==='fayo-deep-research')onReport(result.result);

@@ -178,13 +178,15 @@ function freezeInputFromSnapshot(root,{snapshot={},publicIntent={},requestId,now
   horizonDays:publicIntent.horizonDays,selectedId:publicIntent.selectedId,alternatives,dataMode:'real-observation'};
 }
 
-async function runDeepResearch({root,shortlineRoot,newsRoot,now=Date.now(),snapshot={},replica=false}={}){
+async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=Date.now(),snapshot={},replica=false}={}){
  const E=require('./deep-research-evidence'),D=require('./deep-decision-research');
  const stored=readDeepEvidence(root,{asOf:now}),materials=stored.materials,missing=[];
  let archive=null,news=[];
  try{const read=await (await import('../research/shortline/store.mjs')).shortlineJob({root:shortlineRoot,book:'main',replica:true});if(read.ok)archive=read.state;else missing.push('原短线研究档案暂不可读');}
  catch{missing.push('原短线研究档案校验未通过');}
  try{news=require('./news-evidence-journal').readJournal(newsRoot,{now});}catch{missing.push('原新闻证据档案暂不可读或完整性校验失败');}
+ const background=require('./market-data-evidence').readBackgroundOverview({root:backgroundRoot,asOf:now});
+ if(['missing-archive','unavailable','partial'].includes(background.status))missing.push('官方背景档案未全部取得或校验，保留未知');
  const latestPortfolio=materials.portfolio.at(-1)||{};
  const {input:portfolio,...archiveEvidence}=D.derivePortfolioArchiveEvidence(archive||{},stored.events,
   deepPortfolioInput(materials,snapshot),{asOf:now});
@@ -225,7 +227,7 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,now=Date.now(),snaps
  return {schemaVersion:1,mode:'fayo-deep-research',generatedAt:now,researchOnly:true,canTrade:false,canNotify:false,
   writesAccount:false,replica,revision:stored.revision,research,decisions,alternatives:{...frozen,replay,
    replayLimit:20,replayMeaning:'只对最近20份已冻结方案进行有界只读对照，历史封存和已存复盘全部保留'},
-  riskObservations:risks,riskLevels:RISK_LEVELS,missing,
+  riskObservations:risks,riskLevels:RISK_LEVELS,missing,background,
   sources:{newsRevisions:news.length,archiveAvailable:!!archive,importBatches:stored.imports,
    importsMeaning:'外部证据按服务器首次收到时点留存，来源声明未独立认证；不回填为历史已知',
    executionCapacityMeaning:'研究金额参与率及历史前日成交股数只是研究容量近似；比例不宽于原后台，实际交易仍检查原当日累计股数、已成交量、报价与权限'},

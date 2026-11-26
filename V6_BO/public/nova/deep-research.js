@@ -87,6 +87,31 @@ export function renderRuntimeObservationCoverage(observation){
   note('此处的已尝试分钟不是完整交易时段；未尝试和缺失分钟不进入已取得覆盖率的分母，但完整窗口评价仍需保留这些缺口。没有原回执时保持未知。'));
 }
 
+export function renderBackgroundArchive(overview){
+ const names={ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
+ const valid=overview?.mode==='official-background-archive-overview'&&overview.canTrade===false&&overview.pointInTimeBacktestReady===false;
+ const state=valid?overview.status:'unavailable';
+ const labels={unconfigured:'尚未配置原背景档案','missing-archive':'尚未取得原档案',empty:'该截点尚无背景记录',unavailable:'档案不可用，保留未知',partial:'部分范围待校验',available:'已核对显示范围的最新回执'};
+ const rows=valid?arr(overview.rows).slice(0,12):[];
+ const scopeLabel=r=>r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
+  r.provider==='sec-edgar'?`CIK ${r.scope.cik} · ${r.scope.tag} · 截至 ${r.scope.asOf}`:
+   `${r.scope.country} · ${r.scope.indicator} · ${r.scope.startYear} 至 ${r.scope.endYear}`;
+ return section('官方背景档案','参考汇率、申报财报与宏观统计只用于研究背景；不作为实时价格、交易信号或历史外部可知性证明。',
+  facts([['状态',labels[state]||labels.unavailable],['本地信息截止',valid?dateTime(overview.asOf):null],['可见数据范围',valid?overview.totalScopes:null],
+   ['已复核最新回执',valid&&overview.totalScopes!=null?overview.checkedLatestReceipts:null],['待核范围',valid?overview.unverifiedScopes:null]]),
+  rows.length?rows.map(r=>{
+   const ok=r.status==='verified-latest-receipt'&&Object.hasOwn(names,r.provider)&&r.scope&&Array.isArray(r.records)&&r.sourcePublishedAt===null&&r.sourceRevisedAt===null;
+   return h('details',{class:'fy-details'},h('summary',{},`${names[r.provider]||'背景来源'} · ${ok?scopeLabel(r):'回执待核'}`),
+    facts([['本地接收',dateTime(r.observedAt)],['实际入档',dateTime(r.availableAt)],['该版本首次本地获知',dateTime(r.firstKnownAt)],
+     ['原始发布时间','未知'],['原始修订时间','未知'],['档案版本',r.version],['回执SHA-256',r.archiveHash],
+     ['原响应SHA-256',r.dataVersion],['本次复核',ok?'原响应与投影哈希一致':r.status==='not-checked-budget'?'超过本次读取预算，未核验':'回执不可用']]),
+    ok?facts([['记录数',r.recordCount],['明确缺值数',r.missingValues],['原始字节依据',r.byteBasis==='response-body'?'响应字节':'解码后的正文']]):null,
+    ok&&r.records.length?table([{label:'观察或报告期间',value:x=>x.period},{label:'数值',value:x=>x.value==null?'未知':value(x.value)},
+     {label:'单位',value:x=>x.unit??'未知'},{label:'申报日期',value:x=>x.filedDate??'不适用'}],r.records.slice(0,5)):empty(ok?'暂无该范围的可见数值':'尚无已复核数值'));
+  }):empty(labels[state]||labels.unavailable,'只读页面不会发起采集或创建档案。'),
+  note('最多显示最近12个数据范围、每个最新回执的5条记录。较早版本原档案保留；本页不认证全部历史原文或真实外部发布时间。'));
+}
+
 export function renderDeepResearch(ctx){
  const status=note('读取现有事件、研究档案与原账户证据。'),output=h('div',{class:'fy-stack'});
  const choices=[['events','事件与预期'],['relations','关系与拥挤'],['sessions','盘口与时段'],['portfolio','组合与稳健性'],['review','对照复盘'],['acceptance','版本与运行']];
@@ -116,7 +141,7 @@ export function renderDeepResearch(ctx){
    return;
   }
   if(!report)return output.append(empty('等待服务器研究证据'));
-  if(choose.value==='events')output.append(...modules([67,68]));
+  if(choose.value==='events')output.append(renderBackgroundArchive(report.background),...modules([67,68]));
   if(choose.value==='relations')output.append(...modules([69,72]),renderDeepRiskObservations(report));
   if(choose.value==='sessions')output.append(...modules([70,71]));
   if(choose.value==='portfolio')output.append(...['portfolio','rebalance','robustness'].map((key,index)=>section(titles[index+73],'研究候选须经原风控与批准流程。',evidence(report.decisions?.[key]))),

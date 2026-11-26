@@ -20,9 +20,14 @@ let session;
 function fixture(name){
  const base=path.join(privateRoot,name);fs.mkdirSync(base,{mode:0o700});
  const value={authorized:true,root:path.join(base,'research'),newsRoot:path.join(base,'news'),shortlineRoot:path.join(base,'shortline'),
-  observationRoot:path.join(base,'runtime'),readGate:null,readWaiting:false,jobs:0,
+  observationRoot:path.join(base,'runtime'),backgroundRoot:path.join(base,'background'),readGate:null,readWaiting:false,jobs:0,
   account:{accountId:'isolated-browser-account',revision:1,account:{cash:100000,positions:{}},orders:{}}};
  value.accountBytes=JSON.stringify(value.account);
+ const observedAt=Date.now()-100,raw=Buffer.from(JSON.stringify([{pages:1},[{countryiso3code:'CHN',indicator:{id:'NY.GDP.MKTP.CD'},date:'2023',value:0},{countryiso3code:'CHN',indicator:{id:'NY.GDP.MKTP.CD'},date:'2024',value:null}]]));
+ const receipt=require('../src/core/market-data-evidence').appendBackgroundReceipt({root:value.backgroundRoot,provider:'worldbank',
+  scope:{country:'CHN',indicator:'NY.GDP.MKTP.CD',startYear:2023,endYear:2024},raw,byteBasis:'response-body',observedAt,requestStartedAt:observedAt-1});
+ value.backgroundHash=receipt.hash;value.backgroundRawFile=path.join(value.backgroundRoot,'blobs',receipt.data.dataVersion+'.bin');value.backgroundRaw=raw;
+ value.backgroundEventFile=path.join(value.backgroundRoot,'events','000001.json');value.backgroundEvent=fs.readFileSync(value.backgroundEventFile);
  value.acceptance=createRuntimeAcceptance({root:value.observationRoot,appRoot:root,canWrite:()=>false,env:{NODE_ENV:'test'},taskEvidence});
  return value;
 }
@@ -55,7 +60,7 @@ const server=http.createServer(async(req,res)=>{
   try{
    let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>524288)return reply(res,413,'application/json',JSON.stringify({ok:false}));}
    const end=res.end.bind(res);res.end=function(value){try{const parsed=JSON.parse(value);responses.push({path:url.pathname,status:res.statusCode,ok:parsed.ok,result:parsed.result});}catch{}return end(value);};
-   return await deepResearchHttp(req,res,{url,body,root:current.root,newsRoot:current.newsRoot,shortlineRoot:current.shortlineRoot,
+   return await deepResearchHttp(req,res,{url,body,root:current.root,newsRoot:current.newsRoot,shortlineRoot:current.shortlineRoot,backgroundRoot:current.backgroundRoot,
     authenticate:()=>current.authorized&&req.headers['x-fayo-fixture-role']==='edit',isReplica:()=>false,
     readSnapshot:async now=>{
      if(current.readGate){current.readWaiting=true;await current.readGate;current.readGate=null;}
@@ -92,6 +97,15 @@ async function run(){
     await page.getByRole('heading',{name:'事件影响',exact:true}).waitFor();
     assert.match(await page.locator('#research').innerText(),/证据不足|未知/);
     assert.equal(fs.existsSync(current.root),false,'initial read cannot initialize the research journal');
+    const background=page.getByRole('heading',{name:'官方背景档案',exact:true}).locator('xpath=ancestor::section[1]');
+    await background.getByText(/世界银行宏观指标 · CHN/).click();
+    const rows=await background.locator('tbody tr').allTextContents();assert.equal(rows.length,2);
+    assert.match(rows[0],/2023\s*0\s*未知/);assert.match(rows[1],/2024\s*未知\s*未知/);
+    const originalTime=background.getByText('原始发布时间',{exact:true});assert.match(await originalTime.locator('..').innerText(),/未知/);
+    assert.match(await background.innerText(),/不认证全部历史原文/);
+    const bgResponse=responses.filter(r=>r.path==='/api/research/deep'&&r.ok===true).at(-1).result.background;
+    assert.equal(bgResponse.rows[0].archiveHash,current.backgroundHash);assert.equal(bgResponse.canTrade,false);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth)<=1,'background hashes do not cause mobile overflow');
     await page.getByText('导入自有或已授权研究证据',{exact:true}).click();
     const old=Date.now()-86400000,imported={type:'events',records:[{id:'browser-event-'+viewport.width,revision:1,symbol:'600000',eventType:'buyback',
      title:'隔离输入：回购进展',source:'isolated-browser-declaration',sourceUrl:'https://example.org/isolated-disclosure',publishedAt:old,firstKnownAt:old+1,recordedAt:old+2}]};
@@ -140,6 +154,8 @@ async function run(){
     await waitFor(()=>responses.filter(r=>r.path==='/api/research/deep'&&r.status===403).length>deniedBefore,'revoked HTTP response was not denied');
     assert.equal(await page.getByRole('heading',{name:'事件影响',exact:true}).count(),0);assert.equal(current.jobs,jobs);
     assert.equal(Store.readEvents(current.root).length,events);assert.equal(JSON.stringify(current.account),current.accountBytes);
+    assert.deepEqual(fs.readFileSync(current.backgroundRawFile),current.backgroundRaw);assert.deepEqual(fs.readFileSync(current.backgroundEventFile),current.backgroundEvent);
+    assert.equal(Store.readEvents(path.join(current.backgroundRoot,'events')).length,1);
     assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
     report.views.push({...viewport,importedRecords:1,frozenComparisons:1,taskRows:78,unknownOriginalTasks:66,
      observedTradingDays:0,completeObservationDays:0,longTermAccepted:false,revokedReadDenied:true,abortedPrivateStateCleared:true,

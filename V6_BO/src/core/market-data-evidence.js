@@ -227,4 +227,48 @@ function archiveBackgroundResult(result,{root,raw,byteBasis,scope}={}){
  return {...result,archiveReceipt:{hash:e.hash,scopeId:e.data.scopeId,dataVersion:e.data.dataVersion,version:e.data.version,availableAt:e.recordedAt,firstKnownAt:e.data.firstKnownAt,sourceRevisionKnown:false}};
 }
 
-module.exports={PROTOCOL,BACKGROUND_PROTOCOL,readRaw,readReceipts,appendReceipt,readMarketDataEvidence,readMarketDataAsOf,appendBackgroundReceipt,readBackgroundAsOf,archiveBackgroundResult};
+// A report can inspect the latest locally available revision per scope without
+// expanding the private raw data into the shared state or starting a collector.
+function readBackgroundOverview({root,asOf=Date.now()}={}){
+ const limit=12,maxBytes=24*1024*1024;
+ const empty={schemaVersion:1,mode:'official-background-archive-overview',asOf,status:'unconfigured',visibleReceipts:null,totalScopes:null,
+  checkedLatestReceipts:0,unverifiedScopes:null,rows:[],limit,rawVerificationScope:'latest-displayed-receipts-only',historicalRawChainsVerified:false,
+  verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+ if(root===undefined)return empty;
+ try{
+  if(!validTime(asOf))throw Error('背景数据历史查询时点无效');
+  const directory=backgroundRoot(root);
+  if(!fs.existsSync(directory))return {...empty,status:'missing-archive'};
+  const events=backgroundEvents(directory,asOf),series=new Map();
+  for(const event of events){const id=event.data.scopeId,previous=series.get(id);series.set(id,{event,count:(previous?.count||0)+1});}
+  const selected=[...series.values()].sort((a,b)=>b.event.sequence-a.event.sequence).slice(0,limit);
+  let bytes=0,checked=0;
+  const rows=selected.map(({event,count})=>{
+   const d=event.data,provider=d.provider;
+   const row={provider,scopeId:d.scopeId,archiveHash:event.hash,dataVersion:d.dataVersion,version:d.version,visibleReceipts:count,
+    observedAt:d.observedAt,availableAt:d.availableAt,firstKnownAt:d.firstKnownAt,revisionDetectedAt:d.revisionDetectedAt,
+    sourcePublishedAt:null,sourceRevisedAt:null,scope:null,records:[],recordCount:null,missingValues:null,status:'unavailable'};
+   const size=d.rawEvidence?.byteLength;
+   if(!Number.isSafeInteger(size)||size<1||size>MAX_RAW)return row;
+   if(bytes+size>maxBytes)return {...row,status:'not-checked-budget'};
+   bytes+=size;
+   try{
+    const projected=readBackgroundReceipt(directory,event),records=provider==='sec-edgar'?projected.records:projected.rows;
+    // Only known source fields cross this boundary, not raw responses, paths,
+    // arbitrary metadata, or an inferred original publication timestamp.
+    const values=records.slice(-5).map(r=>provider==='ecb'?{period:r.date,value:r.unitsPerEuro,unit:projected.currency+' / EUR'}:
+     provider==='sec-edgar'?{period:r.reportedEnd,value:r.reportedValue,unit:r.unit,filedDate:r.filedDate,accession:r.accession}:
+      {period:String(r.year),value:r.value,unit:null});
+    const missingValues=records.filter(r=>(provider==='ecb'?r.unitsPerEuro:provider==='sec-edgar'?r.reportedValue:r.value)===null).length;
+    checked++;
+    return {...row,status:'verified-latest-receipt',scope:backgroundScope(provider,d.scope),byteBasis:d.byteBasis,
+     sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
+     records:values,recordCount:records.length,missingValues};
+   }catch{return row;}
+  });
+  const totalScopes=series.size;
+  return {...empty,status:totalScopes?(checked===totalScopes?'available':'partial'):'empty',visibleReceipts:events.length,totalScopes,
+   checkedLatestReceipts:checked,unverifiedScopes:totalScopes-checked,rows};
+ }catch{return {...empty,status:'unavailable'};}
+}
+module.exports={PROTOCOL,BACKGROUND_PROTOCOL,readRaw,readReceipts,appendReceipt,readMarketDataEvidence,readMarketDataAsOf,appendBackgroundReceipt,readBackgroundAsOf,archiveBackgroundResult,readBackgroundOverview};

@@ -23164,6 +23164,7 @@ return json(res, { ok: true, role: 'view', unchanged: true, note: '观看密码�
     return require('./src/server/deep-research-http').deepResearchHttp(req,res,{body,url:u,
       authenticate:()=>isEditorReq(req,''),isReplica,root:deepResearchRoot(),shortlineRoot:shortlineResearchDir(),
       newsRoot:process.env.V6_NEWS_EVIDENCE_DIR||path.join(__dirname,'data','news-evidence'),
+      backgroundRoot:process.env.V6_BACKGROUND_EVIDENCE_DIR||undefined,
       readSnapshot:deepResearchSnapshot,job:require('./src/server/research-workspace-job').runWorkspaceJob,
       onReport:report=>{if(!isReplica()&&(!_deepResearchReport||report.generatedAt>=_deepResearchReport.generatedAt))_deepResearchReport=report;},
       readAcceptance:async()=>({release:await require('./src/core/release-provenance').inspectReleaseProvenanceAsync({appRoot:__dirname,running:RUNNING_RELEASE}),

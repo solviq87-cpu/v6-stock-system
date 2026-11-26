@@ -5,7 +5,7 @@ const {Readable}=require('node:stream'),{spawnSync}=require('node:child_process'
 const {collectEcbFxRate}=require('../src/core/ecb-fx-daily');
 const {collectSecCompanyFact}=require('../src/core/sec-companyfacts');
 const {collectWorldBankIndicator}=require('../src/core/worldbank-indicators');
-const {appendBackgroundReceipt,readBackgroundAsOf,readReceipts}=require('../src/core/market-data-evidence');
+const {appendBackgroundReceipt,readBackgroundAsOf,readReceipts,readBackgroundOverview}=require('../src/core/market-data-evidence');
 const {readEvents}=require('../src/core/research-workspace-store');
 const ECB={currency:'USD',start:'2025-01-02',end:'2025-01-03'};
 const SEC={cik:320193,tag:'Assets',unit:'USD',asOf:'2025-09-01'};
@@ -43,6 +43,13 @@ test('official background responses share the original private evidence journal 
  assert.equal(read(root,'sec-edgar',SEC).data.records[0].acceptedAt,null);
  assert.doesNotMatch(JSON.stringify(events),/researcher@example.org|User-Agent/);
  assert.deepEqual(readReceipts(root,{verifyRaw:true}),[],'background is not imported stock history');
+ const overview=readBackgroundOverview({root});assert.equal(overview.status,'available');assert.equal(overview.totalScopes,3);
+ assert.equal(overview.checkedLatestReceipts,3);assert.equal(overview.visibleReceipts,3);assert.equal(overview.historicalRawChainsVerified,false);
+ assert.equal(overview.canTrade,false);assert.equal(overview.pointInTimeBacktestReady,false);
+ assert.deepEqual(overview.rows.find(r=>r.provider==='ecb').records.map(r=>r.value),[1.2,null]);
+ assert.deepEqual(overview.rows.find(r=>r.provider==='worldbank').records.map(r=>[r.value,r.unit]),[[0,null],[null,null]]);
+ const sec=overview.rows.find(r=>r.provider==='sec-edgar');assert.equal(sec.records[0].filedDate,'2025-02-02');assert.equal(sec.sourcePublishedAt,null);
+ assert.doesNotMatch(JSON.stringify(overview),/researcher@example.org|User-Agent|fayo-background-/);
 });
 
 test('later revisions cannot change earlier local knowledge; repeated bytes share first-known time, exact retries are idempotent',t=>{
@@ -97,4 +104,38 @@ test('SEC and World Bank decoded text fallback retain explicit archive byte basi
  for(const [r,provider,scope,raw] of [[sr,'sec-edgar',SEC,secRaw],[wr,'worldbank',WB,wbRaw]]){
   assert.equal(r.archiveReceipt.dataVersion,sha(raw));assert.equal(read(root,provider,scope).receipt.byteBasis,'decoded-body-text');
  }
+});
+
+
+test('overview selects only the revision locally available at the requested cutoff and never silently falls back after corruption',t=>{
+ const root=fixture(t),now=Date.now()-10000;let wall=now+100;t.mock.method(Date,'now',()=>wall);
+ const first=capture(root,csv('1.1'),now);wall+=100;const revised=capture(root,csv('1.3'),now+10);
+ const prior=readBackgroundOverview({root,asOf:first.recordedAt});assert.equal(prior.totalScopes,1);assert.equal(prior.visibleReceipts,1);
+ assert.equal(prior.rows[0].archiveHash,first.hash);assert.equal(prior.rows[0].records[0].value,1.1);
+ const latest=readBackgroundOverview({root});assert.equal(latest.rows[0].archiveHash,revised.hash);assert.equal(latest.rows[0].records[0].value,1.3);
+ assert.equal(readBackgroundOverview({root,asOf:first.recordedAt-1}).status,'empty');
+ fs.writeFileSync(path.join(root,'blobs',revised.data.dataVersion+'.bin'),csv('9.9'));
+ const bad=readBackgroundOverview({root});assert.equal(bad.status,'partial');assert.equal(bad.totalScopes,1);
+ assert.equal(bad.checkedLatestReceipts,0);assert.equal(bad.unverifiedScopes,1);assert.equal(bad.rows[0].archiveHash,revised.hash);
+ assert.equal(bad.rows[0].status,'unavailable');assert.deepEqual(bad.rows[0].records,[]);assert.equal(bad.rows[0].scope,null);
+ assert.equal(readBackgroundOverview({root,asOf:first.recordedAt}).rows[0].records[0].value,1.1);
+});
+
+test('overview distinguishes configuration and archive absence from an empty archive and never initializes a read',t=>{
+ const root=fixture(t),missing=path.join(root,'missing');
+ assert.equal(readBackgroundOverview({}).status,'unconfigured');
+ const absent=readBackgroundOverview({root:missing});assert.equal(absent.status,'missing-archive');assert.equal(absent.totalScopes,null);
+ assert.equal(fs.existsSync(missing),false);const empty=readBackgroundOverview({root});assert.equal(empty.status,'empty');assert.equal(empty.totalScopes,0);
+ assert.deepEqual(fs.readdirSync(root),[]);assert.equal(readBackgroundOverview({root:path.join(root,'public')}).status,'unavailable');
+ assert.equal(readBackgroundOverview({root,asOf:Date.now()+60000}).status,'unavailable');
+});
+
+test('overview bounds latest scope count and exposes all unreviewed scopes, without certifying full historical raw chains',t=>{
+ const root=fixture(t),now=Date.now()-10000;let wall=now+100;t.mock.method(Date,'now',()=>wall);
+ for(let i=1;i<=13;i++){
+  capture(root,csv('1.1'),now+i,{...ECB,end:'2025-02-'+String(i).padStart(2,'0')});wall+=10;
+ }
+ const r=readBackgroundOverview({root});assert.equal(r.totalScopes,13);assert.equal(r.visibleReceipts,13);assert.equal(r.status,'partial');
+ assert.equal(r.rows.length,12);assert.equal(r.checkedLatestReceipts,12);assert.equal(r.unverifiedScopes,1);
+ assert.equal(r.rows[0].scope.end,'2025-02-13');assert.equal(r.rows.at(-1).scope.end,'2025-02-02');assert.equal(r.historicalRawChainsVerified,false);
 });
