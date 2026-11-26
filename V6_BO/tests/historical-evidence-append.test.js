@@ -113,3 +113,72 @@ test('actual importer quarantines a historical fee revision and reviewed replay 
  assert.equal(center.asOf(now).data.stocks[0].bars.length,42);
  assert.equal(center.governance().unresolvedQuarantine,1);
 });
+
+function evidenceFixture(t){
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-market-integrity-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const now=Date.parse('2026-11-23T16:01:00+08:00'),data=history(),provider=data.provider,datasetId=data.datasetId;
+ const append=(value,at,extra={})=>evidence.appendReceipt({root,raw:Buffer.from(JSON.stringify(value)),provider,datasetId,
+  receivedAt:at,status:'admitted',details:validateDataset(value),...extra});
+ return {root,now,data,provider,datasetId,append};
+}
+test('repeated raw hashes cannot hide a contradictory byte length or forged version chain in a correctly hashed journal',t=>{
+ const store=require('../src/core/research-workspace-store');
+ for(const mode of ['length','version','first-known','scope','replay']){
+  const f=evidenceFixture(t),first=f.append(f.data,f.now),data=structuredClone(first.data);data.availableAt=f.now+1000;data.receivedAt=f.now+1000;
+  if(mode==='length')data.rawEvidence.byteLength++;
+  if(mode==='version')data.version=9;
+  if(mode==='first-known')data.firstKnownAt=f.now+1000;
+  if(mode==='scope')data.scope.datasetId='other-series';
+  if(mode==='replay'){data.replayOf=first.hash;data.review={reviewedAt:data.availableAt,method:'immutable-raw-original-import-gates',reviewerId:'operator',reason:'incorrect admitted receipt reference'};}
+  store.appendEvent(path.join(f.root,'events'),'diagnostic',data,{requestId:'bad-market-'+mode,now:data.availableAt});
+  assert.throws(()=>evidence.readReceipts(f.root,{verifyRaw:true}),/长度|完整性|回放/);
+  assert.throws(()=>evidence.readMarketDataAsOf({root:f.root,provider:f.provider,datasetId:f.datasetId,decisionAt:data.availableAt}),/长度|完整性|回放/);
+  assert.equal(evidence.readMarketDataAsOf({root:f.root,provider:f.provider,datasetId:f.datasetId,decisionAt:f.now}).data.stocks[0].bars.length,40);
+ }
+});
+test('exact receipt retries after another version remain idempotent; same request ID cannot change evidence',t=>{
+ const f=evidenceFixture(t),first=f.append(f.data,f.now,{requestId:'market-stable-first'});
+ const next=f.append(history(42),f.now+1000,{requestId:'market-stable-second'});
+ const old=f.append(f.data,f.now,{requestId:'market-stable-first'});
+ assert.equal(old.reused,true);assert.equal(old.hash,first.hash);assert.equal(old.data.version,1);assert.equal(next.data.version,2);
+ assert.throws(()=>f.append(history(42),f.now,{requestId:'market-stable-first'}),/请求ID/);
+ assert.equal(evidence.readReceipts(f.root,{verifyRaw:true}).length,2);
+ const r=evidence.readMarketDataAsOf({root:f.root,provider:f.provider,datasetId:f.datasetId,decisionAt:f.now+1000});
+ assert.equal(r.version,2);assert.equal(r.data.stocks[0].bars.length,42);
+});
+test('historical reads verify earlier visible blobs without importing or validating later raw versions',t=>{
+ const f=evidenceFixture(t),first=f.append(f.data,f.now),next=f.append(history(42),f.now+1000);
+ const read=decisionAt=>evidence.readMarketDataAsOf({root:f.root,provider:f.provider,datasetId:f.datasetId,decisionAt});
+ const firstPath=path.join(f.root,'blobs',first.data.dataVersion+'.bin'),nextPath=path.join(f.root,'blobs',next.data.dataVersion+'.bin');
+ const initial=fs.readFileSync(firstPath),later=fs.readFileSync(nextPath);
+ fs.writeFileSync(nextPath,Buffer.alloc(later.length,65));
+ assert.equal(read(f.now).data.stocks[0].bars.length,40);
+ assert.throws(()=>read(f.now+1000),/哈希/);
+ fs.writeFileSync(nextPath,later);fs.writeFileSync(firstPath,Buffer.alloc(initial.length,65));
+ assert.throws(()=>read(f.now+1000),/哈希/);
+ assert.throws(()=>f.append(history(43),f.now+2000),/哈希/);
+ assert.deepEqual(fs.readFileSync(nextPath),later);
+});
+test('raw read rejects same-length replacement, growth, short-read and I/O failures and closes the opened descriptor',t=>{
+ const read=fs.readSync,close=fs.closeSync;
+ for(const mode of ['replace','grow','short','error']){
+  const f=evidenceFixture(t),receipt=f.append(f.data,f.now),reference=receipt.data.rawEvidence,
+   file=path.join(f.root,'blobs',reference.sha256+'.bin'),initial=fs.readFileSync(file),st=fs.statSync(file,{bigint:true});
+  let injected=false,affected=null,closed=false;
+  const reader=t.mock.method(fs,'readSync',(fd,...args)=>{
+   if(!injected&&fs.fstatSync(fd,{bigint:true}).ino===st.ino){
+    injected=true;affected=fd;
+    if(mode==='short')return 0;
+    if(mode==='error')throw Object.assign(Error('fixture EIO'),{code:'EIO'});
+    const n=read.call(fs,fd,...args);
+    if(mode==='grow')fs.appendFileSync(file,'extra');
+    else{fs.writeFileSync(file+'.replacement',initial,{mode:0o600});fs.renameSync(file+'.replacement',file);}
+    return n;
+   }
+   return read.call(fs,fd,...args);
+  });
+  const closer=t.mock.method(fs,'closeSync',fd=>{if(fd===affected)closed=true;return close.call(fs,fd);});
+  try{assert.throws(()=>evidence.readRaw(f.root,reference),/变化|EIO/);assert.equal(injected,true,mode);assert.equal(closed,true,mode);}
+  finally{reader.mock.restore();closer.mock.restore();}
+ }
+});

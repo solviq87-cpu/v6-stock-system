@@ -123,3 +123,26 @@ test('bad code, duplicate providers, hostile provider names and invalid timeout 
  }
  assert.equal(requests,0);
 });
+
+test('a quote later than the final regressed publication clock is stripped and accepted only as a failed audit attempt',async()=>{
+ const times=[now,now+1000,now-1000],r=await inspect({code:'600519',providers:['eastmoney'],
+  clock:()=>times.shift(),fetchImpl:async()=>new Response(raw('eastmoney',now))});
+ assert.equal(r.status,'clock-regressed');
+ const row=r.providers[0];assert.equal(row.status,'invalid-quote-time');
+ for(const k of ['price','previousClose','quoteAt','quoteAgeMs'])assert.equal(row[k],null);
+ const report=require('../src/core/data-source-readiness-audit').auditRegisteredSourceReadiness({asOf:now,snapshot:r});
+ assert.equal(report.summary.attemptedExactRoutes,1);assert.equal(report.summary.successfulQuoteObservations,0);
+});
+
+test('non-200 success codes and contradictory transport flags never generate a successful quote receipt',async()=>{
+ const {auditRegisteredSourceReadiness:audit}=require('../src/core/data-source-readiness-audit');
+ for(const [status,ok,expected,httpStatus] of [[201,true,'invalid-response',201],[206,true,'invalid-response',206],[204,true,'invalid-response',204],
+  [200,false,'transport-error',null],[500,true,'http-error',500],[403,true,'access-denied',403],[429,true,'rate-limited',429],[0,true,'transport-error',null]]){
+  const r=await inspect({code:'600519',providers:['eastmoney'],clock:()=>now,fetchImpl:async()=>{
+   const body=new Response(raw('eastmoney')).body;return {status,ok,body,headers:{get:()=>null}};
+  }});
+  assert.equal(r.providers[0].status,expected,String(status));assert.equal(r.providers[0].httpStatus,httpStatus);
+  assert.equal(r.providers[0].price,null);
+  const a=audit({asOf:now,snapshot:r});assert.equal(a.summary.attemptedExactRoutes,1);assert.equal(a.summary.successfulQuoteObservations,0);
+ }
+});

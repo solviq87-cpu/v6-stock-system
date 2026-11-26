@@ -11,20 +11,49 @@ function roots(root,create=false){
  const base=store.privateRoot(root,create);
  return {base,events:store.privateRoot(path.join(base,'events'),create),blobs:store.privateRoot(path.join(base,'blobs'),create)};
 }
+function validateRawReference(reference){
+ if(!reference||typeof reference.sha256!=='string'||!HASH.test(reference.sha256)||
+  !Number.isSafeInteger(reference.byteLength)||reference.byteLength<1||reference.byteLength>MAX_RAW)
+  throw Error('原始行情回执引用或长度无效');
+ return reference;
+}
+const statOptions={bigint:true};
+const fileIdentity=s=>[s.dev,s.ino,s.mode,s.nlink,s.size,s.mtimeNs,s.ctimeNs].join(':');
+const dirIdentity=s=>[s.dev,s.ino,s.mode].join(':');
 function readRaw(root,reference){
- if(!HASH.test(reference?.sha256||'')||!Number.isSafeInteger(reference.byteLength)||reference.byteLength<1||reference.byteLength>MAX_RAW)
-  throw Error('原始行情回执引用无效');
- const {blobs}=roots(root),file=path.join(blobs,reference.sha256+'.bin'),
-  fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
+ validateRawReference(reference);
+ const {blobs}=roots(root),file=path.join(blobs,reference.sha256+'.bin');
+ const dirBefore=fs.lstatSync(blobs,statOptions),pathBefore=fs.lstatSync(file,statOptions);
+ const expected=BigInt(reference.byteLength);
+ if(!dirBefore.isDirectory()||dirBefore.isSymbolicLink()||!pathBefore.isFile()||
+  pathBefore.isSymbolicLink()||pathBefore.mode&0o077n||pathBefore.size!==expected)
+  throw Error('原始行情回执权限或长度无效');
+ const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
  try{
-  const stat=fs.fstatSync(fd);
-  if(!stat.isFile()||stat.mode&0o077||stat.size!==reference.byteLength)throw Error('原始行情回执权限或长度无效');
-  const raw=fs.readFileSync(fd);if(sha(raw)!==reference.sha256)throw Error('原始行情回执哈希不一致');return raw;
+  const before=fs.fstatSync(fd,statOptions);
+  if(!before.isFile()||fileIdentity(before)!==fileIdentity(pathBefore))throw Error('原始行情回执打开时已变化');
+  // Read only the recorded length plus one byte, including when a writer
+  // replaces or grows the file while the descriptor is open.
+  const buffer=Buffer.alloc(reference.byteLength+1);let offset=0;
+  while(offset<buffer.length){const n=fs.readSync(fd,buffer,offset,buffer.length-offset,offset);if(n===0)break;offset+=n;}
+  const after=fs.fstatSync(fd,statOptions);
+  roots(root);
+  const pathAfter=fs.lstatSync(file,statOptions),dirAfter=fs.lstatSync(blobs,statOptions);
+  if(offset!==reference.byteLength||fileIdentity(after)!==fileIdentity(before)||
+   fileIdentity(pathAfter)!==fileIdentity(before)||dirIdentity(dirAfter)!==dirIdentity(dirBefore))
+   throw Error('原始行情回执读取期间长度或文件身份变化');
+  const raw=buffer.subarray(0,reference.byteLength);
+  if(sha(raw)!==reference.sha256)throw Error('原始行情回执哈希不一致');
+  return raw;
  }finally{fs.closeSync(fd);}
 }
-function saveRaw(root,raw){
+function describeRaw(raw){
  if(!Buffer.isBuffer(raw)||!raw.length||raw.length>MAX_RAW)throw Error('原始行情回执为空或超过容量');
- const {blobs}=roots(root,true),reference={sha256:sha(raw),byteLength:raw.length},target=path.join(blobs,reference.sha256+'.bin');
+ return {sha256:sha(raw),byteLength:raw.length};
+}
+
+function saveRaw(root,raw){
+ const reference=describeRaw(raw),{blobs}=roots(root,true),target=path.join(blobs,reference.sha256+'.bin');
  if(fs.existsSync(target)){readRaw(root,reference);return reference;}
  let total=0;
  for(const name of fs.readdirSync(blobs)){
@@ -40,28 +69,70 @@ function saveRaw(root,raw){
   try{fs.linkSync(temp,target);}catch(error){if(error.code!=='EEXIST')throw error;readRaw(root,reference);}
   const directory=fs.openSync(blobs,'r');try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
  }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch(error){if(error.code!=='ENOENT')throw error;}}
+ readRaw(root,reference);
  return reference;
 }
 function verifyReceiptRaw(root,events){
- const verified=new Set();
+ const verified=new Map();
  for(const event of events)for(const reference of [event.data.rawEvidence,event.data.independentReference?.rawEvidence].filter(Boolean)){
-  if(verified.has(reference.sha256))continue;
-  readRaw(root,reference);verified.add(reference.sha256);
+  validateRawReference(reference);
+  if(verified.has(reference.sha256)){
+   if(verified.get(reference.sha256)!==reference.byteLength)throw Error('相同原始行情哈希的回执长度冲突');
+   continue;
+  }
+  readRaw(root,reference);verified.set(reference.sha256,reference.byteLength);
  }
 }
-function readReceipts(root,{asOf=Date.now(),provider,datasetId,verifyRaw=false}={}){
- const events=store.readEvents(roots(root).events,{asOf}).filter(event=>event.data?.protocol===PROTOCOL);
+const seriesKey=d=>JSON.stringify([d.provider,d.datasetId]);
+const validId=(s,max)=>typeof s==='string'&&s.length>=3&&s.length<=max&&/^[a-zA-Z0-9_.:-]+$/.test(s);
+function validateMarketReceipts(events){
+ const latest=new Map(),first=new Map(),byHash=new Map(),referenceLengths=new Map(),required=new Set();
  for(const event of events){
-  const d=event.data;
-  if(!['admitted','quarantined'].includes(d.status)||!validTime(d.receivedAt)||d.receivedAt>event.recordedAt||d.availableAt!==event.recordedAt||
-     !HASH.test(d.dataVersion||'')||d.dataVersion!==d.rawEvidence?.sha256||typeof d.provider!=='string'||typeof d.datasetId!=='string'||
+  const d=event.data,key=seriesKey(d),previous=latest.get(key),versionKey=JSON.stringify([d.provider,d.datasetId,d.dataVersion]),
+   expectedVersion=previous?.data.dataVersion===d.dataVersion?previous.data.version:(previous?.data.version||0)+1;
+  if(event.kind!=='diagnostic'||!['admitted','quarantined'].includes(d.status)||!validTime(d.receivedAt)||d.receivedAt>event.recordedAt||d.availableAt!==event.recordedAt||
+     typeof d.dataVersion!=='string'||!HASH.test(d.dataVersion)||d.dataVersion!==d.rawEvidence?.sha256||!validId(d.provider,100)||!validId(d.datasetId,120)||
+     d.scope?.provider!==d.provider||d.scope?.datasetId!==d.datasetId||d.version!==expectedVersion||
+     d.firstKnownAt!==(first.get(versionKey)??d.receivedAt)||d.revisionDetectedAt!==(expectedVersion>1?d.receivedAt:null)||
      d.gateRequirements?.protocol!=='original-market-import-gates-v1'||typeof d.gateRequirements.independentReferenceRequired!=='boolean'||
-     d.status==='admitted'&&d.gateRequirements.independentReferenceRequired&&!d.independentReference)
+     required.has(key)&&!d.gateRequirements.independentReferenceRequired||
+     d.status==='admitted'&&d.gateRequirements.independentReferenceRequired&&!d.independentReference||
+     d.status==='admitted'&&d.sourceObservedAt!=null&&(!validTime(d.sourceObservedAt)||d.sourceObservedAt>d.receivedAt)||
+     Object.keys(store.FLAGS).some(k=>d[k]!==store.FLAGS[k]))
    throw Error('行情回执时点、版本或来源完整性无效');
+  const references=[validateRawReference(d.rawEvidence)];
+  if(d.independentReference!=null){
+   const r=d.independentReference;
+   if(!r||r.capturedAt!==event.recordedAt||
+    d.status==='admitted'&&(!validId(r.provider,128)||!validId(r.datasetId,128)||!validTime(r.observedAt)||r.observedAt>event.recordedAt))
+    throw Error('独立行情回执身份或时点无效');
+   references.push(validateRawReference(r.rawEvidence));
+  }
+  for(const ref of references){
+   const previousLength=referenceLengths.get(ref.sha256);
+   if(previousLength!==undefined&&previousLength!==ref.byteLength)throw Error('相同原始行情哈希的回执长度冲突');
+   referenceLengths.set(ref.sha256,ref.byteLength);
+  }
+  if(d.replayOf!=null){
+   const original=byHash.get(d.replayOf);
+   if(typeof d.replayOf!=='string'||!HASH.test(d.replayOf)||!original||original.data.status!=='quarantined'||
+    seriesKey(original.data)!==key||original.data.dataVersion!==d.dataVersion||original.data.receivedAt!==d.receivedAt||
+    original.data.rawEvidence.byteLength!==d.rawEvidence.byteLength||d.review?.reviewedAt!==event.recordedAt||
+    d.review?.method!=='immutable-raw-original-import-gates'||typeof d.review.reviewerId!=='string'||!d.review.reviewerId.trim()||
+    typeof d.review.reason!=='string'||!d.review.reason.trim())
+    throw Error('行情隔离回放来源或复核记录无效');
+  }else if(d.review!=null)throw Error('行情复核缺少原隔离回执');
+  if(d.gateRequirements.independentReferenceRequired)required.add(key);
+  latest.set(key,event);if(!first.has(versionKey))first.set(versionKey,d.receivedAt);byHash.set(event.hash,event);
  }
+ return events;
+}
+function readReceipts(root,{asOf=Date.now(),provider,datasetId,verifyRaw=false}={}){
+ const events=validateMarketReceipts(store.readEvents(roots(root).events,{asOf}).filter(event=>event.data?.protocol===PROTOCOL));
  if(verifyRaw)verifyReceiptRaw(root,events);
  return events.filter(event=>(provider===undefined||event.data.provider===provider)&&(datasetId===undefined||event.data.datasetId===datasetId));
 }
+
 function appendReceipt({root,raw,provider,datasetId,receivedAt,availableAt=receivedAt,status,reason=null,details=null,
   sourceObservedAt=null,factorVersion=null,replayOf=null,review=null,requestId,referenceRaw=null,referenceMetadata=null,independentReferenceRequired=false}){
  if(!validTime(receivedAt)||!validTime(availableAt)||receivedAt>availableAt||!['admitted','quarantined'].includes(status)||
@@ -70,8 +141,8 @@ function appendReceipt({root,raw,provider,datasetId,receivedAt,availableAt=recei
  // Validate every existing reference BEFORE saving a new hash. Checking only
  // the incoming blob would allow an append to hide corruption of an older raw
  // receipt, including an independent reference used for an earlier admission.
- const events=readReceipts(root,{provider,datasetId,verifyRaw:true}),previous=events.at(-1);
- const rawEvidence=saveRaw(root,raw),independentReference=referenceRaw?{rawEvidence:saveRaw(root,referenceRaw),capturedAt:availableAt,
+ const all=readReceipts(root,{verifyRaw:true}),events=all.filter(e=>e.data.provider===provider&&e.data.datasetId===datasetId),previous=events.at(-1);
+ const rawEvidence=describeRaw(raw),independentReference=referenceRaw?{rawEvidence:describeRaw(referenceRaw),capturedAt:availableAt,
   provider:typeof referenceMetadata?.provider==='string'&&referenceMetadata.provider.length<=128?referenceMetadata.provider:null,
   datasetId:typeof referenceMetadata?.datasetId==='string'&&referenceMetadata.datasetId.length<=128?referenceMetadata.datasetId:null,
   observedAt:Number.isSafeInteger(referenceMetadata?.observedAt)?referenceMetadata.observedAt:null}:null,
@@ -84,8 +155,25 @@ function appendReceipt({root,raw,provider,datasetId,receivedAt,availableAt=recei
   scope:{provider,datasetId,firstDate:details?.firstDate||null,lastDate:details?.lastDate||null,stocks:details?.stocks||null},
   historicalCoverage:details?.historicalCoverage||null,independentReference,
   gateRequirements:{protocol:'original-market-import-gates-v1',independentReferenceRequired},replayOf,review,...store.FLAGS};
- return store.appendEvent(roots(root,true).events,'diagnostic',data,
-  {requestId:requestId||'market-'+rawEvidence.sha256.slice(0,24)+'-'+availableAt+'-'+status,now:availableAt});
+ // Default IDs are scoped to the exact provider/dataset. Retain compatibility
+ // with previously saved default IDs, and replay exact retries using the
+ // original derived version rather than recomputing it from a newer head.
+ const legacyId='market-'+rawEvidence.sha256.slice(0,24)+'-'+availableAt+'-'+status;
+ const scopedId='market-'+store.digest({provider,datasetId,sha256:rawEvidence.sha256,availableAt,status}).slice(0,64);
+ const id=requestId||(events.some(e=>e.requestId===legacyId)?legacyId:scopedId),prior=all.find(e=>e.requestId===id);
+ const semantic=d=>{const {version,firstKnownAt,revisionDetectedAt,...rest}=d;return rest;};
+ if(prior&&store.digest(semantic(prior.data))!==store.digest(semantic(data)))throw Error('同请求ID内容冲突');
+ if(!prior)validateMarketReceipts([...all,{kind:'diagnostic',recordedAt:availableAt,data,hash:null}]);
+ saveRaw(root,raw);if(referenceRaw)saveRaw(root,referenceRaw);
+ const payload=prior?.data??data;
+ return store.appendEvent(roots(root,true).events,'diagnostic',payload,{requestId:id,now:availableAt,beforeCommitLocked:({events:current,reused})=>{
+  const receipts=validateMarketReceipts(current.filter(e=>e.data?.protocol===PROTOCOL));
+  const last=receipts.filter(e=>e.data.provider===provider&&e.data.datasetId===datasetId).at(-1);
+  if(!reused&&(last?.hash??null)!==(previous?.hash??null))return false;
+  verifyReceiptRaw(root,receipts);
+  verifyReceiptRaw(root,[{data:payload}]);
+  return true;
+ }});
 }
 function readMarketDataEvidence({root,asOf=Date.now(),provider,datasetId}={}){
  const events=readReceipts(root,{asOf,provider,datasetId}),admitted=events.filter(event=>event.data.status==='admitted'),
@@ -104,14 +192,26 @@ function readMarketDataEvidence({root,asOf=Date.now(),provider,datasetId}={}){
 }
 function readMarketDataAsOf({root,decisionAt,provider,datasetId}={}){
  if(!validTime(decisionAt)||typeof provider!=='string'||typeof datasetId!=='string')throw Error('行情历史回放需要明确时点及来源');
- const selected=readReceipts(root,{asOf:decisionAt,provider,datasetId}).filter(event=>event.data.status==='admitted').at(-1);
+ const events=readReceipts(root,{asOf:decisionAt,provider,datasetId});
+ // Verify the entire locally visible series, including earlier quarantine
+ // and independent-reference blobs; a newer intact snapshot cannot hide
+ // corruption in the historical inputs. Later raw versions stay out of scope.
+ verifyReceiptRaw(root,events);
+ const selected=events.filter(event=>event.data.status==='admitted').at(-1);
  if(!selected)return {status:'unavailable-at-decision',data:null,decisionAt,...store.FLAGS};
- const data=JSON.parse(readRaw(root,selected.data.rawEvidence).toString('utf8'));
+ const raw=readRaw(root,selected.data.rawEvidence),text=raw.toString('utf8');
+ if(!Buffer.from(text,'utf8').equals(raw))throw Error('原始行情回执不是有效UTF-8');
+ const data=JSON.parse(text);
  require('./market-data-center').validateImport(data,{provider,datasetId,now:selected.data.receivedAt});
+ if((data.observedAt??null)!==selected.data.sourceObservedAt||
+  (typeof data.factorVersion==='string'&&data.factorVersion.length<=128?data.factorVersion:null)!==selected.data.factorVersion)
+  throw Error('原始行情回执版本或供应商时点与原始数据不一致');
  if(selected.data.independentReference){
-  const reference=JSON.parse(readRaw(root,selected.data.independentReference.rawEvidence).toString('utf8')),
-   consensus=require('./market-feed-consensus').compareMarketFeeds(data,reference);
-  if(!consensus.consensus||consensus.evidenceQuality?.status!=='consistent-research-only'||reference.observedAt>selected.recordedAt)
+  const metadata=selected.data.independentReference,rawReference=readRaw(root,metadata.rawEvidence),text=rawReference.toString('utf8');
+  if(!Buffer.from(text,'utf8').equals(rawReference))throw Error('独立行情原回执不是有效UTF-8');
+  const reference=JSON.parse(text),consensus=require('./market-feed-consensus').compareMarketFeeds(data,reference);
+  if(reference.provider!==metadata.provider||reference.datasetId!==metadata.datasetId||reference.observedAt!==metadata.observedAt||
+   !consensus.consensus||consensus.evidenceQuality?.status!=='consistent-research-only'||reference.observedAt>selected.recordedAt)
    throw Error('原归档独立来源仍未通过既有一致性门禁');
  }
  return {status:'available-research-snapshot',data,decisionAt,archiveHash:selected.hash,version:selected.data.version,

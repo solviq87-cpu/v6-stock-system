@@ -40,14 +40,17 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    });
    if(hasQuoteRedirect(response,requestUrl))
     return reason('redirect-refused',Number.isInteger(response?.status)&&response.status>=300&&response.status<400?response.status:null);
-   if(!response||!Number.isInteger(response.status))
+   if(!response||!Number.isInteger(response.status)||response.status<100||response.status>599)
     return reason('transport-error');
    const httpStatus=response.status;
    if(httpStatus===401||httpStatus===403)
     return reason('access-denied',httpStatus);
    if(httpStatus===429)
     return reason('rate-limited',httpStatus);
-   if(!response.ok)return reason('http-error',httpStatus);
+   if(httpStatus>=400)return reason('http-error',httpStatus);
+   if(httpStatus<200||httpStatus>=300||response.ok!==true)return reason('transport-error');
+   // Partial/empty/other success codes are not the expected complete quote.
+   if(httpStatus!==200)return reason('invalid-response',httpStatus);
    let raw;
    try{raw=await boundedBody(response);}
    catch(e){return reason(e.message==='body-too-large'?'response-too-large':'invalid-response',httpStatus);}
@@ -107,11 +110,11 @@ async function inspectPublicQuoteEndpoints({
  for(const r of results){
   if(Number.isSafeInteger(r.quoteAt)&&r.quoteAt>0)
    r.quoteAgeMs=finishedAt-r.quoteAt;
-  if(r.status!=='fresh-source-unverified')continue;
+  if(!['fresh-source-unverified','dated-snapshot'].includes(r.status))continue;
   if(r.quoteAt===null||r.quoteAt>finishedAt){
-   r.status='invalid-quote-time';
-  }else if(finishedAt<startedAt||!session(finishedAt)||
-           r.quoteAgeMs>15000){
+   // Do not retain price/time fields on a failed receipt.
+   Object.assign(r,reason('invalid-quote-time',r.httpStatus));
+  }else if(finishedAt<startedAt||!session(finishedAt)||r.quoteAgeMs>15000){
    r.status='dated-snapshot';
   }
  }
