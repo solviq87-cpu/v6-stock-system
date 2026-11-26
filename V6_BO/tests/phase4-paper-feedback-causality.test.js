@@ -74,3 +74,35 @@ test('malformed optional factor metadata cannot discard an otherwise valid settl
  assert.equal(x.state.trades[0].planVerified,true);assert.deepEqual(x.state.trades[0].factors,[]);
  assert.equal(x.state.trades[0].decisionLink.factorsMissing,true);
 });
+
+test('explicit observation-only frozen data cannot certify the learning link but retains settlement',()=>{
+ for(const patch of [
+  {source:'simulated'},{source:'fixture'},{source:'mock'},{source:'demo'},
+  {mode:'historical-replay'},{mode:'imported'},{mode:'simulated'},{mode:'demo'},
+  {readOnlyBackup:true},{canTrade:false}
+ ]){
+  const x=fixture();Object.assign(x.plan.decisionEvidence.quoteBasis,patch);
+  const before=JSON.stringify(x.book);assert.equal(x.run().imported,1);
+  const row=x.state.trades[0];assert.equal(row.planId,null);
+  assert.equal(row.snapshotVerified,false);assert.equal(row.pnlAmount,90);
+  assert.equal(JSON.stringify(x.book),before);
+ }
+});
+test('explicit simulated or manually researched fill evidence cannot certify the automatic learning link',()=>{
+ const {createFillEvidence}=require('../src/core/paper-fill-evidence');
+ for(const [kind,simulated] of [['automatic-paper',true],['research-manual',false],['automatic-paper',false]]){
+  const x=fixture(),e=x.book.account.events[0],fill=x.book.orders[e.orderId].events[0];
+  const evidence=createFillEvidence({
+   symbol:code,price:10,quoteAt:at-1000,timestamp:at-1000,receivedAt:at-500,
+   source:simulated?'simulated':null,quoteSource:'tencent',mode:simulated?'simulated':'public-live-unverified',
+   volumeUnit:'shares',volume:100000,upperLimit:11,lowerLimit:9,suspended:false,tradable:true
+  },{symbol:code,price:10,tradeDate:day,executionAt:at,executionKind:kind});
+  fill.fillEvidence=e.fillEvidence=evidence;
+  const a=x.book.account;a.eventHashes[e.eventId]=sha({orderId:e.orderId,fill,tradeDate:day});
+  a.fingerprint=sha({cash:a.cash,positions:a.positions,events:a.events});
+  assert.equal(x.run().imported,1);
+  const linked=kind==='automatic-paper'&&!simulated;
+  assert.equal(x.state.trades[0].planId,linked?x.plan.id:null);
+  assert.equal(x.state.trades[0].snapshotVerified,linked);assert.equal(x.state.trades[0].pnlAmount,90);
+ }
+});

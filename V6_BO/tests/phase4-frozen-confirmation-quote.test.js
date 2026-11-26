@@ -60,3 +60,20 @@ test('a new original post-freeze quote keeps the existing direct confirmation pa
  const x=fixture({frozenAt:now-2000});x.plan.decisionEvidence.quoteBasis={source:'tencent'};
  assert.throws(()=>executeDecisionPlan(x),/isolated-original-buy-reached/);
 });
+
+test('a new post-freeze original quote must bind the security, source and receipt clock before buy',()=>{
+ for(const mutate of [
+  x=>x.quote.symbol='600001',x=>delete x.quote.symbol,
+  x=>{x.quote.quoteSource='other';x.quote.provider='other';},
+  x=>{delete x.quote.quoteSource;delete x.quote.provider;},
+  x=>delete x.quote.receivedAt,x=>x.quote.receivedAt=x.quote.quoteAt-1,
+  x=>x.quote.receivedAt=x.now+1,x=>x.quote.receivedAt='not-a-clock'
+ ]){
+  const x=fixture({frozenAt:now-2000});mutate(x);
+  let calls=0;x.buy=()=>{calls++;};
+  assert.throws(()=>executeDecisionPlan(x),/只读、来源冲突或时点不一致/);
+  assert.equal(calls,0);
+ }
+ const x=fixture({frozenAt:now-2000});
+ assert.throws(()=>executeDecisionPlan(x),/isolated-original-buy-reached/);
+});

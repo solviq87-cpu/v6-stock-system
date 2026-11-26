@@ -7,6 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
+const {quoteSourceAllowsUse} = require('../core/quote-observation-view');
 const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
@@ -90,6 +91,10 @@ function linkDecisionPlan(sample, state, events, now) {
     !stamp(basis?.strategyAt)||basis.strategyAt>basis.calculatedAt||
     !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
     typeof q.source!=='string'||!q.source.trim()||
+     /mock|synthetic|fixture|demo/i.test(q.source)||/demo/i.test(q.mode||'')||
+     !quoteSourceAllowsUse({...q,quoteSource:q.source})||
+     entries.some(event=>event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||
+       event.fillEvidence.mode!=='public-live-unverified'))||
     q.code!==undefined&&q.code!==plan.code||
     q.price!==undefined&&(!Number.isFinite(q.price)||q.price<=0)||
     q.receivedAt!==undefined&&(!stamp(q.receivedAt)||q.receivedAt<q.quoteAt||q.receivedAt>basis.calculatedAt)||

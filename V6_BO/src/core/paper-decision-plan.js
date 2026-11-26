@@ -118,7 +118,10 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
       quoteAt < Date.parse(plan.frozenAt)&&!matchesFrozenConfirmationQuote(plan,authoritative,quote,quoteAt,now))
     throw Error('原始报价过期、缺失、早于冻结计划或不在当前连续竞价时段');
   const quoteView=require('./quote-observation-view');
-  if (!quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView(quote,now).missingReason==='conflicting-quote-evidence' ||
+  // Apply the original receipt view to the exact post-freeze row as well.
+  // A fresh timestamp alone must not admit another security or source.
+  if (quote.symbol!==plan.code || quote.quoteSource!==authoritative.quoteBasis?.source ||
+      !quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView({...quote,quoteAt},now).missingReason!==null ||
       quote.provider!=null&&quote.quoteSource!=null&&quote.provider!==quote.quoteSource ||
       quote.timestamp!=null&&quote.timestamp!==quoteAt)
     throw Error('原始报价只读、来源冲突或时点不一致');
