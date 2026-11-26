@@ -21,17 +21,19 @@ const accountEpoch=book=>digest((book?.archives||[]).map(period=>({revision:peri
 const monitoringEnded=order=>order.monitoringComplete===true&&['fully-exited','account-period-ended'].includes(order.monitoringEndReason);
 
 function quoteEvidence(quote,plan,now,day){
-  const at=quote?.quoteAt??quote?.timestamp,source=quote?.quoteSource??quote?.provider??quote?.source;
-  if(!quote||quote.symbol!==plan.code||!finite(quote.price)||quote.price<=0||
-    !timestamp(at)||at>now||now-at>15000||aShareCalendarDate(at)!==day||
-    quote.tradeDate!==day||typeof source!=='string'||!source||source.length>120||/mock|fixture|synthetic|demo/i.test(source)||
-    quote.quoteAt!=null&&quote.timestamp!=null&&quote.quoteAt!==quote.timestamp||
-    quote.receivedAt!=null&&(!timestamp(quote.receivedAt)||quote.receivedAt<at||quote.receivedAt>now)||
-    quote.suspended!==false||quote.tradable!==true||quote.volumeUnit!=='shares'||!finite(quote.volume)||quote.volume<=0||
-    !finite(quote.lowerLimit)||!finite(quote.upperLimit)||quote.lowerLimit<=0||quote.upperLimit<=quote.lowerLimit)return null;
-  return {planId:plan.id,code:plan.code,day,observedAt:now,quoteAt:at,receivedAt:quote.receivedAt??null,
-    source,price:quote.price,lowerLimit:quote.lowerLimit,upperLimit:quote.upperLimit,
-    originalFreshGate:true,continuous:true,canTrade:false};
+  // Reuse the original plan observer's complete quote/provenance gate. A
+  // condition is evidence only, never a new authority or an executable order.
+  const observer=require('./paper-plan-observer');
+  try{
+    if(!observer.sessions(day).some(([start,end])=>now>=start&&now<end)||
+      quote?.quoteAt<Date.parse(plan.frozenAt)||quote?.sourceConflict===true||quote?.conflict===true||
+      quote?.quoteStatus==='conflict'||quote?.evidenceStatus==='conflict'||
+      quote?.source!=null&&quote.source!==quote.quoteSource||/demo/i.test(quote?.quoteSource||''))return null;
+    const original=observer.quoteEvidence(quote,plan.code,day,now);
+    return {planId:plan.id,code:plan.code,day,observedAt:now,quoteAt:original.quoteAt,receivedAt:original.receivedAt,
+      source:original.source,price:original.price,lowerLimit:original.lowerLimit,upperLimit:original.upperLimit,
+      inputProvenanceFingerprint:original.inputProvenanceFingerprint,originalFreshGate:true,continuous:true,canTrade:false};
+  }catch{return null;}
 }
 
 function publicOrder(order,now){
@@ -194,7 +196,7 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
           coverage(order,day,now,!!evidence);dirty=true;
           if(!evidence)continue;
           const allowed=typeof exitAllowedFor==='function'?exitAllowedFor(plan,order,book,quote,now):null;
-          const sellable=allowed?.allowed===true&&order.fill.tradeDate<day&&quote.price>quote.lowerLimit;
+          const sellable=allowed?.allowed===true&&order.fill.tradeDate<day&&quote.price>quote.lowerLimit&&quote.price<quote.upperLimit;
           for(const kind of ['stop','target']){
             if(kind==='stop'?quote.price>plan.stop:quote.price<plan.target)continue;
             const observed=recordObservation(order,evidence,kind,{entryEventId:order.fill.eventId,remainingQuantity:context.remaining,sellable,
@@ -220,16 +222,26 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
         // A crash after the account commit is recovered by planFill on restart.
         save(state);dirty=false;faultInjector?.('before-execute',order);
         if(authorized(order.authorization,order)!==true){dirty=update(order,'unauthorized','成交前原授权已失效，未执行',now)||dirty;continue;}
+        // The durable trigger is not permission to use a later/different quote.
+        // Recheck after persistence and authorization, before the existing gate.
+        const latestQuote=quoteFor(plan,order),executeAt=currentTime();
+        if(executeAt<now){dirty=update(order,'pending','成交前时钟倒退，等待重新核验',now)||dirty;continue;}
+        if(executeAt>=order.expiresAt||aShareCalendarDate(executeAt)!==day){dirty=update(order,'expired','成交前原条件意图已到期',executeAt)||dirty;continue;}
+        const latest=quoteEvidence(latestQuote,plan,executeAt,day);
+        const identity=e=>digest({...e,observedAt:null});
+        if(!latest||identity(latest)!==identity(evidence)){
+          dirty=update(order,'pending','成交前原报价失效或已变化，等待下一次完整核验',executeAt)||dirty;continue;
+        }
         try{
           const result=execute(plan,order);
           if(result&&typeof result.then==='function')throw Error('原执行适配必须在锁内同步完成');
           faultInjector?.('after-execute',order);
-          const after=readBook();
-          if(!reconcile(order,after,now))update(order,'pending','原执行门禁未产生该计划的持久成交，继续等待',now);
+          const after=readBook(),finishedAt=currentTime();
+          if(!reconcile(order,after,finishedAt))update(order,'pending','原执行门禁未产生该计划的持久成交，继续等待',finishedAt);
         }catch(error){
           // The fill may already be durable even if a downstream reply failed.
-          const after=readBook();
-          if(!reconcile(order,after,now))update(order,'pending','原执行门禁拒绝：'+safeReason(error.message),now);
+          const after=readBook(),finishedAt=currentTime();
+          if(!reconcile(order,after,finishedAt))update(order,'pending','原执行门禁拒绝：'+safeReason(error.message),finishedAt);
         }
         dirty=true;
       }
