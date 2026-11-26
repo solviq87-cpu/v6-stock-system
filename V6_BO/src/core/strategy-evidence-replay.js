@@ -4,6 +4,10 @@ const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {attributeIndependentStrategies,SYSTEMS}=require('./independent-strategy-attribution');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
+ Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
+const validVersion=v=>typeof v==='string'&&v.length>0&&v.length<=256&&v.trim()===v&&!/[\x00-\x1f\x7f]/.test(v);
+const signalKey=(system,symbol,date)=>JSON.stringify([system,symbol,date]);
 function replayStrategyEvidence(history, evidenceBundle, options={}){
  const ds=validateDataset(history);
  if(!evidenceBundle||!Array.isArray(evidenceBundle.signals)||!evidenceBundle.generatedAt||!evidenceBundle.source)throw Error('需要带来源、生成时间和 signals 的策略证据包');
@@ -16,23 +20,29 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
  const signals=evidenceBundle.signals.map((s,i)=>{
   if(!s||!SYSTEMS.includes(s.system)||!symbols.has(s.symbol)||!dates.includes(s.date))throw Error(`第${i}条策略信号无效`);
   if(!['pass','fail','unknown'].includes(s.verdict)||typeof s.provenance!=='string'||!s.provenance.trim())throw Error('策略结论或来源无效');
-  if(typeof s.observedThrough!=='string'||s.observedThrough>s.date)throw Error('策略信号包含未来数据或缺少观察截止日期');
-  if(!s.evaluatorVersion||typeof s.evaluatorVersion!=='string')throw Error('必须记录原生评估器版本');
+  if(!validDay(s.observedThrough)||s.observedThrough>s.date)throw Error('策略信号包含未来数据或缺少有效观察截止日期');
+  if(!validVersion(s.evaluatorVersion))throw Error('必须记录有效原生评估器版本');
   return {system:s.system,symbol:s.symbol,date:s.date,verdict:s.verdict,provenance:s.provenance,
    observedThrough:s.observedThrough,evaluatorVersion:s.evaluatorVersion};
  });
  const base=attributeIndependentStrategies(history,{...options,evidence:signals});
+ const bySignal=new Map(signals.map(s=>[signalKey(s.system,s.symbol,s.date),s]));
  const windows={inSample:[],outOfSample:[],unassigned:[]};
  for(const r of base.records){
   const idx=dates.indexOf(r.signalDate);
   const exit=idx+2;
   // Require the signal itself to occur inside the holdout; purge boundary-crossing labels.
   const group=split===undefined?'unassigned':exit<split?'inSample':idx>=split?'outOfSample':'unassigned';
-  windows[group].push(r);
+  // The attribution calculation does not carry these input fields. Retain the
+  // original evaluator identity for every outcome rather than losing its version.
+  const signal=bySignal.get(signalKey(r.system,r.symbol,r.signalDate));
+  if(!signal)throw Error('策略归因缺少对应原生信号证据');
+  windows[group].push({...r,observedThrough:signal.observedThrough,evaluatorVersion:signal.evaluatorVersion});
  }
  const stats=records=>Object.fromEntries(SYSTEMS.map(system=>{
   const items=records.filter(x=>x.system===system),done=items.filter(x=>x.outcome.status==='paper-estimate');
   const returns=done.map(x=>x.outcome.netReturnPct);
+  const evaluatorVersions=[...new Set(items.map(x=>x.evaluatorVersion))].sort();
   // Trades can overlap across symbols. Do not compound them in input/file order;
   // form an equal-weight daily paper portfolio by exit date, then calculate drawdown.
   const byExitDate=new Map();
@@ -51,8 +61,9 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
    profitFactor:losses?+(gains/losses).toFixed(4):null,
    maxDrawdownPct:dailyReturns.length?+maxDrawdownPct.toFixed(4):null,
    drawdownMethod:'按退出交易日聚合的等权纸面组合日收益；非真实资金曲线',
-   dailyPortfolioReturns:dailyReturns,
-   metricsNote:returns.length<30?'样本不足30笔，仅展示描述性统计，不作策略有效性结论':'纸面估计统计，不代表真实可成交收益'}];
+   dailyPortfolioReturns:dailyReturns,evaluatorVersions,mixedEvaluatorVersions:evaluatorVersions.length>1,
+   metricsNote:(returns.length<30?'样本不足30笔，仅展示描述性统计，不作策略有效性结论':'纸面估计统计，不代表真实可成交收益')+
+    (evaluatorVersions.length>1?'；混合评估器版本，仅为组合描述，不能作为单一版本有效性证据':'')}];
  }));
  return {schemaVersion:1,mode:'audited-strategy-evidence-replay',canTrade:false,verifiedLive:false,
   datasetFingerprint:base.datasetFingerprint,evidenceBundleFingerprint:hash(evidenceBundle),
