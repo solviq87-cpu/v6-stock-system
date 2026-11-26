@@ -59,3 +59,23 @@ test('an intraday K-line cannot become a completed daily bar merely because the 
  h.rows.at(-1).knownAt=Date.parse(day+'T15:11:00+08:00');
  assert.equal(component().value,19/20,'the row cannot be first known after its own source receipt');
 });
+test('Q refuses missing, mismatched or duplicated source identities without inventing independent votes',()=>{
+ for(const change of [
+  g=>{delete g.sourceEvidence[1].source;},
+  g=>{g.sourceEvidence[1].source='unregistered';},
+  g=>{g.sourceEvidence[1].upstreamGroup='sina';},
+  g=>{g.sourceEvidence.push({...g.sourceEvidence[1]});},
+  g=>{g.sourceEvidence.push({...g.sourceEvidence[1],source:'akshare-em-daily'});},
+  g=>{g.sourceEvidence[1].inConsensus='true';}
+ ]){
+  const g=gate();change(g);const q=decisionQuality(row(),g,{day,now,history:history(),config});
+  assert.equal(q.quality.components.find(c=>c.id==='consistency').value,null);assert.equal(q.qScore,null);assert.equal(q.canTrade,false);
+ }
+});
+test('Q rejects a diagnostic checked after the cutoff or before its own source quote',()=>{
+ for(const checkedAt of [now+1,new Date(now-1).toISOString(),null,'2026-11-25']){
+  const q=decisionQuality(row(),{...gate(),checkedAt},{day,now,history:history(),config});
+  assert.equal(q.quality.components.find(c=>c.id==='consistency').value,null);assert.equal(q.qScore,null);
+ }
+ const q=decisionQuality(row(),{...gate(),checkedAt:new Date(now).toISOString()},{day,now,history:history(),config});assert.equal(q.qScore,100);
+});

@@ -6,7 +6,8 @@ const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':
  'development-modified':'开发副本有改动','development-source-only':'源码副本，尚非安装验收','verified-local-manifest':'本地安装文件校验一致',
  'pending-real-observation':'等待真实运行积累','evidence-or-remediation-required':'需补齐证据或修复问题','ready-for-independent-review':'达到观察窗口，等待独立复核',
  'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
- 'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败'};
+ 'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败',
+ 'missing':'缺少实现或证据','blocked':'存在阻塞','observing':'观察积累中','verified':'已有核验登记','deployed':'已有部署登记'};
 const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
  symbol:'股票',eventType:'事件类型',title:'事件',revision:'修订',publishedAt:'公开时点',firstKnownAt:'首次获知',recordedAt:'保存时点',
  horizonSessions:'观察交易日',horizonDays:'持有交易日',stockReturnPct:'价格变化 %',benchmarkReturnPct:'同期市场变化 %',excessReturnPct:'市场调整差额 %',
@@ -27,7 +28,7 @@ const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'�
  sourceSnapshot:'原始封存依据',freezeTime:'冻结时间与执行边界',selected:'是否当时选择',differenceFromSelected:'与当时选择的差额',
  pendingOrders:'未终结订单数',availableCash:'可用现金',pendingBuyOrders:'未终结买单数',pendingSellOrders:'未终结卖单数',
  code:'代码状态',interface:'接口状态',realData:'真实数据状态',validation:'验证状态',deployed:'部署状态',observation:'观察状态'};
-const value=x=>x==null?'未知':typeof x==='boolean'?(x?'是':'否'):typeof x==='number'?format(x,Number.isInteger(x)?0:6):statuses[x]||String(x);
+const value=x=>x==null?'未知':typeof x==='boolean'?(x?'是':'否'):typeof x==='number'?format(x,Number.isInteger(x)?0:6):typeof x==='string'&&Object.hasOwn(statuses,x)?statuses[x]:String(x);
 function facts(rows){return h('dl',{class:'fy-facts'},rows.map(([k,v])=>h('div',{class:'fy-fact'},h('dt',{},k),h('dd',{},value(v)))));}
 function evidence(data,depth=0){
  if(data==null)return empty('尚无该项证据');
@@ -113,6 +114,60 @@ export function renderBackgroundArchive(overview){
   note('最多显示最近12个数据范围、每个最新回执的5条记录。较早版本原档案保留；本页不认证全部历史原文或真实外部发布时间。'));
 }
 
+// The original task ledger has a fixed denominator. Each positive state is
+// specific to its own axis, and even a positive declaration is not certification.
+const TASK_AXES=[['code','代码','implemented'],['interface','接线','connected'],['realData','真实数据','available'],['validation','验证','passed'],['deployed','部署','deployed'],['observation','观察','verified']];
+const TASK_PENDING=new Set(['unknown','missing','partial','failed','blocked','waiting','not-deployed','observing']);
+function taskStatus(row,key,positive){
+ const axis=row?.[key],status=axis?.status;
+ if(!Array.isArray(axis?.evidence)||!axis.evidence.some(ref=>typeof ref==='string'&&ref.trim()))return 'unknown';
+ return status===positive||TASK_PENDING.has(status)?status:'unknown';
+}
+export function summarizeTaskDelivery(entries){
+ const byId=new Map(),duplicates=new Set();let invalidRows=0;
+ for(const row of arr(entries)){
+  if(!Number.isInteger(row?.id)||row.id<1||row.id>78){invalidRows++;continue;}
+  if(byId.has(row.id))duplicates.add(row.id);else byId.set(row.id,row);
+ }
+ const rows=Array.from({length:78},(_,i)=>{
+  const id=i+1,recordState=duplicates.has(id)?'duplicate':byId.has(id)?'received':'missing';
+  const record=recordState==='received'?byId.get(id):null;
+  const statuses=Object.fromEntries(TASK_AXES.map(([key,,positive])=>[key,taskStatus(record,key,positive)]));
+  return {id,recordState,record,statuses,allPositive:TASK_AXES.every(([key,,positive])=>statuses[key]===positive),
+   blocked:Object.values(statuses).some(status=>status==='failed'||status==='blocked')};
+ });
+ const axes=TASK_AXES.map(([key,label,expected])=>{
+  const positive=rows.filter(r=>r.statuses[key]===expected).length,partial=rows.filter(r=>r.statuses[key]==='partial').length,
+   failed=rows.filter(r=>['failed','blocked'].includes(r.statuses[key])).length;
+  return {key,label,positive,partial,failed,pending:78-positive-partial-failed};
+ });
+ return {total:78,received:rows.filter(r=>r.recordState==='received').length,
+  duplicateIds:rows.filter(r=>r.recordState==='duplicate').map(r=>r.id),missingIds:rows.filter(r=>r.recordState==='missing').map(r=>r.id),
+  invalidRows,allPositive:rows.filter(r=>r.allPositive).length,axes,rows};
+}
+export function renderTaskDeliveryStatus(entries){
+ const summary=summarizeTaskDelivery(entries),list=h('div',{class:'fy-stack'}),visible=note('');
+ const choices=[['all','全部78项'],['remaining','六阶段登记未齐备'],['blocked','明确失败或阻塞'],['missing','缺失或重复编号']];
+ const filter=h('select',{'aria-label':'筛选任务交付状态',onChange:()=>draw()},choices.map(([key,label])=>h('option',{value:key},label)));
+ filter.value='all';
+ function draw(){
+  const rows=summary.rows.filter(row=>filter.value==='remaining'?!row.allPositive:filter.value==='blocked'?row.blocked:filter.value==='missing'?row.recordState!=='received':true);
+  visible.textContent=`当前显示 ${rows.length} / 78 项`;
+  list.replaceChildren(rows.length?table([{label:'编号',value:r=>String(r.id).padStart(2,'0')},{label:'任务与依据',value:r=>r.recordState==='received'?
+   h('details',{class:'fy-details'},h('summary',{},r.record.title||'沿用原任务，等待对应组证据'),evidence(r.record)):
+   r.recordState==='duplicate'?'编号重复，回执待核对':'缺少该编号回执'},
+   ...TASK_AXES.map(([key,label])=>({label,value:r=>value(r.statuses[key])}))],rows):empty('该筛选条件下没有记录','其余任务的未知状态仍然保留。'));
+ }
+ draw();
+ return section('逐项交付状态（78项）','六个阶段各自统计原台账登记；不是整体完成率，也不是正式部署或独立验收证明。',
+  facts([['收到唯一任务编号',summary.received],['缺少任务编号',summary.missingIds.length],['重复待核编号',summary.duplicateIds.length],
+   ['无效编号记录',summary.invalidRows],['六阶段均有正向登记（非验收）',summary.allPositive]]),
+  table([{label:'交付阶段',value:r=>r.label},{label:'正向登记 / 78',value:r=>r.positive},{label:'部分具备',value:r=>r.partial},
+   {label:'失败或阻塞',value:r=>r.failed},{label:'待核或未完成',value:r=>r.pending}],summary.axes),
+  h('details',{class:'fy-details'},h('summary',{},'查看78项任务明细'),h('div',{class:'fy-toolbar'},field('显示范围',filter)),visible,list),
+  note('缺失或重复编号保留在78项分母中；不明状态或没有证据的正向声明保持待核。原始证据可随完整报告导出。'));
+}
+
 export function renderDeepResearch(ctx){
  const status=note('读取现有事件、研究档案与原账户证据。'),output=h('div',{class:'fy-stack'});
  const choices=[['events','事件与预期'],['relations','关系与拥挤'],['sessions','盘口与时段'],['portfolio','组合与稳健性'],['review','对照复盘'],['acceptance','版本与运行']];
@@ -130,13 +185,11 @@ export function renderDeepResearch(ctx){
    if(!acceptance)return output.append(empty('点击“读取当前证据”核对版本与真实运行'));
    const release=acceptance.release||{},observation=acceptance.observation||{};
    output.append(facts([['安装核验',release.status],['精确提交',release.sourceSha],['双端与接口版本',release.versions?.compatible],['依赖清单',release.sbom?.status],
-    ['实际有采样交易日',observation.observedTradingDays],['完整观察交易日',observation.completeObservationDays],['长期验收',observation.longTermAccepted?'已通过':'尚未通过']]),
+    ['实际有采样交易日',observation.observedTradingDays],['完整观察交易日',observation.completeObservationDays],['长期验收',observation.longTermAccepted===true?'已通过':observation.longTermAccepted===false?'尚未通过':'待核验']]),
     table([{label:'观察窗口',value:r=>r.tradingDays+'个交易日'},{label:observation.elapsedTradingDaysComplete===true?'已到交易日':'已知交易日（范围待核）',value:r=>r.elapsedTradingDays},{label:'完整观察日',value:r=>r.completeObservationDays},
      {label:'状态',value:r=>value(r.status)},{label:'待核对',value:r=>arr(r.blockers).join('；')}],arr(observation.stages)),
     renderRuntimeObservationCoverage(observation),
-    h('details',{class:'fy-details'},h('summary',{},'逐项交付状态（78项）'),note('部分具备表示已有对应代码或局部验证，不代表整项验收；真实数据、部署及运行观察独立核对。'),table([{label:'编号',value:r=>r.id},{label:'任务与依据',value:r=>h('details',{class:'fy-details'},
-     h('summary',{},r.title||'沿用原任务，等待对应组证据'),evidence(r))},
-     ...[['code','代码'],['interface','接线'],['realData','真实数据'],['validation','验证'],['deployed','部署'],['observation','观察']].map(([key,label])=>({label,value:r=>value(r[key]?.status)}))],arr(acceptance.tasks||observation.tasks))),
+    renderTaskDeliveryStatus(acceptance.tasks??observation.tasks),
     h('details',{class:'fy-details'},h('summary',{},'逐日缺口与版本分段'),evidence({days:observation.days,versionSegments:observation.versionSegments,criteria:observation.criteria})),
     button('导出版本与运行证据',()=>exportReport(acceptance,'fayo-runtime-acceptance.json'),'secondary'));
    return;
