@@ -107,11 +107,11 @@ async function inspectPublicQuoteEndpoints({
  for(const r of results){
   if(Number.isSafeInteger(r.quoteAt)&&r.quoteAt>0)
    r.quoteAgeMs=finishedAt-r.quoteAt;
-  if(r.status!=='fresh-source-unverified')continue;
+  if(!['fresh-source-unverified','dated-snapshot'].includes(r.status))continue;
   if(r.quoteAt===null||r.quoteAt>finishedAt){
-   r.status='invalid-quote-time';
-  }else if(finishedAt<startedAt||!session(finishedAt)||
-           r.quoteAgeMs>15000){
+   // Do not retain price/time fields on a failed receipt.
+   Object.assign(r,reason('invalid-quote-time',r.httpStatus));
+  }else if(finishedAt<startedAt||!session(finishedAt)||r.quoteAgeMs>15000){
    r.status='dated-snapshot';
   }
  }

@@ -305,3 +305,43 @@ test('both npm entry points invoke the existing read-only readiness CLI',()=>{
   assert.equal(report.canTrade,false);
  }
 });
+
+test('all registered routes keep static adapter, actual attempt, successful data and business execution phases separate',()=>{
+ const r=audit({asOf:NOW}),s=r.summary,byId=new Map(r.routes.map(x=>[x.id,x]));
+ assert.equal(s.registeredRoutes,122);assert.equal(new Set(r.routes.map(x=>x.id)).size,122);
+ assert.equal(s.candidateRegistrationOnlyRoutes,99);assert.equal(s.namedAdapterCodeReviewedRoutes,18);
+ assert.equal(s.genericGatewayContractRoutes,2);assert.equal(s.manualImportContractRoutes,3);
+ assert.equal(s.namedAdapterNotReviewedRoutes,0);assert.equal(s.staticBusinessAnalysisPathRoutes,4);
+ assert.equal(s.businessAnalysisExecutionRoutesVerified,0);assert.equal(s.productionActiveSourcesVerified,0);
+ assert.equal(byId.get('itick').integration.staticWiringScope,'conditional-diagnostic-only');
+ assert.equal(byId.get('ecb-fx-daily').integration.adapterStage,'candidate-registration-only');
+ assert.equal(byId.get('ecb').integration.staticWiringScope,'manual-background-archive');
+ assert.ok(r.routes.every(x=>x.phases.businessAnalysis==='unknown'&&x.integration.businessAnalysisExecutionVerified===null&&x.phases.actualCall==='unknown'));
+ const q=audit({asOf:NOW,snapshot:snapshot()});
+ assert.equal(q.routes.find(x=>x.id==='tencent').phases.actualCall,'attempt-reported');
+ assert.equal(q.routes.find(x=>x.id==='tencent').phases.dataReturn,'quote-returned-unverified');
+ assert.equal(q.routes.find(x=>x.id==='tencent').phases.businessAnalysis,'unknown');
+ assert.equal(q.routes.find(x=>x.id==='sina').phases.dataReturn,'no-usable-quote');
+ assert.equal(q.routes.find(x=>x.id==='easyquotation-sina').phases.actualCall,'unknown');
+});
+test('all failure families require compatible HTTP status and never accept contradictory source or symbol',()=>{
+ const fail={provider:'tencent',status:'timeout',httpStatus:null,quoteAt:null,quoteAgeMs:null,price:null,previousClose:null,elapsedMs:10};
+ for(const [status,httpStatus] of [['timeout',200],['transport-error',500],['redirect-refused',200],['redirect-refused',403],['invalid-response',403],['response-too-large',null],['invalid-quote',404],['invalid-quote-time',429],['http-error',401],['http-error',403],['http-error',429]]){
+  const s=snapshot();s.providers=[{...fail,status,httpStatus}];assert.throws(()=>audit({asOf:NOW,snapshot:s}),/HTTP/);
+ }
+ for(const patch of [{upstreamGroup:'eastmoney'},{code:'000001'},{source:'sina'},{quoteSource:'efinance'},{id:'sina'},{symbol:'000001'},{canTrade:true},{verifiedLive:true},{fixture:true}]){
+  const s=snapshot();s.providers=[{...fresh('tencent'),...patch}];assert.throws(()=>audit({asOf:NOW,snapshot:s}),/身份/);
+ }
+ for(const [status,httpStatus] of [['timeout',null],['transport-error',null],['redirect-refused',null],['redirect-refused',302],['invalid-response',204],['invalid-quote',200],['http-error',500],['access-denied',403],['rate-limited',429]]){
+  const s=snapshot();s.providers=[{...fail,status,httpStatus}];const r=audit({asOf:NOW,snapshot:s});
+  assert.equal(r.summary.attemptedExactRoutes,1);assert.equal(r.summary.successfulQuoteObservations,0);
+ }
+});
+test('regressed publication may retain a dated quote for diagnosis but must not count successful acquisition',()=>{
+ const s=snapshot();s.status='clock-regressed';s.finishedAt=iso(NOW-2000);
+ s.providers=[{...fresh('tencent'),status:'dated-snapshot',quoteAt:NOW-3000,quoteAgeMs:1000}];
+ const r=audit({asOf:NOW,snapshot:s});assert.equal(r.summary.attemptedExactRoutes,1);
+ assert.equal(r.summary.successfulQuoteObservations,0);assert.equal(r.summary.recentQuotesAtAudit,0);
+ assert.equal(r.routes.find(x=>x.id==='tencent').lastProbeStatus,'dated-snapshot');
+ assert.equal(r.routes.find(x=>x.id==='tencent').observationState,'clock-regressed');
+});
