@@ -61,6 +61,22 @@ function currentDecisionAllows(plan,card) {
     card.quoteBasis?.source===plan.decisionEvidence.quoteBasis?.source&&finite(card.plan?.positionPct)&&card.plan.positionPct>0;
 }
 
+// A direct user confirmation may reuse the exact original observation that
+// formed the frozen decision, if the current server decision still binds it.
+// This is not a post-freeze trigger. Conditional monitoring keeps its separate
+// post-freeze sampling gate; no quote timestamp is refreshed or synthesized.
+function matchesFrozenConfirmationQuote(plan,card,quote,quoteAt,now){
+  const frozen=plan.decisionEvidence,mode=quote.mode??quote.quoteMode,receivedAt=quote.receivedAt;
+  const matches=basis=>basis?.code===plan.code&&basis.price===quote.price&&
+    basis.quoteAt===quoteAt&&basis.receivedAt===receivedAt&&basis.source===quote.quoteSource&&basis.mode===mode;
+  return quote.symbol===plan.code&&typeof quote.quoteSource==='string'&&quote.quoteSource.trim()!==''&&
+    typeof mode==='string'&&mode.trim()!==''&&Number.isSafeInteger(receivedAt)&&
+    receivedAt>=quoteAt&&receivedAt<=Date.parse(plan.frozenAt)&&
+    Number.isSafeInteger(frozen.calculatedAt)&&frozen.calculatedAt>=receivedAt&&frozen.calculatedAt<=Date.parse(plan.frozenAt)&&
+    Number.isSafeInteger(card.calculatedAt)&&card.calculatedAt>=receivedAt&&card.calculatedAt<=now&&
+    matches(frozen.quoteBasis)&&matches(card.quoteBasis);
+}
+
 function planFill(book, planId) {
   // The account service verifies these event hashes before returning the book.
   for (const period of [...(book?.archives || []), book].filter(Boolean)) {
@@ -99,7 +115,8 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   const quoteAt = quote.quoteAt ?? quote.timestamp;
   if (!Number.isSafeInteger(quoteAt) || quoteAt <= 0 || quoteAt > now || now-quoteAt > 15000 ||
       aShareCalendarDate(quoteAt) !== day || quoteAt < window[0] ||
-      quoteAt < Date.parse(plan.frozenAt)) throw Error('原始报价过期、缺失、早于冻结计划或不在当前连续竞价时段');
+      quoteAt < Date.parse(plan.frozenAt)&&!matchesFrozenConfirmationQuote(plan,authoritative,quote,quoteAt,now))
+    throw Error('原始报价过期、缺失、早于冻结计划或不在当前连续竞价时段');
   const quoteView=require('./quote-observation-view');
   if (!quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView(quote,now).missingReason==='conflicting-quote-evidence' ||
       quote.provider!=null&&quote.quoteSource!=null&&quote.provider!==quote.quoteSource ||
