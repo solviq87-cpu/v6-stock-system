@@ -127,9 +127,13 @@ function klineObservation(snapshot,rows,{targetDate='',cacheLayer='unknown',cach
  const source=typeof snapshot?.src==='string'?snapshot.src:typeof snapshot?.source==='string'?snapshot.source:null;
  const receivedAt=Number.isSafeInteger(snapshot?.receivedAt)&&snapshot.receivedAt>0?snapshot.receivedAt:null;
  const future=date&&date>new Date(now+28800000).toISOString().slice(0,10);
+ const finality=date?require('./a-share-calendar').assessDailyBarFinality(date,{observedAt:receivedAt,now}):null;
+ const metadataValid=require('./kline-source-continuity').dailyKlineMetadataValid(snapshot);
+ const learningEligible=!!(finality?.usable&&receivedAt!==null&&metadataValid&&source&&snapshot?.adjust==='qfq'&&!future);
  const missingReason=!last?'missing-bars':!source?'missing-source':!date?'missing-bar-date':future?'future-bar-date':receivedAt>now?'future-received-time':targetDate&&date<targetDate?'source-behind-target':null;
  return {source,quoteAt:null,receivedAt,tradeDate:date,mode:'historical-bars',frequency:'1d',
-   priceBasis:snapshot?.adjust||snapshot?.adjustment||'unverified',cacheLayer,
+   priceBasis:snapshot?.adjust||snapshot?.adjustment||snapshot?.priceBasis||'unverified',cacheLayer,
+   dailyFinality:finality?.status??'unknown',dailyBarFinalityUsable:finality?.usable===true,learningEligible,
    cacheAt:Number.isFinite(cacheAt)&&cacheAt>0?cacheAt:null,lastAttemptAt:Number.isFinite(lastAttemptAt)&&lastAttemptAt>0?lastAttemptAt:null,targetDate:targetDate||null,
    freshness:!last||!source||!date?'unknown':future||receivedAt>now?'future':targetDate&&date<targetDate?'source-lagging':'dated-bars',missingReason,
    canTrade:false,canNotify:false,verifiedLive:false};

@@ -7080,7 +7080,7 @@ async function klineRows(code) {
     if(typeof _klineReadMeta!=='undefined'){
       if(_klineReadMeta.size>1500)_klineReadMeta.clear();
       _klineReadMeta.set(code,{snapshot:{src:snapshot?.src,source:snapshot?.source,
-        adjust:snapshot?.adjust,adjustment:snapshot?.adjustment,receivedAt:snapshot?.receivedAt},cacheLayer,cacheAt,lastAttemptAt,targetDate:target});
+        adjust:snapshot?.adjust,adjustment:snapshot?.adjustment,priceBasis:snapshot?.priceBasis,frequency:snapshot?.frequency,period:snapshot?.period,receivedAt:snapshot?.receivedAt},cacheLayer,cacheAt,lastAttemptAt,targetDate:target});
     }
     return rows;
   };
@@ -7089,19 +7089,32 @@ async function klineRows(code) {
   //   缓存末行日期==今天 → 三级兜底永远判「已最新」直接返回，这一行盘中价被复盘/审计当成收盘价。
   //   规则：末行是今天 + 现在已过 15:05 + 这份缓存是 15:00 前写的 → 不算定稿，继续往下走（磁盘/回源）。
   //   写成**局部**函数（不引顶层符号）：多个套件用 new Function 注入本函数体，顶层新符号会缺。
-  const _settled = (rows, writtenAt) => {
-    if (klineLastDate(rows) !== target) return true;     // 末行不是今天：定稿与否无关
-    const now = new Date();
-    if (now.getHours() * 60 + now.getMinutes() < 15 * 60 + 5) return true;   // 盘中/刚收盘：当日行本就该是实时值
-    const cut = new Date(now); cut.setHours(15, 0, 0, 0);
-    return (Number(writtenAt) || 0) >= cut.getTime();
+  const valid = k => {
+    if(!k||!Array.isArray(k.rows)||!k.rows.length)return false;
+    const basis=[k.adjust,k.adjustment,k.priceBasis].filter(v=>v!=null);
+    const expected=/^[01]\.\d{6}$/.test(code)?['qfq','unadjusted']:['qfq'];
+    if(basis.some(v=>!expected.includes(v))||new Set(basis).size>1||
+      [k.frequency,k.period].filter(v=>v!=null).some(v=>!['1d','day','daily','日K','101',101].includes(v)))return false;
+    const now=Date.now(),today=new Date(now+28800000).toISOString().slice(0,10);
+    if(k.receivedAt!=null&&(!Number.isSafeInteger(k.receivedAt)||k.receivedAt<=0||k.receivedAt>now))return false;
+    return k.rows.every((row,i)=>row&&typeof row.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&
+      Number.isFinite(Date.parse(row.date+'T00:00:00Z'))&&new Date(row.date+'T00:00:00Z').toISOString().slice(0,10)===row.date&&
+      row.date<=target&&row.date<=today&&(!i||row.date>k.rows[i-1].date)&&
+      typeof row.close==='number'&&Number.isFinite(row.close)&&row.close>0);
   };
-  const mem = S.klines.get(code);
+  const _settled = (rows, originalAt) => {
+    const last=klineLastDate(rows),now=Date.now(),china=new Date(now+28800000),today=china.toISOString().slice(0,10);
+    if(last===today&&china.getUTCHours()*60+china.getUTCMinutes()<15*60+10)return true;
+    if(!Number.isSafeInteger(originalAt)||originalAt<=0||originalAt>now)return false;
+    const observed=new Date(originalAt+28800000),day=observed.toISOString().slice(0,10);
+    return day>last||day===last&&observed.getUTCHours()*60+observed.getUTCMinutes()>=15*60+10;
+  };
+  const memoryCandidate=S.klines.get(code),mem=valid(memoryCandidate)?memoryCandidate:null;
   // ① 内存层：最新交易日以内且当日行已定稿即可返回；交易时段内超过节流时长则回落回源保持盘中实时
   if (mem && mem.rows && mem.rows.length) {
     const ld = klineLastDate(mem.rows);
-    if (ld >= target && _settled(mem.rows, _klineAt.get(code) || 0)) {
-      const age = Date.now() - (_klineAt.get(code) || 0);
+    if (ld === target && _settled(mem.rows, mem.receivedAt)) {
+      const age = Date.now() - (mem.receivedAt || 0);
       if (!isMarketOpenNow() || age < KLINE_INTRADAY_TTL) return read(mem.rows,mem,'memory',_klineAt.get(code)||null);
     }
   }
@@ -7110,11 +7123,11 @@ async function klineRows(code) {
   let disk = null,diskAt=null;
   try {
     const k = JSON.parse(fs.readFileSync(cf, 'utf8'));
-    if (k && k.rows && k.rows.length) {
+    if (valid(k)) {
       disk = k;
       let mt = 0; try { mt = fs.statSync(cf).mtimeMs; } catch {}
       diskAt=mt||null;
-      if (klineLastDate(k.rows) >= target && _settled(k.rows, mt)) { klineSet(code, k); return read(k.rows,k,'disk',mt||null); }
+      if (klineLastDate(k.rows) === target && _settled(k.rows, k.receivedAt)) { klineSet(code, k); return read(k.rows,k,'disk',mt||null); }
     }
   } catch {}
   // ③ 当天已回源但源无更优数据（周末/节假日/源滞后）：直接返回缓存，不空转
@@ -7129,21 +7142,24 @@ async function klineRows(code) {
   // ④ 回源取数
   try {
     const k = await em.fetchKline(code, 30);
-    if (k && k.rows && k.rows.length) {
+    if (valid(k)) {
       const ld = klineLastDate(k.rows);
       const curBest = (mem && mem.rows && mem.rows.length) ? mem.rows : (disk ? disk.rows : null);
       const curLast = klineLastDate(curBest);
-      if (ld >= target) {                      // 取到最新交易日 → 落盘并返回
+      if (ld === target && _settled(k.rows,k.receivedAt)) {                      // 取到最新交易日 → 落盘并返回
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.delete(code);
         return read(k.rows,k,'source',k.receivedAt||null);
       }
-      if (ld > curLast) {                      // 比缓存新但仍非最新（源滞后）→ 升级缓存，标记当天失败
+      if (ld > curLast && _settled(k.rows,k.receivedAt)) {                      // 比缓存新但仍非最新（源滞后）→ 升级缓存，标记当天失败
         klineSet(code, k);
         try { fs.writeFileSync(cf, JSON.stringify(k)); } catch (e) { _klineWriteErr(code, e); }
         _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });
         return read(k.rows,k,'source-lagging',k.receivedAt||null);
+      }
+      if(ld===target&&!_settled(k.rows,k.receivedAt)&&!curBest){
+        return read(k.rows,k,'unsettled-source-display',k.receivedAt||null,Date.now());
       }
       _klineFreshGate.set(code, { date: target, failed: true, at: Date.now() });   // 源返回不比缓存新 → 不降级，标记当天失败
       return read(curBest||k.rows,curBest?(mem||disk):k,'held-source-not-newer',_klineAt.get(code)||diskAt,Date.now());
