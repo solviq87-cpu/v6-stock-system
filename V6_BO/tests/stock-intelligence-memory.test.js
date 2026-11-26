@@ -244,3 +244,24 @@ test('v2 missing limit evidence may mature later without rewriting an existing d
  appendSnapshot(root,{stock:next.stock,decisionAt:clock});
  assert.deepEqual(readStockMemory(root,'600001').frozenPredictionOutcomes,after.frozenPredictionOutcomes);
 }));
+
+test('v2 recovered limit scores select the earliest complete receipt across duplicate forecasts',t=>temp(root=>{
+ const f=fixture(),firstForecast=analyze(f);let clock=f.asOf;t.mock.method(Date,'now',()=>clock);
+ appendSnapshot(root,{stock:f.stock,forecast:firstForecast,decisionAt:clock});
+ const second=structuredClone(f);clock+=1000;
+ const entry=second.stock.bars.at(-1);entry.close+=.05;entry.high=Math.max(entry.high,entry.close+.01);
+ second.stock.observedAt=clock;
+ const secondForecast=analyze(second,{asOf:clock});
+ assert.ok(Number.isFinite(secondForecast.limitUp.probability));
+ appendSnapshot(root,{stock:second.stock,forecast:secondForecast,decisionAt:clock});
+ const next=fixture(131),partial=structuredClone(next);delete partial.stock.bars.at(-1).limitKnownAt;
+ clock=partial.asOf;appendSnapshot(root,{stock:partial.stock,decisionAt:clock});
+ assert.equal(readStockMemory(root,'600001').newProtocolForwardValidation.limitUp.evaluated,0);
+ const complete=structuredClone(next);clock+=1000;complete.stock.observedAt=clock;
+ const label=complete.stock.bars.at(-1);label.limitReferencePrice=entry.close;label.limitUpPrice=+(entry.close*1.1).toFixed(2);
+ appendSnapshot(root,{stock:complete.stock,decisionAt:clock});
+ const frozen=readStockMemory(root,'600001').frozenPredictionOutcomes;
+ const scored=frozen.find(o=>o.kind==='limitUp');assert.equal(scored.revision,2);assert.equal(scored.labelRevision,4);
+ clock+=1000;next.stock.observedAt=clock;appendSnapshot(root,{stock:next.stock,decisionAt:clock});
+ assert.deepEqual(readStockMemory(root,'600001').frozenPredictionOutcomes,frozen);
+}));

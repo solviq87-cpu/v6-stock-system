@@ -108,7 +108,7 @@ function readEvents(root,symbol){
  });
 }
 function frozenOutcomes(events,asOf){
- const outcomes=[],scoredTargets=new Set(),pendingLimits=[];
+ const outcomes=[],scoredTargets=new Set(),pendingLimits=[],recoveredLimits=new Map();
  // Preserve the existing first-outcome scores. A second pass can fill only
  // an unresolved v2 limit label, without replacing any previously scored target.
  for(const recoverMissingLimit of [false,true])for(const frozen of recoverMissingLimit?pendingLimits:events){
@@ -136,20 +136,30 @@ function frozenOutcomes(events,asOf){
    // to v2 evidence or used by analyzeStockHistory's current training path.
    const eligible=b&&(legacy?(b.volume>0&&b.suspended===false&&b.tradable===true&&b.isST===false&&finite(stamp(b.statusKnownAt))&&stamp(b.statusKnownAt)<=Math.min(asOf,closeAt(b.date))&&b.corporateAction===false):tradable(b,Math.min(asOf,later.decisionAt,observed)));
    if(!b||!finite(known)||!finite(observed)||known>observed||known<=frozen.decisionAt||known>later.decisionAt||known>asOf||stamp(b.knownAt)<closeAt(b.date)||!eligible)continue;
+   let recoveredHere=false;
    for(const kind of recoverMissingLimit?['limitUp']:['direction','limitUp']){
     const p=f[kind]?.probability,y=kind==='direction'?(b.close>entry.close?1:0):limitLabel(b,later.stock.priceBasis,entry.close);
     const key=targetKey(kind);
     if(!legacy&&!recoverMissingLimit&&kind==='limitUp'&&finite(p)&&y===null&&!scoredTargets.has(key))pendingLimits.push(frozen);
     // Re-saving context or correcting the same forecast is not a new outcome.
     // Keep every revision, but score the first frozen prediction once per target.
-    if(finite(p)&&y!==null&&!scoredTargets.has(key)){scoredTargets.add(key);outcomes.push({revision:frozen.revision,labelRevision:later.revision,kind,targetDate:b.date,probability:p,outcome:y,brier:(p-y)**2,knownAt:known,featureVersion:f.featureVersion,evidenceProtocol:legacy?'legacy-v1-action-clock-unproven':'post-close-research-v2',legacyEvidenceUnproven:legacy,researchOnly:true,canTrade:false});}
+    if(finite(p)&&y!==null&&!scoredTargets.has(key)){
+     const record={revision:frozen.revision,labelRevision:later.revision,kind,targetDate:b.date,probability:p,outcome:y,brier:(p-y)**2,knownAt:known,featureVersion:f.featureVersion,evidenceProtocol:legacy?'legacy-v1-action-clock-unproven':'post-close-research-v2',legacyEvidenceUnproven:legacy,researchOnly:true,canTrade:false};
+     if(recoverMissingLimit){
+      // Choose the earliest complete local receipt across unresolved forecasts,
+      // then the first frozen revision. A later correction cannot take its place.
+      const prior=recoveredLimits.get(key);
+      if(!prior||record.labelRevision<prior.labelRevision||record.labelRevision===prior.labelRevision&&record.revision<prior.revision)recoveredLimits.set(key,record);
+      recoveredHere=true;
+     }else{scoredTargets.add(key);outcomes.push(record);}
+    }
    }
    // Preserve the first eligible outcome for existing scores. Only an
    // as-yet-unscored v2 limit label can use a later complete receipt.
-   if(!recoverMissingLimit||scoredTargets.has(targetKey('limitUp')))break;
+   if(!recoverMissingLimit||recoveredHere)break;
   }
  }
- return outcomes;
+ return outcomes.concat([...recoveredLimits.values()].sort((a,b)=>a.labelRevision-b.labelRevision||a.revision-b.revision));
 }
 function readStockMemory(root,symbol,{asOf=Date.now(),limit=100}={}){
  if(!Number.isSafeInteger(asOf)||asOf<=0||!Number.isSafeInteger(limit)||limit<1||limit>MAX_EVENTS)throw Error('历史查询上限或时间无效');
