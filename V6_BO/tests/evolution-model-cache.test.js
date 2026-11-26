@@ -13,6 +13,8 @@ test('model diagnosis binds original visible numeric inputs, not later archive r
   result:{status:'not-evaluated',reason:'原档案尚无成熟样本'}}};
  const read=state=>E.buildEvolutionReport({archive:state,events:[diagnostic],code:'600001',asOf});
  assert.equal((await read(archive)).sources.diagnosticRecord,diagnostic.hash);
+ const oldImplementation=structuredClone(diagnostic);oldImplementation.data.implementationFingerprint='0'.repeat(64);
+ assert.equal((await E.buildEvolutionReport({archive,events:[oldImplementation],code:'600001',asOf})).sources.diagnosticRecord,null,'a different implementation cannot reuse the old diagnosis');
  const future=structuredClone(archive);future.revision=900;future.checks.push({id:'late',code:'600001',createdAt:asOf+1,asOf:asOf+1});
  assert.equal((await read(future)).sources.diagnosticRecord,diagnostic.hash);
  assert.equal((await read(future)).sources.modelInputsFingerprint,base.sources.modelInputsFingerprint);

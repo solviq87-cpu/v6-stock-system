@@ -67,3 +67,17 @@ test('real diagnosis worker preserves request conflicts and final authorization 
  assert.equal(fs.readFileSync(path.join(workspaceRoot,'000001.json'),'utf8'),before);assert.equal(store.readEvents(workspaceRoot).length,1);
  assert.equal(fs.existsSync(root),false);
 });
+
+test('real diagnosis worker refuses an old implementation receipt on same-request replay and preserves valid idempotency',{timeout:15000},async t=>{
+ const base=storage(t),root=path.join(base,'archive'),workspaceRoot=path.join(base,'workspace');
+ const commandFingerprint=require('node:crypto').createHash('sha256').update(JSON.stringify({symbol:'600001',asOf:null,horizon:'5'})).digest('hex');
+ const version=require('../src/core/evolution-diagnostic-version').diagnosticImplementationFingerprint();
+ for(const [requestId,implementationFingerprint] of [['old-version-diagnostic-001','0'.repeat(64)],['current-version-diagnostic-001',version]]){
+  store.appendEvent(workspaceRoot,'diagnostic',{protocol:'evolution-diagnostics-v1',commandFingerprint,implementationFingerprint,result:{status:'not-evaluated'}},{requestId,now:Date.now()});
+ }
+ const before=store.readEvents(workspaceRoot),old=await runWorkspaceJob(diagnosticCommand(root,workspaceRoot,'old-version-diagnostic-001'),{authorize:()=>true});
+ assert.equal(old.ok,false);assert.equal(old.httpStatus,422);assert.equal(old.error,'诊断实现版本不可核验，不能复用或保存旧诊断');
+ const current=await runWorkspaceJob(diagnosticCommand(root,workspaceRoot,'current-version-diagnostic-001'),{authorize:()=>true});
+ assert.equal(current.ok,true,JSON.stringify(current));assert.equal(current.reused,true);
+ assert.deepEqual(store.readEvents(workspaceRoot),before);assert.equal(fs.existsSync(root),false);
+});
