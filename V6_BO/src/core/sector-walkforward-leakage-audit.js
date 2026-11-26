@@ -40,10 +40,11 @@ function assertFrozen(f,asOf){
   f.prospectiveCertified!==false||
   f.canTrain!==false||f.canTrade!==false||f.weightsChanged!==false||
   f.outOfSampleValidated!==false||f.labelsAvailable!==false||
-  f.netReturnsAvailable!==false||
+  f.netReturnsAvailable!==false||f.verifiedLive!==false||
+  f.canNotify!==false||f.autoPromotion!==false||
   !Array.isArray(f.sectors)||f.sectors.length<3||f.sectors.length>300)
   return false;
- const seen=new Set();
+ const seen=new Set(),baselines=new Map();
  for(const s of f.sectors){
   if(!['industry','concept'].includes(s?.category)||
    typeof s.code!=='string'||!/^[A-Za-z0-9_-]{2,30}$/.test(s.code)||
@@ -53,7 +54,7 @@ function assertFrozen(f,asOf){
    !numeric(s.baselinePriceCoveragePct)||s.baselinePriceCoveragePct<0||
    s.baselinePriceCoveragePct>100)return false;
   seen.add(identity(s));
-  const symbols=new Set();
+  const symbols=new Set();let baselineCount=0;
   for(const m of s.members){
    if(!m||typeof m.symbol!=='string'||!/^\d{6}$/.test(m.symbol)||
     symbols.has(m.symbol)||((m.baselinePrice===null)!==(m.baselineQuoteAt===null))||
@@ -62,7 +63,15 @@ function assertFrozen(f,asOf){
       m.baselineQuoteAt>f.observedAt||f.observedAt-m.baselineQuoteAt>300000||
       aShareCalendarDate(m.baselineQuoteAt)!==f.tradeDate)))return false;
    symbols.add(m.symbol);
+   if(m.baselinePrice!==null)baselineCount++;
+   // One frozen market snapshot supplies all sectors. Overlapping membership
+   // is legitimate, but cannot provide two different baselines for one stock.
+   const prior=baselines.get(m.symbol);
+   if(prior&&(prior.baselinePrice!==m.baselinePrice||prior.baselineQuoteAt!==m.baselineQuoteAt))return false;
+   if(!prior)baselines.set(m.symbol,m);
   }
+  // Reproduce the original freezer's exact three-decimal coverage rule.
+  if(s.baselinePriceCoveragePct!==Number((100*baselineCount/s.members.length).toFixed(3)))return false;
  }
  return true;
 }
@@ -107,7 +116,8 @@ function inspectObservation(f,r,calendar,asOf){
    if(s.status==='descriptive-raw-price-observed-unverified'){
     if(!numeric(s.grossRawPriceReturnPct)||s.grossRawPriceReturnPct< -90||
       s.grossRawPriceReturnPct>500||
-      s.observedMembers!==original.members.length)return false;
+      s.observedMembers!==original.members.length||
+      original.members.some(m=>m.baselinePrice===null))return false;
     count++;
    }else if(s.status!=='unknown'||s.grossRawPriceReturnPct!==null||
      s.observedMembers!==0)return false;
