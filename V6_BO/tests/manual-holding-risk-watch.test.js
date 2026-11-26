@@ -121,3 +121,44 @@ test('private on-disk watch is read-only, rejects symlinks, and forgets invalid/
   assert.ok(!JSON.stringify(gone).includes(file));
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('all original negative provenance flags and both mode aliases block manual loss observations',()=>{
+ for(const patch of [{fixture:true},{mock:true},{synthetic:true},{imported:true},
+  {mode:'backtest'},{quoteMode:'research-only'},{quoteMode:'public-live-unverified',mode:'synthetic'},
+  {quoteMode:'cached'},{mode:{}},{receivedAt:'invalid'},{receivedAt:0}]){
+  const data=input();Object.assign(data.quotes[0],patch);
+  const r=evaluate(data,{now});
+  assert.equal(r.positions[0].price,null,JSON.stringify(patch));
+  assert.equal(r.positions[0].drawdownFromCostPct,null);
+  assert.ok(!r.alerts.some(a=>a.id==='600001:cost-loss'));
+  assert.ok(r.alerts.some(a=>a.id==='600001:concentration'));
+ }
+});
+
+test('negative provenance on the secondary quote cannot manufacture agreement or a conflict',()=>{
+ for(const patch of [{fixture:true},{mock:true},{synthetic:true},{imported:true},
+  {quoteMode:'historical'},{mode:'backtest'},{receivedAt:'invalid'}]){
+  const data=input();data.crossCheckQuotes=[{symbol:'600001',price:10,quoteAt:now-1000,quoteSource:'tencent',...patch}];
+  const r=evaluate(data,{now});
+  assert.equal(r.positions[0].crossCheckStatus,'secondary-unusable',JSON.stringify(patch));
+  assert.equal(r.positions[0].price,8.8);
+  assert.equal(r.counts.conflictingQuotes,0);
+ }
+});
+
+test('legacy manual quotes and explicit read-only permission stay observable without gaining authorization',()=>{
+ for(const patch of [{},{canTrade:false,canNotify:false},{quoteMode:'public-readonly',receivedAt:now}]){
+  const data=input();Object.assign(data.quotes[0],patch);
+  const r=evaluate(data,{now});
+  assert.equal(r.positions[0].price,8.8);
+  assert.equal(r.canTrade,false);assert.equal(r.canNotify,false);
+ }
+});
+
+test('rounded display percentages do not trigger or escalate loss thresholds prematurely',()=>{
+ for(const [price,severity] of [[9.2001,null],[9.2,'warning'],[8.5001,'warning'],[8.5,'critical']]){
+  const data=input();data.quotes[0].price=price;
+  const r=evaluate(data,{now});
+  assert.equal(r.alerts.find(a=>a.id==='600001:cost-loss')?.severity??null,severity,String(price));
+ }
+});

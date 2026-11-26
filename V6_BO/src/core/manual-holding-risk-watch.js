@@ -4,7 +4,7 @@
  * market-data consumer, or a trade/notification engine. Never mix a quote's
  * receive time with its provider-reported quoteAt.
  */
-const {quoteObservationView}=require('./quote-observation-view');
+const {quoteObservationView,quoteSourceAllowsUse}=require('./quote-observation-view');
 const fs=require('node:fs');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const chinaDay=ms=>new Date(ms+8*3600000).toISOString().slice(0,10);
@@ -49,8 +49,14 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
   const source=typeof q?.quoteSource==='string'?q.quoteSource.trim():'';
   return view.quoteStatus==='recent-unverified'&&
    chinaDay(view.quoteAt)===chinaDay(now)&&
-   !fakeSource.test(source)&&q?.proxy!==true&&q?.simulated!==true&&
-   q?.suspended!==true&&q?.tradable!==false&&q?.readOnlyBackup!==true;
+   !fakeSource.test(source)&&q?.proxy!==true&&
+   // Reuse the original negative provenance gates, but do not require
+   // execution permission for a manual, read-only observation.
+   quoteSourceAllowsUse({...q,canTrade:undefined})&&
+   ![q.quoteMode,q.mode].some(mode=>typeof mode==='string'&&fakeSource.test(mode))&&
+   // Legacy manual inputs omit reception time; an explicitly malformed
+   // reception time must not be silently treated as missing.
+   (q.receivedAt==null||view.receivedAt!==null);
  };
  const alerts=[],out=[];
  for(const p of positions){
@@ -77,8 +83,10 @@ function evaluateManualHoldingRisks(input,{now=Date.now()}={}){
   const status=conflict?'source-conflict':
    finalValid?'recent-provider-unverified':q?'quote-unusable':'quote-missing';
   const details=[];
-  if(change!==null&&change<=-8){
-   const severe=change<=-15;
+  // Display rounding is not a risk trigger. Compare the original price
+  // against the unrounded fixed cost thresholds.
+  if(finalValid&&price<=p.cost*0.92){
+   const severe=price<=p.cost*0.85;
    const key=p.symbol+':cost-loss';
    const row={id:key,symbol:p.symbol,code:severe?'loss-critical':'loss-warning',
     severity:severe?'critical':'warning',
