@@ -18,17 +18,33 @@ function phaseAt(at){
 
 function createFastStockMoves(){
  const history=new Map(),recent=new Map(),sessions=new Map();
- let day='';
+ let day='',lastCheckedAt=null;
  function observe(codes,rows,now,{startedAt=now,failed=false}={}){
   const phase=phaseAt(now),tradeDate=aShareCalendarDate(now),observations=new Map(),seen=new Set(),duplicates=new Set();
   const requested=new Set(codes),items=[];
-  if(day!==tradeDate){recent.clear();sessions.clear();day=tradeDate;}
+  // A regressed local clock cannot retain observations or counts from its future.
+  if(day!==tradeDate||lastCheckedAt!==null&&now<lastCheckedAt){
+   history.clear();recent.clear();sessions.clear();day=tradeDate;
+  }
+  lastCheckedAt=now;
   let comparable=0;
   if(phase)for(const row of rows){
    if(!requested.has(row?.code))continue;
+   const proof=quoteUseEligibility(row,now);
+   // An exact-source correction to either endpoint invalidates that clue.
+   // Inspect even duplicate rows; ordinary missing/failed data or another
+   // supplier's quote does not retroactively disprove a recorded observation.
+   const contradicted=(at,price)=>row.quoteAt===at&&
+    (proof.missingReason==='conflicting-quote-evidence'||proof.canNotify&&row.price!==price);
+   const prior=recent.get(row.code),window=history.get(row.code);
+   if(prior&&prior.quoteSource===row.quoteSource&&
+      (contradicted(prior.quoteAt,prior.price)||contradicted(prior.baseAt,prior.basePrice))){
+    recent.delete(row.code);history.delete(row.code);
+   }else if(window&&window.source===row.quoteSource&&window.points.some(p=>contradicted(p.at,p.price))){
+    history.delete(row.code);
+   }
    if(seen.has(row.code)){duplicates.add(row.code);continue;}
    seen.add(row.code);
-   const proof=quoteUseEligibility(row,now);
    if(proof.canNotify&&proof.tradeDate===tradeDate&&phaseAt(proof.quoteAt)===phase)observations.set(row.code,row);
   }
   for(const code of duplicates)observations.delete(code);
