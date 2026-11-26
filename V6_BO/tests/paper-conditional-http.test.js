@@ -75,6 +75,13 @@ async function prepare(f){
   assert.equal(prepared.body.ok,true,JSON.stringify(prepared.body));return prepared.body.plan;
 }
 const queue=(f,planId,requestId='http-conditional-001',token=f.token)=>f.request('/api/paper','POST',{action:'queuePlan',account:'pool',planId,requestId},token);
+// The condition must see a new provider observation after the frozen plan.
+// Keep the initial pre-freeze quote in the fixture to exercise the rejection.
+async function refreshAfterFreeze(f,plan,price=10.4){
+  const now=Math.max(Number(fs.readFileSync(f.clockFile,'utf8')),Date.parse(plan.frozenAt)+2000);
+  fs.writeFileSync(f.clockFile,String(now));
+  const updated=await f.request('/__fixture/quote','POST',{price});assert.equal(updated.body.ok,true);
+}
 
 test('real HTTP queue is private, read-only until explicitly created, and the background adapter commits once through the original ledger',{timeout:45000},async t=>{
   const f=await fixture(t),before=fs.readFileSync(f.book);
@@ -94,6 +101,10 @@ test('real HTTP queue is private, read-only until explicitly created, and the ba
   assert.equal(fs.readFileSync(f.queueFile,'utf8').includes(f.token),false,'no reusable bearer credential on disk');
   fs.writeFileSync(f.clockFile,String(start+1000));
   const retry=await queue(f,plan.id);assert.equal(retry.body.ok,true,JSON.stringify(retry.body));assert.equal(retry.body.order.id,created.body.order.id);
+  const preFreeze=await f.request('/__fixture/conditional-tick');assert.equal(preFreeze.body.ok,true);
+  assert.equal(preFreeze.body.result.orders[0].status,'pending');assert.match(preFreeze.body.result.orders[0].lastReason,/完整报价/);
+  assert.deepEqual(fs.readFileSync(f.book),before,'a fresh but pre-freeze price cannot trigger an order');
+  await refreshAfterFreeze(f,plan);
   const tick=await f.request('/__fixture/conditional-tick');assert.equal(tick.body.ok,true,JSON.stringify(tick.body));
   assert.equal(tick.body.result.orders[0].status,'executed',JSON.stringify(tick.body.result));
   const committed=fs.readFileSync(f.book);assert.equal(JSON.parse(committed).account.events.length,1);
@@ -105,7 +116,7 @@ test('real HTTP queue is private, read-only until explicitly created, and the ba
 test('outside-range and stale prices keep a durable intent waiting; cancellation cannot later fill',{timeout:45000},async t=>{
   const f=await fixture(t),plan=await prepare(f),before=fs.readFileSync(f.book);
   const created=await queue(f,plan.id);assert.equal(created.body.ok,true,JSON.stringify(created.body));
-  await f.request('/__fixture/quote','POST',{price:10.8});
+  await refreshAfterFreeze(f,plan,10.8);
   const outside=await f.request('/__fixture/conditional-tick');assert.equal(outside.body.result.orders[0].status,'pending');
   assert.match(outside.body.result.orders[0].lastReason,/买入区间/);assert.deepEqual(fs.readFileSync(f.book),before);
   fs.writeFileSync(f.clockFile,String(start+30000));
@@ -135,6 +146,7 @@ test('revoking the device through the original HTTP API stops its queued intent 
 test('a changed strategy batch or removed candidate cannot execute an older frozen plan through the HTTP background path',{timeout:45000},async t=>{
   const f=await fixture(t),plan=await prepare(f),before=fs.readFileSync(f.book);
   assert.equal((await queue(f,plan.id)).body.ok,true);
+  await refreshAfterFreeze(f,plan);
   assert.equal((await f.request('/__fixture/candidate','POST',{action:'rebatch'})).body.ok,true);
   const changed=await f.request('/__fixture/conditional-tick');assert.equal(changed.body.ok,true,JSON.stringify(changed.body));
   assert.equal(changed.body.result.orders[0].status,'pending');assert.match(changed.body.result.orders[0].lastReason,/策略批次/);
@@ -147,6 +159,7 @@ test('a changed strategy batch or removed candidate cannot execute an older froz
 
 test('original full-position and minimum-lot budget gates reject queued execution without extra ledger events',{timeout:45000},async t=>{
   const f=await fixture(t),plan=await prepare(f);assert.equal((await queue(f,plan.id)).body.ok,true);
+  await refreshAfterFreeze(f,plan);
   const filled=await f.request('/__fixture/native-fill-other','POST',{});assert.equal(filled.body.ok,true,JSON.stringify(filled.body));
   assert.equal(filled.body.positions,5);assert.equal(filled.body.events,5);
   const fullBook=fs.readFileSync(f.book),blocked=await f.request('/__fixture/conditional-tick');
@@ -154,6 +167,7 @@ test('original full-position and minimum-lot budget gates reject queued executio
   assert.match(blocked.body.result.orders[0].lastReason,/门禁|仓位|持仓|后端权威/);assert.deepEqual(fs.readFileSync(f.book),fullBook);
   const costly=await fixture(t,{price:1000}),costlyPlan=await prepare(costly),before=fs.readFileSync(costly.book);
   assert.equal((await queue(costly,costlyPlan.id)).body.ok,true);
+  await refreshAfterFreeze(costly,costlyPlan,1000);
   const denied=await costly.request('/__fixture/conditional-tick');assert.equal(denied.body.ok,true,JSON.stringify(denied.body));
   assert.equal(denied.body.result.orders[0].status,'pending');assert.match(denied.body.result.orders[0].lastReason,/原模拟门禁未产生持久成交/);
   assert.deepEqual(fs.readFileSync(costly.book),before);
@@ -162,6 +176,7 @@ test('original full-position and minimum-lot budget gates reject queued executio
 
 test('original T+1 sale ends monitoring and a later same-stock round trip cannot inherit the earlier plan',{timeout:45000},async t=>{
   const f=await fixture(t),plan=await prepare(f);assert.equal((await queue(f,plan.id)).body.ok,true);
+  await refreshAfterFreeze(f,plan);
   const entry=await f.request('/__fixture/conditional-tick');assert.equal(entry.body.result.orders[0].status,'executed');
   assert.equal(entry.body.result.orders[0].monitoringActive,true);
   const sameDay=await f.request('/__fixture/native-sell','POST',{});assert.equal(sameDay.body.events,1,'original T+1 remains enforced');

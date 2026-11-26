@@ -43,7 +43,7 @@ async function setup(t) {
     frozenAt: new Date(now - 6000).toISOString(), ...decisionPlanPayload(card)}, card);
   const wire = {code: plan.code, name: '隔离测试', price: 10, preClose: 10, volume: 100000,
     quoteAt: now - 1000, receivedAt: now - 500, quoteSource: 'tencent', quoteMode: 'public-live-unverified', canTrade: true,
-    score: 88, paths: ['温和连阳'], tradeDate: '20261125'};
+    score: 88, paths: ['温和连阳'], tradeDate: day};
   const authorityFile = path.join(root, 'authority.json');
   const authority = createPaperApplicationService({file: authorityFile, clock: () => now, calendar: {isOpen: () => true}});
   authority.adoptLegacy({initial: 10000, enabled: true, cash: 10000, positions: {}, trades: []});
@@ -112,7 +112,7 @@ async function setup(t) {
     return committed.alerts[0];
   }
   function refreshQuote(price = wire.price) {
-    Object.assign(wire, {price, quoteAt: now, receivedAt: now});
+    Object.assign(wire, {price, quoteAt: now, receivedAt: now, tradeDate: context.aShareCalendarDate(now)});
     Object.assign(context.S.lastPx.get(plan.code), {p: price, t: now, quoteAt: now});
   }
   function purchase() {
