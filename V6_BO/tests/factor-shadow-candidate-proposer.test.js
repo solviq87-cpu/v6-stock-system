@@ -78,8 +78,8 @@ test('automatic precommit is bound to exact prior sealed report and remains expl
   autoSourceFingerprint:source.fingerprint});
  assert.equal(entry.candidateOrigin,'sealed-historical-training-reliability-v1');
  assert.equal(entry.autoSourceFingerprint,source.fingerprint);
- const sorted=[...days.map(x=>({day:x.signalDay,featureFingerprint:x.fingerprint})),
-  {day:nextDate,featureFingerprint:'1'.repeat(64)}];
+ const sorted=[...days.map(x=>({day:x.signalDay,featureFingerprint:x.fingerprint,featureCapturedAt:x.capturedAt})),
+  {day:nextDate,featureFingerprint:'1'.repeat(64),featureCapturedAt:Date.parse(nextDate+'T03:00:00Z')}];
  const status=verifyPreregisteredCandidate(entry,{
   sorted,ids:['a','b'],packFingerprint:pack,oldWeights:acceptedWeights,
   previousFingerprint:source.fingerprint,previousTrialFingerprint:null,

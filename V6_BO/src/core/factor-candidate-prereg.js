@@ -94,19 +94,49 @@ function preregisterSeedCandidate({features=[],seedConfig,registeredAt}={}){
  verifySeedRegistrationMetadata(entry);
  return entry;
 }
+// The same frozen prefix and actual capture receipts must support every
+// tested day, not merely the first supplied holdout row. A valid SHA seals
+// the registration's contents; it does not establish that a caller's
+// independently supplied sample list matches those frozen observations.
+function matchesFrozenWindows(reg,sorted,freshTest,sealedAt){
+ const prefix=reg.frozenPrefixFingerprints;
+ if(!Array.isArray(prefix)||!Array.isArray(sorted)||!Array.isArray(freshTest)||
+    !Number.isSafeInteger(sealedAt)||sealedAt<=0||sorted.length>400||
+    prefix.length>=sorted.length||!freshTest.length||freshTest.length>sorted.length)
+  return false;
+ const seen=new Set(),byDay=new Map();
+ for(let i=0;i<sorted.length;i++){
+  const row=sorted[i];
+  if(!date(row?.day)||!seal(row.featureFingerprint)||seen.has(row.featureFingerprint)||
+     (i>0&&sorted[i-1].day>=row.day)||!Number.isSafeInteger(row.featureCapturedAt)||
+     row.featureCapturedAt<=0||(i<prefix.length?
+      row.featureFingerprint!==prefix[i]||row.featureCapturedAt>reg.registeredAt:
+      row.featureCapturedAt<=sealedAt))return false;
+  seen.add(row.featureFingerprint);byDay.set(row.day,{row,index:i});
+ }
+ const edge=sorted[prefix.length-1];
+ if(reg.latestFrozenSignalDay!==(edge?.day??null)||
+    reg.lastFrozenCapturedAt!==(edge?.featureCapturedAt??null))return false;
+ let previousDay=null;
+ for(const sample of freshTest){
+  const match=byDay.get(sample?.day);
+  if(!match||match.index<prefix.length||
+     sample.featureCapturedAt!==match.row.featureCapturedAt||
+     (Object.hasOwn(sample,'featureFingerprint')&&sample.featureFingerprint!==match.row.featureFingerprint)||
+     (previousDay!==null&&sample.day<=previousDay))return false;
+  previousDay=sample.day;
+ }
+ return true;
+}
 function verifySeedCandidate(reg,{sorted,ids,packFingerprint,oldWeights,
  previousFingerprint,previousTrialFingerprint,freshTest}={}){
  verifySeedRegistrationMetadata(reg);
- const prefix=reg.frozenPrefixFingerprints,edge=sorted[prefix.length-1],first=freshTest[0],
+ const prefix=reg.frozenPrefixFingerprints,first=freshTest[0],
   sealedAt=Math.max(reg.registeredAt,reg.recordedAt);
  if(reg.algorithmFingerprint!==currentResearchCodeFingerprint()||
     reg.packFingerprint!==packFingerprint||previousFingerprint||previousTrialFingerprint||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
-    prefix.length>=sorted.length||prefix.some((fp,i)=>fp!==sorted[i].featureFingerprint)||
-    (prefix.length>0&&(reg.latestFrozenSignalDay!==edge.day||reg.lastFrozenCapturedAt!==edge.featureCapturedAt))||
-    sorted.slice(prefix.length).some(f=>!Number.isSafeInteger(f.featureCapturedAt)||f.featureCapturedAt<=sealedAt)||
-    !first||!Number.isSafeInteger(first.featureCapturedAt)||first.featureCapturedAt<=sealedAt||
-    (reg.latestFrozenSignalDay!==null&&first.day<=reg.latestFrozenSignalDay))
+    !matchesFrozenWindows(reg,sorted,freshTest,sealedAt))
   throw Error('固定种子预注册时点、冻结前缀或模型血缘不一致');
  return {status:'candidate-committed-before-new-signal',registrationFingerprint:reg.fingerprint,
   registeredAt:reg.registeredAt,recordedAt:reg.recordedAt,frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
@@ -132,12 +162,13 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  if(!Array.isArray(ids)||ids.length<2||new Set(ids).size!==ids.length||
     Object.keys(candidateWeights).length!==ids.length||
     Object.keys(acceptedWeights).length!==ids.length||
+    new Set(ordered.map(f=>f.fingerprint)).size!==ordered.length||
     ordered.some((f,i)=>!date(f?.signalDay)||
      (i>0&&ordered[i-1].signalDay===f.signalDay)||
      !/^[0-9a-f]{64}$/.test(f?.fingerprint||'')||
      f.packFingerprint!==packFingerprint||
      hash(f.factors)!==hash(ordered[0].factors)||
-     !Number.isSafeInteger(f.capturedAt)||f.capturedAt>registeredAt)||
+     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt)||
     ids.some(id=>{
      const candidate=candidateWeights[id],accepted=acceptedWeights[id],
       base=ordered[0].factors.find(x=>x.id===id)?.baseWeight;
@@ -183,15 +214,8 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
      !/^[a-f0-9]{64}$/.test(reg.autoSourceFingerprint||'')||
      ![previousTrialFingerprint,previousFingerprint].includes(reg.autoSourceFingerprint)))||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
-    !Array.isArray(prefix)||prefix.length<36||prefix.length>=sorted.length||
-    prefix.some((f,i)=>f!==sorted[i].featureFingerprint)||
-    !date(reg.latestFrozenSignalDay)||
-    reg.latestFrozenSignalDay!==sorted[prefix.length-1].day||
-    !Number.isSafeInteger(reg.registeredAt)||!Number.isSafeInteger(reg.lastFrozenCapturedAt)||
-    reg.registeredAt<reg.lastFrozenCapturedAt||
-    !first||first.day<=reg.latestFrozenSignalDay||
-    !Number.isSafeInteger(first.featureCapturedAt)||
-    reg.registeredAt>=first.featureCapturedAt||
+    !Array.isArray(prefix)||prefix.length<36||
+    !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt)||
     ids.some(id=>!Number.isFinite(reg.candidateWeights?.[id])||
      reg.candidateWeights[id]<=0))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
