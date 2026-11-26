@@ -273,8 +273,11 @@ function summarizeDay(day, rows, now, criteria) {
   const latencies = metric(r => r.metrics.system.collectionMs).sort((a,b) => a-b);
   const latestLive=live.at(-1)?.metrics||null;
   const latest=attempts.at(-1)?.metrics||rows.at(-1)?.metrics||null;
-  const accountOutcomes=attempts.map(r=>jointReconciliationOutcome(r.metrics?.execution,r.observedAt,now));
-  const heldMonitorReceipts=attempts.map(r=>normalizeHeldMonitor(r.metrics.market.heldMonitor,r.observedAt));
+  const accountOutcomes=attempts.map(r=>{
+    const outcome=jointReconciliationOutcome(r.metrics?.execution,r.observedAt,now);
+    return outcome==='verified-local'&&r.exclusions.includes('collection-window-exceeded')?'unknown':outcome;
+  });
+  const heldMonitorReceipts=attempts.map(r=>r.exclusions.includes('collection-window-exceeded')?null:normalizeHeldMonitor(r.metrics.market.heldMonitor,r.observedAt));
   const knownHeld=heldMonitorReceipts.filter(Boolean);
   const heldExpected=knownHeld.reduce((sum,m)=>sum+m.expectedSymbols,0),heldFresh=knownHeld.reduce((sum,m)=>sum+m.freshSymbols,0);
   const unknown = [], failures = [];

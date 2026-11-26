@@ -81,10 +81,10 @@ export function renderRuntimeObservationCoverage(observation){
   facts([['交易日窗口',confirmed?'范围已核对':'完整范围待核'],['已知结束交易日',countValue(observation?.elapsedTradingDays)],
    ['历史观察日被当前日历漏列',Array.isArray(calendar.omittedAttemptDays)?calendar.omittedAttemptDays.length:null],
    ['日历版本变化日',Array.isArray(calendar.versionMismatchDays)?calendar.versionMismatchDays.length:null]]),
-  coverageRows.length?table([{label:'交易日',value:r=>r.day||'未知'},{label:'持仓回执分钟（取得 / 应观测）',value:receiptLabel},
+  coverageRows.length?table([{label:'交易日',value:r=>r.day||'未知'},{label:'持仓回执分钟（取得 / 已尝试）',value:receiptLabel},
    {label:'已取得股票×分钟有效覆盖',value:coverageLabel},{label:'原双账户本地检查',value:accountLabel}],coverageRows):empty('尚无真实观察回执','等待已验证安装和真实交易日采样。'),
   arr(observation?.days).length>60?note('仅显示最近60个已知交易日，完整记录可导出。'):null,
-  note('缺失分钟没有进入已取得覆盖率的分母；完整窗口评价仍需保留缺失样本。没有原回执时保持未知。'));
+  note('此处的已尝试分钟不是完整交易时段；未尝试和缺失分钟不进入已取得覆盖率的分母，但完整窗口评价仍需保留这些缺口。没有原回执时保持未知。'));
 }
 
 export function renderDeepResearch(ctx){

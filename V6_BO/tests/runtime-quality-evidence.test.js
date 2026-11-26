@@ -8,15 +8,15 @@ const at=(d,m)=>Date.parse(d+'T09:30:00+08:00')+m*60000;
 const iso=n=>new Date(n).toISOString();
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-runtime-quality-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live',accountObserver=null,heldMonitor=null;
+ let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live',accountObserver=null,heldMonitor=null,collectionDelay=0;
  const ops=createRuntimeAcceptance({root,clock:()=>now,canWrite:()=>true,liveCollector:true,env:{NODE_ENV:'production'},
   calendar:()=>({status:'available',tradeDates:[day,'2026-11-24'],metadata:{source:'quality-calendar',runtimeEligible:true,sha256:hash,from:day,to:'2026-11-24'}}),
   release:()=>({verifiedInstalled:true,sourceSha:sha}),collect:async()=>{if(failing)throw Error('collection failed');
-   return {mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}],heldMonitor:heldMonitor?.(now)},execution:accountObserver?accountObserver(now):{reconciled}};}});
+   const result={mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}],heldMonitor:heldMonitor?.(now)},execution:accountObserver?accountObserver(now):{reconciled}};now+=collectionDelay;return result;}});
  const input=(end=3)=>({revision,asOf:iso(at(day,20)),window:{start:iso(at(day,0)),end:iso(at(day,end))},scope:{kind:'real-market-paper',population:RUNTIME_QUALITY_POPULATION},
   plan:{version:'runtime-quality-fixture-v1',registeredAt:iso(at(day,-60)),criteria:{'operation-failure':{operator:'lte',threshold:.4,minimumSamples:1},
   'ledger-reconciliation':{operator:'gte',threshold:1,minimumSamples:1}},runtimeSchedule:{calendarSource:'quality-calendar',calendarHash,tradeDates:[day]}}});
- return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v,setAccountObserver:v=>accountObserver=v,setHeldMonitor:v=>heldMonitor=v};
+ return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v,setAccountObserver:v=>accountObserver=v,setHeldMonitor:v=>heldMonitor=v,setCollectionDelay:v=>collectionDelay=v};
 }
 const row=(r,id)=>r.dimensions.flatMap(d=>d.metrics).find(m=>m.id===id);
 test('original journal feeds the existing 30-metric evaluator without losing missing minutes or failed account checks',async t=>{
@@ -135,4 +135,13 @@ test('missing, changed or malformed holding population receipts cannot promote c
  const r=f.review(heldPlan(f)),x=row(r,'valid-data-coverage');assert.deepEqual([x.numerator,x.denominator,x.sampleCount,x.missingCount,x.status],[2,6,2,4,'unknown']);
  const bad=heldPlan(f);bad.plan.runtimeSchedule.heldPopulation.count=0;assert.throws(()=>f.review(bad),/held-population-invalid/);
  assert.equal(row(f.review(f.input()),'valid-data-coverage').status,'unknown');
+});
+
+test('late collection remains an attempted minute but cannot improve daily holding or local reconciliation coverage',async t=>{
+ const f=fixture(t),b=originalBooks(t);f.setHeldMonitor(now=>monitorReceipt(now));f.setAccountObserver(now=>b.observe(now));await f.ops.tick();
+ f.setNow(at(day,1));f.setCollectionDelay(15001);const late=await f.ops.tick();assert.ok(late.exclusions.includes('collection-window-exceeded'));assert.equal(late.recorded,true);
+ const d=(await f.ops.report()).days[0],r=f.review(heldPlan(f,2));
+ assert.deepEqual([d.heldMonitorCoverage.attemptedMinutes,d.heldMonitorCoverage.observedMinutes,d.heldMonitorCoverage.missingMinutes,d.heldMonitorCoverage.observedFreshSymbolMinutes],[2,1,1,2]);
+ assert.deepEqual([d.accountReconciliation.verifiedLocal,d.accountReconciliation.unknown],[1,1]);
+ assert.deepEqual([r.runtimeEvidence.heldCoverage.observedSymbolMinutes,r.runtimeEvidence.heldCoverage.missingSymbolMinutes,r.runtimeEvidence.verifiedLocalJointAccountChecks],[2,2,1]);
 });

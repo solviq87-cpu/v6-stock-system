@@ -18,7 +18,7 @@ const held={scope:'original-monitor-held-symbols-v1',attemptedMinutes:3,observed
 const account={scope:'original-paper-local-joint-reconciliation-v1',attempted:3,verifiedLocal:1,unsuccessful:1,unknown:1,verifiedExternal:false};
 test('runtime coverage page labels missing receipt minutes and does not promote a partial quote population to full coverage',t=>{
  const text=render(t,{elapsedTradingDays:1,elapsedTradingDaysComplete:false,calendar:{omittedAttemptDays:[day],versionMismatchDays:[day]},days:[{day,heldMonitorCoverage:held,accountReconciliation:account}]});
- assert.match(text,/完整范围待核/);assert.match(text,/2 \/ 3（缺 1）/);assert.match(text,/440 \/ 442 · 99\.55%/);assert.match(text,/本地一致 1 · 未成功 1 · 未知 1/);assert.match(text,/不代表全市场覆盖或外部券商对账/);
+ assert.match(text,/完整范围待核/);assert.match(text,/取得 \/ 已尝试/);assert.match(text,/已尝试分钟不是完整交易时段/);assert.match(text,/2 \/ 3（缺 1）/);assert.match(text,/440 \/ 442 · 99\.55%/);assert.match(text,/本地一致 1 · 未成功 1 · 未知 1/);assert.match(text,/不代表全市场覆盖或外部券商对账/);
 });
 test('empty or malformed counts display unknown rather than perfect or zero coverage',t=>{
  const text=render(t,{elapsedTradingDays:1,days:[{day,heldMonitorCoverage:{...held,observedFreshSymbolMinutes:999},accountReconciliation:{...account,verifiedLocal:4}}]});
