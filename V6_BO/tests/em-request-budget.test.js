@@ -66,6 +66,7 @@ function fixture({respond = () => ({body: '{}'}), curlResponse, cleanupFails = f
         rmSync(...args) { fs.rmSync(...args); if (cleanupFails) throw Error('mock cleanup failed'); }};
       if (['fs', 'path', 'os'].includes(name)) return require(name);
       if (name === './src/core/public-market') return require('../src/core/public-market');
+      if (name === './src/core/kline-source-continuity') return require('../src/core/kline-source-continuity');
       throw Error('unexpected fixture require: ' + name);
     }});
   vm.runInContext(source + '\nmodule.exports.fixture = {getPaged, curlGet, txGet, thsGet};', context);
@@ -185,6 +186,7 @@ test('bulk and individual Kline requests share the canonical in-flight entry', a
   await h.advance(1); const [batch, item] = await Promise.all([bulk, single]);
   assert.equal(h.starts.length, 1); assert.equal(batch.map.get('000001'), item);
   assert.equal(item.src, 'em'); assert.equal(item.rows[0].close, 10);
+  assert.equal(item.receivedAt,epoch); assert.equal(item.frequency,'1d');
 });
 
 test('waiting for the budget preserves source quote time and records the actual later reception', async () => {

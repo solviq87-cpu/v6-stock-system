@@ -67,3 +67,42 @@ test('invalid future day or oversized window does not start supplier work',async
  await assert.rejects(reader.read('600000',{day:'2026-11-26'}));
  await assert.rejects(reader.read('600000',{day:'2026-11-25',days:11}));
 });
+
+test('invalid cached data never becomes the result of failure or retry backoff',async()=>{
+ const now=at('2026-11-25'),bad=rows('2026-11-25',now);
+ bad[0].unit='USD';
+ const cache=new Map([['600000',bad]]);let calls=0;
+ const reader=createFundHistoryCache({cache,clock:()=>now,fetchHistory:async()=>{calls++;throw Error('offline');}});
+ assert.equal(await reader.read('600000',{day:'2026-11-25'}),null);
+ assert.equal(await reader.read('600000',{day:'2026-11-25'}),null);
+ assert.equal(calls,1);
+});
+test('funds source, unit, amount and timestamp aliases cannot contradict their original daily receipt',async()=>{
+ const now=at('2026-11-25'),old=rows('2026-11-24',at('2026-11-24'));
+ for(const patch of [{upstream:'sina'},{unit:'USD'},{mainInflow:0},{fundsRetrievedAt:now-1},{fundsSourceTimestamp:now-1},{fundsConflict:true}]){
+  const data=rows('2026-11-25',now);Object.assign(data[0],patch);
+  const cache=new Map([['600000',old]]),reader=createFundHistoryCache({cache,clock:()=>now,fetchHistory:async()=>data});
+  assert.equal(await reader.read('600000',{day:'2026-11-25'}),old);
+  assert.equal(reader.status('600000').status,'unavailable');
+ }
+});
+test('older and same-time contradictory responses cannot replace the last accepted window',async()=>{
+ const firstAt=at('2026-11-25'),now=firstAt+REFRESH_MS,old=rows('2026-11-25',firstAt);
+ for(const data of [rows('2026-11-24',now),rows('2026-11-25',firstAt-1),rows('2026-11-25',firstAt).map(row=>({...row,main:0}))]){
+  const cache=new Map([['600000',old]]),reader=createFundHistoryCache({cache,clock:()=>now,fetchHistory:async()=>data});
+  assert.equal(await reader.read('600000',{day:'2026-11-25'}),old);
+  assert.equal(cache.get('600000'),old);
+  assert.equal(reader.status('600000').status,'unavailable');
+ }
+});
+test('an older-day query and a clock-regressed response never overwrite newer cached history',async()=>{
+ let now=at('2026-11-26'),old=rows('2026-11-26',now-1000);
+ const cache=new Map([['600000',old]]);
+ const reader=createFundHistoryCache({cache,clock:()=>now,fetchHistory:async()=>rows('2026-11-25',now)});
+ assert.equal(await reader.read('600000',{day:'2026-11-25'}),null);
+ assert.equal(cache.get('600000'),old);
+ now+=REFRESH_MS;const received=now;
+ const other=createFundHistoryCache({cache,clock:()=>now,fetchHistory:async()=>{now=received-1000;return rows('2026-11-26',now);}});
+ assert.equal(await other.read('600000',{day:'2026-11-26'}),old);
+ assert.equal(cache.get('600000'),old);
+});

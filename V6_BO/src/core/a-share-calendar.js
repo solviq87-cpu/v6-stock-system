@@ -45,15 +45,17 @@ function assessDailyBarFinality(barDate,{observedAt,now=Date.now()}={}){
   return {usable:false,status:'invalid-date',reason:'K线日历日期无效',providerConfirmed:false};
  const today=aShareCalendarDate(now);
  if(barDate>today)return {usable:false,status:'future-date',reason:'K线日期位于未来',providerConfirmed:false};
- if(barDate<today)return {usable:true,status:'prior-market-date',reason:null,providerConfirmed:false};
+ if(barDate<today&&observedAt==null)return {usable:true,status:'prior-market-date',reason:null,providerConfirmed:false};
  if(typeof observedAt!=='number'||!Number.isFinite(observedAt)||observedAt>new Date(now).getTime()||observedAt<=0)
   return {usable:false,status:'untrusted-observation',reason:'当日K线缺少可信采集时间',providerConfirmed:false};
- if(aShareCalendarDate(observedAt)!==today)
+ const observedDay=aShareCalendarDate(observedAt);
+ if(observedDay<barDate)
   return {usable:false,status:'prior-day-observation',reason:'当日K线的缓存采集时间不在对应北京时间日期',providerConfirmed:false};
+ if(observedDay>barDate)return {usable:true,status:'prior-market-date',reason:null,providerConfirmed:false};
  const local=new Date(observedAt+CHINA_OFFSET_MS);
  const minute=local.getUTCHours()*60+local.getUTCMinutes();
  if(minute<SAME_DAY_DAILY_BAR_CUTOFF_MINUTES)
   return {usable:false,status:'intraday-unfinished',reason:'当日K线采集于北京时间15:10之前，不能视为已完成日线',providerConfirmed:false};
- return {usable:true,status:'after-close-time-gate-not-certified',reason:null,providerConfirmed:false};
+ return {usable:true,status:barDate<today?'prior-market-date':'after-close-time-gate-not-certified',reason:null,providerConfirmed:false};
 }
 module.exports={aShareCalendarDate,aShareCalendarAgeDays,assessDailyBarFinality,SAME_DAY_DAILY_BAR_CUTOFF_MINUTES};

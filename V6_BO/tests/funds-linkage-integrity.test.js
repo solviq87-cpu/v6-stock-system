@@ -13,7 +13,7 @@ function extract(source, start, end) {
 }
 const helpers = extract(server, 'function fundsNumber(', "const { analyzeShortline }");
 function context(extra = {}) {
-  const ctx = vm.createContext(extra);
+  const ctx = vm.createContext({require:name=>name.startsWith('./')?require('../'+name.slice(2)):require(name),...extra});
   vm.runInContext(helpers, ctx);
   return ctx;
 }
@@ -184,7 +184,7 @@ test('sample histories never bridge missing funds, including a missing interior 
   vm.runInContext(extract(server, 'function countStreak(h)', 'function sectorZTCountFor('), ctx);
   const start = Date.parse('2026-11-13T10:00:00+08:00');
   const observation = (i, mainInflow) => ctx.fundsHistoryObservation({mainInflow,
-    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',fundsUnit:'CNY',
     fundsRetrievedAt: start + i * 5000}, start + i * 5000);
   const rows = Array.from({length: 12}, (_, i) => observation(i, i * 1e7));
   assert.equal(ctx.fundsWindowDelta(rows, 12), 11e7);

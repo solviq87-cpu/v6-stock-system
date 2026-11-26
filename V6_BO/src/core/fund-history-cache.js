@@ -16,8 +16,17 @@ function verifiedRows(input,{day,now}){
  const seen=new Set(),rows=[];
  for(const value of input){
   const date=dayOf(value?.date),source=value?.source||value?.upstream,receivedAt=value?.retrievedAt;
+  const sources=[value?.source,value?.upstream,value?.fundsSource].filter(v=>v!=null);
+  const units=[value?.fundsUnit,value?.unit].filter(v=>v!=null);
+  const aliases=[value?.mainInflow,value?.mainInflowYuan,value?.netInflowYuan].filter(v=>v!=null);
+  if(sources.some(v=>typeof v!=='string'||v!==source)||units.some(v=>v!=='CNY')||
+   aliases.some(v=>!finite(v)||v!==value?.main)||
+   value?.fundsRetrievedAt!=null&&value.fundsRetrievedAt!==receivedAt||
+   value?.fundsSourceTimestamp!=null&&value.fundsSourceTimestamp!==value.sourceTimestamp||
+   value?.fundsTradeDate!=null&&dayOf(value.fundsTradeDate)!==date||
+   value?.fundsConflict===true||value?.fundsSourceConflict===true)return null;
   if(!date||date>day||seen.has(date)||typeof source!=='string'||!source.trim()||/mock|fixture|synthetic|simulated|demo/i.test(source)||
-   ['mock','fixture','synthetic','simulated'].some(key=>value[key]===true)||
+   ['mock','fixture','synthetic','simulated','imported'].some(key=>value[key]===true)||
    value.fundsMethod!=='vendor-order-size-estimate'||(value.fundsUnit||value.unit)!=='CNY'||
    !validTime(receivedAt)||receivedAt>now||receivedAt<Date.parse(date+'T00:00:00+08:00')||
    value.main!==null&&!finite(value.main)||value.tradeDate&&dayOf(value.tradeDate)!==date||
@@ -29,10 +38,25 @@ function verifiedRows(input,{day,now}){
  return rows.sort((a,b)=>dayOf(a.date).localeCompare(dayOf(b.date))).slice(-WINDOW);
 }
 
+function currentDay(now){return validTime(now)?new Date(now+28800000).toISOString().slice(0,10):null;}
+function newerReceipt(rows,previous){
+ if(!previous?.length)return true;
+ if(dayOf(rows.at(-1).date)<dayOf(previous.at(-1).date))return false;
+ const prior=new Map(previous.map(row=>[dayOf(row.date),row]));
+ return rows.every(row=>{
+  const old=prior.get(dayOf(row.date));if(!old)return true;
+  if(row.retrievedAt<old.retrievedAt)return false;
+  if(row.retrievedAt!==old.retrievedAt)return true;
+  return ['main','super','big','mid','small','sourceTimestamp','fundsMethod'].every(key=>(row[key]??null)===(old[key]??null))&&
+   (row.source||row.upstream)===(old.source||old.upstream);
+ });
+}
+
 function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REFRESH_MS}={}){
  if(!(cache instanceof Map)||typeof fetchHistory!=='function'||!Number.isSafeInteger(refreshMs)||refreshMs<REFRESH_MS)
   throw Error('资金历史缓存需要原 Map、供应商读取器及至少15分钟刷新间隔');
  const attempts=new Map(),pending=new Map();
+ function retained(code,day,now){const value=cache.get(code);return validTime(now)&&verifiedRows(value,{day,now})?value:null;}
  function status(code){return attempts.has(code)?{...attempts.get(code)}:null;}
  async function read(code,{day,days=10}={}){
   day=dayOf(day);const now=clock();
@@ -45,15 +69,20 @@ function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REF
   if(complete&&knownAt<=now&&now-knownAt<refreshMs)return previous;
   // Failed/partial responses use the same retry budget. A new trade day must
   // not inherit yesterday's successful cache, but cannot bypass live backoff.
-  if(attempt&&now>=attempt.at&&now-attempt.at<refreshMs)return previous||null;
+  if(attempt&&now>=attempt.at&&now-attempt.at<refreshMs)return valid?previous:null;
   attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'loading',missing:[]});
   const request=(async()=>{
    try{
     const result=await Promise.resolve().then(()=>fetchHistory(code,WINDOW)),receivedNow=clock();
-    const rows=verifiedRows(result,{day,now:receivedNow});
-    if(!rows){attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['供应商逐日资金回执缺失或日期、来源、单位未通过核验']});return cache.get(code)||null;}
+    const rows=validTime(receivedNow)&&receivedNow>=now?verifiedRows(result,{day,now:receivedNow}):null;
+    if(!rows){attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['供应商逐日资金回执缺失或日期、来源、单位未通过核验']});return retained(code,day,receivedNow);}
     // Keep the provider's complete receipt as a group. Never fill missing days
     // by mixing values from an older snapshot or by substituting zero.
+    const latest=verifiedRows(cache.get(code),{day:currentDay(receivedNow),now:receivedNow});
+    if(!newerReceipt(rows,latest)){
+     attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['迟到、时间倒退或同回执金额冲突；保留已有原始记录']});
+     return retained(code,day,receivedNow);
+    }
     cache.set(code,rows);
     const completeWindow=rows.length>=days&&dayOf(rows.at(-1).date)===day&&rows.slice(-days).every(row=>finite(row.main));
     attempts.set(code,{at:now,day,requestedDays:WINDOW,status:completeWindow?'observed':'partial',
@@ -62,7 +91,7 @@ function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REF
     return rows;
    }catch{
     attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['原资金来源暂不可用；保留已有记录并按原限频退避']});
-    return cache.get(code)||null;
+    return retained(code,day,clock());
    }finally{pending.delete(code);}
   })();
   pending.set(code,request);return request;

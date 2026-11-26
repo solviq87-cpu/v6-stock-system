@@ -15,7 +15,7 @@ function section(start, end) {
 const start = Date.parse('2026-11-13T10:00:00+08:00');
 const minute = {minSpanMs: 45000, maxSpanMs: 75000};
 function context(extra = {}) {
-  const ctx = vm.createContext(extra);
+  const ctx = vm.createContext({require:productionRequire,...extra});
   vm.runInContext(section('function fundsNumber(', 'const { analyzeShortline }'), ctx);
   vm.runInContext(section('function countStreak(h)', 'function sectorZTCountFor('), ctx);
   return ctx;
@@ -23,7 +23,7 @@ function context(extra = {}) {
 function stock(at, mainInflow = 0, extra = {}) {
   return {code: '000001', name:'正常股票', price: 10, pct: 0, mainPct: 0, floatCap: 1e10, mainInflow,volume:1e6,amount:1e8,
     quoteAt:at,receivedAt:at,quoteSource:'eastmoney',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,
-    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',
+    fundsSource: 'eastmoney', fundsMethod: 'vendor-order-size-estimate',fundsUnit:'CNY',
     fundsRetrievedAt: at, fundsSourceTimestamp: null, ...extra};
 }
 function history(ctx, count = 12, interval = 5000, at = start) {

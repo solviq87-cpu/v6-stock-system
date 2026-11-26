@@ -78,4 +78,17 @@ function auditKlineSourceContinuity({ primaryBars, fallbackBars, expectedDates, 
   };
 }
 
-module.exports = { auditKlineSourceContinuity, validCalendarDate: validDate };
+// Legacy caches may lack explicit metadata; never accept explicitly incompatible metadata.
+function dailyKlineMetadataValid(snapshot,{expectedBasis=null}={}){
+  const basis=[snapshot?.adjust,snapshot?.adjustment,snapshot?.priceBasis].filter(v=>v!=null);
+  if(basis.some(v=>!['qfq','hfq','unadjusted'].includes(v))||new Set(basis).size>1||expectedBasis&&basis.some(v=>v!==expectedBasis))return false;
+  return [snapshot?.frequency,snapshot?.period].filter(v=>v!=null).every(v=>['1d','day','daily','日K','101',101].includes(v));
+}
+function dailyProviderRowsValid(rows,now=Date.now()){
+  if(!Array.isArray(rows)||!rows.length||!Number.isFinite(now)||!Number.isFinite(new Date(now+28800000).getTime()))return false;
+  const today=new Date(now+28800000).toISOString().slice(0,10);
+  return rows.every((bar,i)=>bar&&validDate(bar.date)&&bar.date<=today&&(!i||bar.date>rows[i-1].date)&&
+    [bar.open,bar.high,bar.low,bar.close].every(x=>finite(x)&&x>0)&&
+    bar.high>=Math.max(bar.open,bar.close,bar.low)&&bar.low<=Math.min(bar.open,bar.close)&&finite(bar.volume)&&bar.volume>=0);
+}
+module.exports = { auditKlineSourceContinuity, validCalendarDate: validDate,dailyKlineMetadataValid,dailyProviderRowsValid };
