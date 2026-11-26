@@ -107,3 +107,51 @@ test('purposes remain separate and invalid clocks cannot silently use a substitu
  assert.equal(check(live(),'dated-observation').canObserve,false);assert.equal(check(live(),'fact-broadcast').canBroadcast,false);
  const result=check({researchEvidence:research().researchEvidence,factEvidence:fact().factEvidence,price:10},'dated-observation');assert.equal(result.canObserve,true);assert.equal(result.canBroadcast,false);assert.equal(result.canRecommend,false);
 });
+
+test('dated evidence rejects fixture/test/backtest origins and either explicit simulation mode',()=>{
+ for(const [make,usage,key,allowed,label] of [
+  [research,'dated-observation','researchEvidence','canObserve','RESEARCH'],
+  [fact,'fact-broadcast','factEvidence','canBroadcast','FACT']
+ ]){
+  for(const patch of [{source:'fixture-feed'},{source:'test-data'},{source:'backtest-engine'},
+   {mode:'backtest'},{mode:'public-history',quoteMode:'synthetic'},{mode:'mock',quoteMode:'public-history'}]){
+   const row=make(),before={...row[key],...patch};row[key]=before;
+   const result=check(row,usage);
+   assert.equal(result[allowed],false,JSON.stringify(patch));
+   assert.ok(codes(result.contra).includes('SIMULATED_'+label+'_EVIDENCE'));
+   assert.notEqual(result.decision,'support');
+  }
+ }
+});
+
+test('a positive quote mode cannot hide a negative research price provenance alias',()=>{
+ for(const patch of [{quoteMode:'historical',mode:'backtest'},{quoteMode:'synthetic',mode:'historical'},
+  {quoteSource:'fixture-provider'},{quoteSource:'test-data'}]){
+  const result=check(research(patch),'dated-observation');
+  assert.equal(result.canObserve,false,JSON.stringify(patch));
+  assert.ok(codes(result.contra).includes('SIMULATED_RESEARCH_EVIDENCE'));
+ }
+});
+
+test('conflicted exact dated evidence is rejected even when dates and prices are valid',()=>{
+ for(const patch of [{sourceConflict:true},{conflict:true},{evidenceStatus:'conflict'},{quoteStatus:'conflict'}]){
+  for(const [make,usage,key,allowed,label] of [
+   [research,'dated-observation','researchEvidence','canObserve','RESEARCH'],
+   [fact,'fact-broadcast','factEvidence','canBroadcast','FACT']
+  ]){
+   const row=make();Object.assign(row[key],patch);
+   const result=check(row,usage);
+   assert.equal(result[allowed],false,JSON.stringify(patch));
+   assert.ok(codes(result.contra).includes('CONFLICTING_'+label+'_EVIDENCE'));
+  }
+  assert.equal(check(research(patch),'dated-observation').canObserve,false);
+ }
+});
+
+test('legitimate historical research and an independent sourced fact retain their original read-only scope',()=>{
+ const r=check(research({quoteMode:'historical',mode:'public-history',quoteSource:'latest-provider'}),'dated-observation');
+ assert.equal(r.canObserve,true);assert.equal(r.canRecommend,false);assert.equal(r.canBroadcast,false);
+ const f=check(fact({price:10,quoteMode:'synthetic',sourceConflict:true,quoteSource:'fixture-price'}),'fact-broadcast');
+ assert.equal(f.canBroadcast,true);assert.equal(f.canRecommend,false);assert.equal(f.canObserve,false);
+ assert.ok(codes(f.missing).includes('ATTACHED_QUOTE_UNAVAILABLE'));
+});
