@@ -14,7 +14,7 @@ function section(start, end) {
 function parsers(response) {
   const context = vm.createContext({
     EM: 'https://eastmoney.invalid', EMH: 'https://eastmoney.invalid',
-    Date: { now: () => receivedAt },
+    Date: class extends Date { static now(){return receivedAt;} },
     get: async () => response, doGet: async () => response,
     curlGet: async () => response, _srcWarn: () => {},
     pool: async (items, worker) => Promise.all(items.map(worker))
@@ -58,7 +58,7 @@ test('sector parser separates advances, declines and order-size classes without 
 test('sector missing amounts and invalid counts stay unknown; observed zeros survive', async () => {
   for (const missing of [null, undefined, '', ' ', '-', 'NaN', Infinity, false, [], {}, '0x10']) {
     const [row] = await parsers({data: {diff: [{
-      f62: missing, f66: missing, f72: missing, f3: missing, f136: missing,
+      f12:'BK1034',f14:'板块',f62: missing, f66: missing, f72: missing, f3: missing, f136: missing,
       f104: 0, f105: missing
     }]}}).fetchSectorFlow(3);
     for (const field of ['mainInflow', 'superInflow', 'bigInflow', 'pct', 'leaderPct', 'downCount', 'observedDirectionalCount'])
@@ -66,12 +66,12 @@ test('sector missing amounts and invalid counts stay unknown; observed zeros sur
     assert.equal(row.upCount, 0);
   }
   for (const invalidCount of [-1, 1.5, '2.5']) {
-    const [row] = await parsers({data: {diff: [{f104: invalidCount, f105: 0}]}}).fetchSectorFlow(2);
+    const [row] = await parsers({data: {diff: [{f12:'BK1034',f14:'板块',f104: invalidCount, f105: 0}]}}).fetchSectorFlow(2);
     assert.equal(row.upCount, null);
     assert.equal(row.downCount, 0);
     assert.equal(row.observedDirectionalCount, null);
   }
-  const [zero] = await parsers({data: {diff: [{f62: '0', f66: 0, f72: '0.0', f104: 0, f105: '0'}]}}).fetchSectorFlow(2);
+  const [zero] = await parsers({data: {diff: [{f12:'BK1034',f14:'板块',f62: '0', f66: 0, f72: '0.0', f104: 0, f105: '0'}]}}).fetchSectorFlow(2);
   for (const field of ['mainInflow', 'superInflow', 'bigInflow', 'upCount', 'downCount', 'observedDirectionalCount'])
     assert.equal(zero[field], 0);
   assert.equal(zero.totalCount, null);
@@ -133,4 +133,27 @@ test('complete balance evidence retains classifications and uses order-size desc
     assert.equal(result.consistent, direction !== 'unknown');
     assert.doesNotMatch(result.label, /机构|顶级|散户|出货|接盘|资金出逃/);
   }
+});
+
+test('batch funds cannot import another security, double-count repeated codes or choose a conflicting duplicate',async()=>{
+ const input={data:{diff:[{f12:'000001',f62:0},{f12:'000001',f62:0},
+  {f12:'000002',f62:100},{f12:'000002',f62:900},{f12:'000003',f62:800},null]}};
+ const actual=await parsers(input).fetchBatchFlowEM(['000001','000002','000001']);
+ assert.deepEqual(Array.from(actual,row=>row.code),['000001']);assert.equal(actual[0].today,0);
+});
+test('sector amounts from a conflicting or unidentified board cannot enter the ranking',async()=>{
+ const input={data:{diff:[{f12:'BK1000',f14:'A',f62:0},{f12:'BK1000',f14:'A',f62:0},
+  {f12:'BK1001',f14:'B',f62:10},{f12:'BK1001',f14:'B',f62:20},
+  {f12:'000001',f14:'错误板块',f62:999},{f12:'BK1002',f62:100},null]}};
+ const actual=await parsers(input).fetchSectorFlow(2);
+ assert.deepEqual(Array.from(actual,row=>row.code),['BK1000']);assert.equal(actual[0].mainInflow,0);
+});
+test('daily funds reject a mismatched security, future or impossible dates, and repeated sessions',async()=>{
+ const line='2026-11-12,0,0,0,0,0';
+ for(const data of [{code:'600001',klines:[line]},{code:'600000',klines:[line,line]},
+   {klines:['2026-11-13,1,0,0,0,0']},{klines:['2026-02-30,1,0,0,0,0']},{klines:[null]}]){
+  assert.equal(await parsers({data}).fetchFundFlowDays('600000',2),null);
+ }
+ const ok=await parsers({data:{code:'600000',klines:[line,'2026-11-11,1,0,0,0,0']}}).fetchFundFlowDays('600000',2);
+ assert.deepEqual(Array.from(ok,row=>row.date),['2026-11-11','2026-11-12']);
 });

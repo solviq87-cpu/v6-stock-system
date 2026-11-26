@@ -350,6 +350,18 @@ function observedFlowCount(value) {
   const number = observedFlowNumber(value);
   return Number.isSafeInteger(number) && number >= 0 ? number : null;
 }
+// A single contradictory duplicate invalidates that identifier's observation.
+// Equal duplicates are harmless transport repetitions, not additional funds.
+function uniqueFlowRows(rows){
+  const accepted=new Map(),conflicts=new Set();
+  for(const row of rows){
+    if(conflicts.has(row.code))continue;
+    const old=accepted.get(row.code);
+    if(old&&JSON.stringify(old)!==JSON.stringify(row)){accepted.delete(row.code);conflicts.add(row.code);}
+    else if(!old)accepted.set(row.code,row);
+  }
+  return [...accepted.values()];
+}
 function flowProvenance(retrievedAt) {
   return { source: 'eastmoney', upstream: 'eastmoney',
     fundsMethod: 'vendor-order-size-estimate', fundsUnit:'CNY', unit:'CNY',
@@ -363,9 +375,9 @@ async function fetchSectorFlow(type) {
     `&fs=m:90+t:${type}` +
     `&fields=f12,f14,f2,f3,f62,f66,f72,f104,f105,f128,f136,f140,f141`;
   const j = await get(u);
-  if (!j.data || !j.data.diff) return [];
+  if (!Array.isArray(j?.data?.diff)) return [];
   const retrievedAt = Date.now();
-  return j.data.diff.map(d => {
+  return uniqueFlowRows(j.data.diff.filter(d=>d&&typeof d.f12==='string'&&/^BK\d+$/.test(d.f12)&&typeof d.f14==='string'&&d.f14.trim()).map(d => {
     const upCount = observedFlowCount(d.f104), downCount = observedFlowCount(d.f105);
     return {
       code: d.f12, name: d.f14, pct: observedFlowNumber(d.f3),
@@ -377,7 +389,7 @@ async function fetchSectorFlow(type) {
       leader: d.f128, leaderCode: d.f140, leaderPct: observedFlowNumber(d.f136),
       ...flowProvenance(retrievedAt)
     };
-  });
+  }));
 }
 
 // 板块成分股（东财行业/概念板块 fs=b:BK代码）：补涨龙候选池来源
@@ -1366,15 +1378,22 @@ async function fetchFundFlowDays(code, days = 6) {
   const u = `${EMH}/api/qt/stock/fflow/daykline/get?lmt=${days}&klt=101&secid=${secid}` +
     `&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65`;
   const parse = j => {
-    if (!j || !j.data || !j.data.klines) return null;
+    if (!Array.isArray(j?.data?.klines) || !j.data.klines.length || j.data.code!=null&&j.data.code!==code) return null;
     const retrievedAt = Date.now();
-    return j.data.klines.map(s => {
+    const today=new Date(retrievedAt+28800000).toISOString().slice(0,10),seen=new Set();
+    const rows=[];
+    for(const s of j.data.klines){
+      if(typeof s!=='string')return null;
       const p = s.split(',');
       // f51日期；f52主力=f55大单+f56超大单，仅为供应商订单大小分类估计。
-      return { date: p[0], main: observedFlowNumber(p[1]), small: observedFlowNumber(p[2]),
+      const day=p[0],at=Date.parse(day+'T00:00:00Z');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isFinite(at)||new Date(at).toISOString().slice(0,10)!==day||day>today||seen.has(day))return null;
+      seen.add(day);
+      rows.push({ date: day, main: observedFlowNumber(p[1]), small: observedFlowNumber(p[2]),
         mid: observedFlowNumber(p[3]), big: observedFlowNumber(p[4]), super: observedFlowNumber(p[5]),
-        ...flowProvenance(retrievedAt) };
-    });
+        ...flowProvenance(retrievedAt) });
+    }
+    return rows.sort((a,b)=>a.date.localeCompare(b.date));
   };
   try {
     const j = await doGet(u, 6000);
@@ -1459,15 +1478,16 @@ function curlGet(u, timeoutMs = 8000, referer, asBytes = false) {
 //      超大单 - 大单 +  = 超大单净流出、大单净流入
 //    以前只推 f62 这一个数字，等于把"主力内部打架"这种关键信息直接丢掉。
 async function fetchBatchFlowEM(codes) {
+  const requested=[...new Set((Array.isArray(codes)?codes:[]).filter(code=>typeof code==='string'&&/^\d{6}$/.test(code)))];
   const chunks = [];
-  for (let i = 0; i < codes.length; i += 100) chunks.push(codes.slice(i, i + 100));
+  for (let i = 0; i < requested.length; i += 100) chunks.push(requested.slice(i, i + 100));
   const one = async batch => {
     const secids = batch.map(c => (c.startsWith('6') || c.startsWith('9')) ? `1.${c}` : `0.${c}`).join(',');
     const u = `${EM}/api/qt/ulist.np/get?secids=${secids}&fltt=2&invt=2&np=1&fields=f12,f62,f164,f174,f184,f66,f69,f72,f75,f78,f81,f84,f87`;
     let j = null;
     try { j = await get(u, 8000); } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;}
-    if (!j || !j.data || !j.data.diff) j = await curlGet(u, 8000); // Node 被拒时走 curl
-    if (!j || !j.data || !j.data.diff) {
+    if (!Array.isArray(j?.data?.diff)) j = await curlGet(u, 8000); // Node 被拒时走 curl
+    if (!Array.isArray(j?.data?.diff)) {
       // ⛔ 铁律③：批量主力资金（当日/5日/10日 + 四级单）整批取不到 → 返回 [] 是诚实的，
       //    但原来静默无日志：表现为「资金硬门槛整批不达标/全票无资金流」，
       //    排查时看不到是 push2 快照通道挂了还是真无资金（全A循环内故走 60s 限频）。
@@ -1475,15 +1495,16 @@ async function fetchBatchFlowEM(codes) {
       return [];
     }
     const retrievedAt = Date.now();
-    return j.data.diff.map(d => ({
-      code: String(d.f12), today: observedFlowNumber(d.f62), d5: observedFlowNumber(d.f164),
+    const wanted=new Set(batch);
+    return uniqueFlowRows(j.data.diff.filter(d=>d&&typeof d.f12==='string'&&wanted.has(d.f12)).map(d => ({
+      code: d.f12, today: observedFlowNumber(d.f62), d5: observedFlowNumber(d.f164),
       d10: observedFlowNumber(d.f174), pct: observedFlowNumber(d.f184),
       superNet: observedFlowNumber(d.f66), superPct: observedFlowNumber(d.f69),
       bigNet: observedFlowNumber(d.f72), bigPct: observedFlowNumber(d.f75),
       midNet: observedFlowNumber(d.f78), midPct: observedFlowNumber(d.f81),
       smallNet: observedFlowNumber(d.f84), smallPct: observedFlowNumber(d.f87),
       ...flowProvenance(retrievedAt)
-    })).filter(d => /^\d{6}$/.test(d.code));
+    })));
   };
   const results = await pool(chunks, one, 4);
   return results.filter(Boolean).flat();
