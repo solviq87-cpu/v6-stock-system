@@ -38,7 +38,7 @@ test('sector rank excludes unknown, mismatched date and conflicts, preserves zer
  const {ctx,S,now}=sandbox();
  S.sectors=[row('甲',100),row('乙',0),row('丙',-10),row('丁',null),row('戊',1e10,{sourceTimestamp:null}),row('己',1e11,{unit:'USD'}),
   row('庚',1000),row('庚',2000),row('辛',100,{code:'BK0099'}),row('壬',100,{code:'BK0099'}),row('癸',1e9,{tradeDate:'2026-11-25'})];
- assert.deepEqual([...ctx.sectorRankMap()],[['甲',1],['乙',2],['丙',3]]);
+ assert.deepEqual(Array.from(ctx.sectorRankMap(),([name,rank])=>[name,rank]),[['甲',1],['乙',2],['丙',3]]);
  now(at+15001);assert.equal(ctx.sectorRankMap().size,0);
  now(at);assert.equal(ctx.sectorRankMap().get('乙'),2);
  S.sectorsDay='20261125';assert.equal(ctx.sectorRankMap().size,0);
