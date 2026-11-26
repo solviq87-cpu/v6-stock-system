@@ -11620,7 +11620,7 @@ function runtimeAcceptance(){
       const execution=isReplica()?{}:require('./src/core/runtime-acceptance').observeOriginalAccountReconciliation({now,
         readBook:key=>_paperAuthority[key]?.read()});
       return {mode:process.env.V6_ISOLATED_BOOT_SMOKE==='1'?'isolated':'live',
-        market:{expectedSymbols:null,quotes},execution,
+        market:{expectedSymbols:null,quotes,heldMonitor:require('./src/core/monitor-capacity').monitorEvidenceForRuntime(S.loop.monitor,PAPER,now)},execution,
         clients:{apiVersion:APP_VER},resources:{rssBytes:process.memoryUsage().rss},
         source:'original-server-live-observation',observedAt:now};
     }

@@ -805,3 +805,9 @@ PR head `1e52cb9` 的 [V6 CI](https://github.com/solviq87-cpu/v6-stock-system/ac
 ### 2026-11-26 续接：远端监控回归装载修复
 - fd568b34 的双路全量 verify 报告9个 monitor-capacity 测试失败，错误是旧截取测试未闭合新增 trace.async 回调（missing ) after argument list）。修正测试装载的闭合及策略跨度清理；原生产巡检代码、220只预算、持仓优先、资金缺口、失败传播及全部原断言不变。
 - 本地重跑原 monitor-capacity + 两组真实链路/跨线程测试24/24通过；修复后的精确远端全量仍待核。保留此前失败回执供追溯，未跳过检查、未删除测试、未发布生产。
+
+
+### 2026-11-26 接续：原22/23/78持仓监控覆盖与真实质量证据
+- 原监控请求容量220及持仓优先不变。重复冲突、明确来源冲突不得计有效持仓报价；内部签发的真实监控回执只对原持仓集合有效，按采样时原始报价重新计算15秒年龄，过期、换仓、未来或未完成回执不使用。完整持仓分母包含容量延后项，真实采集失败为零有效覆盖，未取到回执保留未知；不增加行情请求或交易权限。
+- 现有runtime-acceptance私有分钟记录接入该原监控回执，日报区分有据样本和缺失分钟。原quality:audit显式计划可在runtimeSchedule登记heldPopulation={sha256,count}，sha256为排序去重六位代码数组JSON的SHA256；只计算该冻结持仓集合的有效股票×分钟覆盖，失败/缺失/变更不剔除分母，未登记不声称该指标可评价。不是全市场覆盖、独立来源授权或实盘效果证明。
+- 基线 b3bf86e408864b5484a0dcd7b5ad2c2956530ea3 五个改动文件的本地原始blob与远端一致；语法检查3项通过；Node v22.16.0 实际命令 TZ=Asia/Shanghai node --test --test-concurrency=3 tests/monitor-capacity.test.js tests/runtime-quality-evidence.test.js tests/runtime-acceptance.test.js tests/runtime-acceptance-calendar-continuity.test.js tests/deep-research-http.test.js tests/product-quality-evaluation.test.js，75/75通过，0失败0跳过，含5项新增回归，TAP SHA256 ead524f550d2779ee67a5ceaa8a248e9dca0f1f65635e2714ed6b741d80e308b。完整工作树为恢复基线及已核验目标文件，未声称完整最新树的本地全量通过；新精确SHA由既有CI验证。保留原私有数据和回滚证据，不部署、不合入dev，不创建自动化任务或开发锁。

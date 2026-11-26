@@ -170,3 +170,37 @@ for (const n of [219, 220, 221]) {
     assert.equal(quoteReads, n >= 220 ? 0 : 1);
   });
 }
+
+test('contradictory held quote duplicates cannot inflate original monitor coverage', async () => {
+  const h = monitor(3, requested => {
+    const rows=requested.map(code=>({code,price:10,quoteAt:now-1000,receivedAt:now,quoteSource:'tencent',canTrade:true}));
+    return [...rows.map(row=>row.code==='600001'?{...row,sourceConflict:true}:row),
+      {...rows[0],price:11}, {...rows[2]}];
+  });
+  await h.run();const r=h.c.S.loop.monitor;
+  assert.equal(r.heldConflicting,2);assert.equal(r.heldFresh,1);assert.equal(r.heldUncovered,2);assert.equal(r.complete,false);
+});
+
+test('runtime uses only original monitor receipts for unchanged holdings and re-ages each original quote', async () => {
+  const {monitorEvidenceForRuntime,heldPopulationHash}=require('../src/core/monitor-capacity');
+  const h=monitor(3,requested=>requested.map((code,i)=>({code,price:10,quoteAt:now-([1000,14999,15000][i]??1000),receivedAt:now,quoteSource:'tencent',canTrade:true})));
+  h.watch.push('300001');await h.run();const r=h.c.S.loop.monitor;
+  const first=monitorEvidenceForRuntime(r,h.c.PAPER,now),later=monitorEvidenceForRuntime(r,h.c.PAPER,now+2);
+  assert.equal(first.expectedSymbols,3);assert.equal(first.requestedSymbols,3);assert.equal(first.freshSymbols,3);
+  assert.equal(first.populationHash,heldPopulationHash(['600000','600001','600002']));assert.equal(later.freshSymbols,1);
+  assert.equal(monitorEvidenceForRuntime({...r},h.c.PAPER,now),null);
+  assert.equal(monitorEvidenceForRuntime(r,h.c.PAPER,now-1),null);assert.equal(monitorEvidenceForRuntime(r,h.c.PAPER,now+15001),null);
+  assert.equal(first.verifiedExternal,false);assert.doesNotMatch(JSON.stringify(first),/"600000"|"300001"|quoteTimes/);
+  delete h.c.PAPER.pool.positions['600002'];h.c.PAPER.pool.positions['600099']={shares:100};
+  assert.equal(monitorEvidenceForRuntime(r,h.c.PAPER,now),null,'equal count is not the same population');
+});
+
+test('failed and capacity-deferred monitor observations preserve the complete holding denominator', async () => {
+  const {monitorEvidenceForRuntime}=require('../src/core/monitor-capacity');
+  const overflow=monitor(221);await overflow.run();const receipt=monitorEvidenceForRuntime(overflow.c.S.loop.monitor,overflow.c.PAPER,now);
+  assert.deepEqual([receipt.expectedSymbols,receipt.requestedSymbols,receipt.freshSymbols],[221,220,220]);
+  const failed=monitor(3,()=>{throw Error('source outage');});await assert.rejects(failed.run(),/source outage/);
+  const bad=monitorEvidenceForRuntime(failed.c.S.loop.monitor,failed.c.PAPER,now);
+  assert.deepEqual([bad.status,bad.expectedSymbols,bad.freshSymbols],['fetch-failed',3,0]);
+  const empty=monitor(0);await empty.run();assert.equal(monitorEvidenceForRuntime(empty.c.S.loop.monitor,empty.c.PAPER,now).expectedSymbols,0);
+});

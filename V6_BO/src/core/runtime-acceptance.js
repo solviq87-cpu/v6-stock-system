@@ -171,6 +171,18 @@ function jointReconciliationOutcome(execution,observedAt,cutoff){
   return 'unknown';
 }
 
+function normalizeHeldMonitor(value,now){
+  if(value?.scope!=='original-monitor-held-symbols-v1'||value.verifiedExternal!==false||value.observedAt!==now||
+    !Number.isSafeInteger(value.checkedAt)||value.checkedAt>now||now-value.checkedAt>15000||aShareCalendarDate(value.checkedAt)!==aShareCalendarDate(now)||
+    !['observed','fetch-failed'].includes(value.status)||!HASH.test(value.populationHash||''))return null;
+  const {expectedSymbols,requestedSymbols,freshSymbols,conflictingSymbols}=value;
+  if([expectedSymbols,requestedSymbols,freshSymbols,conflictingSymbols].some(n=>count(n)===null)||
+    requestedSymbols>220||requestedSymbols>expectedSymbols||freshSymbols+conflictingSymbols>requestedSymbols||
+    value.status==='fetch-failed'&&(freshSymbols!==0||conflictingSymbols!==0))return null;
+  return {scope:value.scope,status:value.status,checkedAt:value.checkedAt,observedAt:now,populationHash:value.populationHash,
+    expectedSymbols,requestedSymbols,freshSymbols,conflictingSymbols,verifiedExternal:false};
+}
+
 function normalizeMetrics(input, now, collectionMs) {
   const m = input?.market || {}, supplied=Array.isArray(m.quotes)?m.quotes:[],quotes=supplied.slice(0,10000),unique=new Map();
   const inputHash=crypto.createHash('sha256').update('fayo-runtime-quote-input-v1\n');
@@ -226,7 +238,8 @@ function normalizeMetrics(input, now, collectionMs) {
       digestScope:supplied.length>quotes.length?'whitelisted-processed-prefix':'all-whitelisted-inputs',observedAt:now},
     coverage:supplied.length===quotes.length&&expected > 0 && observed <= expected ? observed / expected : null,
     freshCoverage:supplied.length===quotes.length&&expected > 0 && observed <= expected ? fresh / expected : null,
-    attempts, successes, collectionSuccess:attempts > 0 && successes !== null && successes <= attempts ? successes / attempts : null},
+    attempts, successes, collectionSuccess:attempts > 0 && successes !== null && successes <= attempts ? successes / attempts : null,
+    ...(m.heldMonitor==null?{}:{heldMonitor:normalizeHeldMonitor(m.heldMonitor,now)})},
     risk:Object.fromEntries(['observed','queued','delivered','resolved','falsePositives','falseNegatives'].map(k => [k,count(r[k])]).concat([
       ['deliveryDelayMs',number(r.deliveryDelayMs) !== null && r.deliveryDelayMs >= 0 ? r.deliveryDelayMs : null]])),
     execution:{...Object.fromEntries(['intents','submittedOrders','confirmedFills','paperFills'].map(k => [k,count(e[k])])),
@@ -261,6 +274,9 @@ function summarizeDay(day, rows, now, criteria) {
   const latestLive=live.at(-1)?.metrics||null;
   const latest=attempts.at(-1)?.metrics||rows.at(-1)?.metrics||null;
   const accountOutcomes=attempts.map(r=>jointReconciliationOutcome(r.metrics?.execution,r.observedAt,now));
+  const heldMonitorReceipts=attempts.map(r=>normalizeHeldMonitor(r.metrics.market.heldMonitor,r.observedAt));
+  const knownHeld=heldMonitorReceipts.filter(Boolean);
+  const heldExpected=knownHeld.reduce((sum,m)=>sum+m.expectedSymbols,0),heldFresh=knownHeld.reduce((sum,m)=>sum+m.freshSymbols,0);
   const unknown = [], failures = [];
   for (const [name, present] of [
     ['marketCoverage',attempts.length > 0 && attempts.every(r => r.metrics.market.freshCoverage != null)],
@@ -302,6 +318,9 @@ function summarizeDay(day, rows, now, criteria) {
     firstObservedAt:rows[0]?.observedAt || null,lastObservedAt:rows.at(-1)?.observedAt || null,
     collectionP95Ms:p95,minimumFreshCoverage:attempts.length&&attempts.every(r=>r.metrics.market.freshCoverage!=null)?Math.min(...attempts.map(r=>r.metrics.market.freshCoverage)):null,
     unknown,failures:[...new Set(failures)],latest,latestLive,
+    heldMonitorCoverage:{scope:'original-monitor-held-symbols-v1',attemptedMinutes:attempts.length,observedMinutes:knownHeld.length,
+      missingMinutes:attempts.length-knownHeld.length,observedExpectedSymbolMinutes:heldExpected,observedFreshSymbolMinutes:heldFresh,
+      observedOnlyRatio:heldExpected>0?heldFresh/heldExpected:null,fullMarketCertified:false},
     accountReconciliation:{scope:JOINT_RECONCILIATION_SCOPE,attempted:accountOutcomes.length,verifiedLocal:accountOutcomes.filter(v=>v==='verified-local').length,
       unsuccessful:accountOutcomes.filter(v=>v==='failed').length,unknown:accountOutcomes.filter(v=>v==='unknown').length,verifiedExternal:false},
     exclusionReasons:[...new Set(rows.flatMap(r=>[...r.exclusions,
@@ -468,12 +487,17 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
   const start=Date.parse(window.start),end=Date.parse(window.end),cutoff=Date.parse(asOf),schedule=plan.runtimeSchedule;
   if(!Number.isSafeInteger(now)||cutoff>now||start%60000||end%60000||end-start>120*86400000)
     throw Error('acceptance-quality-window-invalid');
-  if(!schedule||Array.isArray(schedule)||Object.keys(schedule).some(key=>!['calendarSource','calendarHash','tradeDates'].includes(key))||
+  if(!schedule||Array.isArray(schedule)||Object.keys(schedule).some(key=>!['calendarSource','calendarHash','tradeDates','heldPopulation'].includes(key))||
      typeof schedule.calendarSource!=='string'||version(schedule.calendarSource)!==schedule.calendarSource||
      typeof schedule.calendarHash!=='string'||!HASH.test(schedule.calendarHash)||
      !Array.isArray(schedule.tradeDates)||!schedule.tradeDates.length||schedule.tradeDates.length>60||
      !schedule.tradeDates.every((day,index)=>validDay(day)&&(!index||day>schedule.tradeDates[index-1])))
     throw Error('acceptance-quality-schedule-invalid');
+  const heldPopulation=schedule.heldPopulation;
+  if(heldPopulation!==undefined&&(!heldPopulation||Array.isArray(heldPopulation)||typeof heldPopulation!=='object'||
+    Object.keys(heldPopulation).some(key=>!['sha256','count'].includes(key))||!HASH.test(heldPopulation.sha256||'')||
+    !Number.isSafeInteger(heldPopulation.count)||heldPopulation.count<1||heldPopulation.count>10000))
+    throw Error('acceptance-quality-held-population-invalid');
   const expected=new Set();
   for(const day of schedule.tradeDates){
     const midnight=Date.parse(day+'T00:00:00+08:00');let minutes=0;
@@ -487,7 +511,7 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
   if(!expected.size)throw Error('acceptance-quality-schedule-empty');
   const directory=privateRoot(root),first=aShareCalendarDate(start),last=aShareCalendarDate(end-1),records=[];
   const days=listDays(directory).filter(day=>day>=first&&day<=last);
-  const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,verifiedLocalAccountChecks=0,operationSamples=0,operationFailures=0;
+  const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,verifiedLocalAccountChecks=0,operationSamples=0,operationFailures=0,heldSamples=0,heldFresh=0;
   for(const day of days)for(const row of readDay(directory,day)){
     if(row.observedAt>now)throw Error('acceptance-future-record');
     if(row.observedAt<start||row.observedAt>=end||row.observedAt>cutoff)continue;
@@ -511,6 +535,11 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
       incomparable++;continue;
     }
     const m=row.metrics.market;
+    const held=normalizeHeldMonitor(m.heldMonitor,row.observedAt);
+    if(heldPopulation&&held&&held.populationHash===heldPopulation.sha256&&held.expectedSymbols===heldPopulation.count&&
+      !row.exclusions.includes('collection-window-exceeded')){
+      heldSamples+=held.expectedSymbols;heldFresh+=held.freshSymbols;
+    }
     const failed=row.collectFailed===true||row.exclusions.length>0||m.futureQuotes>0||m.invalidPrice>0||
       m.conflictingSymbols>0||m.invalidIdentities>0||m.quoteEvidence.truncated===true||
       m.expectedSymbols!=null&&m.observedSymbols>m.expectedSymbols;
@@ -524,7 +553,8 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
     unit:'ratio',denominator:expected.size,evidenceRefs:refs};
   const report=evaluateProductQuality({...input,observations:[
     {...common,metricId:'operation-failure',numerator:operationFailures,sampleCount:operationSamples},
-    {...common,metricId:'ledger-reconciliation',numerator:verifiedLocalAccountChecks,sampleCount:knownAccountFailures+verifiedLocalAccountChecks}
+    {...common,metricId:'ledger-reconciliation',numerator:verifiedLocalAccountChecks,sampleCount:knownAccountFailures+verifiedLocalAccountChecks},
+    ...(heldPopulation?[{...common,metricId:'valid-data-coverage',denominator:expected.size*heldPopulation.count,numerator:heldFresh,sampleCount:heldSamples}]:[])
   ]});
   return {...report,runtimeEvidence:{mode:'original-runtime-journal-readonly',population:RUNTIME_QUALITY_POPULATION,
     expectedMinutes:expected.size,recordedMinutes:records.length,comparableOperationMinutes:operationSamples,incomparableMinutes:incomparable,
@@ -532,6 +562,8 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
     rowHashesFingerprint:refs[0].sha256,calendarSource:schedule.calendarSource,calendarHash:schedule.calendarHash,
     scheduleVerification:'input-declared-not-independently-certified',operationScope:'local-runtime-observation-tick-not-all-business-operations',
     accountScope:'original-paper-local-joint-reconciliation-only-no-external-broker-verification',
+    heldCoverage:heldPopulation?{scope:'original-monitor-held-symbols-v1',expectedSymbolMinutes:expected.size*heldPopulation.count,
+      observedSymbolMinutes:heldSamples,freshSymbolMinutes:heldFresh,missingSymbolMinutes:expected.size*heldPopulation.count-heldSamples,fullMarketCertified:false}:null,
     sourceRecordsMutated:false,verifiedExternal:false}};
 }
 

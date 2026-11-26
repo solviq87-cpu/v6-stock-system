@@ -8,15 +8,15 @@ const at=(d,m)=>Date.parse(d+'T09:30:00+08:00')+m*60000;
 const iso=n=>new Date(n).toISOString();
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-runtime-quality-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live',accountObserver=null;
+ let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live',accountObserver=null,heldMonitor=null;
  const ops=createRuntimeAcceptance({root,clock:()=>now,canWrite:()=>true,liveCollector:true,env:{NODE_ENV:'production'},
   calendar:()=>({status:'available',tradeDates:[day,'2026-11-24'],metadata:{source:'quality-calendar',runtimeEligible:true,sha256:hash,from:day,to:'2026-11-24'}}),
   release:()=>({verifiedInstalled:true,sourceSha:sha}),collect:async()=>{if(failing)throw Error('collection failed');
-   return {mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]},execution:accountObserver?accountObserver(now):{reconciled}};}});
+   return {mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}],heldMonitor:heldMonitor?.(now)},execution:accountObserver?accountObserver(now):{reconciled}};}});
  const input=(end=3)=>({revision,asOf:iso(at(day,20)),window:{start:iso(at(day,0)),end:iso(at(day,end))},scope:{kind:'real-market-paper',population:RUNTIME_QUALITY_POPULATION},
   plan:{version:'runtime-quality-fixture-v1',registeredAt:iso(at(day,-60)),criteria:{'operation-failure':{operator:'lte',threshold:.4,minimumSamples:1},
   'ledger-reconciliation':{operator:'gte',threshold:1,minimumSamples:1}},runtimeSchedule:{calendarSource:'quality-calendar',calendarHash,tradeDates:[day]}}});
- return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v,setAccountObserver:v=>accountObserver=v};
+ return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v,setAccountObserver:v=>accountObserver=v,setHeldMonitor:v=>heldMonitor=v};
 }
 const row=(r,id)=>r.dimensions.flatMap(d=>d.metrics).find(m=>m.id===id);
 test('original journal feeds the existing 30-metric evaluator without losing missing minutes or failed account checks',async t=>{
@@ -105,4 +105,34 @@ test('daily and long-window reports preserve unknown legacy positive checks and 
  assert.deepEqual(d.accountReconciliation,{scope:'original-paper-local-joint-reconciliation-v1',attempted:3,verifiedLocal:1,unsuccessful:1,unknown:1,verifiedExternal:false});
  assert.ok(d.unknown.includes('accountReconciliation'));assert.ok(d.failures.includes('account-reconciliation-failed'));
  assert.equal(d.latest.execution.reconciled,true);assert.equal(d.latest.execution.reconciliationReceipt.verifiedExternal,false);
+});
+
+function monitorReceipt(now,{codes=['600001','600002'],fresh=2,status='observed'}={}){
+ const {monitorPlan,monitorCoverage,monitorEvidenceForRuntime}=require('../src/core/monitor-capacity');
+ const accounts={pool:{positions:Object.fromEntries(codes.map(code=>[code,{shares:100}]))},pre:{positions:{}}};
+ const plan=monitorPlan(accounts,[],[]),rows=codes.slice(0,fresh).map(code=>({code,price:10,quoteAt:now-1000,receivedAt:now,quoteSource:'provider',canTrade:true}));
+ return monitorEvidenceForRuntime(monitorCoverage(plan,rows,now,status,accounts),accounts,now);
+}
+function heldPlan(f,end=3){
+ const {heldPopulationHash}=require('../src/core/monitor-capacity'),input=f.input(end);
+ input.plan.runtimeSchedule.heldPopulation={sha256:heldPopulationHash(['600001','600002']),count:2};
+ input.plan.criteria['valid-data-coverage']={operator:'gte',threshold:.8,minimumSamples:1};return input;
+}
+test('runtime quality projects held symbol-minute coverage with a frozen holding population',async t=>{
+ const f=fixture(t);f.setHeldMonitor(now=>monitorReceipt(now));await f.ops.tick();
+ f.setNow(at(day,1));f.setHeldMonitor(now=>monitorReceipt(now,{fresh:0,status:'fetch-failed'}));await f.ops.tick();
+ f.setNow(at(day,2));f.setHeldMonitor(now=>monitorReceipt(now,{fresh:1}));await f.ops.tick();
+ const r=f.review(heldPlan(f)),x=row(r,'valid-data-coverage');
+ assert.deepEqual([x.numerator,x.denominator,x.sampleCount,x.value,x.status],[3,6,6,.5,'fail']);
+ assert.deepEqual(r.runtimeEvidence.heldCoverage,{scope:'original-monitor-held-symbols-v1',expectedSymbolMinutes:6,observedSymbolMinutes:6,freshSymbolMinutes:3,missingSymbolMinutes:0,fullMarketCertified:false});
+ assert.equal(r.canTrade,false);assert.equal(r.canDeploy,false);
+ const d=(await f.ops.report()).days[0];assert.deepEqual(d.heldMonitorCoverage,{scope:'original-monitor-held-symbols-v1',attemptedMinutes:3,observedMinutes:3,missingMinutes:0,observedExpectedSymbolMinutes:6,observedFreshSymbolMinutes:3,observedOnlyRatio:.5,fullMarketCertified:false});
+});
+test('missing, changed or malformed holding population receipts cannot promote coverage',async t=>{
+ const f=fixture(t);f.setHeldMonitor(now=>monitorReceipt(now));await f.ops.tick();
+ f.setNow(at(day,1));f.setHeldMonitor(now=>monitorReceipt(now,{codes:['600001','600003']}));await f.ops.tick();
+ f.setNow(at(day,2));f.setHeldMonitor(now=>({...monitorReceipt(now),freshSymbols:3}));await f.ops.tick();
+ const r=f.review(heldPlan(f)),x=row(r,'valid-data-coverage');assert.deepEqual([x.numerator,x.denominator,x.sampleCount,x.missingCount,x.status],[2,6,2,4,'unknown']);
+ const bad=heldPlan(f);bad.plan.runtimeSchedule.heldPopulation.count=0;assert.throws(()=>f.review(bad),/held-population-invalid/);
+ assert.equal(row(f.review(f.input()),'valid-data-coverage').status,'unknown');
 });
