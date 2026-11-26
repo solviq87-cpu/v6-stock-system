@@ -50,3 +50,46 @@ test('服务器数据只使用已授权 GET；降级清空图表与在途响应�
  assert.doesNotMatch(view.textContent,/归档测试/);assert.equal(calls,2);
  const v=renderKlineLearning(ctx);assert.equal(calls,2);assert.match(v.textContent,/历史日K CSV/);
 });
+
+
+test('同日重复确认不会多算日K、预热根数或样本数',()=>{
+ const d='2024-06-04',s={bars:[b(d),{...b(d),source:'V6/tencent',knownAt:at(d,'16:00')},b('2024-06-05')],market:[market(d,'15:01','震荡'),market('2024-06-05','15:01','多头')]};
+ const r=syncedSeries(syncedDataset(s,now),'600000');
+ assert.equal(r.rows.length,2);assert.equal(r.samples.length,2);
+ assert.equal(r.samples[0].history.length,1);assert.equal(r.samples[1].history.length,2);
+ assert.equal(r.samples[0].signalAvailableAt,new Date(at(d)).toISOString());
+});
+test('同一可知时点矛盾不按输入顺序择价，晚到矛盾不回写早期冻结样本',()=>{
+ const d='2024-06-04',original=b(d),conflict={...b(d,3),knownAt:at(d,'16:00')},tomorrow=b('2024-06-05');
+ const r=syncedSeries(syncedDataset({bars:[original,conflict,tomorrow]},now),'600000');
+ assert.deepEqual(r.rows.map(x=>x.date),['2024-06-05']);
+ assert.equal(r.conflictDates,1);assert.equal(r.blockedSamples,1);
+ assert.equal(r.samples.length,1);assert.equal(r.samples[0].bar.close,original.close);
+ for(const rows of [[original,{...conflict,knownAt:original.knownAt}],[{...conflict,knownAt:original.knownAt},original]]){
+   const x=syncedSeries(syncedDataset({bars:rows},now),'600000');
+   assert.equal(x.rows.length,0);assert.equal(x.samples.length,0);assert.equal(x.conflictDates,1);
+ }
+ const frozen={code:'600000',date:d,sourceFingerprint:'frozen',method:'行情自动识别',asOf:d+' 16:01'};
+ assert.equal(syncedSeries(syncedDataset({bars:[original,conflict],checks:[frozen]},now),'600000').samples.length,0);
+});
+test('15:10前原始日K不能被较晚可用时间变成学习证据，合法定稿保留',()=>{
+ const d='2024-06-04',early={...b(d,2),knownAt:at(d,'15:05'),availableAt:d+' 16:00'};
+ let r=syncedSeries(syncedDataset({bars:[early]},now),'600000');
+ assert.equal(r.rows.length,1);assert.equal(r.rows[0].learningEligible,false);assert.equal(r.samples.length,0);assert.equal(r.provisional,1);
+ const final=b(d);r=syncedSeries(syncedDataset({bars:[early,final]},now),'600000');
+ assert.equal(r.rows.length,1);assert.equal(r.rows[0].close,final.close);assert.equal(r.samples.length,1);
+ const dateOnly={...b(d),knownAt:d};r=syncedSeries(syncedDataset({bars:[dateOnly]},now),'600000');
+ assert.equal(r.samples.length,0);
+});
+test('休市日、错误证券身份和分数股成交量不进入同步学习',()=>{
+ const valid=b('2024-06-04'),rows=[valid,b('2024-06-08'),{...b('2024-06-05'),secid:'0.600000'},{...b('2024-06-06'),volume:1.5}];
+ const r=syncedSeries(syncedDataset({bars:rows},now),'600000');
+ assert.deepEqual(r.rows.map(x=>x.date),[valid.date]);
+});
+test('同一时点大盘上下文冲突不任意选取，晚到冲突不覆盖更早样本',()=>{
+ const d='2024-06-04',a=market(d,'15:01','多头'),z=market(d,'15:01','空头');
+ const r=syncedSeries(syncedDataset({bars:[b(d)],market:[a,z]},now),'600000');
+ assert.equal(r.samples[0].market,null);assert.equal(r.samples[0].labels.marketTrend,null);
+ const late=market(d,'17:00','空头'),x=syncedSeries(syncedDataset({bars:[b(d)],market:[a,late]},now),'600000');
+ assert.equal(x.samples[0].labels.marketTrend,'多头');assert.equal(x.market.marketTrend,'空头');
+});

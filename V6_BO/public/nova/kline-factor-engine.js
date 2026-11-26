@@ -270,7 +270,7 @@ export function labelHistory(stocks, sectors = [], markets = [], minutes = [],{d
   samples.sort((a,b)=>a.date.localeCompare(b.date)||a.code.localeCompare(b.code));
   return deferWindow?samples:debounceLearningSamples(samples,stocks);
 }
-export function debounceLearningSamples(samples,bars){
+export function debounceLearningSamples(samples,bars,{isVisible=historyVisible}={}){
   const groups=indexed(bars),timelines=new Map(),width=settingsAt({}).debounceBars;
   return samples.map(sample=>{
     if(!sample.signals.length)return sample;
@@ -279,7 +279,7 @@ export function debounceLearningSamples(samples,bars){
       timelines.set(sample.code,{series,index:new Map(series.map((b,i)=>[b.date,i])),accepted:new Map()});
     }
     const {series,index,accepted}=timelines.get(sample.code);
-    const {keep,suppressed}=selectSignalWindow(sample.signals.map(x=>x.name),index.get(sample.date),series,accepted,Date.parse(sample.signalAvailableAt),width,historyVisible);
+    const {keep,suppressed}=selectSignalWindow(sample.signals.map(x=>x.name),index.get(sample.date),series,accepted,Date.parse(sample.signalAvailableAt),width,isVisible);
     return {...sample,signals:sample.signals.filter(x=>keep.includes(x.name)),debounceBars:width,suppressedStrategies:suppressed};
   });
 }

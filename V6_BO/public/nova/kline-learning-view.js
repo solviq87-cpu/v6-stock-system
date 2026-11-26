@@ -156,11 +156,14 @@ export function renderKlineLearning(ctx){
     const codes=[...dataset.stocks.keys()];
     const code=requested?(codes.includes(requested)?requested:''):codes[0];
     synced.replaceChildren(node('h2','V6 已同步日线'));
-    if(!code){synced.append(node('p','尚无带来源与收盘时点的 V6 未复权日线。','fy-muted'));return;}
+    if(!code){
+      if(sourceMode==='synced'){records={stock:[],market:[],sector:[],minute:[]};samples=[];corrections=[];selected=null;report=null;frozenSplit=null;refresh();}
+      synced.append(node('p','尚无可用的 V6 未复权日线，冲突或未知数据不参与学习。','fy-muted'));return;
+    }
     const choose=sel(codes.map(c=>[c,(dataset.stocks.get(c).at(-1).name||c)+' · '+c]));
     choose.value=code;choose.setAttribute('aria-label','选择已同步标的');
     choose.addEventListener('change',()=>{if(!busy&&canEdit())paintArchive(choose.value);});
-    const {rows,samples:causal,late,market,sector}=syncedSeries(dataset,code),latest=rows.at(-1);
+    const {rows,samples:causal,late,provisional,conflictDates,blockedSamples,market,sector}=syncedSeries(dataset,code),latest=rows.at(-1);
     sourceMode='synced';records={stock:rows,market:[],sector:[],minute:[]};samples=causal;
     corrections=[];selected=null;reason.value='';target.textContent='未选择要修正的K线';frozenSplit=freezeSplit(samples,{embargo:5});
     sourceFiles={source:'V6 私有短线档案',book,revision:dataset.revision,code};if(!preserveFilter)sampleScope.value='all';
@@ -171,6 +174,8 @@ export function renderKlineLearning(ctx){
       ['全A证据可知时间',market?.asOf],['板块证据可知时间',sector?.asOf],['行情来源',latest.source],['数据可知时间（北京时间）',new Date(latest.at+28800000).toISOString().slice(0,19).replace('T',' ')]
     ]));
     status.textContent='读取 '+rows.length+' 根已同步日线，其中 '+causal.length+' 根可还原信号时点；'+late+' 根迟到行情仅供事后图表及其可知时点之后的计算。'+
+      (provisional?' '+provisional+' 根未确认原始收盘时点的日线仅供显示。':'')+
+      (conflictDates||blockedSamples?' '+conflictDates+' 个冲突交易日、'+blockedSamples+' 个受影响信号已隔离。':'')+
       (!causal.some(s=>s.market)?' 缺少同期可用的全A证据。':'')+(!causal.some(s=>s.sector)?' 缺少同期可用的板块证据。':'');
     refresh();
   }
