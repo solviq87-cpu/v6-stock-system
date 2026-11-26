@@ -50,6 +50,45 @@ function quotes(rows,session,now){
   ...(stats.conflictingRows?{missing:['原报价证据存在明确来源冲突；冲突行不计入当前或历史有效观察'],nextAction:'核对原来源与原始时间，等待无冲突的新证据'}:{}),
   extra:{coverage:stats,latestOriginalQuoteAt:latestQuoteAt,lastSuccessAtKind:'observed-receipt',tradePermissionCertified:false}});
 }
+// A bounded, read-only overview of the original component receipts. These
+// groups are not a second health collector or a certificate of production.
+const SELF_CHECK_GROUPS=[
+ ['market','行情数据',['quotes']],
+ ['strategy','策略与扫描',Object.keys(TASKS).map(id=>'task/'+id)],
+ ['risk','账户风险观察',['risk-observation']],
+ ['plans','冻结计划与执行观察',['plan-observer']],
+ ['history','历史与财报',['history-financial']],
+ ['research','研究反馈与模型',['feedback','model-evidence']],
+ ['notifications','通知通道',['notification']],
+ ['resources','计算资源',['worker-budget']]
+];
+const SELF_CHECK_STATES=['normal','degraded','fault','unconfigured','unchecked'];
+function selfCheckState(states){
+ if(states.includes('fault'))return 'fault';
+ if(states.includes('degraded'))return 'degraded';
+ if(states.includes('unchecked'))return 'unchecked';
+ if(states.every(s=>s==='unconfigured'))return 'unconfigured';
+ if(states.includes('unconfigured'))return 'degraded';
+ return states.length&&states.every(s=>s==='normal')?'normal':'unchecked';
+}
+function buildSelfCheck(components){
+ const modules=SELF_CHECK_GROUPS.map(([id,label,componentIds])=>{
+  const states=componentIds.map(key=>{
+   const matches=components.filter(row=>row.id===key);
+   if(matches.length!==1)return 'unchecked';
+   const row=matches[0];
+   if(row.status==='failed'||(key==='quotes'&&row.reasonCodes.includes('QUOTE_SOURCE_CONFLICT')))return 'fault';
+   if(['missing-data','historical-snapshot'].includes(row.status))return 'degraded';
+   if(['normal','unconfigured'].includes(row.status))return row.status;
+   return 'unchecked';
+  });
+  return {id,label,status:selfCheckState(states),componentIds:[...componentIds],expected:componentIds.length,
+   observedNormal:states.filter(s=>s==='normal').length};
+ });
+ const counts=Object.fromEntries(SELF_CHECK_STATES.map(s=>[s,modules.filter(m=>m.status===s).length]));
+ return {scope:'original-runtime-receipts-only',status:selfCheckState(modules.map(m=>m.status)),
+  modules,counts,productionCertified:false,tradePermissionCertified:false};
+}
 function buildSystemReadiness({now=Date.now(),version=null,replica=false,session=null,quoteRows,taskRows,
  risk=null,plans=null,background=null,feedback=null,model=null,worker=null,notificationConfigured=null,trace=null}={}){
  if(!Number.isSafeInteger(now)||now<=0||now>8e15)throw Error('运行就绪度查询时钟无效');
@@ -143,6 +182,6 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
   {id:'production-and-runtime-acceptance',ready:false,missing:['目标部署和5/20/60真实交易日证据尚须独立核验']}
  ];
  return {schemaVersion:1,protocol:PROTOCOL,asOf:now,version:typeof version==='string'?version.slice(0,80):null,
-  instanceRole:replica?'replica':'primary',components,dependencies,runtimeTrace,readOnly:true,canTrade:false,canNotify:false,writesAccount:false};
+  instanceRole:replica?'replica':'primary',components,dependencies,runtimeTrace,selfCheck:buildSelfCheck(components),readOnly:true,canTrade:false,canNotify:false,writesAccount:false};
 }
 module.exports={buildSystemReadiness,PROTOCOL};

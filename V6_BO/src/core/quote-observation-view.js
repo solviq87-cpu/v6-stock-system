@@ -99,8 +99,9 @@ function valuationObservation(state,code,price,position,provided,now=Date.now())
  if(provided){
    const cached=state?.lastPx?.get?.(code);
    if(cached&&cached.p===price&&now-cached.t<180000&&cached.quoteAt<=now&&now-cached.quoteAt<=15000){
-     return {...quoteObservationView({price,quoteAt:cached.quoteAt,receivedAt:cached.receivedAt??null,
-       quoteSource:cached.quoteSource,quoteMode:cached.mode||'public-live-unverified'},now),valuationKind:'observed-price'};
+     // The cache is the selected valuation observation. Do not rebuild a
+     // reduced row that drops explicit conflict or trade-date provenance.
+     return {...quoteObservationView({...cached,price,quoteMode:cached.quoteMode||cached.mode||'public-live-unverified'},now),valuationKind:'observed-price'};
    }
    for(const rows of [state?.candidatePool,state?.trendPool,state?.stocks]){
      const row=Array.isArray(rows)?[...rows].reverse().find(row=>row?.code===code&&row.price===price):null;

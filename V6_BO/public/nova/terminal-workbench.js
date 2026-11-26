@@ -366,9 +366,16 @@ export function renderTerminalOverview(ctx,{reviewOnly=false}={}) {
     const rows=result?.protocol==='fayo-system-readiness-v1'&&Array.isArray(result.components)?result.components:[];
     const trace=result?.runtimeTrace,hookLabels={'task.tick':'盘中巡检','task.pool':'候选池重建','market.snapshot':'原报价采集','market.universe':'股票范围读取','market.history':'历史数据读取','factor.evaluate':'因子计算','strategy.evaluate':'策略计算','candidate.publish':'候选池发布','risk.entry':'推荐风控','risk.notification':'风险通知','paper.transaction':'模拟账户事务','paper.publish':'模拟账户发布','paper.buy':'模拟买入','paper.sell':'模拟卖出','notification.digest':'快报合并','notification.queue':'通知排队','notification.attempt':'发送尝试','notification.delivery':'接收端回执','research.stage':'研究阶段','research.worker-dispatch':'研究线程派发','research.worker-execute':'研究线程执行','factor.worker-dispatch':'因子线程派发','factor.worker-execute':'因子线程执行','task.decision-background':'背景研究','task.decision-evidence':'决策观察','market.financials':'财务读取','risk.plan-context':'计划上下文','risk.plan-observation':'计划观察','risk.plan-persist':'计划存证','notification.dispatch':'通知派发'};
     const hooks=trace?.scope==='this-process-observed-stages'&&Array.isArray(trace.hooks)?trace.hooks.filter(r=>Object.hasOwn(hookLabels,r.stage)):[];
-    const stamp=JSON.stringify([rows,hooks,trace?.active,trace?.dropped,trace?.evicted]);if(stamp===readinessStamp)return;readinessStamp=stamp;
+    const check=result?.selfCheck?.scope==='original-runtime-receipts-only'&&Array.isArray(result.selfCheck.modules)&&result.selfCheck.modules.length===8?result.selfCheck:null;
+    const checkLabels={normal:'有回执',degraded:'降级／缺项',fault:'故障／冲突',unconfigured:'未配置',unchecked:'待核验'};
+    const stamp=JSON.stringify([rows,check,hooks,trace?.active,trace?.dropped,trace?.evicted]);if(stamp===readinessStamp)return;readinessStamp=stamp;
     updateReadout(readinessBody,...(rows.length?[
      h('p',{class:'fy-muted'},'本项运行回执不等于数据授权、策略有效或交易许可。'),
+     ...(check?[h('h4',{},'八组运行回执自检 · '+(checkLabels[check.status]||'待核验')),
+      h('p',{class:'fy-muted'},'只读汇总已有运行回执，不新增采集、发送或交易，也不认证生产健康。'),
+      h('ul',{class:'fy-evidence-list','data-system-self-check':true},...check.modules.map(m=>h('li',{},
+       h('strong',{},m.label+' · '+(checkLabels[m.status]||'待核验')),
+       h('small',{},'正常回执 '+m.observedNormal+'/'+m.expected))))]:[]),
      h('ul',{class:'fy-evidence-list'},...rows.map(row=>h('li',{},h('strong',{},row.label+' · '+(readinessLabels[row.status]||'待核验')),
       h('small',{},'最近尝试 '+(row.lastAttemptAt?dateTime(row.lastAttemptAt):'未知')+'；最后正常回执 '+(row.lastSuccessAt?dateTime(row.lastSuccessAt):'未知')),
       h('p',{},row.nextAction||'等待原回执'))))
