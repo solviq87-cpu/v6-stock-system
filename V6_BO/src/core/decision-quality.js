@@ -1,5 +1,6 @@
 'use strict';
 const {qualityScore}=require('./intelligence-research');
+const {sourceLineage}=require('./data-source-lineage');
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const time=value=>Number.isSafeInteger(value)&&value>0&&value<8e15;
 const chinaDay=at=>new Date(at+28800000).toISOString().slice(0,10);
@@ -24,11 +25,22 @@ function decisionQuality(row,gate,{day,now=Date.now(),history=null,config}={}){
   continuity:{value:null,evidence:{source:history?.source||null,missing:'需要前复权原始日K、实际取得时间及最近20个已收盘交易日历'}},
   anomaly:{value:null,evidence:{...reference,missing:'需要完整开高低现价、前收、量额及其原始时点'}}
  };
- const evidence=Array.isArray(gate?.sourceEvidence)?gate.sourceEvidence:[],independent=new Set(evidence.map(item=>item.upstreamGroup));
+ const evidence=Array.isArray(gate?.sourceEvidence)?gate.sourceEvidence:[];
+ const checkedAt=typeof gate?.checkedAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(gate.checkedAt)?Date.parse(gate.checkedAt):gate?.checkedAt;
+ const groups=new Set(),identities=new Set();
+ // Registry identities are declarations, not an external independence certificate.
+ // No unknown source, repeated upstream or post-cutoff observation earns a Q vote.
+ const independent=evidence.length>=2&&evidence.length<=8&&evidence.every(item=>{
+  const lineage=sourceLineage(item?.source);
+  if(!lineage?.known||lineage.upstreamAmbiguous||lineage.market!=='CN'||lineage.upstreamGroup!==item.upstreamGroup||
+   identities.has(item.source)||groups.has(item.upstreamGroup)||typeof item.inConsensus!=='boolean')return false;
+  identities.add(item.source);groups.add(item.upstreamGroup);return true;
+ });
  const sourceDeviations=[];
- if(quoteKnown&&['observed-agreement','conflict'].includes(gate?.status)&&independent.size>=2&&
+ if(quoteKnown&&['observed-agreement','conflict'].includes(gate?.status)&&independent&&
+  time(checkedAt)&&checkedAt<=now&&chinaDay(checkedAt)===day&&
   evidence.every(item=>finite(item.price)&&item.price>0&&finite(item.previousClose)&&item.previousClose>0&&
-   time(item.quoteAt)&&item.quoteAt<=now&&now-item.quoteAt<=maxAge&&chinaDay(item.quoteAt)===day)){
+   time(item.quoteAt)&&item.quoteAt<=checkedAt&&now-item.quoteAt<=maxAge&&chinaDay(item.quoteAt)===day)){
   const median=key=>{const values=evidence.map(item=>item[key]).sort((a,b)=>a-b);return values[Math.floor(values.length/2)];};
   const price=median('price'),previousClose=median('previousClose');
   for(const item of evidence)sourceDeviations.push({...item,priceDeviationBps:Math.abs(item.price/price-1)*10000,
