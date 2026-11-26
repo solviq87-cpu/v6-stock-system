@@ -1206,7 +1206,7 @@ async function fetchKlineEM(code, days = 95) {
       chg: +p[9], turnover: +p[10]
     };
   });
-  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows))return null;
+  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows,Date.now()))return null;
   return { name: j.data.name, rows,src:'em',adjust:'qfq',frequency:'1d',receivedAt:Date.now() };
 }
 
@@ -1574,7 +1574,7 @@ async function fetchKlineTx(code, days = 95) {
     rows[i].pct = +(((rows[i].close - rows[i - 1].close) / rows[i - 1].close) * 100).toFixed(2);
     rows[i].amount = rows[i].volume * rows[i].close * 100;
   }
-  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows))return null;
+  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows,Date.now()))return null;
   return { name: '', rows, src: 'tx', adjust: adjusted?'qfq':'unadjusted',frequency:'1d',receivedAt:Date.now() };
 }
 
@@ -1621,7 +1621,7 @@ async function fetchKlineThs(code, days = 95) {
       arr[i].pct = prev > 0 ? +(((arr[i].close - prev) / prev) * 100).toFixed(2) : 0;
       arr[i].amp = arr[i].low > 0 ? +(((arr[i].high - arr[i].low) / arr[i].low) * 100).toFixed(2) : 0;
     }
-    if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(arr))return null;
+    if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(arr,Date.now()))return null;
     _thsKFail = 0;
     return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',frequency:'1d',receivedAt:Date.now() };
   } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;

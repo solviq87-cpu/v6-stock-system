@@ -36,9 +36,9 @@ test('Tencent raw day response cannot impersonate adjusted stock history',async(
  const fs=require('node:fs'),path=require('node:path');
  const source=fs.readFileSync(path.join(__dirname,'../em.js'),'utf8');
  const start=source.indexOf('async function fetchKlineTx('),end=source.indexOf('\n}\n',start)+2;
- const fn=new Function('txMarket','txRaw','txJSON','require',source.slice(start,end)+';return fetchKlineTx;');
+ const fn=new Function('txMarket','txRaw','txJSON','require','Date',source.slice(start,end)+';return fetchKlineTx;');
  const daily=[['2026-11-25','10','10','11','9','100']];
- const make=payload=>fn(()=> 'sz',()=> '000001',async()=>({data:{sz000001:payload}}),()=>continuity);
+ const make=payload=>fn(()=> 'sz',()=> '000001',async()=>({data:{sz000001:payload}}),()=>continuity,{now:()=>after});
  assert.equal(await make({day:daily})('000001'),null);
  const adjusted=await make({qfqday:daily})('000001');assert.equal(adjusted.adjust,'qfq');
  const index=await make({day:daily})('0.000001');assert.equal(index.adjust,'unadjusted');
