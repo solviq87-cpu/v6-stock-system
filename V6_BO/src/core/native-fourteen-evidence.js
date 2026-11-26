@@ -19,8 +19,14 @@ function projectFourteenEvidence(snapshot,{symbol,date,cutoff,allowSynthetic=fal
     typeof e.source!=='string'||!e.source.trim()||e.source.length>160||
     !Number.isSafeInteger(cutoff)||cutoff<=0||!object(e.stock))return null;
  const start=Date.parse(date+'T00:00:00+08:00'),end=Math.min(cutoff,Date.parse(date+'T23:59:59.999+08:00'));
- const known=instant(e.knownAt),parent=declaredTimes(snapshot),times=declaredTimes(e);
- if(known===null||known<start||known>end||parent.some(x=>x===null||x>end)||
+ const known=instant(e.knownAt),receipt=instant(snapshot.knownAt),parent=declaredTimes(snapshot),times=declaredTimes(e);
+ const sessionClose=Date.parse(date+'T15:00:00+08:00');
+ // A final streak count cannot be claimed from a pre-close observation.
+ // Even an authentic receipt is not certification of a provider's finality.
+ if(receipt===null||receipt<known||known===null||known<start||known>end||
+    Object.hasOwn(e.stock,'limitUpCount')&&(known<sessionClose||
+      Object.hasOwn(e,'sourceTimestamp')&&!(instant(e.sourceTimestamp)>=sessionClose))||
+    parent.some(x=>x===null||x>end)||
     times.some(x=>x===null||x>end)||parent.length&&Math.max(...times)>Math.max(...parent))return null;
  if(Object.keys(e.stock).some(k=>!stockFields.includes(k)))return null;
  if(Object.hasOwn(e,'observedThrough')&&e.observedThrough!==date)return null;

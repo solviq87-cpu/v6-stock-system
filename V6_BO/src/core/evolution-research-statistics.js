@@ -693,6 +693,12 @@ function diagnosticInputsFromEvents(events, history, { asOf = Date.now() } = {})
       return x && x.symbol === d.symbol && x.date === d.tradeDate && stamp(x.knownAt) && x.knownAt <= Math.min(asOf, e.recordedAt, d.asOf);
     };
     if (valid(input.fourteen)) {
+      // Preserve the original frozen child, not a reconstructed streak or
+      // a new receipt assigned to older evidence. The runner rechecks it.
+      const candidate = {...context, fourteenEvidence: input.fourteen};
+      if (require('./native-fourteen-evidence').projectFourteenEvidence(candidate, {
+        symbol:d.symbol,date:d.tradeDate,cutoff:Math.min(asOf,Date.parse(d.tradeDate+'T23:59:59.999+08:00'))
+      })) context.fourteenEvidence=structuredClone(input.fourteen);
       for (const field of ['sector', 'auction', 'profitRatio']) if (input.fourteen[field] !== undefined) context[field] = structuredClone(input.fourteen[field]);
       for (const field of ['name', 'floatCap']) if (input.fourteen.stock?.[field] !== undefined) context[field] = input.fourteen.stock[field];
     }
