@@ -74,3 +74,16 @@ test('empty/duplicate/malformed headers, unsafe query and oversized responses ar
   ok:true,headers:{get:()=> 'text/csv'},body:Readable.from([Buffer.alloc(513*1024)])
  })}),/超过512KiB/);
 });
+
+test('18/22 ECB observation begins only after the complete response body is received',async()=>{
+ let receiptClock=now;
+ const make=()=>({ok:true,headers:{get:()=> 'text/csv'},text:async()=>{
+  receiptClock=now+2000;return csv([line('2026-11-02','1.2')]);
+ }});
+ const r=await collectEcbFxRate({...cfg,clock:()=>receiptClock,fetchImpl:async()=>make()});
+ assert.equal(r.requestStartedAt,now);assert.equal(r.observedAt,now+2000);
+ assert.equal(r.rows[0].collectorObservedAt,r.observedAt);assert.equal(r.rows[0].providerPublishedAt,null);
+ assert.equal(r.rows[0].quoteAt,null);assert.equal(r.verifiedLive,false);assert.equal(r.canTrade,false);
+ for(const invalid of [now-1,NaN,Infinity])await assert.rejects(()=>collectEcbFxRate({...cfg,
+  clock:()=>invalid,fetchImpl:async()=>make()}),/接收时钟/);
+});

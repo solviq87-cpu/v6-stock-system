@@ -1,20 +1,23 @@
 'use strict';
 
 const {aShareCalendarDate} = require('../core/a-share-calendar');
+const {performance}=require('node:perf_hooks');
+const REFRESH_MS=60000,BUSY_RETRY_MS=1000,MAX_BUSY_RETRIES=3;
 const {buildPaperExecutionChecklist, dayOk, LABELS} = require('../core/paper-execution-checklist');
 const {validateObservation, alertsForRecord} = require('../core/paper-plan-observer');
 
 // The homepage reads this memory projection synchronously. Only the bounded
 // background refresh reads private archives; it never replays a day's batches.
-function createPaperExecutionChecklistCache({clock=Date.now,isPrimary,enabled,readArchive,
+function createPaperExecutionChecklistCache({clock=Date.now,monotonicClock=()=>performance.now(),isPrimary,enabled,readArchive,
   readBook,readConditionalOrders,readDailyReport}={}) {
-  if ([clock,isPrimary,enabled,readArchive,readBook,readConditionalOrders,readDailyReport].some(fn=>typeof fn!=='function'))
+  if ([clock,monotonicClock,isPrimary,enabled,readArchive,readBook,readConditionalOrders,readDailyReport].some(fn=>typeof fn!=='function'))
     throw Error('执行清单缓存缺少原只读证据接口');
   let requestedDay=null,cached=null,loadedAt=0,nextAt=0,busy=false,epoch=0,lastError=null;
+  let retryAt=null,busyRetries=0;
   let observationDay=null,points=new Map();
   const permitted=()=>isPrimary()===true&&enabled()===true;
   const clone=value=>JSON.parse(JSON.stringify(value));
-  function invalidate(){epoch++;loadedAt=0;nextAt=0;}
+  function invalidate(){epoch++;loadedAt=0;nextAt=0;retryAt=null;busyRetries=0;}
   function observe({records=[]}={}) {
     if(!permitted())return;
     const now=clock(),day=aShareCalendarDate(now);
@@ -61,13 +64,31 @@ function createPaperExecutionChecklistCache({clock=Date.now,isPrimary,enabled,re
     return result;
   }
   async function tick(){
-    const now=clock();
-    if(!permitted()||busy||now<nextAt)return;
+    const now=clock(),mono=monotonicClock();
+    if(!permitted()||busy||!Number.isFinite(mono))return;
+    if(retryAt!==null){
+      if(mono<retryAt)return;
+      retryAt=null;
+    }else{
+      if(now<nextAt)return;
+      busyRetries=0;
+    }
     const day=requestedDay||aShareCalendarDate(now),version=epoch;
-    busy=true;nextAt=now+60000;
+    busy=true;nextAt=now+REFRESH_MS;
     const current=()=>permitted()&&version===epoch&&(requestedDay===null||requestedDay===day);
     try{
       const archive=await readArchive();if(!current())return;
+      // A rejected shared worker admission is not an archive failure or proof of
+      // no plans. Allow a few background-only retries, without spawning a new
+      // timer, blocking a page GET, or changing the worker resource ceiling.
+      if(archive?.ok===false&&archive.httpStatus===503&&archive.code==='WORKSPACE_BUSY'){
+        loadedAt=0;lastError='原研究档案线程暂忙，执行状态保持未知';
+        const retryClock=monotonicClock();
+        if(busyRetries<MAX_BUSY_RETRIES&&Number.isFinite(retryClock)&&retryClock>=mono){
+          busyRetries++;retryAt=retryClock+BUSY_RETRY_MS;
+        }
+        return;
+      }
       if(archive?.ok!==true||!Array.isArray(archive.state?.plans))throw Error('原冻结计划档案尚未完成核验');
       const conditional=await readConditionalOrders();if(!current())return;
       if(!Array.isArray(conditional?.orders))throw Error('原条件意图尚未完成核验');
@@ -77,7 +98,7 @@ function createPaperExecutionChecklistCache({clock=Date.now,isPrimary,enabled,re
       const result=buildPaperExecutionChecklist({day,now:clock(),plans:archive.state.plans,book,conditionalOrders:conditional.orders,
         observations,dailyReport:daily,observationScope:'current-process-latest-and-first-triggers'});
       if(!current())return;
-      cached=result;loadedAt=clock();lastError=null;
+      cached=result;loadedAt=clock();lastError=null;retryAt=null;busyRetries=0;
     }catch(error){
       if(current()){loadedAt=0;lastError=String(error?.message||'原执行证据暂不可用').replace(/[\x00-\x1f\x7f]/g,' ').slice(0,300);}
     }finally{busy=false;}

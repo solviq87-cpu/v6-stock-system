@@ -150,19 +150,25 @@ test('desktop and mobile show same-day supplier reasons separately from the revi
  }
  ctx.controller.abort();
 });
-test('homepage simulation totals use only the editor projection and keep missing values unknown',async()=>{
+test('homepage paper reference totals use only the editor projection and keep missing values unknown',async()=>{
  dom();const {renderTerminalOverview}=await api,s=fixture(1);
  s.paper={pool:{equity:123456.78,cash:0,marketValue:null,totalPnl:-12.5}};
- const editor=context(s),viewer=context(s,'view'),hidden=context({...s,paper:{...s.paper,hidden:true}});
+ const editor=context(s),viewer=context(s,'view'),hidden=context({...s,paper:{...s.paper,hidden:true}}),
+  missing=context({...s,paper:{pool:{equity:null,cash:null,marketValue:null,totalPnl:null}}});
  const panel=view=>locate(view,el=>el?.className==='fy-reference-account-body');
  const content=ctx=>textOf(panel(renderTerminalOverview(ctx)));
  const totals=content(editor);
- assert.match(totals,/总权益\s+123,456\.78/);
+ assert.match(totals,/参考权益\s+123,456\.78/);
+ assert.match(totals,/参考累计盈亏\s+-12\.50/);
+ assert.doesNotMatch(totals,/总权益|当前精确权益/,'legacy paper projection is labeled as reference, not current verified equity');
  assert.match(totals,/可用资金\s+0\.00/);
  assert.doesNotMatch(totals,/持仓市值/);
  assert.doesNotMatch(content(viewer),/123,456\.78/);
  assert.doesNotMatch(content(hidden),/123,456\.78/);
- for(const ctx of [editor,viewer,hidden])ctx.controller.abort();
+ const absent=content(missing);assert.match(absent,/暂无模拟盘估值/);
+ assert.doesNotMatch(absent,/0\.00|参考权益|参考持仓市值/,'missing reference values are never converted to zero');
+ await tick();assert.equal(viewer.calls.length,0,'viewer does not request private risk or account evidence');
+ for(const ctx of [editor,viewer,hidden,missing])ctx.controller.abort();
 });
 test('real V6 module links route to existing review, strategies, simulated account and holdings',async()=>{
  dom();const {renderTerminalOverview}=await api,ctx=context(fixture(3));
@@ -204,6 +210,15 @@ test('home previews three candidates from the same system picks list and links t
  }))];
  s.pool=[{code:'600110',name:'另一个交易日的备选池'}];
  const ctx=context(s),view=renderTerminalOverview(ctx);
+ const summary=view.children.find(el=>el?.classList?.contains('fy-risk-summary'));
+ const research=locate(view,el=>el?.tag==='details'&&el?.className==='fy-home-research');
+ assert.ok(summary,'the shared backend risk summary remains visible on the homepage');
+ const regions=view.children.filter(el=>el?.classList?.contains('fy-home-section'));
+ assert.deepEqual(regions.map(el=>el['aria-label']),['大盘一眼看','今日机会','风险与持仓'],'original three-region contract remains intact on the homepage');
+ const holding=regions.find(el=>el?.classList?.contains('fy-home-risk'));
+ assert.ok(holding,'original risk and holding evidence remain directly reachable');
+ assert.ok(!locate(research,el=>el?.classList?.contains('fy-home-risk')),'do not duplicate original holdings under additional research');
+ assert.equal(!!research.open,false,'additional research evidence starts collapsed');
  const host=locate(view,el=>el?.className==='fy-terminal-preview-cards');
  const cards=locate(host,el=>el?.className==='fy-stock-grid');
  assert.ok(host&&cards,'home keeps a real evidence-backed candidate preview');
@@ -215,7 +230,10 @@ test('home previews three candidates from the same system picks list and links t
  const full=locate(view,el=>el?.tag==='button'&&textOf(el).trim()==='查看系统精选');
  assert.ok(full,'full candidate workspace remains reachable');
  full.listeners.click();assert.deepEqual(ctx.navigations.at(-1),['opportunities','ranked']);
- await tick();assert.equal(ctx.calls.length,0,'landing does not automatically load remote strategy pools');
+ await tick();
+ assert.deepEqual(ctx.calls.map(call=>call.path),['/api/risk-workbench?account=pool'],
+  'landing reads the shared account risk result and does not automatically load remote strategy pools');
+ assert.ok(ctx.calls.every(call=>!call.options?.method||call.options.method==='GET'),'homepage risk read never mutates reminders or orders');
  ctx.controller.abort();
 });
 

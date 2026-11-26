@@ -1,0 +1,159 @@
+{
+  "reviewer": "/root/task_ledger_audit",
+  "reviewedAt": "2026-11-25T18:05:54.622114+00:00",
+  "base": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+  "branch": "fix/fayo-risk-status-supplement-20261126",
+  "manifestFileSha256": "e2d5c50e307b89af7f5166a5cea88639f20ad6aad31b7f0c9b7b088304ee8cdc",
+  "manifestFilesMatched": true,
+  "checks": [
+    {
+      "path": "V6_BO/public/nova/index.html",
+      "sha256": "ac90f441e67347cdbc048d4eaeaa86a836457b830ffd14259e518b94cfd23a75",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "sha256": "6700fe86e8765233656bda49c2eae7716ec44c1773d5cd0b7ab2a8afec50f0e9",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/public/sw.js",
+      "sha256": "aeecec102393b034bbdc1815c2503b027ada50d5c713b60a4826b011700e0573",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/scripts/fayo-browser-check.js",
+      "sha256": "ecacbb445c77d4569e7d8e80079c6ddca0517bd8a75373f7ac7d564a7d9bb2c7",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/scripts/fayo-risk-browser-check.js",
+      "sha256": "eb05cf90f6331909a5a7488cf1f561183f5c3c4ee2349356fc029ace8c5176c8",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "sha256": "7539626a0e26ab16c4db50c38dcde23abb3e7890c34e0a27f441a62aa17feeb5",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "sha256": "153ca84a17f4c7b556fe2d1bb78f5a6d56f0e69b72170e4eaf5e2ce9b676b284",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sha256": "fda088f4086d28d854a84cb85600bdaba20c1a5ed4c5c4e2b2b62f3aaf8af561",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "sha256": "906f27633c5462f8fa79ad13db190d7268f03f69c9ef21925bec6db4c63efb5d",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/tests/fayo-vivid-style.test.js",
+      "sha256": "f5d502c60ffd50d28ca3bfe21f225ea761b0e0713ae43a35c36b68d322c2039e",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/tests/risk-alert-lifecycle.test.js",
+      "sha256": "05caff032ae42836d2db7ba5c1f2a7ed9ae11f01900e3ef73103ddf43a0ff457",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/tests/risk-state-contract.test.js",
+      "sha256": "984c102d110fd7acde5dd4de6e681cca09f3ef8743b1c8962ebff409445be99e",
+      "matches": true
+    },
+    {
+      "path": "V6_BO/tests/risk-workbench-runtime-notifications.test.js",
+      "sha256": "1c46c81558715f42722520c88c8f013cfc2daaf688e18e7a01b662d4bf09c47f",
+      "matches": true
+    }
+  ],
+  "beforeOutput": "observed-before-fix.json",
+  "afterOutput": "observed-after-fix.jsonl",
+  "afterSummary": [
+    {
+      "case": "2->1->2",
+      "first": 2,
+      "lower": 1,
+      "again": 2,
+      "eventKinds": [
+        "first-seen",
+        "escalated"
+      ],
+      "levelChanges": [
+        {
+          "from": 2,
+          "to": 1
+        }
+      ],
+      "notificationCandidates": [
+        {
+          "rootCauseId": "strategy/isolated-review",
+          "eventId": "dd83bdfd34a6ec6cc95d077330d808a743c0d56cc2ac1c42c26a7f6059a93205",
+          "classification": "general"
+        }
+      ],
+      "reserve": {
+        "reserved": true,
+        "status": "queued",
+        "gatewayAccepted": false,
+        "receiverConfirmed": false
+      }
+    },
+    {
+      "case": "rule-reader-missing-retained-level3",
+      "highestRiskLevel": 3,
+      "hardRuleInRisks": true,
+      "retainedInAlerts": 3,
+      "homeTopThree": [
+        {
+          "root": "rule/maxGrossExposurePct",
+          "level": null,
+          "prior": 3
+        },
+        {
+          "root": "account/equity-history",
+          "level": null
+        },
+        {
+          "root": "account/policy",
+          "level": null
+        }
+      ]
+    }
+  ],
+  "preciseRegression": {
+    "command": "node --test --test-name-pattern='omitted upstream root|two-one-two recurrence|legacy' V6_BO/tests/risk-state-contract.test.js",
+    "tests": 4,
+    "pass": 4,
+    "fail": 0,
+    "exitCode": 0,
+    "log": "precise-regression.tap"
+  },
+  "previousLoader": {
+    "case": "exact-359-loader-reads-new-journal",
+    "original": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "groupCount": 1,
+    "eventKinds": [
+      "first-seen",
+      "escalated"
+    ],
+    "levelChanges": 1,
+    "newReaderRiskLevel": 2,
+    "newReaderAdmission": "cooldown",
+    "bytesUnchanged": true,
+    "status": "passed",
+    "scope": "read compatibility only; no production downgrade or historical rewrite"
+  },
+  "serverRouteDiffFromBase": {
+    "path": "V6_BO/server.js",
+    "exitCode": 0,
+    "changed": false
+  },
+  "scope": "Bounded independent read-only review of the risk supplement. No risk worktree files changed. Temporary isolated journals were removed. No live financial, private notification or deployment verification performed.",
+  "blockingFindingsRemaining": 0
+}

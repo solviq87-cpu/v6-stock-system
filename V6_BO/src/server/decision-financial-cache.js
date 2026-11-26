@@ -4,6 +4,7 @@
 // and its raw receipts are checked in one disposable, read-only worker. An old
 // result is never used while its replacement is still being checked.
 const {Worker,isMainThread,parentPort,workerData}=require('node:worker_threads');
+const workerBudget=require('./worker-admission-budget');
 const KIND='decision-financial-cache',PENDING='原始财报证据正在校验';
 const UNAVAILABLE='原始财报证据校验暂不可用；稍后自动重试';
 const TIMEOUT='原始财报证据校验超时；稍后自动重试';
@@ -18,19 +19,20 @@ function bound(value,min,max,label){
 
 function readInWorker(codes,{evidenceRoot,observationRoot,now,signal}){
  return new Promise((resolve,reject)=>{
-  let worker,finished=false;
+  let worker,finished=false,lease=null;
   const finish=(error,result)=>{
    if(finished)return;
    finished=true;signal.removeEventListener('abort',abort);
    // Do not dispatch the next batch until this worker has actually stopped.
-   Promise.resolve(worker?.terminate()).then(()=>error?reject(error):resolve(result),()=>reject(Error('worker-stop-failed')));
+   Promise.resolve(lease?.stop()).then(()=>error?reject(error):resolve(result),()=>reject(Error('worker-stop-failed')));
   };
   const abort=()=>finish(Error('worker-aborted'));
   if(signal.aborted){abort();return;}
+  lease=workerBudget.tryAcquire(KIND);
+  if(!lease)return reject(Error('worker-budget-busy'));
   signal.addEventListener('abort',abort,{once:true});
   try{
-   worker=new Worker(__filename,{workerData:{kind:KIND,codes,evidenceRoot,observationRoot,now},
-    resourceLimits:{maxOldGenerationSizeMb:192}});
+   worker=lease.watch(new Worker(__filename,lease.options({kind:KIND,codes,evidenceRoot,observationRoot,now})));
    worker.once('message',message=>message?.ok===true?finish(null,message.result):finish(Error('worker-read-failed')));
    worker.once('error',()=>finish(Error('worker-error')));
    worker.once('exit',()=>finish(Error('worker-exited')));

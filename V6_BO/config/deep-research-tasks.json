@@ -1,0 +1,4490 @@
+[
+  {
+    "id": 1,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/risk-workbench.js",
+        "V6_BO/src/server/risk-workbench-runtime.js",
+        "V6_BO/public/nova/risk-workbench-view.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/risk-workbench.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "统一风险工作台",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/effective-risk-evidence.js",
+        "V6_BO/src/core/common-entry-risk.js",
+        "V6_BO/src/core/portfolio-risk-gate.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/effective-risk-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "实际生效风控配置",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/account-equity-evidence.js",
+        "V6_BO/src/server/risk-workbench-runtime.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/account-equity-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "权益与回撤证据",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 4,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/risk-action-evidence.js",
+        "V6_BO/src/core/paper-plan-observer.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/risk-action-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "风险动作可执行性",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/risk-alert-lifecycle.js",
+        "V6_BO/src/core/private-risk-feishu-delivery.js",
+        "V6_BO/feishuq.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/risk-alert-lifecycle.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "提醒生命周期与投递回执",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 6,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/server.js",
+        "V6_BO/src/core/market-data-center.js",
+        "V6_BO/src/core/system-readiness.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/system-readiness.test.js",
+        "V6_BO/tests/decision-evidence-runtime.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "运行就绪与服务状态",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 7,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/strategy-health-monitor.js",
+        "V6_BO/src/core/unified-strategy-project.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-diagnosis.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "策略衰减监测",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 8,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/probability-reliability.js",
+        "V6_BO/scripts/probability-reliability.js",
+        "V6_BO/src/core/probability-reliability-store.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/probability-reliability.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "概率校准研究",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 9,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/fayo-research-governance.js",
+        "V6_BO/src/core/factor-health.js",
+        "V6_BO/src/core/intelligence-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-governance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "因子与策略健康体检",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 10,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/observed-market-regime.js",
+        "V6_BO/src/core/sector-h5-market-regime-stress.js",
+        "V6_BO/src/core/fayo-research-governance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-governance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "分市场环境验证",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 11,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/news-evidence-journal.js",
+        "V6_BO/src/core/research-interaction-workbench.js",
+        "V6_BO/public/nova/evidence-workbench.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-evidence-workbench.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "新闻公告与修订证据研究",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 12,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/factor-model-comparison.js",
+        "V6_BO/src/core/fayo-research-governance.js",
+        "V6_BO/src/research/shortline/store.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-governance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "模型与简单基线公平比较",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 13,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/intelligence-execution-validation.js",
+        "V6_BO/public/nova/intelligence-view.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-diagnosis.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "原结算收益与执行归因",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 14,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/portfolio-stress-evidence.js",
+        "V6_BO/src/core/account-equity-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/portfolio-stress-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "组合重叠暴露与压力情景",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 15,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/event-research.mjs",
+        "V6_BO/public/nova/market.js",
+        "V6_BO/public/nova/research-records.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-event-research.test.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "图表与事件时间轴联动",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 16,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/command-selection.mjs",
+        "V6_BO/src/core/research-interaction-workbench.js",
+        "V6_BO/src/server/research-interaction-http.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/research-workspace-http.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "中文筛选与跨端模板",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 17,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/evidence-workbench.mjs",
+        "V6_BO/src/core/research-interaction-workbench.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-evidence-workbench.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "可追溯AI解释与回退",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 18,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-calendar-source.js",
+        "V6_BO/src/core/news-evidence-journal.js",
+        "V6_BO/src/core/market-data-evidence.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "统一事件与背景数据档案",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 19,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/research-review.mjs",
+        "V6_BO/public/nova/operations.js",
+        "V6_BO/src/research/shortline-paper-import.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-review.test.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "个人复盘与改进追踪",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 20,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/server.js",
+        "V6_BO/src/core/market-data-center.js",
+        "V6_BO/src/core/system-readiness.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "服务与数据规范化边界",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 21,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/probability-contract.js",
+        "V6_BO/public/nova/intelligence-view.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/probability-reliability.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "概率语义及全链展示治理",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 22,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/em.js",
+        "V6_BO/src/core/market-data-center.js",
+        "V6_BO/server.js",
+        "V6_BO/src/core/quote-observation-view.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/quote-observation-view.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "缺失值与原始时间门禁",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 23,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/data-source-lineage.js",
+        "V6_BO/src/core/feed-discrepancy-quarantine.js",
+        "V6_BO/src/core/market-data-evidence.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/data-source-lineage.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "来源谱系与统计口径",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 24,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/factor-redundancy.js",
+        "V6_BO/src/core/factor-marginal-contribution.js",
+        "V6_BO/src/core/fayo-research-governance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-governance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "因子冗余与独立贡献治理",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 25,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/strategy-evidence-replay.js",
+        "V6_BO/src/core/factor-global-trial-budget.js",
+        "V6_BO/src/core/probability-reliability-store.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/strategy-evidence-replay.test.js",
+        "V6_BO/tests/probability-reliability.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "样本隔离与试验预算",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 26,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/independent-strategy-attribution.js",
+        "V6_BO/src/strategy/historical-session.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/independent-strategy-attribution.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "可执行纸面回放与成本边界",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 27,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/server.js",
+        "V6_BO/src/core/manual-decision-loop.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-evidence-workbench.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    },
+    "title": "清理新闻标题情绪伪加分",
+    "previousSourceSha": "70be46b5d5e05c02f9d2fe353df072c62f065ef4",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/358"
+      ]
+    }
+  },
+  {
+    "id": 28,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/research/shortline/store.mjs",
+        "V6_BO/src/core/fayo-research-governance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-research-governance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    },
+    "title": "沿原验证与批准晋级",
+    "previousSourceSha": "301641650c0246d29142b8c9e16165064cfa1f2c",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/353"
+      ]
+    }
+  },
+  {
+    "id": 29,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/server/decision-center-background.js",
+        "V6_BO/src/server/decision-evidence-runtime.js",
+        "V6_BO/server.js",
+        "V6_BO/src/core/runtime-trace.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/decision-evidence-runtime.test.js",
+        "docs/FAYO_DEEP_RESEARCH_20261126.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "title": "采集计算接口通知去重整合",
+    "previousSourceSha": null,
+    "previousSourceState": "existing-group-evidence-not-received",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    }
+  },
+  {
+    "id": 30,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/risk-alert-lifecycle.js",
+        "V6_BO/src/core/risk-workbench.js",
+        "V6_BO/public/nova/risk-workbench-view.mjs",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/risk-alert-lifecycle.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    },
+    "title": "提醒降噪与无据内容清理",
+    "previousSourceSha": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/359"
+      ]
+    }
+  },
+  {
+    "id": 31,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/strategy/sector-cohort-rps.js",
+        "V6_BO/src/core/evolution-market-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-market-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "个股与多基准相对强度",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 32,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/shortline/backtest.mjs",
+        "V6_BO/src/core/evolution-market-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "V6_BO/tests/evolution-market-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "相似案例检索及样本覆盖",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 33,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/shortline/backtest.mjs",
+        "V6_BO/src/core/evolution-market-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-market-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "多周期已闭合证据",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 34,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/strategy/signal-pool-lifecycle.js",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "信号生命周期与落选追踪",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 35,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-workspace-decision.js",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "解释反证与分歧",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 36,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/independent-strategy-attribution.js",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "统一独立策略比较排名",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 37,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-portfolio-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "不同资金档容量与冲击压力",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 38,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "V6_BO/src/core/advanced-account-risk.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "买入前组合预演",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 39,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-account-risk.js",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "V6_BO/public/nova/research-extensions.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "流动性与退出受限诊断",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 40,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/common-entry-risk.js",
+        "V6_BO/src/core/portfolio-risk-gate.js",
+        "V6_BO/src/core/account-safety-state.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/account-safety-state.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "统一防御状态与原执行约束",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 41,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-workspace-decision.js",
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "同口径换仓比较",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 42,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-portfolio-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "外部资金流与绩效口径",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 43,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-causal-diagnostics.js",
+        "V6_BO/src/core/evolution-model-causality.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "时点因果与防未来审计",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 44,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-causal-diagnostics.js",
+        "V6_BO/src/core/evolution-model-causality.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "指标预热与计算稳定性",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 45,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/intelligence-execution-validation.js",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "单笔真实交易复盘",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 46,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/shortline/backtest.mjs",
+        "V6_BO/public/nova/shortline/backtest-analytics.mjs",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "现金等简单基线比较",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 47,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/intelligence-execution-validation.js",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "参数与输入扰动稳健性",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 48,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/server/advanced-account-risk-job.js",
+        "V6_BO/src/core/runtime-trace.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "全链路追踪与响应时间",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 49,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-account-risk.js",
+        "V6_BO/src/core/paper-application-service.js",
+        "V6_BO/src/core/account-safety-state.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "V6_BO/tests/account-safety-state.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "原账户对账与事故恢复",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 50,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/process-file-lock.js",
+        "V6_BO/src/server/advanced-account-risk-job.js",
+        "V6_BO/server.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/process-file-lock-race.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "权限与安全专项审查",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 51,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "V6_BO/src/core/market-data-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-portfolio-evidence.test.js",
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "数据时点与修订版本链",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 52,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/historical-universe.js",
+        "V6_BO/src/core/trading-fees.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/historical-corporate-pit.test.js",
+        "V6_BO/tests/point-in-time-universe-policy.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "历史证券主数据与公司行为",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 53,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/feed-discrepancy-quarantine.js",
+        "V6_BO/src/core/market-data-center.js",
+        "V6_BO/src/core/quote-observation-view.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/feed-discrepancy-quarantine.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "数据异常隔离与原链路接线",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 54,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/server/advanced-account-risk-job.js",
+        "V6_BO/src/core/account-process-lock.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-account-risk.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "关键任务隔离与全局资源预算",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 55,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/sw.js",
+        "V6_BO/src/core/release-provenance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/release-provenance.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "迁移、版本缓存与发布协调",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 56,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/authority-audit-backup.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/mainline-backup-model.test.js",
+        "V6_BO/tests/cloud-records-backup-preflight.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "真实数据备份与恢复",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 57,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/account-process-lock.js",
+        "V6_BO/src/core/process-file-lock.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/process-file-lock-race.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "唯一写者与主副切换恢复",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 58,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/advanced-portfolio-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/advanced-portfolio-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    },
+    "title": "组合尾部风险与贡献",
+    "previousSourceSha": "d50395972e9ae693a37e934dab785234c654e250",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/356"
+      ]
+    }
+  },
+  {
+    "id": 59,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/intelligence-research.js",
+        "V6_BO/src/core/evolution-market-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-market-evidence.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "财务体检与披露版本",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 60,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/paper-conditional-orders.js",
+        "V6_BO/src/core/paper-plan-observer.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/paper-conditional-orders.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "计划有效期与重新验证",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 61,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/factor-global-trial-budget.js",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "试验预算与过拟合控制",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 62,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/unified-strategy-project.js",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "策略融合与影子比较",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 63,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/shortline/backtest-analytics.mjs",
+        "V6_BO/public/nova/shortline/backtest.mjs",
+        "V6_BO/src/core/evolution-research-statistics.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "V6_BO/tests/evolution-statistics.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771",
+        "V6_BO/tests/stock-observation-classification-revisions.test.js"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "成熟样本净期望与尾部表现",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 64,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/research-workspace-decision.js",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "AI专项评测与安全回归",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 65,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/server/decision-evidence-runtime.js",
+        "V6_BO/src/server/decision-center-background.js",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "六阶段时点工作流",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 66,
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/public/nova/shortline/backtest.mjs",
+        "V6_BO/src/core/evolution-workflow.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/fayo-intelligence-evolution.test.js",
+        "V6_BO/tests/evolution-workflow.test.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    },
+    "title": "双端个性化研究工作台",
+    "previousSourceSha": "9a1132264a191091ea526cba698177f2b5d0c703",
+    "previousSourceState": "open-draft-pr-not-integrated",
+    "priorValidation": {
+      "status": "unknown",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/pull/357"
+      ]
+    }
+  },
+  {
+    "id": 67,
+    "title": "事件影响研究库",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 68,
+    "title": "预期差分析",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 69,
+    "title": "产业与公司关系图谱",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 70,
+    "title": "盘口与竞价研究",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 71,
+    "title": "交易时段策略适用性",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 72,
+    "title": "主题拥挤与集中风险",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-research-evidence.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-research-evidence.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 73,
+    "title": "组合目标权重研究",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 74,
+    "title": "换仓收益与成本门槛",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 75,
+    "title": "决策稳健性检查",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 76,
+    "title": "事前决策对照复盘",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/deep-decision-research.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/deep-decision-research.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 77,
+    "title": "交付来源与版本可信验证",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/release-provenance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/release-provenance.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/release-provenance.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  },
+  {
+    "id": 78,
+    "title": "全系统真实运行验收",
+    "code": {
+      "status": "partial",
+      "evidence": [
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/8c73335b744202de406755b15c783e5d73fb3ea4",
+        "V6_BO/src/core/runtime-acceptance.js",
+        "https://github.com/solviq87-cpu/v6-stock-system/commit/49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa"
+      ]
+    },
+    "interface": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/src/server/deep-research-http.js",
+        "V6_BO/public/nova/deep-research.js"
+      ]
+    },
+    "realData": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "validation": {
+      "status": "partial",
+      "evidence": [
+        "V6_BO/tests/runtime-acceptance.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md",
+        "docs/FAYO_INTEGRATION_WIP_20261126.md",
+        "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45777621771"
+      ]
+    },
+    "deployed": {
+      "status": "unknown",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "observation": {
+      "status": "waiting",
+      "evidence": [
+        "docs/FAYO_DEEP_RESEARCH_20261126.md"
+      ]
+    },
+    "previousSourceSha": null,
+    "previousSourceState": null,
+    "priorValidation": {
+      "status": "passed",
+      "evidence": [
+        "V6_BO/tests/runtime-acceptance.test.js",
+        "docs/validation/fayo-deep-research-20261126/README.md"
+      ]
+    },
+    "sourceSha": "49b7c9c40b9253951e7a11a7d7881e9aeba1ccaa",
+    "sourceState": "integrated-candidate-inventory"
+  }
+]

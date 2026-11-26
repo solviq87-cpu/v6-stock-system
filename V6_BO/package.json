@@ -10,7 +10,7 @@
     "research:linkages": "node scripts/run-six-linkages.js",
     "check:tactics": "tsc --noEmit",
     "build:tactics": "tsc",
-    "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js && node scripts/check-fayo.js",
+    "check": "node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js && node scripts/check-fayo.js && node scripts/audit-fayo-integration-gates.js",
     "start:legacy": "node server.js",
     "check:strategy": "node --check src/core/market-regime.js && node --check src/core/multi-strategy-engine.js && node --check src/core/risk-filter.js && node --check src/core/strategy-report.js",
     "smoke:strategy": "node scripts/strategy-smoke.js",
@@ -87,6 +87,7 @@
     "research:sector:relations": "node scripts/sector-relations-capture-report.js",
     "news:evidence": "node scripts/news-evidence.js",
     "data:sources:audit": "node scripts/audit-data-source-lineage.js",
+    "data:sources:readiness": "node scripts/audit-data-source-readiness.js",
     "data:history:crosscheck": "node scripts/research-cross-source-history.js",
     "data:macro:worldbank": "node scripts/collect-worldbank-indicator.js",
     "test:data:sources": "node --test tests/data-source-lineage.test.js tests/multi-source-publisher-lineage.test.js tests/baostock-historical-normalizer.test.js tests/research-cross-source-history.test.js tests/worldbank-indicators.test.js tests/picks-data-source-evidence.test.js tests/sec-companyfacts.test.js tests/ecb-fx-daily.test.js tests/a-share-session-coverage.test.js",
@@ -94,7 +95,9 @@
     "data:official:sec": "node scripts/collect-sec-companyfact.js",
     "data:official:ecb": "node scripts/collect-ecb-fx.js",
     "test:data:official": "node --test tests/sec-companyfacts.test.js tests/ecb-fx-daily.test.js",
-    "test:data:sessions": "node --test tests/a-share-session-coverage.test.js tests/research-cross-source-history.test.js tests/research-calendar-source.test.js tests/multi-source-calendar-gate.test.js"
+    "test:data:sessions": "node --test tests/a-share-session-coverage.test.js tests/research-cross-source-history.test.js tests/research-calendar-source.test.js tests/multi-source-calendar-gate.test.js",
+    "quality:audit": "node scripts/audit-product-quality.js",
+    "test:critical-mutations": "node scripts/check-critical-mutations.js"
   },
   "engines": {
     "node": ">=22.6"

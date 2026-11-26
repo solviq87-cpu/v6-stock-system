@@ -1,13 +1,14 @@
 'use strict';
+const runtimeTrace=require('../core/runtime-trace');
 
 // One bounded research task per minute. Page reads never launch collectors and
 // neither collector can create executable quotes or modify the paper account.
 function createDecisionCenterBackground({enabled, isPrimary, session, candidates,
-  collectHistory, collectFinancials, historyCandidates = async () => [], clock = Date.now}) {
+  collectHistory, collectFinancials, historyCandidates = async () => [], clock = Date.now, trace=runtimeTrace}) {
   let pending = false, nextAt = 0, day = '';
   let historyCache = {day:'',at:0,codes:[],cursor:0};
   const attempts = new Map();
-  const state = {running:false,lastAttempt:null,lastResult:null};
+  const state = {running:false,lastAttempt:null,lastResult:null,lastSuccessAt:null};
   const normalizeDay = value => String(value || '').replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
   function due(kind, code, now) {
     const row = attempts.get(kind + '/' + code);
@@ -37,10 +38,15 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
     // Hold the busy guard across the asynchronous archive read too. A previous
     // signal still needs its outcome after it leaves today's candidate pool.
     nextAt=now+60000;pending=true;state.running=true;
+    return trace.async('task.decision-background',async root=>{
+    const stillEligible=()=>{const live=session();return enabled()&&isPrimary()&&live?.openDay&&
+      normalizeDay(live.day)===currentDay&&Number.isSafeInteger(clock())&&clock()>=now&&
+      (live.minute>=960)===afterClose&&(afterClose||live.trading);};
     try {
       if(afterClose&&(historyCache.day!==day||now<historyCache.at||now-historyCache.at>=5*60000)){
         try{
           const result=await historyCandidates({day,now,cursor:historyCache.cursor});
+          if(!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
           if(Array.isArray(result)||result?.ok===true&&Array.isArray(result.codes)){
             const nextCursor=result?.coverage?.nextCursor;
             const retained=[...historyCache.codes,...(Array.isArray(result)?result:result.codes)].filter(code=>{
@@ -50,28 +56,36 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
             historyCache={day,at:now,codes:codesOf(retained,120),
               cursor:Number.isSafeInteger(nextCursor)&&nextCursor>=0?nextCursor:0};
           }
-        }catch{ /* Retain prior pending codes; collector evidence remains unchanged. */ }
+        }catch{ root.mark('unknown','SOURCE_UNAVAILABLE'); /* Retain prior pending codes; collector evidence remains unchanged. */ }
       }
+      if(!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
       const historyCodes=afterClose?codesOf([...historyCache.codes,...codes].filter(code=>due('history',code,now))):[];
       const tasks=[...historyCodes.map(code=>({kind:'history',code})),...codes.map(code=>({kind:'financials',code}))]
         .filter(task=>due(task.kind,task.code,now));
-      if(!tasks.length)return null;
+      if(!tasks.length){root.mark('skipped','NO_CANDIDATE');return null;}
       const task=tasks[0],key=task.kind+'/'+task.code,prior=attempts.get(key);
-      const row={at:now,count:(prior?.success?0:prior?.count||0)+1,success:false};
-      attempts.set(key,row);state.lastAttempt={kind:task.kind,code:task.code,day,at:now};
-      // Recheck immediately before dispatch. The worker independently validates
-      // inputs; a later role change never turns research results into quotes.
-      if (!enabled() || !isPrimary()) return null;
-      const result = await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now});
-      row.success=successful(task.kind,result,task,clock());
+      // Recheck before admission; rejected attempts must not consume retries.
+      if (!stillEligible()){root.mark('blocked','BUSINESS_REJECTED');return null;}
+      const dispatchAt=clock();
+      const row={at:dispatchAt,count:(prior?.success?0:prior?.count||0)+1,success:false};
+      attempts.set(key,row);state.lastAttempt={kind:task.kind,code:task.code,day,at:dispatchAt};
+      await trace.async(task.kind==='history'?'market.history':'market.financials',async span=>{
+        const result=await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now:dispatchAt});
+        row.success=successful(task.kind,result,task,clock());
+        if(!row.success)span.mark('unknown','SOURCE_UNAVAILABLE');
+      });
+      if(!row.success)root.mark('unknown','SOURCE_UNAVAILABLE');
       if(task.kind==='history'&&row.success)historyCache.codes=historyCache.codes.filter(code=>code!==task.code);
       state.lastResult={...state.lastAttempt,completedAt:clock(),status:row.success?'collected':'incomplete',
         reason:row.success?null:task.kind==='history'?'后复权独立来源或原时点证据未齐，保留原回执并退避重试':'财报原始回执未齐，保留缺项并退避重试'};
+      if(row.success)state.lastSuccessAt=state.lastResult.completedAt;
       return state.lastResult;
-    } catch {
+    } catch (error) {
+      root.fail(error);
       state.lastResult={...state.lastAttempt,completedAt:clock(),status:'unavailable',reason:'研究采集暂不可用；原档案保留，15分钟后有限重试'};
       return state.lastResult;
     } finally { pending=false;state.running=false; }
+    });
   }
   return {tick,status:()=>({...state,lastAttempt:state.lastAttempt&&{...state.lastAttempt},lastResult:state.lastResult&&{...state.lastResult}})};
 }

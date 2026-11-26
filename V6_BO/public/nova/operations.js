@@ -1,8 +1,11 @@
+import {createDisciplineWorkbench} from './evidence-workbench.mjs';
+import {projectDiscipline} from './research-review.mjs';
 import {priceLine} from './stock-timeline.js';
 import {newsRows} from './market-evidence.js';
 import {renderDailyReview} from './market.js';
 import {renderManualLoop} from './manual-loop.js';
 import {executionDay,paperEvidenceDay,readExecutionChecklist,readExecutionReport,readExecutionReportHistory} from './execution-evidence.mjs';
+import {renderRiskWorkbench} from './risk-workbench-view.mjs';
 /* FAYO operations: independent presentation over the existing account authority.
    No old page, controller, stylesheet or account replica is embedded here. */
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -254,6 +257,12 @@ function executionEvidencePanel(payload,ctx){
     box.dataset.reportVersion=String(saved.reportVersion);box.dataset.reportHash=saved.reportHash;
     box.append(notice('已保存日报 v'+saved.reportVersion+' · 生成于 '+date(saved.recordedAt)),
       executionScorePanel(saved.report.score,null,ctx,null,'执行评分',false),notice(saved.reason));
+    const discipline=projectDiscipline(saved);
+    box.append(el('details',{class:'fy-advanced','data-discipline-review':true},el('summary',{},'个人执行纪律复盘'),
+      notice(discipline.reason),...discipline.rows.map(row=>el('article',{class:'fy-item'},el('strong',{},row.code+' · '+row.rule+' · '+row.classification),
+        el('p',{},'原计划 '+row.planId+' / '+row.planVersion+' · 日报 v'+row.reportVersion),
+        el('p',{},row.evidence),el('p',{},'原证据引用：'+(row.refs.join('、')||'未提供具体引用；保留原日报指纹')+' · '+row.reportHash),
+        row.nextCheck?el('p',{},'下次核对：'+row.nextCheck):null,el('p',{},'后续落实：'+row.followup)))));
     const labels={ledger:'原持久账本',plans:'事前冻结计划',observations:'原始报价观察',conditionalOrders:'原条件意图'};
     box.append(el('details',{class:'fy-advanced',id:'fy-execution-report-sources-'+day},el('summary',{},'日报版本与数据来源'),
       el('dl',{class:'fy-facts'},el('div',{},el('dt',{},'日报核验指纹'),el('dd',{},saved.reportHash)),
@@ -292,6 +301,7 @@ function executionEvidencePanel(payload,ctx){
 }
 function paper(ctx,ledger=false) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});
+  if(!ledger)host.append(createDisciplineWorkbench(ctx,{symbol:ctx.decisionSelection?.code||'',memory:ctx.viewMemory}));
   let reloadAccounts=null,reloadConditions=null,scoreCache=null,scoreAt=0,scoreDay='';
   if(!ledger)host.append(paperPlanDraft(ctx,host,async()=>{scoreCache=null;scoreAt=0;await reloadAccounts?.();await reloadConditions?.();ctx.refresh?.();}));
   if(!ledger)host.append(conditionalOrdersRegion(ctx,host,reload=>{reloadConditions=reload;}));
@@ -318,7 +328,8 @@ function paper(ctx,ledger=false) {
       const account=records[key];if(!account)return panel(key==='pool'?'策略跟踪账户':'机会预选账户','',empty('账户数据尚未返回'));
       if(ledger)return renderLedgerAccount(account,key,ctx);
       const card=panel(account.name||(key==='pool'?'策略跟踪账户':'机会预选账户'),account.enabled===false?'自动跟踪已暂停':'保留策略、T+1与报价门禁');
-      const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账户权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))));
+      const quote=account.pxBasis;card.append(el('div',{class:'fy-metrics'},metric('账面参考权益',yuan(account.equity)),metric('可用资金',yuan(account.cash)),metric('参考累计盈亏',yuan(account.totalPnl),pct(account.totalPct)),metric('初始资金',yuan(account.initial))));
+      card.append(notice('报价缺失时以上估值可能沿用历史时点；风险中心分别展示核验时点权益、已结算与持仓浮盈亏。'),action('查看权益与风险证据',()=>ctx.navigate('assets','risk')));
       if(quote)card.append(notice(quote.note||quote.label||'账户估值沿用原始行情快照'));
       card.append(el('div',{class:'fy-toolbar'},action(account.enabled===false?'恢复策略跟踪':'暂停策略跟踪',()=>review(ctx,host,'切换策略跟踪状态',account.enabled===false?'恢复后，现有策略将在满足服务端交易与风控门禁时继续模拟跟踪。':'暂停后不再由该模拟账户继续自动跟踪。',()=>mutation(ctx,'/api/paper',{account:key,action:'toggle'},reload)),'primary'),action('刷新账户',()=>{scoreCache=null;scoreAt=0;return reload();})));
       const curve=arr(account.realizedSeries).map(x=>({at:Date.parse(x.day+'T00:00:00+08:00'),value:x.value,day:x.day}));
@@ -394,7 +405,7 @@ function pushLog(ctx) {
       const instance=data.replica===true?'副本':data.replica===false?'主实例':'待核验';
       const metrics=el('div',{class:'fy-metrics'},metric('今日外发记录',fmt(data.sentToday,0),'含回执未知'),metric('流水总数',fmt(data.count,0)),metric('本次显示',fmt(data.shown,0)),metric('实例身份',instance));
       const rows=arr(data.log);
-      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明')))):empty('尚无通知流水');
+      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.deliveryLabel||row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明'),row.deliveryBasis&&el('small',{},row.deliveryBasis)))):empty('尚无通知流水');
       container.replaceChildren(el('div',{class:'fy-stack'},data.replica===true?notice('当前是副本，自动飞书推送已停用。'):null,metrics,timeline));
     }catch(error){if(!ctx.signal?.aborted)failure(container,error,load);}
   };
@@ -532,7 +543,9 @@ export function renderOperations(route,ctx) {
   const categories={assets:[['overview','资产总览'],['holdings','资产簿'],['risk','风险边界'],['paper','模拟跟踪'],['ledger','账务证据'],['daily-review','今日复盘'],['closure','人工执行记录'],['authority','主账户风控'],['history','变更与恢复']],inbox:[['all','资讯时间线'],['alerts','风险线索'],['signals','信号轨迹'],['push','投递追踪'],['compose','写通知']],settings:[['preferences','自动化偏好'],['diagnostics','运行状态'],['channels','通知路由'],['devices','设备'],['security','访问安全'],['source','受控源文件'],['release','发布收件箱']]};
   if(!ctx.workspaceNavigation)host.append(subnav(ctx,view,categories[view]||[],sub));
   let content;
-  if(view==='assets')content=sub==='daily-review'?renderDailyReview(ctx):sub==='closure'?renderManualLearning(ctx):sub==='holdings'?holdings(ctx):sub==='risk'?holdings(ctx,true):sub==='paper'?paper(ctx):sub==='ledger'?paper(ctx,true):sub==='authority'?authority(ctx):sub==='history'?holdingHistory(ctx):overview(ctx);
+  if(view==='assets')content=sub==='daily-review'?renderDailyReview(ctx):sub==='closure'?renderManualLearning(ctx):sub==='holdings'?holdings(ctx):sub==='risk'?el('div',{class:'fy-stack'},renderRiskWorkbench(ctx),
+    editor(ctx)?el('details',{class:'fy-details',id:'fy-manual-risk-original'},el('summary',{},'手工申报持仓 · 原提醒规则与巡检'),
+      notice('此处为手工申报资料与原提醒配置，不代表权威账户持仓或账户交易限额。'),holdings(ctx,true)):null):sub==='paper'?paper(ctx):sub==='ledger'?paper(ctx,true):sub==='authority'?authority(ctx):sub==='history'?holdingHistory(ctx):overview(ctx);
   else if(view==='inbox')content=sub==='push'?pushLog(ctx):sub==='compose'?messageComposer(ctx):newsFeed(ctx,sub);
   else if(view==='settings')content=sub==='diagnostics'?diagnostics(ctx):sub==='channels'?channels(ctx):sub==='devices'?devices(ctx):sub==='security'?security(ctx):sub==='source'?sourceTools(ctx):sub==='release'?releaseTools(ctx):preferences(ctx);
   else content=empty('工作区不存在','从主导航选择一个功能继续。');

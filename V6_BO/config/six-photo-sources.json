@@ -6,7 +6,8 @@
       "photo": "03",
       "id": "akshare.daily",
       "provider": "akshare",
-      "interface": "stock_zh_a_hist",
+      "interface": "stock_zh_a_hist_em",
+      "legacyInterfaces": ["stock_zh_a_hist"],
       "kind": "daily",
       "upstream": "eastmoney",
       "requires": "public"
@@ -69,7 +70,8 @@
       "photo": "04",
       "id": "akshare.minute.sina",
       "provider": "akshare",
-      "interface": "stock_zh_a_minute",
+      "interface": "stock_zh_a_hist_min_sina",
+      "legacyInterfaces": ["stock_zh_a_minute"],
       "kind": "minute",
       "upstream": "sina",
       "requires": "public"

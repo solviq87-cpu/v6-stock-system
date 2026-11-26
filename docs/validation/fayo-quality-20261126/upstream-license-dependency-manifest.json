@@ -1,0 +1,98 @@
+[
+  {
+    "repo": "vnpy/vnpy",
+    "commit": "c6e231caf32b7fc97e6459817fff66458cf7e7c4",
+    "path": "LICENSE",
+    "blob": "2325eb27b15b3dcf1ed510c3ac314285f6bdcaa0",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy/LICENSE",
+    "permalink": "https://github.com/vnpy/vnpy/blob/c6e231caf32b7fc97e6459817fff66458cf7e7c4/LICENSE"
+  },
+  {
+    "repo": "vnpy/vnpy",
+    "commit": "c6e231caf32b7fc97e6459817fff66458cf7e7c4",
+    "path": "pyproject.toml",
+    "blob": "d8bffdc2613c35db36f38dbfee310eb7ced6906d",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy/pyproject.toml",
+    "permalink": "https://github.com/vnpy/vnpy/blob/c6e231caf32b7fc97e6459817fff66458cf7e7c4/pyproject.toml"
+  },
+  {
+    "repo": "vnpy/vnpy_rqdata",
+    "commit": "8cad1ef97efe1a48559abcff6fd741b2cdf2a132",
+    "path": "LICENSE",
+    "blob": "9dba3977a21e1b374eb479ff1aad368cd77bd994",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_rqdata/LICENSE",
+    "permalink": "https://github.com/vnpy/vnpy_rqdata/blob/8cad1ef97efe1a48559abcff6fd741b2cdf2a132/LICENSE"
+  },
+  {
+    "repo": "vnpy/vnpy_rqdata",
+    "commit": "8cad1ef97efe1a48559abcff6fd741b2cdf2a132",
+    "path": "pyproject.toml",
+    "blob": "b625c3628d80ca338cfabeadcb37fd689b3aa3b7",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_rqdata/pyproject.toml",
+    "permalink": "https://github.com/vnpy/vnpy_rqdata/blob/8cad1ef97efe1a48559abcff6fd741b2cdf2a132/pyproject.toml"
+  },
+  {
+    "repo": "vnpy/vnpy_tushare",
+    "commit": "8388d81e7b7eac99a15e145940756f3a4a3a7aca",
+    "path": "LICENSE",
+    "blob": "9dba3977a21e1b374eb479ff1aad368cd77bd994",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_tushare/LICENSE",
+    "permalink": "https://github.com/vnpy/vnpy_tushare/blob/8388d81e7b7eac99a15e145940756f3a4a3a7aca/LICENSE"
+  },
+  {
+    "repo": "vnpy/vnpy_tushare",
+    "commit": "8388d81e7b7eac99a15e145940756f3a4a3a7aca",
+    "path": "pyproject.toml",
+    "blob": "479737d8e96d3b9de9c186be8dd92299510a7be8",
+    "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_tushare/pyproject.toml",
+    "permalink": "https://github.com/vnpy/vnpy_tushare/blob/8388d81e7b7eac99a15e145940756f3a4a3a7aca/pyproject.toml"
+  },
+  {
+    "repo": "microsoft/qlib",
+    "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+    "path": "LICENSE",
+    "blob": "9e841e7a26e4eb057b24511e7b92d42b257a80e5",
+    "local": "audit-inputs/fourth/upstream-sources/microsoft__qlib/LICENSE",
+    "permalink": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/LICENSE"
+  },
+  {
+    "repo": "microsoft/qlib",
+    "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+    "path": "pyproject.toml",
+    "blob": "54a44ab5fc28043796da48fc58a8c808c5922aca",
+    "local": "audit-inputs/fourth/upstream-sources/microsoft__qlib/pyproject.toml",
+    "permalink": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/pyproject.toml"
+  },
+  {
+    "repo": "ricequant/rqalpha",
+    "commit": "0bf04946e8250b457e30c3c81d338a6b925da0bb",
+    "path": "LICENSE",
+    "blob": "22a99058b3ae4655d971fedafe076cca43ca3632",
+    "local": "audit-inputs/fourth/upstream-sources/ricequant__rqalpha/LICENSE",
+    "permalink": "https://github.com/ricequant/rqalpha/blob/0bf04946e8250b457e30c3c81d338a6b925da0bb/LICENSE"
+  },
+  {
+    "repo": "ricequant/rqalpha",
+    "commit": "0bf04946e8250b457e30c3c81d338a6b925da0bb",
+    "path": "pyproject.toml",
+    "blob": "c692c7df2bef76fe25bf0182a5b2d047d2212e4d",
+    "local": "audit-inputs/fourth/upstream-sources/ricequant__rqalpha/pyproject.toml",
+    "permalink": "https://github.com/ricequant/rqalpha/blob/0bf04946e8250b457e30c3c81d338a6b925da0bb/pyproject.toml"
+  },
+  {
+    "repo": "AI4Finance-Foundation/FinRL-Meta",
+    "commit": "fabd0077c1b6cb07d52d6de04315859705884696",
+    "path": "LICENSE",
+    "blob": "b5ccfe3e48d1ee785a0eafa503a909ebdc52074b",
+    "local": "audit-inputs/fourth/upstream-sources/AI4Finance-Foundation__FinRL-Meta/LICENSE",
+    "permalink": "https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/fabd0077c1b6cb07d52d6de04315859705884696/LICENSE"
+  },
+  {
+    "repo": "AI4Finance-Foundation/FinRL-Meta",
+    "commit": "fabd0077c1b6cb07d52d6de04315859705884696",
+    "path": "requirements.txt",
+    "blob": "14a392236090289d750aa5a36612e93bd159b1f3",
+    "local": "audit-inputs/fourth/upstream-sources/AI4Finance-Foundation__FinRL-Meta/requirements.txt",
+    "permalink": "https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/fabd0077c1b6cb07d52d6de04315859705884696/requirements.txt"
+  }
+]

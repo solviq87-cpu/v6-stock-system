@@ -53,14 +53,23 @@ function buildBank(report, now=Date.now()) {
   if(!finite(now)||!report||report.schemaVersion!==1||report.mode!=='six-photo-source-backups'||report.scope!==catalog.scope||report.canTrade!==false||report.verifiedLive!==false||report.paidServicesUsed!==false||!finite(report.generatedAt)||report.generatedAt>now||report.generatedAt<=0||!Array.isArray(report.sources)||report.sources.length!==entries.size||new Set(report.sources.map(x=>x?.id)).size!==entries.size||!/^(?:60|68|00|30)\d{4}$/.test(report.code))throw Error('bank');
   date(report.start);date(report.end);if(report.start>report.end||report.end>new Date(report.generatedAt+28800000).toISOString().slice(0,10))throw Error('range');
   const sources=report.sources.map(s=>{
-    const e=entries.get(s.id);if(!e||s.provider!==e.provider||s.kind!==e.kind||s.upstream!==e.upstream||s.interface!==e.interface||!finite(s.observedAt)||s.observedAt>report.generatedAt||s.observedAt<=0||!['returned','unavailable','timeout','credentials-required','client-required','dependency-missing'].includes(s.status))throw Error('source');
-    const basic={id:e.id,photo:e.photo,provider:e.provider,kind:e.kind,upstream:e.upstream,interface:e.interface,status:s.status,observedAt:s.observedAt,records:[],canTrade:false,verifiedLive:false};
+    const e=entries.get(s.id),interfaces=e?[e.interface,...(e.legacyInterfaces||[])]:[];
+    if(!e||s.provider!==e.provider||s.kind!==e.kind||s.upstream!==e.upstream||!interfaces.includes(s.interface)||s.interfaceUsed!==undefined&&!interfaces.includes(s.interfaceUsed)||!finite(s.observedAt)||s.observedAt>report.generatedAt||s.observedAt<=0||!['returned','unavailable','timeout','credentials-required','client-required','dependency-missing'].includes(s.status))throw Error('source');
+    const basic={id:e.id,photo:e.photo,provider:e.provider,kind:e.kind,upstream:e.upstream,interface:e.interface,reportedInterface:s.interface,interfaceUsed:s.interfaceUsed??null,
+      sdkVersion:typeof s.sdkVersion==='string'&&/^[0-9][A-Za-z0-9.+-]{0,63}$/.test(s.sdkVersion)?s.sdkVersion:null,
+      status:s.status,observedAt:s.observedAt,records:[],canTrade:false,verifiedLive:false};
     if(s.status!=='returned')return basic;
     try {
       if(e.requires!=='public')throw Error('unverified-adapter');
       const instrument=s.instrument;if(!instrument||instrument.kind!==(e.kind==='fund-nav'?'fund':'stock')||!/^\d{6}$/.test(instrument.code)||e.kind!=='fund-nav'&&instrument.code!==report.code)throw Error('instrument');
       const records=normalize(e,s,report,now);
-      return {...basic,status:'research-backup',instrument,records,adjustment:['daily','minute'].includes(e.kind)?'unadjusted-requested':null,unitStatus:'provider-native-unverified',frequency:e.kind==='minute'?'5min':e.kind==='daily'?'1d':null,retainedRows:records.length,truncated:s.data.truncated===true};
+      let dataContract=null;
+      if(s.dataContract!==undefined){
+        const c=s.dataContract,frequency=e.kind==='daily'?'1d':'5min',kind=e.kind==='daily'?'bar-date':'bar-time';
+        if(e.provider!=='akshare'||!c||c.schemaVersion!==1||c.purpose!=='research-only'||c.upstream!==e.upstream||c.frequencyRequested!==frequency||c.adjustmentRequested!=='none'||c.sourceTimeKind!==kind||c.canTrade!==false||!['adjustmentVerified','volumeUnit','amountUnit','delayed','delayMs','sourceTimeVerified','originalQuoteAt'].every(k=>c[k]===null)||c.sourceTimeField!==null&&(!['日期','时间','date','day'].includes(c.sourceTimeField)||!s.data.columns?.includes(c.sourceTimeField)))throw Error('unverified-contract');
+        dataContract={schemaVersion:1,purpose:'research-only',upstream:e.upstream,frequencyRequested:frequency,adjustmentRequested:'none',adjustmentVerified:null,volumeUnit:null,amountUnit:null,delayed:null,delayMs:null,sourceTimeField:c.sourceTimeField,sourceTimeKind:kind,sourceTimeVerified:null,originalQuoteAt:null,canTrade:false};
+      }
+      return {...basic,status:'research-backup',instrument,records,dataContract,adjustment:['daily','minute'].includes(e.kind)?'unadjusted-requested':null,unitStatus:'provider-native-unverified',frequency:e.kind==='minute'?'5min':e.kind==='daily'?'1d':null,retainedRows:records.length,truncated:s.data.truncated===true};
     }catch{return {...basic,status:'data-invalid'};}
   });
   return {status:now-report.generatedAt>86400000?'expired':'research-bank',code:report.code,generatedAt:report.generatedAt,canTrade:false,verifiedLive:false,paidServicesUsed:false,sources,availableCount:sources.filter(s=>s.status==='research-backup').length};

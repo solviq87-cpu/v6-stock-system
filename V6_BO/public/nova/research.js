@@ -1,3 +1,4 @@
+import {createResearchReplay,replayTime} from './evidence-workbench.mjs';
 import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
@@ -6,6 +7,8 @@ import {renderManualLearning} from './operations.js';
 import {renderKlineLearning} from './kline-learning-view.js';
 import {researchCode,readAutomatic,automaticSummary,onResearchRead} from './automatic-research.js';
 import {appendResearchExtensions} from './research-extensions.js';
+import {projectNewsEvents} from './event-research.mjs';
+import {renderEvolution} from './evolution-view.js';
 
 const arr=value=>Array.isArray(value)?value:[];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -184,7 +187,11 @@ function strategies(ctx){
   file.element.append(study.action('检验导入证据',async()=>request(ctx,'/api/research/strategy36',{...await file.read(),config})));root.append(study.body);
   const factors=importEvidence('公开因子输入'),factor=workbench(ctx,'因子与研究代理','展示本次行情的量价因子及可核对的输入。',[factors.element]);
   factor.action('读取代理状态',()=>request(ctx,'/api/research/agent-status'));
-  factor.action('计算公开因子',async()=>{if(factors.chosen())return request(ctx,'/api/research/public-factors',await factors.read());const x=await readAutomatic(ctx);const report=await request(ctx,'/api/research/public-factors',{schemaVersion:1,asOf:x.tradeDate,observedAt:x.asOf,tradingDates:x.tradeDates,stocks:[x.stock]});return {result:{...automaticSummary(x),adjustedFactors:report.result}};},{auto:true});root.append(factor.body);
+  // Switching into this workspace only reads the existing server observation.
+  // Explicit factor calculations, including imported evidence, remain available
+  // on the original button and use the original bounded research endpoint.
+  factor.action('读取当前因子依据',async()=>{const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),note:'已读取原始观察；点击计算公开因子执行一次研究计算'}};},{auto:true});
+  factor.action('计算公开因子',async()=>{if(factors.chosen())return request(ctx,'/api/research/public-factors',await factors.read());const x=await readAutomatic(ctx);const report=await request(ctx,'/api/research/public-factors',{schemaVersion:1,asOf:x.tradeDate,observedAt:x.asOf,tradingDates:x.tradeDates,stocks:[x.stock]});return {result:{...automaticSummary(x),adjustedFactors:report.result}};});root.append(factor.body);
   const adaptive=importEvidence('带来源与可用时点的自适应证据',1800*1024),ad=workbench(ctx,'自适应研究','比较不同市场状态下的研究表现，缺失原生证据不补造。',[adaptive.element]);
   ad.action('读取最新归档',async()=>{const a=await request(ctx,'/api/research/adaptive-latest');if(a.result)return a;const x=await readAutomatic(ctx);return {result:{...automaticSummary(x),note:'当前量价观测 · 自适应研究按已归档样本计算'}};},{auto:true});
   ad.action('运行自适应研究',async()=>{if(adaptive.chosen())return request(ctx,'/api/research/adaptive-market',await adaptive.read());const x=await readAutomatic(ctx);return request(ctx,'/api/research/adaptive-market',{schemaVersion:1,source:'imported',version:'v6-observation-1',provider:x.provider,asOf:x.tradeDate,decisionAt:new Date(x.asOf).toISOString(),stocks:[{...x.stock,bars:x.stock.bars.map(b=>({...b,knownAt:new Date(b.knownAt).toISOString()}))}]});});root.append(ad.body);
@@ -288,16 +295,41 @@ function memory(ctx){
   linkedStudy.action('查看当前联动观察',async()=>{const x=await readAutomatic(ctx);const r=await request(ctx,'/api/research/linked-intelligence',{schemaVersion:1,asOf:x.asOf,tradeDates:x.tradeDates,stocks:[x.stock],publicContext:x.publicContext,persist:false});return {result:{...automaticSummary(x),linkage:r.result}};},{auto:true});root.append(linkedStudy.body);return root;
 }
 function evidence(ctx){
-  const code=symbolInput(ctx),w=workbench(ctx,'原文证据室','发布、接收、修订与撤稿分别留痕；来源摘要与完整原文不混淆。',[field('证券代码（留空查看全部）',code)]);
-  w.action('读取新闻与公告证据',()=>request(ctx,'/api/research/news-evidence'+(code.value.trim()?'?symbol='+symbolValue(code):'')),{kind:'primary',render:data=>{
+  const code=symbolInput(ctx),cutoff=input('datetime-local',''),w=workbench(ctx,'原文证据室','发布、接收、修订与撤稿分别留痕；来源摘要与完整原文不混淆。',[field('证券代码（留空查看全部）',code),field('历史截点（北京时间，留空查看当前）',cutoff)]);
+  cutoff.step='0.001';let offset=0,anchor=null,requestedAsOf=null,replayController=null;
+  const clear=()=>{offset=0;anchor=null;requestedAsOf=null;replayController?.abort();w.output.replaceChildren();};
+  for(const control of [code,cutoff])control.addEventListener('input',clear);
+  function fetchPage(){const now=Date.now(),asOf=anchor??replayTime(cutoff.value,now);
+    if(!Number.isSafeInteger(asOf)||asOf<=0||asOf>now)throw Error('历史截点无效');
+    requestedAsOf=asOf;replayController?.abort();
+    const q=new URLSearchParams({asOf:String(asOf),offset:String(offset),limit:'50'});
+    if(code.value.trim())q.set('symbol',symbolValue(code));w.output.replaceChildren();return request(ctx,'/api/research/news-evidence?'+q);
+  }
+  const read=w.action('读取新闻与公告证据',fetchPage,{kind:'primary',render:data=>{
     const r=data.result||data,root=n('div',undefined,'fy-stack'),s=r.summary||{};
-    root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
-    for(const row of arr(r.rows)){
-      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+val(row.supportStatus),facts([['正文范围',e.bodyScope==='provider-summary'?'供应商摘要':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['修订/撤稿',clock(e.revisedAt)],['证券',arr(e.securities).join('、')]]));
-      if(e.url)card.append(linked('查看原始来源',e.url));card.append(detail('正文与版本链',n('p',e.body||'正文缺失'),facts([['版本',row.sequence],['原文指纹',e.bodyHash],['前版',e.supersedes],['不确定性',arr(e.uncertainty).join('；')]])));root.append(card);
+    const now=Date.now(),asOf=r.asOf;
+    if(!Number.isSafeInteger(asOf)||asOf>now||asOf!==requestedAsOf||r.offset!==offset||anchor!==null&&anchor!==asOf)return empty('新闻回执未通过截点核验');anchor=asOf;
+    const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
+    if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
+    else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
+    root.append(n('p',projection.missing.join('；'),'fy-muted'));
+    if(projection.status==='unknown')return root;
+    for(const event of projection.rows){
+      const row=event.row;
+      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'供应商摘要':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      card.append(detail('分析线索与待核实事项',facts(event.clues.map(x=>[x.label,x.quote])),n('p',event.missing.join('；'),'fy-muted'),n('p','关键词仅供核对，不代表利好、利空或执行资格。','fy-note')));
+      if(e.url)card.append(linked('查看原始来源',e.url));
+      card.append(detail('正文与版本链',n('p',e.body||'正文缺失'),facts([['版本',row.sequence],['原文指纹',e.bodyHash],['前版',e.supersedes],['不确定性',arr(e.uncertainty).join('；')]]),
+        ...event.versions.slice(0,-1).reverse().map(prior=>detail('前版 '+prior.sequence+' · '+clock(prior.recordedAt),n('p',prior.evidence.title),n('p',prior.evidence.body||'正文缺失'),facts([['发布',clock(prior.evidence.publishedAt)],['接收',clock(prior.evidence.receivedAt)],['修订',clock(prior.evidence.revisedAt)],['原文指纹',prior.evidence.bodyHash],['原始来源',prior.evidence.source]]),prior.evidence.url?linked('前版原始来源',prior.evidence.url):null))));root.append(card);
     }
-    if(!arr(r.rows).length)root.append(empty('尚无已归档事件','没有新闻证据不代表没有风险。'));return root;
-  }});return w.body;
+    if(!projection.rows.length)root.append(empty('尚无该截点可展示的归档事件','没有新闻证据不代表没有风险。'));
+    root.append(toolbar(btn('刷新至最新',()=>{offset=0;anchor=null;read.click();}),...(offset>0?[btn('上一页',()=>{offset=Math.max(0,offset-50);read.click();})]:[]),
+      ...(Number.isSafeInteger(r.nextOffset)?[btn('更早版本',()=>{offset=r.nextOffset;read.click();})]:[]),n('p','截点 '+clock(asOf)+' · 版本 '+(r.total??'未知')+' 条','fy-muted')));
+    if(/^\d{6}$/.test(code.value)){replayController=new AbortController();root.append(createResearchReplay(ctx,{symbol:code.value,asOf,memory:ctx.viewMemory,signal:replayController.signal}));}
+    return root;
+  }});
+  if(ctx.signal){ctx.signal.addEventListener('abort',clear,{once:true});globalThis.addEventListener('offline',()=>{w.invalidate();clear();w.status.textContent='连接已离线，私有新闻及回放已清空，请重新读取。';},{signal:ctx.signal});}
+  return w.body;
 }
 function models(ctx){
   const root=n('div',undefined,'fy-stack'),search=input('search','',{placeholder:'名称、任务、许可或运行条件'}),category=select([['','所有任务']]),adoption=select([['','所有状态'],['implemented','已采用设计'],['candidate','待实测'],['reference-only','参考']]),cards=n('div',undefined,'fy-grid'),comparison=n('div',undefined,'fy-grid'),status=n('output','正在读取公开资料目录…','fy-note');status.setAttribute('role','status');
@@ -340,9 +372,9 @@ export function renderResearch(route,ctx){
     if(!ctx.canEdit)return empty('需要研究编辑权限','请使用已获批的编辑设备登录。');
     return import('./shortline-host.mjs').then(({renderShortline})=>renderShortline(route,ctx));
   }
-  const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence};
+  const renders={desk,records:renderRecords,strategies,backtest,learning,models,sources,memory,evidence,evolution:renderEvolution};
   const active=Object.hasOwn(renders,route.sub)?route.sub:'desk';
-  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
+  const choices=[['desk','研究决策'],['records','研究档案'],['strategies','策略与因子'],['backtest','回测验证'],...(ctx.canEdit?[['evolution','研究进化工作台']]:[]),['learning','战法验证与学习'],['models','模型资料'],['sources','数据采集'],['memory','市场记忆'],['evidence','新闻证据']];
   const nav=fyNode('nav',{class:'fy-subnav','aria-label':'实验室工作区'},choices.map(([key,label])=>{const control=fyAction(label,()=>ctx.navigate('lab',key),key===active?'primary':'quiet');control.setAttribute('aria-current',key===active?'page':'false');return control;}));
   return fyNode('div',{class:'fy-stack'},ctx.workspaceNavigation?null:nav,renders[active](ctx));
 }

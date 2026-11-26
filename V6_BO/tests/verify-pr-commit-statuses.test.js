@@ -54,7 +54,7 @@ test('PR moved since event and incomplete commit list are rejected',async()=>{
  await assert.rejects(audit({github:m.github,owner:OWNER,repo:REPO,pr:base}),/incomplete-pr-commit-page/);
 });
 test('safety bounds and URL identity are strict',()=>{
- assert.equal(MAX_COMMITS,32);
+ assert.equal(MAX_COMMITS,64);
  assert.deepEqual(parseRunUrl('https://github.com/'+OWNER+'/'+REPO+'/actions/runs/123/attempts/1'),{run_id:123,attempt_number:1});
  assert.equal(parseRunUrl('https://github.com/other/repo/actions/runs/123/attempts/1'),null);
 });

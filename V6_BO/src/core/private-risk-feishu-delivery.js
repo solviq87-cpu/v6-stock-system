@@ -7,10 +7,14 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
+const {classifyFeishuReceipt}=require('./feishu-receipt');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const chinaDay=now=>new Date(now+8*3600000).toISOString().slice(0,10);
 const HOST='open.feishu.cn';
 const MAX_HISTORY=64,MAX_DAILY_SENDS=12,COOLDOWN_MS=120000;
+// Only opaque per-event hashes are retained. Bound the journal even when all
+// 100 observed holdings have both loss and concentration alerts.
+const MAX_STATE_BYTES=1024*1024;
 
 function prepareRiskSummary(report,{now=Date.now()}={}){
  if(!Number.isSafeInteger(now)||now<=0||!report||
@@ -42,14 +46,21 @@ function prepareRiskSummary(report,{now=Date.now()}={}){
  const day=chinaDay(now),codes=alerts.filter(a=>a.severity!=='unknown')
    .map(a=>a.code).sort();
  // Hash private event IDs without persisting or disclosing securities or positions.
- const privateEventIds=alerts.filter(a=>a.severity!=='unknown').map(a=>a.id).sort();
- if(privateEventIds.some(id=>typeof id!=='string'||id.length>128))throw Error('风险事件ID无效');
- const fingerprint=sha({day,counts,codes,privateEventIds});
+ const privateEventIds=alerts.map(a=>a.id);
+ if(privateEventIds.some(id=>typeof id!=='string'||!id.length||id.length>128)||
+   new Set(privateEventIds).size!==privateEventIds.length)throw Error('风险事件ID无效或重复');
+ const events=alerts.filter(a=>a.severity!=='unknown').map(a=>({id:a.id,code:a.code,severity:a.severity}))
+   .sort((a,b)=>a.id.localeCompare(b.id));
+ // Keep severity attached to its object. Independent sorted bags of IDs and
+ // levels collide when A improves while B becomes critical in the same tick.
+ const fingerprint=sha({day,counts,events});
+ const aggregateFingerprint=sha({day,counts,codes,privateEventIds:events.map(a=>a.id).sort()});
+ const criticalEventKeys=events.filter(a=>a.severity==='critical').map(a=>sha(a)).sort();
  const legacyFingerprint=sha({day,counts,codes});
  const message='V6 本机只读风险观察（'+day+'）\n高风险 '+counts.critical+
    ' 条，普通风险 '+counts.warning+' 条，未知/待核验 '+counts.unknown+
    ' 条；观察持仓 '+count+' 只。\n数据来源与报价未经独立认证，消息不代表券商持仓或交易指令。请到自己的本机页面核对。';
- return {day,counts,fingerprint,legacyFingerprint,message,actionable:counts.critical+counts.warning>0,
+ return {day,counts,fingerprint,aggregateFingerprint,legacyFingerprint,criticalEventKeys,message,actionable:counts.critical+counts.warning>0,
    containsPositions:false,canTrade:false,sourceVerified:false};
 }
 function checkUrl(value){
@@ -71,7 +82,7 @@ function checkState(file){
  let stat=null;
  try{stat=fs.lstatSync(file);}
  catch(e){if(e.code!=='ENOENT')throw e;}
- if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>32768))
+ if(stat&&(!stat.isFile()||stat.isSymbolicLink()||stat.size>MAX_STATE_BYTES))
   throw Error('去重记录不安全');
  return file;
 }
@@ -80,7 +91,11 @@ function validateEvent(x){
   /^[a-f0-9]{64}$/.test(x.fingerprint||'')&&
   ['pending-unknown','gateway-accepted','gateway-rejected'].includes(x.status)&&
   Number.isSafeInteger(x.at)&&x.at>0&&Number.isSafeInteger(x.critical)&&
-  x.critical>=0&&x.critical<=100&&(x.legacy===undefined||x.legacy===true);
+  x.critical>=0&&x.critical<=200&&(x.legacy===undefined||x.legacy===true)&&
+  (x.eventIdentityVersion===undefined&&x.criticalEventKeys===undefined||
+   x.eventIdentityVersion===2&&Array.isArray(x.criticalEventKeys)&&
+   x.criticalEventKeys.length===x.critical&&new Set(x.criticalEventKeys).size===x.critical&&
+   x.criticalEventKeys.every(key=>typeof key==='string'&&/^[a-f0-9]{64}$/.test(key)));
 }
 function readState(file){
  if(!fs.existsSync(file))return null;
@@ -95,22 +110,24 @@ function readState(file){
    !Number.isSafeInteger(x.at)||x.at<=0)throw Error('持久化提醒记录损坏');
   return {history:[{day:x.day,fingerprint:x.fingerprint,status:x.status,at:x.at,critical:0,legacy:true}]};
  }
- if(x.schemaVersion!==2||!Array.isArray(x.history)||!x.history.length||
+ if(![2,3].includes(x.schemaVersion)||!Array.isArray(x.history)||!x.history.length||
    x.history.length>MAX_HISTORY||x.history.some(e=>!validateEvent(e))||
    typeof x.digest!=='string')throw Error('持久化提醒记录损坏');
  const keys=x.history.map(e=>e.day+'|'+e.fingerprint);
  if(new Set(keys).size!==keys.length||
-  sha({schemaVersion:2,mode,history:x.history})!==x.digest)
+  sha({schemaVersion:x.schemaVersion,mode,history:x.history})!==x.digest)
   throw Error('持久化提醒记录损坏');
- return {history:x.history};
+ return {schemaVersion:x.schemaVersion,history:x.history};
 }
 function writeState(file,history){
  const mode='v6-private-feishu-gateway-receipt';
  if(!Array.isArray(history)||history.length<1||history.length>MAX_HISTORY||
    history.some(x=>!validateEvent(x)))throw Error('风险去重历史无效');
- const base={schemaVersion:2,mode,history};
+ // Older senders must reject identity-aware journals: their aggregate
+ // fingerprint could miss a reservation and resend it after a code rollback.
+ const base={schemaVersion:3,mode,history};
  const body=JSON.stringify({...base,digest:sha(base)})+'\n';
- if(Buffer.byteLength(body)>32768)throw Error('风险去重记录超限');
+ if(Buffer.byteLength(body)>MAX_STATE_BYTES)throw Error('风险去重记录超限');
  const tmp=file+'.'+process.pid+'.tmp';
  let fd;
  try{
@@ -134,24 +151,37 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
  let lockFd;
  try{
   lockFd=fs.openSync(lock,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);
-  const prior=readState(file)?.history||[];
+  const priorState=readState(file),prior=priorState?.history||[];
+  // A deduplicated request may be the only operation after upgrading. Migrate
+  // identity-aware v2 receipts while holding the original lock so rollback
+  // cannot replay them merely because no new notification needed a write.
+  if(priorState?.schemaVersion===2&&prior.some(x=>x.eventIdentityVersion===2))
+   writeState(file,prior);
   const matching=prior.find(x=>x.day===summary.day&&
-   (x.fingerprint===summary.fingerprint||(x.legacy===true&&x.fingerprint===summary.legacyFingerprint)));
+   (x.fingerprint===summary.fingerprint||
+    x.eventIdentityVersion===undefined&&x.fingerprint===summary.aggregateFingerprint||
+    x.legacy===true&&x.fingerprint===summary.legacyFingerprint));
   if(matching)
    return {status:'deduplicated-'+matching.status,canTrade:false,
-    gatewayAccepted:matching.status==='gateway-accepted',deliveredToDevice:false,
+    gatewayAccepted:matching.eventIdentityVersion===2&&matching.status==='gateway-accepted',deliveredToDevice:false,
+    previousGatewayAccepted:matching.status==='gateway-accepted',
+    legacyIdentityUnverified:matching.eventIdentityVersion===undefined,
     counts:summary.counts};
   const today=prior.filter(x=>x.day===summary.day);
   if(today.length>=MAX_DAILY_SENDS)
    return {status:'daily-limit',canTrade:false,gatewayAccepted:false,
     deliveredToDevice:false,counts:summary.counts};
   const last=today.at(-1);
-  // New critical risk can bypass cooldown, not a repeated digest.
-  if(last&&now-last.at<COOLDOWN_MS&&summary.counts.critical<=last.critical)
+  const knownCritical=new Set(today.flatMap(x=>x.criticalEventKeys||[]));
+  const newCritical=summary.criticalEventKeys.some(key=>!knownCritical.has(key));
+  // Ordinary changes beside a critical event still cool down. A different
+  // critical object must not disappear merely because the total did not rise.
+  if(last&&now-last.at<COOLDOWN_MS&&!newCritical)
    return {status:'cooldown',canTrade:false,gatewayAccepted:false,
     deliveredToDevice:false,counts:summary.counts};
   const record={day:summary.day,fingerprint:summary.fingerprint,
-   status:'pending-unknown',at:now,critical:summary.counts.critical};
+   status:'pending-unknown',at:now,critical:summary.counts.critical,
+   eventIdentityVersion:2,criticalEventKeys:summary.criticalEventKeys};
   // Retain today's complete history. Drop only older days when space is needed.
   const older=prior.filter(x=>x.day!==summary.day).slice(-(MAX_HISTORY-1-today.length));
   const history=[...older,...today,record];
@@ -165,13 +195,10 @@ async function sendPrivateRiskSummary({report,webhookUrl,stateFile,
     headers:{'content-type':'application/json'},
     body:JSON.stringify({msg_type:'text',content:{text:summary.message}}),
     signal:controller.signal,redirect:'error'});
-   if(response?.ok){
-    const payload=await response.json();
-    if(payload&&((payload.code===0)||(payload.StatusCode===0))){
-     status='gateway-accepted';accepted=true;
-    }else status='gateway-rejected';
-   }else if(response&&response.status>=400&&response.status<500)
-    status='gateway-rejected';
+   const payload=response?.ok?await response.json():null;
+   const receipt=classifyFeishuReceipt(response?.status,payload);
+   if(receipt.status==='accepted'){status='gateway-accepted';accepted=true;}
+   else if(receipt.status==='rejected')status='gateway-rejected';
    // 5xx / socket close / invalid JSON are unknown and must not be retried.
   }catch{/* unknown, do not automatically retry */}
   finally{clearTimeout(timer);}

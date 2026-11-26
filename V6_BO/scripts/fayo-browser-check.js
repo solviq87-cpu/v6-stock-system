@@ -4,11 +4,19 @@
 // transport. Prices are deliberately marked synthetic and never production.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
+const {buildRiskWorkbench,filterRiskWorkbench}=require('../src/core/risk-workbench');
 const publicRoot=path.resolve(__dirname,'../public');
 const releaseVersion=fs.readFileSync(path.join(publicRoot,'nova/index.html'),'utf8').match(/<meta name="application-version" content="([^"]+)"/)[1];
 const output=process.env.FAYO_QA_DIR||process.env.V6_UI_QA_DIR||fs.mkdtempSync(path.join(os.tmpdir(),'fayo-browser-'));
 fs.mkdirSync(output,{recursive:true});
 const sourceAt=Date.parse('2026-11-13T07:00:00Z');
+// A single explicitly synthetic API fixture for both native clients. The
+// authority-backed browser test lives in fayo-risk-browser-check.js.
+const riskFixture=accountId=>buildRiskWorkbench({accountId,now:sourceAt,
+ rules:{policyVersion:'synthetic-risk-policy-v1',generatedAt:sourceAt,
+  quoteEvidence:[{symbol:'600101',quoteAt:sourceAt}],rules:[{id:'maxGrossExposurePct',label:'合成总仓位',
+   enabled:true,configurationStatus:'active',limit:100,used:120,remaining:0,exceeded:true,unit:'%',evidenceStatus:'available',missing:[]}]},
+ system:{missing:['合成隔离验证；本次未取得其他真实行情、账户和研究证据']}});
 // Model the server's original sector envelope; a receipt is not an upstream timestamp.
 const sectorFixture=(name,mainInflow,pct=null)=>({name,mainInflow,pct,source:'eastmoney',
  fundsUnit:'CNY',fundsMethod:'vendor-order-size-estimate',tradeDate:'2026-11-13',
@@ -65,6 +73,8 @@ function respond(url,req,body){
  if(p==='/api/lock/status')return {ok:true,role:phase==='revoked'||!req.headers.authorization?null:role,hasPassword:true,hasViewPassword:true,pushRole:'replica',appVer:releaseVersion};
  if(p==='/api/lock/unlock')return body?.password==='synthetic-fayo-password'?{ok:true,role,token:'fayo-synthetic-session'}:{ok:false,error:'合成测试口令不匹配'};
  if(phase==='revoked')return {ok:false,locked:true,needAuth:true,error:'合成设备授权已失效'};
+ if(p==='/api/risk-workbench')return role==='edit'&&req.headers.authorization?
+  {ok:true,synthetic:true,result:filterRiskWorkbench(riskFixture(url.searchParams.get('account')||'pool'),url.searchParams.get('code'))}:{ok:false,error:'私人风险仅编辑身份可读'};
  if(p==='/api/fast-stock-moves'){
   const fast=state().fastStockMoves;
   return {schemaVersion:1,servedAt:Date.now(),trading:false,isSnapshot:true,
@@ -144,6 +154,11 @@ function respond(url,req,body){
   return {ok:true,result:{symbol,name:'自动采集测试股票',tradeDate,asOf:sourceAt,provider:'tencent',source:'合成服务回包',stock:{symbol,bars:[{date:tradeDate,close:12}]},
    observations:[{name:'收盘价',value:12,unit:'元'}],systems:['十四条','八字口诀','GPT 五策略','Python 三轮'].map(label=>({label,known:2,total:4,support:[{label:'服务回包中的规则依据'}]})),
    research36:{evaluations:[],status:'测试观察已读取'},tradeDates:[tradeDate]}};
+ }
+ if(p==='/api/research/evidence-workbench'&&url.searchParams.get('mode')==='replay'){
+  const asOf=Number(url.searchParams.get('asOf')),symbol=url.searchParams.get('symbol'),window=Number(url.searchParams.get('window')),flags={researchOnly:true,canTrade:false,canNotify:false,accountMutated:false,productionWeightsChanged:false},ref='a'.repeat(64),day=ms=>new Date(ms+28800000).toISOString().slice(0,10);
+  const rows=Array.from({length:window},(_,i)=>({date:day(asOf-(window-i-1)*86400000),stock:{value:i*.1,source:'synthetic-replay-fixture',knownAt:asOf,ref,kind:'daily'},sector:null,index:null,close:null,comparison:'partial'}));
+  return {ok:true,result:{protocol:'fayo-evidence-replay-v1',symbol,asOf,scope:'historical-readonly',rows,boards:[],missing:['合成验证：板块指数缺失'],markers:[{kind:'news',ref,at:asOf,knownAt:asOf,source:'synthetic-replay-fixture',detail:{title:'隔离合成新闻标记'},...flags}],...flags}};
  }
  if(p==='/api/research/workspace')return {ok:true,result:{runs:[],total:0,items:[],selectedRun:null,preferences:{revision:0,value:{}},presets:[],timeline:[]}};
  if(p==='/api/learn-status')return {ok:true,status:{counts:{total:0,pending:0,matured:0},operation:{state:'idle'}}};
@@ -419,7 +434,7 @@ const runChecks=async()=>{
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    await page.waitForFunction(()=>Math.abs(window.scrollY)<1);
    assert.equal(await page.title(),'绯曜 FAYO · 投资研究空间');
-   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'center-20261125-3');
+   assert.equal(await page.locator('meta[name="frontend-revision"]').getAttribute('content'),'integration-audit-20261126-2');
    const featured=page.locator('.fy-home-featured');
    assert.equal(await featured.locator('button:visible').count(),3);
    assert.deepEqual(await featured.locator('button').evaluateAll(nodes=>nodes.map(n=>n.dataset.code)),stocks.slice(0,3).map(x=>x.code));
@@ -434,6 +449,13 @@ const runChecks=async()=>{
    await page.keyboard.press('Escape');
    await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
    if(width<500)assert.equal(await page.locator('.fy-dock [data-fy-route]').count(),5);
+   const summary=page.locator('.fy-home-layout > [data-risk-summary]');
+   const headlineRisk=summary.locator('[data-risk-root="rule/maxGrossExposurePct"]');
+   await headlineRisk.waitFor({state:'visible'});
+   assert.equal(await headlineRisk.getAttribute('data-risk-id'),riskFixture('pool').risks.find(r=>r.rootCauseId==='rule/maxGrossExposurePct').id);
+   assert.equal(await headlineRisk.getAttribute('data-risk-level'),'3');
+   assert.match(await headlineRisk.innerText(),/动作被阻止|原风险门禁限制新增敞口/);
+   assert.match(await summary.innerText(),/无法评估/,'missing inputs stay unknown in the same homepage summary');
    const metrics=await geometry(page,'pulse-'+width);
    const regions=await page.locator('.fy-home-layout').evaluate(home=>{
     const box=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,width:r.width};};
@@ -732,6 +754,15 @@ const runChecks=async()=>{
    await drawer.getByRole('button',{name:'读取推送避险状态',exact:true}).click();
    await drawer.getByText(/当前利空命中/).waitFor();
    assert.match(await drawer.innerText(),/板块关联 合成能源/);
+   await drawer.locator('[data-detail-tab="replay"]').click();
+   const replayBefore=requests.length;
+   await drawer.getByRole('button',{name:'读取联动回放',exact:true}).click();
+   await drawer.getByRole('img',{name:'个股板块指数同期价格变动与事件时间轴'}).waitFor();
+   await drawer.getByRole('button',{name:/\d{4}-\d\d-\d\d 证据/}).click();
+   await drawer.getByText(/隔离合成新闻标记/).waitFor();
+   assert.match(await drawer.innerText(),/历史只读/);
+   assert.ok(requests.slice(replayBefore).some(r=>r.path==='/api/research/evidence-workbench'&&r.query.symbol==='600101'&&r.method==='GET'));
+   assert.ok(!requests.slice(replayBefore).some(r=>r.method==='POST'&&r.path==='/api/research/evidence-workbench'));
    await drawer.locator('[data-detail-tab="chart"]').click();
    await page.screenshot({path:path.join(output,'fayo-stock-lens-'+width+'.png'),fullPage:false});
    await drawer.press('Escape');
@@ -877,7 +908,7 @@ const runChecks=async()=>{
   await readPage.waitForFunction(()=>document.querySelector('.fy-main')?.textContent.includes('需要开发者权限'));
   assert.equal(await readPage.locator('.fy-header').isVisible(),true,'a restricted tool does not log out an otherwise valid reader');
   const readerRequests=requests.slice(readerStart);
-  assert.equal(readerRequests.filter(r=>['/api/holdings','/api/config','/api/wash-trend','/api/paper','/api/lock/devices'].includes(r.path)).length,0,'viewer navigation never attempts protected operations');
+  assert.equal(readerRequests.filter(r=>['/api/holdings','/api/config','/api/wash-trend','/api/paper','/api/lock/devices','/api/risk-workbench'].includes(r.path)).length,0,'viewer navigation never attempts protected operations');
   await readPage.screenshot({path:path.join(output,'fayo-readonly-390.png'),fullPage:false});
   await readPage.getByRole('button',{name:'账户与授权',exact:true}).click();
   await readPage.getByRole('dialog',{name:'身份与访问',exact:true}).getByRole('button',{name:'切换登录身份',exact:true}).click();

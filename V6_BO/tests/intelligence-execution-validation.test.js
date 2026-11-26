@@ -88,3 +88,77 @@ test('full research report exposes actual execution validation even when HFQ IC 
   assert.equal(report.factors.alignedSamples,0);assert.equal(report.executionValidation.acceptedTrades,1);
   assert.equal(report.executionValidation.canApprove,false);assert.equal(report.productionWeightsChanged,false);
 });
+
+test('synthetic scope on the archive, original plan or settlement never becomes formal attribution',()=>{
+  const now=at('2026-11-20'),first=sample(0);
+  assert.equal(buildExecutionValidation({...archiveOf([first]),scope:'synthetic'},{folds:[]},{now}).acceptedTrades,0);
+  for(const key of ['sampleSet','sampleScope','scope']){
+    const x=sample(0);x.trade[key]='synthetic';
+    assert.equal(buildExecutionValidation(archiveOf([x]),{folds:[]},{now}).acceptedTrades,0);
+    const y=sample(1);y.plan[key]='synthetic';
+    assert.equal(buildExecutionValidation(archiveOf([y]),{folds:[]},{now}).acceptedTrades,0);
+  }
+});
+
+test('native fill identities, exit trading day and exact-cent entry arithmetic cannot be self-resealed away',()=>{
+  const changes=[
+    p=>{p.entryFills[0].price=1000;},
+    p=>{delete p.entryFills[0].price;},
+    p=>{delete p.entryFills[0].eventId;},
+    p=>{delete p.entryFills[0].orderId;},
+    p=>{delete p.exitEventId;},
+    p=>{delete p.exitOrderId;},
+    p=>{p.accountId='second-ledger';},
+    p=>{p.tradeDate='2026-11-18';},
+    p=>{p.entryFills[0]=null;}
+  ];
+  for(const change of changes){
+    const x=sample(0);change(x.trade.paperSettlement);x.trade.sourceFingerprint=hash(x.trade.paperSettlement);
+    const report=buildExecutionValidation(archiveOf([x]),{folds:[]},{now:at('2026-11-20')});
+    assert.equal(report.acceptedTrades,0);assert.equal(report.excludedCount,1);
+  }
+});
+
+test('the same original account exit event is counted once even when an unrelated note changes the digest',()=>{
+  const first=sample(0),other=structuredClone(first);other.trade.id='other-record-id';
+  other.trade.paperSettlement.note='not part of economic evidence';other.trade.sourceFingerprint=hash(other.trade.paperSettlement);
+  assert.notEqual(first.trade.sourceFingerprint,other.trade.sourceFingerprint);
+  const report=buildExecutionValidation(archiveOf([first,other]),{folds:[]},{now:at('2026-11-20')});
+  assert.equal(report.acceptedTrades,1);assert.equal(report.excluded[0].reason,'duplicate-ledger-settlement');
+  assert.equal(report.overall.scenarios[0].entryPriceEvidence.exactCentPriceReconciled,1);
+});
+
+test('conflicting economic content for one exit event is entirely isolated in either record order',()=>{
+  const first=sample(0),other=sample(0,{exitPrice:12});other.trade.id='conflicting-record';
+  for(const xs of [[first,other],[other,first]]){
+    const report=buildExecutionValidation(archiveOf(xs),{folds:[]},{now:at('2026-11-20')});
+    assert.equal(report.acceptedTrades,0);assert.equal(report.excludedCount,2);
+    assert.ok(report.excluded.every(row=>row.reason==='conflicting-ledger-settlement'));
+  }
+  const invalid=structuredClone(first);invalid.trade.id='invalid-conflicting-record';
+  invalid.trade.paperSettlement.entryFills[0].price=1000;
+  invalid.trade.sourceFingerprint=hash(invalid.trade.paperSettlement);
+  for(const xs of [[first,invalid],[invalid,first]]){
+    const report=buildExecutionValidation(archiveOf(xs),{folds:[]},{now:at('2026-11-20')});
+    assert.equal(report.acceptedTrades,0);
+    assert.equal(report.excluded.find(row=>row.id===first.trade.id).reason,'conflicting-ledger-settlement');
+  }
+});
+
+test('native fractional-cent FIFO allocations remain descriptive without inventing a one-cent tolerance',()=>{
+  let quantity=83800,gross=Math.round(10.00917582*quantity*100),legGross;
+  for(const sold of [72000,1800,600,500,6800]){
+    legGross=Math.round(gross*sold/quantity);gross-=legGross;quantity-=sold;
+  }
+  assert.equal(legGross,6806238);
+  assert.equal(Math.round(10.00917582*6800*100)-legGross,2);
+  const x=sample(0),p=x.trade.paperSettlement;
+  Object.assign(p.entryFills[0],{price:10.00917582,quantity:6800,grossCents:legGross,costCents:legGross});
+  Object.assign(p,{exitQuantity:6800,exitGrossCents:Math.round(p.exitPrice*6800*100),costBasisCents:legGross});
+  p.realizedCents=p.exitGrossCents-p.exitFeeCents-p.costBasisCents;
+  Object.assign(x.trade,{shares:6800,cost:1,costBasis:legGross/100,pnlAmount:p.realizedCents/100,sourceFingerprint:hash(p)});
+  const report=buildExecutionValidation(archiveOf([x]),{folds:[]},{now:at('2026-11-20')});
+  assert.equal(report.acceptedTrades,1);
+  assert.deepEqual(report.overall.scenarios[0].entryPriceEvidence,{exactCentPriceReconciled:0,fifoAllocationNotReplayed:1});
+  assert.equal(report.overall.productionPromotionAllowed,false);
+});

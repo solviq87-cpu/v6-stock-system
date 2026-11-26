@@ -24,3 +24,15 @@
 - 该规则只保护 `dev`。归档 ZIP 有独立校验，静态网站仍由单一 `managed-task` 发布者负责，不把 Actions 的绿色误当生产上线。
 
 查询文档：GitHub 官方 Rulesets 规则与导入说明、required status checks troubleshooting。
+
+## 2026-11-26 独立集成复核补充
+
+上文“disabled / 11项”是历史检查点，不能当作当前配置状态。本轮以 `dev@b9b44474be7fd27732e37d868ed64dbfddd3e8e9` 和活动 PR 的精确 head 重新核对：候选 JSON 已是 `active`、原有13项检查；本补丁加入真实浏览器 job `visual-geometry`，成为14项。JSON 的期望配置不代表已经在 GitHub 上启用。
+
+本轮读取 `GET /repos/solviq87-cpu/v6-stock-system/rulesets?includes_parents=true&per_page=100` 成功返回空数组；传统分支保护端点返回403读取权限限制。有效分支规则汇总端点被当前连接器拒绝，未取得该入口回执。没有取得强制门禁生效证据；不因本地文件写了 `active` 就宣称已生效。远端启用和最终合并仍由原第一组通过具备管理权限的入口统一执行。
+
+必需浏览器检查不能保留 workflow 的文件路径过滤，否则仅后端或文档 PR 可能从不产生该检查而一直等待。本补丁移除浏览器 workflow 的 push/PR 路径过滤，保留非归档开发分支及原 PR 目标范围，运行真实浏览器套件；后端合同修改同样需要双端验证。代价是后端和文档提交也运行完整浏览器检查，增加 CI 时间，不用空的成功状态代替验证。
+
+`npm run check` 已接入 `V6_BO/scripts/audit-fayo-integration-gates.js`：检查候选必需状态是否对应现存 job、dev 触发范围是否可能被过滤、真实 FAYO 浏览器脚本是否接入，以及失败是否会被忽略。新风险浏览器脚本随其他组整合后自动纳入此静态清单。该审计只检查仓库配置，完整 YAML/表达式语法仍由原 actionlint 检查，真实测试结果及远端 enforcement 分别核验。
+
+激活前必须用包含本补丁的最终提交重新运行完整 CI 和双端浏览器，并验证普通后端、文档及 UI PR 都能产生14项必需结果。保存远端规则、目标分支、检查来源、禁止直接推送和失败拦截的真实回执，再更新现场状态。生产部署、设备真实送达和长期观察仍不在此静态审计证明范围内。

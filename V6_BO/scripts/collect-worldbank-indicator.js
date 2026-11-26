@@ -4,14 +4,14 @@
 const fs=require('node:fs'),path=require('node:path');
 const {collectWorldBankIndicator}=require('../src/core/worldbank-indicators');
 async function main(args){
- if(args.length!==5)throw Error('用法: node scripts/collect-worldbank-indicator.js <CHN> <indicator> <startYear> <endYear> <new-file.json>');
- const [country,indicator,from,to,dest]=args;
+ if(args.length!==5&&args.length!==6)throw Error('用法: node scripts/collect-worldbank-indicator.js <CHN> <indicator> <startYear> <endYear> <new-file.json> [private-archive-root]');
+ const [country,indicator,from,to,dest,archiveRoot]=args;
  if(!/^\d{4}$/.test(from)||!/^\d{4}$/.test(to))
   throw Error('年份必须为四位整数');
  const file=path.resolve(dest);
  if(!fs.existsSync(path.dirname(file)))throw Error('输出目录不存在');
  if(fs.existsSync(file))throw Error('拒绝覆盖已存的宏观证据');
- const report=await collectWorldBankIndicator({country,indicator,startYear:Number(from),endYear:Number(to)});
+ const report=await collectWorldBankIndicator({country,indicator,startYear:Number(from),endYear:Number(to),archiveRoot});
  const fd=fs.openSync(file,'wx',0o600);
  try{fs.writeFileSync(fd,JSON.stringify(report,null,2)+'\n');fs.fsyncSync(fd);}
  finally{fs.closeSync(fd);}

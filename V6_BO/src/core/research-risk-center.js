@@ -8,7 +8,7 @@ const text=(v,max=240)=>typeof v==='string'?v.slice(0,max):null;
 const count=v=>Number.isSafeInteger(v)&&v>=0?v:null;
 const timestamp=v=>Number.isSafeInteger(v)&&v>0&&v<=8e15?v:null;
 function safeUrl(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
-function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,agentDir=null,
+function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,agentDir=null,governance=null,deepResearch=null,
  newsRoot=path.resolve(__dirname,'../../data/news-evidence'),readNews}={}){
  if(!Number.isSafeInteger(now)||now<=0||now>8e15)throw Error('研究风险中心时钟无效');
  const supports=[],contra=[],missing=[];
@@ -81,12 +81,16 @@ function readResearchRiskCenter({state={},now=Date.now(),holdingWatchFile=null,a
  if(researchAgent.status==='unconfigured')add(missing,'research-agent','AGENT_UNCONFIGURED','研究代理尚未配置证据');
  else if(['blocked-invalid-agent-journal','failed-stop-and-audit-before-retry'].includes(researchAgent.status))add(missing,'research-agent','AGENT_EVIDENCE_INVALID','研究代理档案校验失败或流程已暂停，不能据此判断策略有效');
  else add(contra,'research-agent','RESEARCH_PROCESS_NOT_RETURN_CERTIFICATION','研究流程状态不代表收益或策略有效性认证');
- const strategyDecay={status:'unknown',estimate:null,reason:'没有足够的独立成熟样本及经校验的衰减检验，不能推断策略有效或失效'};
+ const strategyDecay=require('./research-governance-cache').strategyDecayFromProjection(governance,{now});
+ if(strategyDecay.status==='review-observed-unverified')add(supports,'strategy-decay','RESEARCH_REVIEW_OBSERVED',strategyDecay.reason,strategyDecay.sourceFingerprint);
  add(missing,'strategy-decay','DECAY_NOT_ESTABLISHED',strategyDecay.reason);
  return {schemaVersion:1,mode:'research-risk-center-readonly',generatedAt:now,
   status:supports.length?'observed-concerns-unverified':'unknown',riskScore:null,
   researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,productionWeightsChanged:false,
   evidenceMeaning:{supports:'已有证据支持的观察事项，非交易建议',contra:'限制结论或表明证据冲突的事项',missing:'缺失、未认证或无法校验的证据'},
-  supports,contra,missing,market,manualHoldings,news,researchAgent,strategyDecay};
+  supports,contra,missing,market,manualHoldings,news,researchAgent,strategyDecay,
+  deepResearch:{status:deepResearch?'observed':'not-read',generatedAt:deepResearch?.generatedAt??null,
+    levels:require('./deep-research-workspace').RISK_LEVELS,
+    observations:require('./deep-research-workspace').projectDeepRisks(deepResearch?.riskObservations,{now,generatedAt:deepResearch?.generatedAt??now})}};
 }
 module.exports={readResearchRiskCenter};

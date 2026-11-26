@@ -20,15 +20,38 @@ def frame(df):
     if len(columns)>80: raise ValueError('too-many-fields')
     return {'columns':columns,'records':json.loads(df.tail(200).to_json(orient='records',date_format='iso',force_ascii=False)),'truncated':len(df)>200}
 
+def akshare_interface(sdk, preferred, legacy=None):
+    # Renamed APIs have no alias in newer AKShare. Only absence selects the old
+    # SDK entry point: a failed request or malformed current API must propagate.
+    missing=object();method=getattr(sdk,preferred,missing);used=preferred
+    if method is missing and legacy:
+        method=getattr(sdk,legacy,missing);used=legacy
+    if method is missing or not callable(method):raise AttributeError('unsupported-akshare-interface: '+preferred)
+    return used,method
+
 def worker(ident,code,start,end,fund):
     e=ENTRIES[ident]
     if e['requires']!='public': return {'status':'client-required' if e['requires']=='client' else 'credentials-required','requestAttempted':False,'reason':'本批不创建账号、使用付费额度或连接交易客户端'}
     if e['provider']=='akshare':
         import akshare as ak
-        if ident=='akshare.daily': df=ak.stock_zh_a_hist(symbol=code,period='daily',start_date=start.replace('-',''),end_date=end.replace('-',''),adjust='')
-        elif ident=='akshare.minute.em': df=ak.stock_zh_a_hist_min_em(symbol=code,start_date=start+' 09:30:00',end_date=end+' 15:00:00',period='5',adjust='')
-        else: df=ak.stock_zh_a_minute(symbol=('sh' if code.startswith('6') else 'sz')+code,period='5',adjust='')
-        return {'status':'returned','data':frame(df),'sdkVersion':importlib.metadata.version('akshare')}
+        if ident=='akshare.daily':
+            used,method=akshare_interface(ak,'stock_zh_a_hist_em','stock_zh_a_hist')
+            df=method(symbol=code,period='daily',start_date=start.replace('-',''),end_date=end.replace('-',''),adjust='')
+        elif ident=='akshare.minute.em':
+            used,method=akshare_interface(ak,'stock_zh_a_hist_min_em')
+            df=method(symbol=code,start_date=start+' 09:30:00',end_date=end+' 15:00:00',period='5',adjust='')
+        else:
+            used,method=akshare_interface(ak,'stock_zh_a_hist_min_sina','stock_zh_a_minute')
+            df=method(symbol=('sh' if code.startswith('6') else 'sz')+code,period='5',adjust='')
+        data=frame(df)
+        contract={'schemaVersion':1,'purpose':'research-only','upstream':e['upstream'],
+            'frequencyRequested':'1d' if e['kind']=='daily' else '5min','adjustmentRequested':'none',
+            'adjustmentVerified':None,'volumeUnit':None,'amountUnit':None,'delayed':None,'delayMs':None,
+            'sourceTimeField':next((key for key in ['日期','时间','date','day'] if key in data['columns']),None),
+            'sourceTimeKind':'bar-date' if e['kind']=='daily' else 'bar-time',
+            'sourceTimeVerified':None,'originalQuoteAt':None,'canTrade':False}
+        return {'status':'returned','data':data,'sdkVersion':importlib.metadata.version('akshare'),
+            'interfaceUsed':used,'legacyInterfaceUsed':used!=e['interface'],'dataContract':contract}
     if e['provider']=='efinance':
         import efinance as ef
         if ident=='efinance.daily': df=ef.stock.get_quote_history(code,beg=start.replace('-',''),end=end.replace('-',''),klt=101,fqt=0)

@@ -445,7 +445,7 @@ export function renderManualLoop(ctx, ui) {
           detail.append(
             form(
               '提交验证候选',
-              '只研究样本数、先验强度和筛选概率。训练末日不早于今天，验证和样本外须用新的未来区间；通过后仍需生产门禁。',
+              '只研究样本数、先验强度和模型上行估计。估计尚未独立校准；训练末日不早于今天，验证和样本外须用新的未来区间；通过后仍需生产门禁。',
               [
                 field(
                   '改进假设',
@@ -460,7 +460,7 @@ export function renderManualLoop(ctx, ui) {
                 ...[
                   ['minimumSamples', '最低样本数', 20, 20, 200, 1],
                   ['priorStrength', '先验强度', 2, 2, 100, 1],
-                  ['minUpProbability', '最低上行概率', 0.5, 0.5, 0.9, 0.01],
+                  ['minUpProbability', '最低模型上行估计（未校准）', 0.5, 0.5, 0.9, 0.01],
                   ['minClosedTrades', '最低平仓样本', 3, 3, 10000, 1],
                   ['maxDrawdownPct', '研究最大回撤/%', 10, 0.01, 50, 0.01],
                   ['minReturnPct', '最低收益/%', 0, 0, 100, 0.01],

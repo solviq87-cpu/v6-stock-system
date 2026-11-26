@@ -38,7 +38,7 @@ const WORKSPACE_ROUTES={
  行情:[['市场概览','pulse','market-overview'],['全球行情','pulse','global'],['行情数据与来源','lab','sources']],
  选股:[systemPicksRoute,['全部候选','opportunities','all'],...otherPoolRoutes],
  策略:[['策略与因子','lab','strategies'],['研究决策','lab','desk'],['研究档案','lab','records'],['模型资料','lab','models'],['市场记忆','lab','memory'],['明日计划','pulse','plans'],['短线研究总览','lab','shortline-overview','edit'],['短线自动校验','lab','shortline-new','edit'],['校验记录','lab','shortline-checks','edit'],['95项战法因子','lab','shortline-library','edit'],['参数验证与审批','lab','shortline-versions','edit'],['参数与黑名单','lab','shortline-settings','edit'],['因子代号词典','lab','shortline-dictionary','edit'],['题材梯队','lab','shortline-structure','edit'],['公告压力与筹码','lab','shortline-pressure','edit']],
- 回测:[['回测验证','lab','backtest'],['K线样本回测','lab','shortline-backtest','edit'],['数据导入','lab','shortline-import','edit']],
+ 回测:[['回测验证','lab','backtest'],['研究进化工作台','lab','evolution','edit'],['K线样本回测','lab','shortline-backtest','edit'],['数据导入','lab','shortline-import','edit']],
  复盘:[['盘后总览','pulse','review'],['完整来源池','pulse','review-details'],['竞价复盘','pulse','auction-review'],['历史学习','lab','learning'],['人工执行记录','assets','closure','edit'],['交易样本学习','lab','shortline-trades','edit'],['结构化复盘','lab','shortline-review','edit'],['纪律与错题','lab','shortline-mistakes','edit'],['日志与打包','lab','shortline-journal','edit'],['开始使用','lab','shortline-setup','edit']],
  资讯:[['新闻与公告','inbox','all'],['利空线索','inbox','alerts'],['策略信号','inbox','signals'],['新闻证据','lab','evidence'],['投递追踪','inbox','push','edit'],['写通知','inbox','compose','edit']],
  资金流:[['板块强度与资金','pulse','sectors']],

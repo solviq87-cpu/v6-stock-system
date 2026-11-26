@@ -1,0 +1,586 @@
+TAP version 13
+# Subtest: 73 does not invent missing estimates, accounts, or correlations
+ok 1 - 73 does not invent missing estimates, accounts, or correlations
+  ---
+  duration_ms: 6.452517
+  type: 'test'
+  ...
+# Subtest: 73 compares current, equal-weight and constrained lot-sized candidates without changing input
+ok 2 - 73 compares current, equal-weight and constrained lot-sized candidates without changing input
+  ---
+  duration_ms: 4.597479
+  type: 'test'
+  ...
+# Subtest: 73 preserves exact quote time: 15s boundary, stale, unknown, future and read-only
+ok 3 - 73 preserves exact quote time: 15s boundary, stale, unknown, future and read-only
+  ---
+  duration_ms: 1.915859
+  type: 'test'
+  ...
+# Subtest: 73 rejects late estimates, uncovered holdings, malformed and non-PSD correlations
+ok 4 - 73 rejects late estimates, uncovered holdings, malformed and non-PSD correlations
+  ---
+  duration_ms: 2.492206
+  type: 'test'
+  ...
+# Subtest: 73 respects T+1 locked holdings, original risk policy and impossible constraints
+ok 5 - 73 respects T+1 locked holdings, original risk policy and impossible constraints
+  ---
+  duration_ms: 1.635458
+  type: 'test'
+  ...
+# Subtest: 74 counts every cost component, refuses missing cost and does not treat ranking change as evidence
+ok 6 - 74 counts every cost component, refuses missing cost and does not treat ranking change as evidence
+  ---
+  duration_ms: 0.43928
+  type: 'test'
+  ...
+# Subtest: 74 cannot veto compulsory risk handling, even when reward evidence is absent
+ok 7 - 74 cannot veto compulsory risk handling, even when reward evidence is absent
+  ---
+  duration_ms: 0.155314
+  type: 'test'
+  ...
+# Subtest: 75 reruns the original optimizer, preserves input and expects stale/missing gates
+ok 8 - 75 reruns the original optimizer, preserves input and expects stale/missing gates
+  ---
+  duration_ms: 8.160965
+  type: 'test'
+  ...
+# Subtest: 75 uses a supplied server evaluator and reports factor-sensitive rank reversals
+ok 9 - 75 uses a supplied server evaluator and reports factor-sensitive rank reversals
+  ---
+  duration_ms: 0.453953
+  type: 'test'
+  ...
+# Subtest: 75 missing inputs that still reverse an active conclusion are not mislabeled as expected gate closure
+ok 10 - 75 missing inputs that still reverse an active conclusion are not mislabeled as expected gate closure
+  ---
+  duration_ms: 0.782386
+  type: 'test'
+  ...
+# Subtest: 76 freezes server-time alternatives immutably, retries idempotently and preserves CAS
+ok 11 - 76 freezes server-time alternatives immutably, retries idempotently and preserves CAS
+  ---
+  duration_ms: 18.247062
+  type: 'test'
+  ...
+# Subtest: 76 marks backdated decisions and old cutoffs post hoc, rejects future declarations
+ok 12 - 76 marks backdated decisions and old cutoffs post hoc, rejects future declarations
+  ---
+  duration_ms: 5.312193
+  type: 'test'
+  ...
+# Subtest: 76 compares only frozen alternatives with identical cutoff, constraints, costs, capital and horizon
+ok 13 - 76 compares only frozen alternatives with identical cutoff, constraints, costs, capital and horizon
+  ---
+  duration_ms: 5.628559
+  type: 'test'
+  ...
+# Subtest: 76 rejects different outcome windows and excludes future or immature evidence
+ok 14 - 76 rejects different outcome windows and excludes future or immature evidence
+  ---
+  duration_ms: 3.116413
+  type: 'test'
+  ...
+# Subtest: 76 persists reviews in original append-only research history, never creates account writes
+ok 15 - 76 persists reviews in original append-only research history, never creates account writes
+  ---
+  duration_ms: 8.526484
+  type: 'test'
+  ...
+# Subtest: 76 can run a server-supplied replay for every frozen option and rejects a duplicate result
+ok 16 - 76 can run a server-supplied replay for every frozen option and rejects a duplicate result
+  ---
+  duration_ms: 4.020322
+  type: 'test'
+  ...
+# Subtest: 76 replays actual frozen choices with original limits, fees and T+1 instead of accepting invented fills
+ok 17 - 76 replays actual frozen choices with original limits, fees and T+1 instead of accepting invented fills
+  ---
+  duration_ms: 8.012
+  type: 'test'
+  ...
+# Subtest: 76 locked limit remains held and later prices cannot change first-open decisions
+ok 18 - 76 locked limit remains held and later prices cannot change first-open decisions
+  ---
+  duration_ms: 6.757966
+  type: 'test'
+  ...
+# Subtest: 76 replay refuses absent costs, adjusted price, missing calendar/state and immature windows
+ok 19 - 76 replay refuses absent costs, adjusted price, missing calendar/state and immature windows
+  ---
+  duration_ms: 6.518987
+  type: 'test'
+  ...
+# Subtest: 76 snapshot excludes secrets and authorization is checked inside store lock including retries
+ok 20 - 76 snapshot excludes secrets and authorization is checked inside store lock including retries
+  ---
+  duration_ms: 12.707968
+  type: 'test'
+  ...
+# Subtest: 73 enforces original maximum positions, and absent limits cannot become unlimited
+ok 21 - 73 enforces original maximum positions, and absent limits cannot become unlimited
+  ---
+  duration_ms: 0.904068
+  type: 'test'
+  ...
+# Subtest: 76 resolves an HTTP retry using the frozen public intent and rechecks current authorization
+ok 22 - 76 resolves an HTTP retry using the frozen public intent and rechecks current authorization
+  ---
+  duration_ms: 12.292293
+  type: 'test'
+  ...
+# Subtest: 76 accepts an all-cash account without inventing quote rows
+ok 23 - 76 accepts an all-cash account without inventing quote rows
+  ---
+  duration_ms: 4.073
+  type: 'test'
+  ...
+# Subtest: 76 adapts existing shortline OHLCV and workspace calendar evidence into a real constrained replay
+ok 24 - 76 adapts existing shortline OHLCV and workspace calendar evidence into a real constrained replay
+  ---
+  duration_ms: 15.334086
+  type: 'test'
+  ...
+# Subtest: 76 adapts workspace analysis rows without manufacturing missing security fields or volume units
+ok 25 - 76 adapts workspace analysis rows without manufacturing missing security fields or volume units
+  ---
+  duration_ms: 8.54369
+  type: 'test'
+  ...
+# Subtest: 76 archive adapter excludes tests, adjusted prices, future receipts and conflicting same-time revisions
+ok 26 - 76 archive adapter excludes tests, adjusted prices, future receipts and conflicting same-time revisions
+  ---
+  duration_ms: 4.25121
+  type: 'test'
+  ...
+# Subtest: 73 and 76 never treat total cash or unresolved orders as free funds
+ok 27 - 73 and 76 never treat total cash or unresolved orders as free funds
+  ---
+  duration_ms: 7.075213
+  type: 'test'
+  ...
+# Subtest: 76 retries an empty public hold using the original frozen holdings, not current marks
+ok 28 - 76 retries an empty public hold using the original frozen holdings, not current marks
+  ---
+  duration_ms: 8.17067
+  type: 'test'
+  ...
+# Subtest: 74 derives its gate from the same 73 candidate, account and explicit cost components
+ok 29 - 74 derives its gate from the same 73 candidate, account and explicit cost components
+  ---
+  duration_ms: 11.352291
+  type: 'test'
+  ...
+# Subtest: 73 bridges original archive amounts and complete aligned windows without inventing a forecast
+ok 30 - 73 bridges original archive amounts and complete aligned windows without inventing a forecast
+  ---
+  duration_ms: 5.619014
+  type: 'test'
+  ...
+# Subtest: 73 archive bridge retains missing amounts and corporate-action uncertainty instead of dropping poor samples
+ok 31 - 73 archive bridge retains missing amounts and corporate-action uncertainty instead of dropping poor samples
+  ---
+  duration_ms: 2.163051
+  type: 'test'
+  ...
+# Subtest: empty inputs keep all six modules unknown, never invent values or grant execution
+ok 32 - empty inputs keep all six modules unknown, never invent values or grant execution
+  ---
+  duration_ms: 5.168427
+  type: 'test'
+  ...
+# Subtest: event study separates market rise from excess, preserves every horizon and failed cases
+ok 33 - event study separates market rise from excess, preserves every horizon and failed cases
+  ---
+  duration_ms: 9.770634
+  type: 'test'
+  ...
+# Subtest: event receipt cutoff, source revisions and later data cannot rewrite an earlier as-of report
+ok 34 - event receipt cutoff, source revisions and later data cannot rewrite an earlier as-of report
+  ---
+  duration_ms: 1.265171
+  type: 'test'
+  ...
+# Subtest: missing and late benchmarks stay null; corporate actions cannot become false event returns
+ok 35 - missing and late benchmarks stay null; corporate actions cannot become false event returns
+  ---
+  duration_ms: 0.798289
+  type: 'test'
+  ...
+# Subtest: duplicate identical source revisions dedupe while conflicting revisions quarantine that event
+ok 36 - duplicate identical source revisions dedupe while conflicting revisions quarantine that event
+  ---
+  duration_ms: 0.946632
+  type: 'test'
+  ...
+# Subtest: event study derives fixed 1/5/20/60 windows from original raw archives and preserves source receipts
+ok 37 - event study derives fixed 1/5/20/60 windows from original raw archives and preserves source receipts
+  ---
+  duration_ms: 2.644263
+  type: 'test'
+  ...
+# Subtest: event archive gaps, unknown corporate actions and missing market benchmark remain explicit pending evidence
+ok 38 - event archive gaps, unknown corporate actions and missing market benchmark remain explicit pending evidence
+  ---
+  duration_ms: 3.678698
+  type: 'test'
+  ...
+# Subtest: archive event derivation keeps future revisions invisible and quarantines same-receipt conflicts
+ok 39 - archive event derivation keeps future revisions invisible and quarantines same-receipt conflicts
+  ---
+  duration_ms: 2.214438
+  type: 'test'
+  ...
+# Subtest: expectations use strictly pre-announcement archives, including when the actual is revised later
+ok 40 - expectations use strictly pre-announcement archives, including when the actual is revised later
+  ---
+  duration_ms: 0.806032
+  type: 'test'
+  ...
+# Subtest: missing expectations, incompatible units and zero expectations do not fabricate consensus or percentages
+ok 41 - missing expectations, incompatible units and zero expectations do not fabricate consensus or percentages
+  ---
+  duration_ms: 0.590968
+  type: 'test'
+  ...
+# Subtest: price reaction classification uses a mature sourced interval and retains causal uncertainty
+ok 42 - price reaction classification uses a mature sourced interval and retains causal uncertainty
+  ---
+  duration_ms: 0.510898
+  type: 'test'
+  ...
+# Subtest: relationships keep business, indirect and concepts separate, with effective periods and source documents
+ok 43 - relationships keep business, indirect and concepts separate, with effective periods and source documents
+  ---
+  duration_ms: 1.039832
+  type: 'test'
+  ...
+# Subtest: a relation learned after an event cannot appear as the event-time impact path
+ok 44 - a relation learned after an event cannot appear as the event-time impact path
+  ---
+  duration_ms: 0.432981
+  type: 'test'
+  ...
+# Subtest: ordinary snapshots cannot masquerade as depth, trades, queues or principal intent
+ok 45 - ordinary snapshots cannot masquerade as depth, trades, queues or principal intent
+  ---
+  duration_ms: 0.29264
+  type: 'test'
+  ...
+# Subtest: depth needs exact provider/granularity authorization and preserves the 15-second boundary
+ok 46 - depth needs exact provider/granularity authorization and preserves the 15-second boundary
+  ---
+  duration_ms: 0.85822
+  type: 'test'
+  ...
+# Subtest: depth rejects late source receipts, crossed books, future times and synthetic sources
+ok 47 - depth rejects late source receipts, crossed books, future times and synthetic sources
+  ---
+  duration_ms: 0.436726
+  type: 'test'
+  ...
+# Subtest: trade imbalance requires real tick directions and never substitutes order-book imbalance
+ok 48 - trade imbalance requires real tick directions and never substitutes order-book imbalance
+  ---
+  duration_ms: 0.454613
+  type: 'test'
+  ...
+# Subtest: auction research reuses the existing indicative-versus-executed evidence rules
+ok 49 - auction research reuses the existing indicative-versus-executed evidence rules
+  ---
+  duration_ms: 1.13817
+  type: 'test'
+  ...
+# Subtest: session adapter reads original mature net settlements at cent precision without ledger writes
+ok 50 - session adapter reads original mature net settlements at cent precision without ledger writes
+  ---
+  duration_ms: 35.815786
+  type: 'test'
+  ...
+# Subtest: session evidence rejects changed fingerprints, same-day exits and demo archives
+ok 51 - session evidence rejects changed fingerprints, same-day exits and demo archives
+  ---
+  duration_ms: 18.16522
+  type: 'test'
+  ...
+# Subtest: four-strategy session analysis reuses native cost and execution gates, with horizons kept separate
+ok 52 - four-strategy session analysis reuses native cost and execution gates, with horizons kept separate
+  ---
+  duration_ms: 35.002429
+  type: 'test'
+  ...
+# Subtest: session windows use Beijing time and never classify lunch as executable morning/afternoon
+ok 53 - session windows use Beijing time and never classify lunch as executable morning/afternoon
+  ---
+  duration_ms: 0.232389
+  type: 'test'
+  ...
+# Subtest: theme crowding uses all-member denominators, actual holdings and descriptive progressive warnings
+ok 54 - theme crowding uses all-member denominators, actual holdings and descriptive progressive warnings
+  ---
+  duration_ms: 1.060614
+  type: 'test'
+  ...
+# Subtest: duplicate theme members, unknown membership and old snapshots do not create current risk claims
+ok 55 - duplicate theme members, unknown membership and old snapshots do not create current risk claims
+  ---
+  duration_ms: 0.297487
+  type: 'test'
+  ...
+# Subtest: news adapter preserves each actual receipt and cannot stamp an unknown revision with the original time
+ok 56 - news adapter preserves each actual receipt and cannot stamp an unknown revision with the original time
+  ---
+  duration_ms: 0.906793
+  type: 'test'
+  ...
+# Subtest: real deep HTTP uses existing editor permissions, worker reports, private imports and original source clocks
+ok 57 - real deep HTTP uses existing editor permissions, worker reports, private imports and original source clocks
+  ---
+  duration_ms: 2160.339601
+  type: 'test'
+  ...
+# Subtest: real HTTP freezes empty-account hold/cash alternatives, retries original intent and exposes read-only pending replay
+ok 58 - real HTTP freezes empty-account hold/cash alternatives, retries original intent and exposes read-only pending replay
+  ---
+  duration_ms: 1400.19916
+  type: 'test'
+  ...
+# Subtest: handler and worker freeze actual ledger holdings, exclude unrelated quotes and retry original hold weights
+ok 59 - handler and worker freeze actual ledger holdings, exclude unrelated quotes and retry original hold weights
+  ---
+  duration_ms: 287.249718
+  type: 'test'
+  ...
+# Subtest: deep adapter rejects replica writes and parameter injection before private source work
+ok 60 - deep adapter rejects replica writes and parameter injection before private source work
+  ---
+  duration_ms: 3.888463
+  type: 'test'
+  ...
+# Subtest: real worker rechecks revocation at durable commit and never mutates existing evidence or ledger
+ok 61 - real worker rechecks revocation at durable commit and never mutates existing evidence or ledger
+  ---
+  duration_ms: 194.81408
+  type: 'test'
+  ...
+# Subtest: revoked permission after worker/read completion does not disclose private report or acceptance
+ok 62 - revoked permission after worker/read completion does not disclose private report or acceptance
+  ---
+  duration_ms: 0.580061
+  type: 'test'
+  ...
+# Subtest: risk-center reuse preserves progressive levels, original evidence time and unknown action lifecycle
+ok 63 - risk-center reuse preserves progressive levels, original evidence time and unknown action lifecycle
+  ---
+  duration_ms: 17.149344
+  type: 'test'
+  ...
+# Subtest: same declaration keeps its original receipt on network retry and duplicate revision
+ok 64 - same declaration keeps its original receipt on network retry and duplicate revision
+  ---
+  duration_ms: 13.534941
+  type: 'test'
+  ...
+# Subtest: same request with different source material is rejected without writing a revision
+ok 65 - same request with different source material is rejected without writing a revision
+  ---
+  duration_ms: 5.406706
+  type: 'test'
+  ...
+# Subtest: retry and first write recheck current authorization under the original research lock
+ok 66 - retry and first write recheck current authorization under the original research lock
+  ---
+  duration_ms: 8.404861
+  type: 'test'
+  ...
+# Subtest: a concurrent same-content winner is reused with its original server time
+ok 67 - a concurrent same-content winner is reused with its original server time
+  ---
+  duration_ms: 8.471231
+  type: 'test'
+  ...
+# Subtest: authority quote projection may value holdings without granting an execution permission
+ok 68 - authority quote projection may value holdings without granting an execution permission
+  ---
+  duration_ms: 1.931263
+  type: 'test'
+  ...
+# Subtest: authority projection subtracts open sell remainders and preserves T+1 and lot reservations
+ok 69 - authority projection subtracts open sell remainders and preserves T+1 and lot reservations
+  ---
+  duration_ms: 0.567372
+  type: 'test'
+  ...
+# Subtest: open buy orders keep total cash but leave free cash unknown without duplicating authority fee calculations
+ok 70 - open buy orders keep total cash but leave free cash unknown without duplicating authority fee calculations
+  ---
+  duration_ms: 0.235273
+  type: 'test'
+  ...
+# Subtest: secret-shaped fields, Basic headers and private webhook URLs cannot enter research evidence
+ok 71 - secret-shaped fields, Basic headers and private webhook URLs cannot enter research evidence
+  ---
+  duration_ms: 1.363148
+  type: 'test'
+  ...
+# Subtest: research participation never widens the original service configuration or equates it with execution capacity
+ok 72 - research participation never widens the original service configuration or equates it with execution capacity
+  ---
+  duration_ms: 19.221537
+  type: 'test'
+  ...
+# Subtest: installed source, lock and unified versions verify without claiming signed/CI/dependency-byte approval
+ok 73 - installed source, lock and unified versions verify without claiming signed/CI/dependency-byte approval
+  ---
+  duration_ms: 7.009795
+  type: 'test'
+  ...
+# Subtest: changed executable and injected unmanifested code both invalidate installation
+ok 74 - changed executable and injected unmanifested code both invalidate installation
+  ---
+  duration_ms: 4.052741
+  type: 'test'
+  ...
+# Subtest: manifest update cannot conceal a front/backend version mismatch
+ok 75 - manifest update cannot conceal a front/backend version mismatch
+  ---
+  duration_ms: 2.765046
+  type: 'test'
+  ...
+# Subtest: installed optional dependency with wrong version is detected and blocks local release verification
+ok 76 - installed optional dependency with wrong version is detected and blocks local release verification
+  ---
+  duration_ms: 2.40148
+  type: 'test'
+  ...
+# Subtest: symlinks and forged manifest digest are rejected without exposing private content
+ok 77 - symlinks and forged manifest digest are rejected without exposing private content
+  ---
+  duration_ms: 5.608889
+  type: 'test'
+  ...
+# Subtest: bounded asynchronous verification produces the same source result
+ok 78 - bounded asynchronous verification produces the same source result
+  ---
+  duration_ms: 70.062574
+  type: 'test'
+  ...
+# Subtest: changing an installed source manifest without restarting cannot attest the running process
+ok 79 - changing an installed source manifest without restarting cannot attest the running process
+  ---
+  duration_ms: 3.378908
+  type: 'test'
+  ...
+# Subtest: invalid application roots are harmless unknown evidence
+ok 80 - invalid application roots are harmless unknown evidence
+  ---
+  duration_ms: 0.21335
+  type: 'test'
+  ...
+# Subtest: one real tick is a partial day and repeated calls cannot manufacture time or slots
+ok 81 - one real tick is a partial day and repeated calls cannot manufacture time or slots
+  ---
+  duration_ms: 22.977842
+  type: 'test'
+  ...
+# Subtest: five actual session windows reach review eligibility without claiming acceptance or profitability
+ok 82 - five actual session windows reach review eligibility without claiming acceptance or profitability
+  ---
+  duration_ms: 1328.477593
+  type: 'test'
+  ...
+# Subtest: synthetic, replay and smoke collections never start the live-day counter
+ok 83 - synthetic, replay and smoke collections never start the live-day counter
+  ---
+  duration_ms: 20.683245
+  type: 'test'
+  ...
+# Subtest: freshness uses original quote time; receivedAt and extra client fields cannot backfill a day
+ok 84 - freshness uses original quote time; receivedAt and extra client fields cannot backfill a day
+  ---
+  duration_ms: 7.914284
+  type: 'test'
+  ...
+# Subtest: current timestamps do not authenticate simulated, imported or reception-time-missing observations
+ok 85 - current timestamps do not authenticate simulated, imported or reception-time-missing observations
+  ---
+  duration_ms: 25.02268
+  type: 'test'
+  ...
+# Subtest: missing, zero, nonfinite and negative prices cannot authenticate otherwise fresh quotes
+ok 86 - missing, zero, nonfinite and negative prices cannot authenticate otherwise fresh quotes
+  ---
+  duration_ms: 23.173857
+  type: 'test'
+  ...
+# Subtest: research-only or unqualified calendars preserve excluded records but cannot count real days
+ok 87 - research-only or unqualified calendars preserve excluded records but cannot count real days
+  ---
+  duration_ms: 12.643973
+  type: 'test'
+  ...
+# Subtest: bounded quote audit preserves original times and hashes whitelisted inputs without recording secrets
+ok 88 - bounded quote audit preserves original times and hashes whitelisted inputs without recording secrets
+  ---
+  duration_ms: 206.090367
+  type: 'test'
+  ...
+# Subtest: legacy live booleans without calendar eligibility and quote evidence remain preserved but excluded
+ok 89 - legacy live booleans without calendar eligibility and quote evidence remain preserved but excluded
+  ---
+  duration_ms: 6.375451
+  type: 'test'
+  ...
+# Subtest: missed trading days and code upgrades stay in the fixed review window
+ok 90 - missed trading days and code upgrades stay in the fixed review window
+  ---
+  duration_ms: 471.40533
+  type: 'test'
+  ...
+# Subtest: revoked writes, unknown calendar and old code do not get accepted as observations
+ok 91 - revoked writes, unknown calendar and old code do not get accepted as observations
+  ---
+  duration_ms: 4.430448
+  type: 'test'
+  ...
+# Subtest: corruption, truncated writes and backwards clocks fail closed and preserve bytes
+ok 92 - corruption, truncated writes and backwards clocks fail closed and preserve bytes
+  ---
+  duration_ms: 9.18199
+  type: 'test'
+  ...
+# Subtest: release hash work is cached for five minutes and metrics do not store arbitrary secrets
+ok 93 - release hash work is cached for five minutes and metrics do not store arbitrary secrets
+  ---
+  duration_ms: 12.576992
+  type: 'test'
+  ...
+# Subtest: calendar closes lunch and afternoon boundaries; data before known scope cannot form a session
+ok 94 - calendar closes lunch and afternoon boundaries; data before known scope cannot form a session
+  ---
+  duration_ms: 0.169995
+  type: 'test'
+  ...
+# Subtest: all 78 tasks keep six independent evidence axes and original task names remain unknown
+ok 95 - all 78 tasks keep six independent evidence axes and original task names remain unknown
+  ---
+  duration_ms: 0.742977
+  type: 'test'
+  ...
+# Subtest: existing-group PR references can be retained without inventing their task contents or completion
+ok 96 - existing-group PR references can be retained without inventing their task contents or completion
+  ---
+  duration_ms: 0.307372
+  type: 'test'
+  ...
+1..96
+# tests 96
+# suites 0
+# pass 96
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 5108.58166

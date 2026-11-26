@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "recordedDate": "2026-11-26",
+  "timezone": "Asia/Shanghai",
+  "status": "paused_after_handoff",
+  "userInstruction": "Save all current results to the existing branch/PR, then stop further development, testing, merging and publishing; the selected unified continuation chat owns remaining work.",
+  "repository": "solviq87-cpu/v6-stock-system",
+  "branch": "feat/fayo-risk-center-20261126",
+  "target": "dev",
+  "pr": 359,
+  "prUrl": "https://github.com/solviq87-cpu/v6-stock-system/pull/359",
+  "taskIds": [
+    "01",
+    "02",
+    "03",
+    "04",
+    "05",
+    "14",
+    "30"
+  ],
+  "baselineDev": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "originalRemoteHead": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+  "publication": {
+    "method": "Connected GitHub application; native git push had no credentials",
+    "sourceCommits": [
+      {
+        "local": "34e0c18d27234c6b5aef491c3253b5a52e5bb4ee",
+        "github": "ba805bacc52b10781811e4a3f90146562d76b4ef",
+        "tree": "e4de778e5dd0708a55ecce88fe290ef27eec818a"
+      },
+      {
+        "local": "7f8515dd9746d4d5d3289d1edb671b84c38c7275",
+        "github": "c19eee63e54b9213dec38c5d87be8349f3ff69a0",
+        "tree": "f14250c49778c9215a5e5c2e704fe4cfb2dc0882"
+      },
+      {
+        "local": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+        "github": "0a1d4db3579acf49c41414fcba126b36783ceb1c",
+        "tree": "aa5e56d8ac89ff9cebba1a66533ff63ad5ed58af"
+      },
+      {
+        "local": "6fc96b5decc89d95c96a80c1968d11752d0d1e57",
+        "github": "5aa5222158ae69a385398e1df7d59996d73a28ba",
+        "tree": "6bf604aac999348b09a242883dcf5f14c8e254b6"
+      }
+    ],
+    "everySourceTreeVerifiedEqual": true,
+    "testedLocalImplementation": "d1dabdb763d6348f8e1633db4a535f6f2327ce9f",
+    "githubImplementation": "0a1d4db3579acf49c41414fcba126b36783ceb1c",
+    "implementationTree": "aa5e56d8ac89ff9cebba1a66533ff63ad5ed58af",
+    "githubSavedValidation": "5aa5222158ae69a385398e1df7d59996d73a28ba",
+    "validationTree": "6bf604aac999348b09a242883dcf5f14c8e254b6",
+    "finalHeadLocation": "PR #359 body and current branch ref; final pause-only documentation commit is created after this record",
+    "sourceHistoryPreserved": true,
+    "sourceCodeChangesAfterFrozenImplementation": false
+  },
+  "completed": {
+    "localTestProcesses": "completed before handoff; no new tests started after pause instruction",
+    "fullRegression": {
+      "tests": 5141,
+      "passed": 5137,
+      "failed": 0,
+      "skipped": 4,
+      "tapCompletenessPassed": true
+    },
+    "focusedOriginalGate": {
+      "passed": 67,
+      "failed": 0,
+      "skipped": 0
+    },
+    "accountEquityRulesActionsStress": {
+      "passed": 62,
+      "failed": 0,
+      "skipped": 0
+    },
+    "notifications": {
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0
+    },
+    "isolatedHttp": {
+      "passed": 11,
+      "failed": 0
+    },
+    "isolatedStartup": "passed",
+    "staticCheck": {
+      "passed": true,
+      "nativeModules": 69
+    },
+    "originalBrowserWorkflow": {
+      "commands": 34,
+      "passed": 34,
+      "scripts": 36,
+      "firstRunAllPassed": true,
+      "retries": 0
+    },
+    "immutableSourceManifestFiles": 2333,
+    "actualMessagesSent": 0,
+    "resultRecord": "resume-results.json",
+    "countNote": "Focused suites overlap with the full suite; do not add counts."
+  },
+  "unverified": [
+    "Final remote HEAD CI is not implied by local success; read exact-head checks in PR.",
+    "Combined integration with other open PRs has not been run or approved.",
+    "PowerShell and optional model dependencies caused four original local skips.",
+    "No iOS Safari or Android physical-device browser validation.",
+    "No production deployment, private-volume cold backup, live trading or real receiver confirmation.",
+    "No full continuous account-equity history or independent external deposits/withdrawals event adapter.",
+    "Strategy decay/calibration adapter and real stress calibration remain external dependencies."
+  ],
+  "latestDependencyReadOnlyReview": {
+    "dev": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+    "pr356": {
+      "head": "ba4f2703715e58e676c62decbbe521731d073703",
+      "previousPreflightHead": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/356",
+      "finding": "Latest account-safety-state still uses raw symbol Map keys/strict identity; numeric/string legacy accounts need common identity when integrated.",
+      "callbackFinding": "publish(next, previousRevision) still needs explicit pre-write callback threading when integrated with #361/#364; do not refer to mutate-local result from an out-of-scope publish function."
+    },
+    "pr361": {
+      "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/361"
+    },
+    "pr364": {
+      "head": "11cfd240afc4c542a268243ca8028dc87d0fc16d",
+      "base": "audit/fayo-risk-integration-20261126",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/364",
+      "finding": "Stacked on #361; actual code adds atomicWrite(file, encoded, {beforeRename: result.validateBeforeWrite}). Do not treat as an independent dev patch."
+    },
+    "pr365": {
+      "head": "4c9f41509fe1ef6be089c61ae85e4ccdcbd5fbd9",
+      "base": "audit/fayo-risk-integration-20261126",
+      "url": "https://github.com/solviq87-cpu/v6-stock-system/pull/365",
+      "finding": "Stacked on #361; adds canTrade=false/readOnlyBackup rejection and schema3 contract. Preserve absent-field compatibility and adapt #356 explicitly."
+    },
+    "method": "Read-only metadata/source review; no new combined runtime test or merge after pause instruction.",
+    "otherPrHeads": "Earlier #353/#357/#358/#361/#362/#363 preflight refs remain in merge-preflight.json; recheck latest refs before integration."
+  },
+  "nextOwnerActions": [
+    "Read latest dev, PR #359 exact HEAD, AGENTS.md, HANDOFF.md and DEPLOYMENT.md; keep this group paused.",
+    "Inspect exact-head remote CI and preserve any failure/in-progress evidence; local results are separately recorded.",
+    "Resolve #356 account identity and #361/#364/#365 pre-write/quote contracts before combining account service changes.",
+    "Preserve shared homepage/stock drawer/router/SW/browser workflow contributions from #357/#358/#363; use one cache/version and all tests.",
+    "Only the selected continuation chat coordinates safe merge order, full integrated regression, HTTP, both browsers, security and authority consistency.",
+    "Production remains on the existing sole release mechanism; require separate on-site deployment and receiver evidence."
+  ],
+  "stoppedState": {
+    "furtherDevelopment": "stopped",
+    "furtherTests": "stopped",
+    "mergesStartedByThisChat": 0,
+    "deploymentsStartedByThisChat": 0,
+    "draftPrPreserved": true,
+    "automationCheck": "No self-owned development continuation automation found. Four existing automations were already disabled; none modified.",
+    "productionServices": "not accessed or modified; no assertion about live health",
+    "releaseMechanism": "unchanged"
+  },
+  "recovery": {
+    "git": "Create a separate recovery branch from a recorded GitHub SHA; preserve original PR, all commits and local checkpoints; never force dev.",
+    "sourceBundleSha256": "d86240c39938ae277175157a6b1d7cacce7c2278d635395a71c003deee0a72a4",
+    "production": "Source bundle is not production cold backup. Preserve authority ledger/new fills/private data and risk evidence, stop all writers via the existing updater before any approved rollback; do not replay notifications."
+  }
+}

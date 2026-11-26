@@ -47,6 +47,10 @@
             "integration_id": 15368
           },
           {
+            "context": "visual-geometry",
+            "integration_id": 15368
+          },
+          {
             "context": "multi-source-data-lineage",
             "integration_id": 15368
           },

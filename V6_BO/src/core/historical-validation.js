@@ -1,7 +1,7 @@
 'use strict';
 const {ledgerBacktest}=require('../strategy/research-v2-position-ledger-backtest');
 const {holdoutBacktest}=require('../strategy/holdout-backtest');
-const {validateUniverseHistory}=require('./historical-universe');
+const {validateUniverseHistory,historicalUniverseCoverage}=require('./historical-universe');
 const {corporateAction}=require('./corporate-actions');
 const {validateSettlementTable}=require('./corporate-settlements');
 const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
@@ -54,7 +54,8 @@ function validateDataset(data){
    throw Error('历史公司行为结算生效日缺少导入交易日K，禁止静默遗漏');
  }
  if(!['fixture','simulated','imported'].includes(data.source)&&!data.provider&&!data.datasetId)throw Error('外部数据需要provider或datasetId以便追溯');
- return {stocks:data.stocks.length,barsPerStock:length,firstDate:dates?.[0]||null,lastDate:dates?.at(-1)||null,source:data.source,asOf:data.asOf,verifiedExternal:false};
+ return {stocks:data.stocks.length,barsPerStock:length,firstDate:dates?.[0]||null,lastDate:dates?.at(-1)||null,source:data.source,asOf:data.asOf,
+  historicalCoverage:historicalUniverseCoverage(data),verifiedExternal:false};
 }
 function validateBacktestConfig(history,barCount){
  const integer=(name,min,max)=>{const value=history[name];if(value!==undefined&&(!Number.isSafeInteger(value)||value<min||value>max))throw Error(name+' 参数无效');};

@@ -1,0 +1,367 @@
+{
+  "recordedAt": "2026-11-25T17:54:05.573918+00:00",
+  "scope": "Frozen incremental sources on PR #361; local isolated verification; no mainline merge or deployment",
+  "branch": "fix/fayo-review-handoff-20261126",
+  "parentPullRequest": "https://github.com/solviq87-cpu/v6-stock-system/pull/361",
+  "parentHead": "5ea32ac70a753ecf6880757630d219c05c2417df",
+  "devBaseline": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "sourceSha256": {
+    "V6_BO/src/core/paper-application-service.js": "20eb077e6442b80a9e6b3639902d0971947bdb7354a3bf87053516773a2ece5c",
+    "V6_BO/src/core/private-risk-feishu-delivery.js": "5980759233fad39fd622f43c4cdb325b70032a5b5a1093c268e195bb92703652",
+    "V6_BO/tests/automatic-paper-commit-quote-time.test.js": "d159e34c77830857ef3787bc0799c8a4e44c3c3b7ae348b377448e0d8d6b2e24",
+    "V6_BO/tests/private-risk-escalation-identity.test.js": "e686691428a19512d7baf19cb23cf0e0b41fb369ed46fa3c0636e19273c44f7e",
+    "V6_BO/tests/private-risk-journal-monitor.test.js": "e0592d40045c5e1cf6c5a798a3495d0d9bc81ed2d8330ef98ff60798eb259a49"
+  },
+  "environment": {
+    "node": "v24.22.3",
+    "npm": "11.19.1",
+    "platform": "Linux",
+    "modelPython": "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+    "runnerTemp": "/tmp"
+  },
+  "fullRegression": {
+    "cwd": "repository root",
+    "command": "RUNNER_TEMP=/tmp V6_MODEL_PYTHON=\"$CODEX_PRIMARY_RUNTIME_PYTHON\" V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 npm test",
+    "tests": 5034,
+    "suites": 0,
+    "pass": 5030,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 4,
+    "todo": 0,
+    "durationMs": 305037.525295,
+    "logSha256": "6862f33e596c936e1eede177b4a0f01818713303e07575532c0da68f70e5a7e4",
+    "tapCompleteness": {
+      "command": "node V6_BO/scripts/verify-tap-completeness.js <full.tap>",
+      "exitCode": 0
+    },
+    "skips": [
+      "ok 1246 - actual PowerShell wrapper handles paths with spaces, opens only a verified page, and cleans temporary controls # SKIP",
+      "ok 2225 - 五类模型通过同一研究入口、筛选条件和成本账本完成比较 # SKIP 需要 requirements-models-optional.txt",
+      "ok 2465 - 可选 lightgbm 对含负收益标签的固定数据产生确定性回归输出 # SKIP lightgbm 未安装；安装 tools/requirements-models-optional.txt 后运行",
+      "ok 2467 - 可选 xgboost 对含负收益标签的固定数据产生确定性回归输出 # SKIP xgboost 未安装；安装 tools/requirements-models-optional.txt 后运行"
+    ],
+    "note": "Full TAP summary and completeness were observed. The original exec session exit handle was unavailable after context handoff; no separate shell exit code is asserted."
+  },
+  "checks": [
+    {
+      "command": "npm run check",
+      "cwd": "repository root",
+      "exitCode": 0,
+      "logSha256": "3b689a221d672157d64d082f55d1b89f71c1611d857e313bade267b101c58ef1"
+    },
+    {
+      "command": "node tests/full-server-isolated-smoke.js",
+      "cwd": "V6_BO",
+      "exitCode": 0,
+      "logSha256": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1"
+    },
+    {
+      "command": "git diff --check",
+      "cwd": "repository root",
+      "exitCode": 0
+    }
+  ],
+  "targeted": {
+    "quote": {
+      "cwd": "V6_BO",
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/automatic-paper-commit-quote-time.test.js",
+        "tests/paper-fill-evidence.test.js",
+        "tests/paper-authority-quote-time.test.js",
+        "tests/paper-coherent-row.test.js",
+        "tests/legacy-authority-integration.test.js",
+        "tests/paper-original-quote-time.test.js",
+        "tests/risk-evidence-readiness.test.js",
+        "tests/paper-field-provenance.test.js"
+      ],
+      "exitCode": 0,
+      "tests": 81,
+      "suites": 0,
+      "pass": 81,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 710.500244,
+      "logSha256": "8f73ff4294d7ef8e9a93a8eb44bd670da6a19603d3beb9501182bbb1d26f23a1"
+    },
+    "risk": {
+      "base": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/private-risk-journal-monitor.test.js",
+        "tests/private-risk-feishu-delivery.test.js",
+        "tests/private-risk-escalation-identity.test.js",
+        "tests/private-risk-monitor-identity.test.js",
+        "tests/cloud-feishu-weekend-policy.test.js"
+      ],
+      "exitCode": 0,
+      "summary": [
+        "# tests 29",
+        "# pass 29",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 367.360126"
+      ],
+      "sourceSha256": "5980759233fad39fd622f43c4cdb325b70032a5b5a1093c268e195bb92703652",
+      "tests": 29,
+      "suites": 0,
+      "pass": 29,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0,
+      "durationMs": 367.360126,
+      "logSha256": "402038c93a1f7b2abeda5858f7e32c88838ea6db1c35c74365af9f8bef0a6840"
+    }
+  },
+  "isolatedCombinations": {
+    "pr356": {
+      "commonBase": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "continuationBase": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "pr356Head": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "sourcePatchSha256": "bf654ac5feec871c5cb3fb4d9297d22329553be24f6a1b96dd03f240258a353c",
+      "sourceFiles": {
+        "V6_BO/src/core/paper-application-service.js": "20eb077e6442b80a9e6b3639902d0971947bdb7354a3bf87053516773a2ece5c",
+        "V6_BO/tests/automatic-paper-commit-quote-time.test.js": "d159e34c77830857ef3787bc0799c8a4e44c3c3b7ae348b377448e0d8d6b2e24"
+      },
+      "head": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "combinedTree": "a6a7c76b802bba53a818737e873c1b38fb4ebc3a",
+      "node": "v24.22.3",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=2",
+        "--test-reporter=tap",
+        "tests/automatic-paper-commit-quote-time.test.js",
+        "tests/paper-fill-evidence.test.js",
+        "tests/paper-authority-quote-time.test.js",
+        "tests/paper-coherent-row.test.js",
+        "tests/legacy-authority-integration.test.js",
+        "tests/paper-original-quote-time.test.js",
+        "tests/risk-evidence-readiness.test.js",
+        "tests/paper-field-provenance.test.js",
+        "tests/account-safety-state.test.js",
+        "tests/advanced-account-risk.test.js",
+        "tests/advanced-account-risk-http.test.js",
+        "tests/advanced-account-risk-job.test.js",
+        "tests/advanced-account-risk-live.test.js",
+        "tests/advanced-defense-concurrency.test.js",
+        "tests/advanced-safety-operations.test.js",
+        "tests/process-file-lock-race.test.js",
+        "tests/paper-application-service.test.js",
+        "tests/paper-account-multiprocess.test.js",
+        "tests/paper-account-ledger.test.js"
+      ],
+      "exitCode": 0,
+      "testSummary": [
+        "# tests 132",
+        "# pass 132",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 4112.498758"
+      ],
+      "filesChanged": [
+        "V6_BO/src/core/paper-application-service.js",
+        "V6_BO/tests/automatic-paper-commit-quote-time.test.js"
+      ],
+      "sourceFilesUnchangedAfterTest": true,
+      "paperFillEvidenceUnchanged": true,
+      "resolvedPatchSha256": "75ae2641129785c2c2b9ce37f9ba35864ea74bc7406269bc67144f9bb1668a98",
+      "conflicts": [
+        {
+          "kind": "text",
+          "location": "paper-application-service.js createPaperApplicationService signature",
+          "resolution": "Keep #356 readOnly=false and insert the complete #361 requireCurrentAutomaticQuote helper including current-day/15-second checks and both rejection-audit reason codes."
+        },
+        {
+          "kind": "semantic-auto-merge",
+          "location": "paper-application-service.js publish/mutate",
+          "problem": "Git placed result.validateBeforeWrite inside newly extracted publish where result is out of scope.",
+          "resolution": "publish(next, previousRevision, validateBeforeWrite=null) runs the supplied callback before atomicWrite; mutate passes result.validateBeforeWrite. Existing defensive-latch publish keeps its default null callback."
+        }
+      ],
+      "limits": "Only fixed #356 head plus the listed #361 continuation quote changes. No commit, push, real merge or deployment. Supersedes prior local-implementation combination evidence for current handoff; not final multi-group integration.",
+      "logSha256": "d70d5cce9cbb1bfe142a53052e3e5bedca9a0ce321202fb27956a4623dbf3369"
+    },
+    "pr359": {
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/private-risk-journal-monitor.test.js",
+        "tests/private-risk-feishu-delivery.test.js",
+        "tests/private-risk-escalation-identity.test.js",
+        "tests/private-risk-monitor-identity.test.js",
+        "tests/cloud-feishu-weekend-policy.test.js",
+        "tests/risk-alert-lifecycle.test.js",
+        "tests/reference-integration-quality.test.js",
+        "tests/reference-review-followup.test.js",
+        "tests/feishu-signing-runtime.test.js"
+      ],
+      "exitCode": 0,
+      "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+      "combinedTree": "f8bddc3e701cfb4f6c41d17088eaf579995ba579",
+      "node": "v24.22.3",
+      "combinedSenderSha256": "06c49416ef924ac92147c78efc2f6e525238077703bdfd0122d091d7500b8036",
+      "testSummary": [
+        "# tests 72",
+        "# pass 72",
+        "# fail 0",
+        "# cancelled 0",
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 1547.847155"
+      ],
+      "logSha256": "e7ca2f231df74ba456e867b417f3d9986660e14968b0be746a2b3ee31bce1408",
+      "preservation": {
+        "pr359TransportBlockSha256": "1a943ee78fe31beeaa0a9737af07b307c1112f4f665a7fbf1e380ff36f441fe4",
+        "combinedTransportUnchanged": true,
+        "classifyFeishuReceiptPreserved": true,
+        "continuationFilesUnchangedSinceSnapshot": true,
+        "threeWayConflicts": 0,
+        "indexDiffCheckExit": 0
+      },
+      "limits": "Only fixed #359 head plus current #361 continuation risk files; not final multi-group integration."
+    }
+  },
+  "rollbackReproduction": {
+    "before": {
+      "pr361Head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "legacyHead": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+      "realNetworkCalls": 0,
+      "results": [
+        {
+          "originalOutcome": "accepted",
+          "journalSchema": 2,
+          "initialStatus": "gateway-accepted",
+          "rollbackStatus": "gateway-accepted",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 1
+        },
+        {
+          "originalOutcome": "unknown",
+          "journalSchema": 2,
+          "initialStatus": "pending-unknown",
+          "rollbackStatus": "gateway-accepted",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 1
+        }
+      ]
+    },
+    "after": {
+      "realNetworkCalls": 0,
+      "results": [
+        {
+          "originalOutcome": "accepted",
+          "oldSource": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+          "newJournalSchema": 3,
+          "initialStatus": "gateway-accepted",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 0,
+          "journalUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "accepted",
+          "oldSource": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "newJournalSchema": 3,
+          "initialStatus": "gateway-accepted",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 0,
+          "journalUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "unknown",
+          "oldSource": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+          "newJournalSchema": 3,
+          "initialStatus": "pending-unknown",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 0,
+          "journalUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "unknown",
+          "oldSource": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "newJournalSchema": 3,
+          "initialStatus": "pending-unknown",
+          "initialStubCalls": 1,
+          "rollbackStubCalls": 0,
+          "journalUnchanged": true,
+          "rejectedBeforeNetwork": true
+        }
+      ]
+    },
+    "dedupOnlyMigration": {
+      "newSourceSha256": "5980759233fad39fd622f43c4cdb325b70032a5b5a1093c268e195bb92703652",
+      "realNetworkCalls": 0,
+      "results": [
+        {
+          "originalOutcome": "accepted",
+          "oldSource": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+          "originalJournalSchema": 2,
+          "migratedJournalSchema": 3,
+          "initialStubCalls": 1,
+          "migrationStubCalls": 0,
+          "rollbackStubCalls": 0,
+          "historyUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "accepted",
+          "oldSource": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "originalJournalSchema": 2,
+          "migratedJournalSchema": 3,
+          "initialStubCalls": 1,
+          "migrationStubCalls": 0,
+          "rollbackStubCalls": 0,
+          "historyUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "unknown",
+          "oldSource": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+          "originalJournalSchema": 2,
+          "migratedJournalSchema": 3,
+          "initialStubCalls": 1,
+          "migrationStubCalls": 0,
+          "rollbackStubCalls": 0,
+          "historyUnchanged": true,
+          "rejectedBeforeNetwork": true
+        },
+        {
+          "originalOutcome": "unknown",
+          "oldSource": "5ea32ac70a753ecf6880757630d219c05c2417df",
+          "originalJournalSchema": 2,
+          "migratedJournalSchema": 3,
+          "initialStubCalls": 1,
+          "migrationStubCalls": 0,
+          "rollbackStubCalls": 0,
+          "historyUnchanged": true,
+          "rejectedBeforeNetwork": true
+        }
+      ]
+    }
+  },
+  "browser": "Current local browser attempt could not start because the Chromium binary is absent. Parent #361 browser results are historical. Exact pushed-head browser CI must be read separately.",
+  "production": {
+    "mainlineMerged": false,
+    "deployed": false,
+    "realNotificationCalls": 0,
+    "publisherChanged": false,
+    "realDeviceDeliveryVerified": false
+  },
+  "ownership": "Final task table, integration, merge scheduling, acceptance and delivery tracking belong to 绯曜 FAYO｜总管与最终交付; this branch is development/testing/handoff only."
+}

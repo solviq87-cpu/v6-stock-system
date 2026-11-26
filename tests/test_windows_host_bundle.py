@@ -2,6 +2,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -84,6 +85,89 @@ class HostBundle(unittest.TestCase):
             self.assertEqual({f['path'] for f in manifest['files']}, set(payload))
             for item in manifest['files']:
                 self.assertEqual(item['sha256'], hashlib.sha256(payload[item['path']]).hexdigest())
+
+    def test_sbom_and_provenance_bind_exact_lock_without_registry_credentials(self):
+        self.put('package-lock.json', json.dumps({'lockfileVersion': 3, 'packages': {
+            '': {'name': 'fixture'},
+            'node_modules/known-library': {'version': '1.2.3', 'optional': True,
+                'integrity': 'sha256-' + __import__('base64').b64encode(b'x' * 32).decode(),
+                'resolved': 'https://user:LOCK-SECRET@example.invalid/pkg?token=LOCK-SECRET'}}}))
+        self.sha = self.commit()
+        result = self.build()
+        with zipfile.ZipFile(self.output) as archive:
+            manifest = json.loads(archive.read('tian-shu-windows-host/manifest.json'))
+        provenance, sbom = manifest['provenance'], manifest['sbom']
+        self.assertEqual(provenance['sourceSha'], self.sha)
+        self.assertEqual(provenance['sourceTree'], self.git('rev-parse', self.sha + '^{tree}'))
+        self.assertEqual(provenance['dependencyLockSha256'], hashlib.sha256((self.bo / 'package-lock.json').read_bytes()).hexdigest())
+        self.assertEqual(sbom['bomFormat'], 'CycloneDX')
+        self.assertEqual(sbom['components'][0]['version'], '1.2.3')
+        self.assertEqual(sbom['components'][0]['hashes'][0]['content'], (b'x' * 32).hex())
+        self.assertNotIn('LOCK-SECRET', json.dumps({'provenance': provenance, 'sbom': sbom}))
+        self.assertFalse(provenance['installedDependenciesVerified'])
+        self.assertFalse(result['ciVerified'])
+        self.assertFalse(result['signatureVerified'])
+        self.assertLessEqual(result['buildStartedAt'], result['buildFinishedAt'])
+
+    def test_invalid_dependency_identity_or_integrity_refuses_inventory(self):
+        for entry in [{'version': '../secret'}, {'version': '1.0', 'integrity': 'sha512-eA=='}]:
+            self.put('package-lock.json', json.dumps({'packages': {'node_modules/library': entry}}))
+            self.sha = self.commit()
+            with self.assertRaisesRegex(ValueError, 'invalid-lockfile'):
+                self.build()
+            self.assertFalse(self.output.exists())
+
+    def test_built_artifact_checks_installed_bytes_and_startup_binding(self):
+        self.put('server.js', "const APP_VER='20261126fixture'; if (fayoEntries.has(p)) p = '/nova/index.html';\n")
+        self.put('public/nova/index.html', '<meta name="application-version" content="20261126fixture">'
+                 '<meta name="frontend-revision" content="fixture-1">')
+        self.put('public/sw.js', "const APP_VER='20261126fixture';\n")
+        self.put('package-lock.json', '{"lockfileVersion":3,"packages":{}}')
+        self.sha = self.commit()
+        receipt = self.build()
+        unpacked = self.base / 'unpacked'
+        with zipfile.ZipFile(self.output) as archive:
+            archive.extractall(unpacked)
+        artifact = unpacked / 'tian-shu-windows-host'
+        installed = self.base / 'installed'
+        installed.mkdir(mode=0o700)
+        shutil.copytree(artifact / 'payload', installed / 'app')
+        raw = (artifact / 'manifest.json').read_bytes()
+        (installed / 'source-manifest.json').write_bytes(raw)
+        (installed / 'installation.json').write_text(json.dumps({
+            'schemaVersion': 1, 'ready': True, 'sourceSha': self.sha,
+            'manifestHash': hashlib.sha256(raw).hexdigest()}))
+        inspector = SCRIPT.parents[1] / 'src/core/release-provenance.js'
+        # Exercise the real Python build output and the Node runtime inspector.
+        # This is an isolated installation fixture, not a deployed server receipt.
+        script = r"""
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {captureRunningRelease,inspectReleaseProvenance}=require(process.argv[1]);
+const appRoot=process.argv[2],root=path.dirname(appRoot),file=path.join(appRoot,'server.js');
+const running=captureRunningRelease({appRoot,appVersion:'20261126fixture'});
+const original=fs.readFileSync(file),verified=inspectReleaseProvenance({appRoot,running});
+fs.appendFileSync(file,'\n// altered after build');
+const tampered=inspectReleaseProvenance({appRoot,running});
+fs.writeFileSync(file,original);
+const manifest=JSON.parse(fs.readFileSync(path.join(root,'source-manifest.json')));
+manifest.sourceSha='d'.repeat(40);manifest.provenance.sourceSha=manifest.sourceSha;
+const raw=JSON.stringify(manifest)+'\n';fs.writeFileSync(path.join(root,'source-manifest.json'),raw);
+fs.writeFileSync(path.join(root,'installation.json'),JSON.stringify({schemaVersion:1,ready:true,
+ sourceSha:manifest.sourceSha,manifestHash:crypto.createHash('sha256').update(raw).digest('hex')}));
+const changedWithoutRestart=inspectReleaseProvenance({appRoot,running});
+process.stdout.write(JSON.stringify({verified,tampered,changedWithoutRestart}));
+"""
+        result = subprocess.run(['node', '-e', script, str(inspector), str(installed / 'app')],
+                                capture_output=True, text=True, check=True, timeout=15)
+        values = json.loads(result.stdout)
+        self.assertEqual(receipt['bundleHash'], hashlib.sha256(self.output.read_bytes()).hexdigest())
+        self.assertTrue(values['verified']['verifiedInstalled'])
+        self.assertEqual(values['verified']['sourceSha'], self.sha)
+        self.assertFalse(values['verified']['ciVerified'])
+        self.assertFalse(values['verified']['signatureVerified'])
+        self.assertEqual(values['tampered']['reason'], 'release-code-mismatch')
+        self.assertFalse(values['changedWithoutRestart']['verifiedInstalled'])
+        self.assertEqual(values['changedWithoutRestart']['reason'], 'running-source-binding-mismatch-or-missing')
 
     def test_build_is_deterministic_and_reports_real_zip_hash(self):
         first = self.build()

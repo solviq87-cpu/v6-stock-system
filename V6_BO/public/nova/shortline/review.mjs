@@ -129,7 +129,7 @@ export function buildReview(state,{date,period='day',depth='brief',quality='all'
     '成交额 '+value(m.amount,' 亿元')+'，涨停 '+value(m.upLimit,' 家')+'，跌停 '+value(m.downLimit,' 家')+'，炸板率 '+value(m.breakRate,'%')+'，昨日涨停溢价 '+value(m.premium,'%')+'。',
     (m.resonance||m.volume)?'量能 '+value(m.volume)+'，题材指数关系 '+value(m.resonance):''
   ]:['所选日期暂无盘面记录。']);
-  add('市场情绪',[(mood.stage||'未判定')+' ｜ 规则置信度 '+value(mood.confidence,'%'),...labels(mood.evidence),'缺失数据 · '+(labels(mood.missing).join('、')||'无')]);
+  add('市场情绪',[(mood.stage||'未判定')+' ｜ 规则判定分 '+value(mood.confidence)+' / 100（非胜率）',...labels(mood.evidence),'缺失数据 · '+(labels(mood.missing).join('、')||'无')]);
   add('题材与重点标的',[...(themesOf(m).length?themesOf(m).map(themeLine):['当日尚无题材记录。']),
     ...checks.map(c=>idText(c)+' ｜ '+value(c.role||c.strategy)+' ｜ '+value(c.status)+' ｜ '+(labels(c.risks).join('、')||'未记录风险')),
     ...sigs.slice(-8).map(r=>idText(r)+' ｜ '+value(r.strategy)+' ｜ '+value(r.type))]);

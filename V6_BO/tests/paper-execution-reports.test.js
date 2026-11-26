@@ -277,3 +277,21 @@ test('only complete persisted daily assessment marks reviewed, including after a
   assert.throws(()=>buildPaperExecutionReport({...reportInput(stamp(entryDay,'14:59:00'),b)}),/收盘/);
   assert.throws(()=>buildPaperExecutionReport({...reportInput(x.state.now,b),sources:{ledgerReadAt:x.state.now+1}}),/时点/);
 });
+
+test('execution checklist keeps unknown on shared-worker contention and retries only in the existing bounded background loop',async t=>{
+  const x=fixture(t,stamp(entryDay,'10:01:00'));let reads=0,mono=0,admit=false;
+  const cache=createPaperExecutionChecklistCache({clock:()=>x.state.now,monotonicClock:()=>mono,isPrimary:()=>true,enabled:()=>true,
+    readArchive:async()=>{reads++;return admit?{ok:true,state:{plans:[],revision:1}}:{ok:false,httpStatus:503,code:'WORKSPACE_BUSY'};},
+    readBook:()=>book(),readConditionalOrders:()=>({orders:[],revision:0}),readDailyReport:()=>({status:'missing'})});
+  const query={day:entryDay,candidates:[card()]};
+  assert.equal(cache.read(query).items[0].state,'unknown');await cache.tick();
+  assert.equal(reads,1);assert.equal(cache.read(query).items[0].state,'unknown');
+  for(let i=0;i<30;i++){cache.read(query);await cache.tick();}
+  assert.equal(reads,1,'page reads and repeated ticks before the deadline do not dispatch more work');
+  for(let i=1;i<=3;i++){mono=i*1000;await cache.tick();assert.equal(cache.read(query).items[0].state,'unknown');}
+  assert.equal(reads,4);admit=true;mono=100000;await cache.tick();
+  assert.equal(reads,4,'exhausted contention budget waits for the regular refresh interval');
+  x.state.now+=60000;await cache.tick();assert.equal(reads,5);
+  assert.equal(cache.read(query).items[0].state,'not-planned','only an actual successful original archive read supports the negative statement');
+  assert.equal(fs.existsSync(x.root),false);
+});

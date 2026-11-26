@@ -132,6 +132,8 @@ async function geometry(page, label) {
         await page.getByRole('heading', { name, exact: true }).waitFor();
       await page.getByRole('heading', { name: '模拟账本尚无记录', exact: true }).waitFor();
       assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/paper-account'));
+      await page.getByRole('button',{name:'计算公开因子',exact:true}).waitFor();
+      assert.equal(await page.getByRole('button',{name:'计算公开因子',exact:true}).isEnabled(),true,'explicit public factor calculation is preserved');
       await geometry(page, 'verify-tab-' + width);
       await tabs.getByRole('button', { name: '已有学习进度', exact: true }).click();
       await page.getByRole('heading', { name: '学习进度与复访', exact: true }).waitFor();
@@ -163,7 +165,8 @@ async function geometry(page, label) {
       assert.ok(!report.samples.find(item => item.date === dates[59]).signals.some(item => item.name === '弱转强'));
       assert.ok(calls.some(call => call.method === 'GET' && call.path === '/api/research/shortline'),
         'native historical learning reads the authorized shortline archive');
-      assert.equal(calls.filter(call => call.method !== 'GET').length, 0,
+      const unexpectedWrites=calls.filter(call=>call.method!=='GET').map(call=>({method:call.method,path:call.path}));
+      assert.deepEqual(unexpectedWrites,[],
         'local import, corrections and tab changes never write an account or upload CSV');
       await Promise.all(responses);
       assert.deepEqual(errors, [], 'no browser errors at ' + width);

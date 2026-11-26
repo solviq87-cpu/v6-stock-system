@@ -14,6 +14,7 @@ const {marketRequests} = require('./market-request-governor');
 const run = promisify(execFile);
 const PROTOCOL = 'center-hfq-history-v1', MAX_CODES = 20, MAX_DAYS = 400;
 const ATTEMPT_PROTOCOL = 'center-hfq-attempt-v1';
+const REVIEW_PROTOCOL = 'center-hfq-quarantine-review-v1';
 const flags = {researchOnly:true, canTrade:false, canNotify:false, productionWeightsChanged:false};
 const codeOk = code => typeof code === 'string' && /^(?:60|68|00|30)\d{4}$/.test(code);
 const dayOk = day => typeof day === 'string' && /^\d{4}-\d\d-\d\d$/.test(day) &&
@@ -90,7 +91,7 @@ function normalizeEastmoney(raw, {code, day, historyDays, receivedAt}) {
 function normalizeBaoStock(raw, {code,day,historyDays,receivedAt}) {
   const payload = JSON.parse(raw.toString('utf8'));
   if (['missing-dependency','source-failed'].includes(payload?.status))
-    return {source:'baostock',status:payload.status,bars:[],calendar:null,receivedAt,...flags};
+    return {...captureBase('baostock',code,day,receivedAt,raw,null),status:payload.status,bars:[],calendar:null,...flags};
   const request = payload?.request;
   if (payload?.schemaVersion !== 1 || payload.source !== 'baostock' || payload.code !== code ||
       payload.captureKind !== 'sdk-field-snapshot' || request?.adjustflag !== '1' || request.frequency !== 'd' ||
@@ -132,11 +133,22 @@ async function fetchBaoStock({code,day,historyDays}, {clock=Date.now,python=proc
   const {stdout} = await governor.run('https://baostock.com/api/',()=>run(python,
     [path.join(__dirname,'../../scripts/collect-center-hfq.py'),'--code',code,'--start',start,'--end',day,'--calendar-end',end,'--allow-research-fetch'],
     {timeout:24000,maxBuffer:1024*1024,encoding:'buffer'}));
-  return normalizeBaoStock(stdout,{code,day,historyDays,receivedAt:clock()});
+  const receivedAt=clock();
+  try{return normalizeBaoStock(stdout,{code,day,historyDays,receivedAt});}
+  catch{return rejectedRaw('baostock',stdout,{code,day,receivedAt});}
 }
 async function fetchEastmoney({code,day,historyDays}, {clock=Date.now,request=requestResearchBytes}={}) {
   const {raw} = await request(requestUrl(code,day,historyDays),{timeoutMs:10000,processTimeoutMs:11000,maxBytes:1024*1024});
-  return normalizeEastmoney(raw,{code,day,historyDays,receivedAt:clock()});
+  const receivedAt=clock();
+  try{return normalizeEastmoney(raw,{code,day,historyDays,receivedAt});}
+  catch{return rejectedRaw('eastmoney-public-history',raw,{code,day,receivedAt,request:requestUrl(code,day,historyDays)});}
+}
+// Preserve the original bytes even if JSON parsing, identity or units fail.
+// The raw response stays in the existing private archive, never in a UI reply.
+function rejectedRaw(source,raw,{code,day,receivedAt,request=null}) {
+  return {...captureBase(source,code,day,receivedAt,raw,request),status:'quarantined',bars:[],calendar:null,
+    reason:'原始回执未通过既有身份、复权、时点或量价校验',reasonCode:'NORMALIZATION_REJECTED',
+    scope:{code,throughDay:day,source,adjustment:'hfq'},...flags};
 }
 function archiveRoot(root, create=false) { return store.privateRoot(root,create); }
 function codeRoot(root, code, create=false) {
@@ -175,7 +187,10 @@ function checkedCapture(event) {
     sources.add(provider.source);
     if (provider.rawEvidence) {
       const raw = Buffer.from(provider.rawEvidence.data,'base64');
-      if (raw.length !== provider.rawEvidence.byteLength || hash(raw) !== provider.rawHash) throw Error('中心历史原始回执哈希不一致');
+      if (provider.rawEvidence.encoding!=='base64'||raw.length !== provider.rawEvidence.byteLength ||
+          !raw.length || raw.length>1024*1024 || raw.toString('base64')!==provider.rawEvidence.data ||
+          hash(raw) !== provider.rawHash || !timeOk(provider.receivedAt) || provider.receivedAt>data.capturedAt)
+        throw Error('中心历史原始回执哈希或接收时点不一致');
     }
   }
   return data;
@@ -197,20 +212,192 @@ function calendarUnion(calendars) {
     note:'每条交易日边沿用首次真实取得时间；修订冲突隔离，不推断节假日。'}};
 }
 
-function readCenterHistory({root,codes,now=Date.now()}={}) {
+/** A projection of the original hash-chained captures, not another database.
+ * Provider publication/revision times are deliberately null: a receipt proves
+ * when this installation saw bytes, not when a vendor first published them.
+ */
+function projectGovernance(events,{decisionAt,codes}) {
+  const captures=events.filter(event=>event.data.protocol===PROTOCOL),reviewIndex=new Map(),
+    latest=new Map(),frozen=new Map(),versions=[],factorSnapshots=[],quarantine=[],revisionEntries=[];
+  let rawReceipts=0,missingRawReceipts=0,revisionCount=0,dataVersions=0,factorSnapshotsWithoutVersion=0,
+    quarantineCount=0,quarantineOpen=0,quarantineReviewed=0,revisionQuarantineCount=0;
+  const tail=(list,value,limit)=>{list.push(value);if(list.length>limit)list.shift();};
+  for(const event of events){
+    const target=event.data.replayOf||(event.data.protocol===REVIEW_PROTOCOL?event.data.captureHash:null);if(!target)continue;
+    const previous=reviewIndex.get(target)||{count:0,lastAt:0,resolved:false};
+    reviewIndex.set(target,{count:previous.count+1,lastAt:Math.max(previous.lastAt,event.recordedAt),
+      resolved:previous.resolved||event.data.protocol===PROTOCOL&&event.data.status==='admitted'&&!event.data.rejected?.length});
+  }
+  for(const event of captures.sort((a,b)=>a.recordedAt-b.recordedAt||a.data.code.localeCompare(b.data.code)||a.sequence-b.sequence)){
+    const data=checkedCapture(event),admitted=new Set((data.admittedBars||[]).map(row=>row.source+'/'+row.rawRowHash));
+    for(const provider of data.providers){
+      if(provider.rawEvidence)rawReceipts++;else missingRawReceipts++;
+      for(const row of provider.bars||[]){
+        const id=[row.market,row.code,row.date,row.adjustment,provider.source].join('/');
+        const payloadHash=store.digest(Object.fromEntries(['code','date','adjustment','source','currency','volumeUnit','amountUnit',...fields,'suspended']
+          .map(key=>[key,row[key]??null]))),prior=latest.get(id),passed=admitted.has(provider.source+'/'+row.rawRowHash);
+        if(prior?.payloadHash===payloadHash){
+          if(passed&&prior.availableAt===null){prior.availableAt=event.recordedAt;prior.admissionArchiveHash=event.hash;prior.gateStatus='admitted-research';}
+          if(passed&&!frozen.has(id)){frozen.set(id,payloadHash);prior.selectedForResearch=true;}
+          continue;
+        }
+        const version=(prior?.version||0)+1;if(prior)revisionCount++;
+        if(passed&&!frozen.has(id))frozen.set(id,payloadHash);
+        const item={id,code:row.code,day:row.date,source:provider.source,version,eventAt:row.periodEndAt,
+          originalAt:null,receivedAt:provider.receivedAt,firstKnownAt:provider.receivedAt,rawAvailableAt:event.recordedAt,
+          availableAt:passed?event.recordedAt:null,admissionArchiveHash:passed?event.hash:null,
+          revisedAt:null,revisionDetectedAt:prior?event.recordedAt:null,dataVersion:payloadHash,factorVersion:null,payloadHash,
+          rawHash:provider.rawHash,rawRowHash:row.rawRowHash,archiveHash:event.hash,archiveSequence:event.sequence,
+          gateStatus:passed?'admitted-research':'quarantined',selectedForResearch:passed&&frozen.get(id)===payloadHash,
+          sourcePublicationVerified:false,sourceRevisionVerified:false};
+        latest.set(id,item);dataVersions++;tail(versions,item,24);
+        if(frozen.has(id)&&frozen.get(id)!==payloadHash){revisionQuarantineCount++;tail(revisionEntries,
+          {code:row.code,day:row.date,source:provider.source,archiveHash:event.hash,dataVersion:payloadHash,
+            frozenDataVersion:frozen.get(id),reason:'later-source-revision-keeps-first-frozen-value'},12);}
+      }
+    }
+    for(const observation of data.observations||[]){
+      const versionLabel=value=>typeof value==='string'&&value.length>0&&value.length<=128&&!/[\x00-\x1f\x7f]/.test(value)?value:null;
+      // Read the versions frozen with each original factor. Today's installed
+      // catalog must never fill missing dictionary or semantic evidence.
+      const factorVersions=Object.keys(observation.values||{}).sort().map(factorId=>{
+        const original=observation.evidence?.[factorId];
+        return {factorId,factorVersion:versionLabel(original?.factorVersion),dictionaryVersion:versionLabel(original?.dictionaryVersion),
+          semanticVersion:versionLabel(original?.semanticVersion),
+          definitionFingerprint:/^[a-f0-9]{64}$/.test(original?.definitionFingerprint||'')?original.definitionFingerprint:null};
+      }),topLevelVersion=versionLabel(observation.factorVersion),knownVersions=factorVersions.map(row=>row.factorVersion||row.dictionaryVersion),
+        allVersioned=factorVersions.length>0&&knownVersions.every(Boolean),
+        sharedVersion=allVersioned&&new Set(knownVersions).size===1?knownVersions[0]:null,
+        factorVersion=topLevelVersion||sharedVersion;
+      if(!topLevelVersion&&!allVersioned)factorSnapshotsWithoutVersion++;
+      tail(factorSnapshots,{code:data.code,day:observation.day,signalAt:observation.signalAt,availableAt:event.recordedAt,
+        archiveHash:event.hash,snapshotHash:store.digest({values:observation.values||{},evidence:observation.evidence||{}}),factorVersion,
+        factorVersionBasis:topLevelVersion?'original-frozen-observation':sharedVersion?'common-original-factor-evidence-version':null,
+        factorVersionCoverage:topLevelVersion?'observed-top-level-version':allVersioned?'observed-original-factor-versions':
+          knownVersions.some(Boolean)?'partial-original-factor-versions':'missing-original-factor-versions',
+        factorVersions:factorVersions.slice(0,128),omittedFactorVersions:Math.max(0,factorVersions.length-128)},12);
+    }
+    if(data.status!=='admitted'||data.rejected?.length||data.providers.some(row=>row.status==='quarantined')){
+      const review=reviewIndex.get(event.hash)||{count:0,lastAt:0,resolved:false};
+      quarantineCount++;if(!review.resolved)quarantineOpen++;if(review.count)quarantineReviewed++;
+      tail(quarantine,{id:event.hash,code:data.code,day:data.day,availableAt:event.recordedAt,
+        status:review.resolved?'reviewed-original-gates-passed':'quarantined',affectedRows:data.rejected?.length||0,
+        reasons:[...new Set([...(data.rejected||[]).map(row=>row.reason),...data.providers.filter(row=>row.status!=='observed')
+          .map(row=>row.reasonCode||row.status)])],scope:{code:data.code,throughDay:data.day,adjustment:'hfq'},
+        rawEvidencePreserved:data.providers.every(row=>Boolean(row.rawEvidence)),
+        reviewCount:review.count,lastReviewAt:review.lastAt||null},12);
+    }
+  }
+  return {schemaVersion:1,mode:'original-center-archive-point-in-time',status:captures.length?'observed-with-source-clock-gaps':'missing-data',
+    decisionAt,codes,captures:captures.length,rawReceipts,missingRawReceipts,
+    versionedFields:latest.size,dataVersions,revisionCount,versions,
+    factorSnapshots,factorSnapshotsWithoutVersion,
+    quarantine:{captures:quarantineCount,open:quarantineOpen,reviewed:quarantineReviewed,entries:quarantine,
+      revisionConflicts:revisionQuarantineCount,revisionEntries},
+    selectionPolicy:'first-admitted-value-frozen; later-source-versions-retained-for-audit',
+    completePointInTime:false,missing:['供应商原始发布时间和修订发布时间未提供',
+      ...(factorSnapshotsWithoutVersion?['部分因子快照缺少原始版本标识；已有逐因子字典、语义版本与定义指纹按原档展示']:[])],
+    note:'按原私有归档可用时点回放；实际接收时间不冒充供应商发布时间，后补和复核数据不倒填旧决策。',...flags};
+}
+
+function readCenterHistoryGovernance(options={}) {return readCenterHistory(options).coverage.governance;}
+
+function recheckQuarantine(data,code,now){
+  const providers=data.providers.map(provider=>{
+    if(!provider.rawEvidence)return {source:provider.source,status:'missing-raw-evidence',bars:[],calendar:null,
+      receivedAt:provider.receivedAt??null,reason:'缺少原始回执，不能复核补造',...flags};
+    const raw=Buffer.from(provider.rawEvidence.data,'base64'),opts={code,day:data.day,historyDays:data.historyDays,receivedAt:data.capturedAt};
+    try{return provider.source==='eastmoney-public-history'?normalizeEastmoney(raw,{...opts,receivedAt:provider.receivedAt}):normalizeBaoStock(raw,opts);}
+    catch{return rejectedRaw(provider.source,raw,{code,day:data.day,receivedAt:provider.receivedAt,request:provider.request});}
+  });
+  const marketCalendars=calendarUnion(providers.map(row=>row.calendar?{...row.calendar,knownAt:now}:null).filter(Boolean)),
+    records=providers.flatMap(provider=>(provider.bars||[]).map(row=>({...row,availableAt:now}))),
+    gate=require('./intelligence-research').auditCenterInputs(records,{purpose:'backtest',now,marketCalendars});
+  const current=gate.admitted.some(row=>row.code===code&&row.day===data.day),
+    status=gate.admittedGroups&&!gate.excludedRecords&&current?'admitted':gate.admittedGroups?'partially-admitted':'reviewed-still-quarantined';
+  return {providers,gate,status};
+}
+function previewCenterHistoryQuarantine({root,code,captureHash,now=Date.now()}={}){
+  if(!codeOk(code)||!/^[a-f0-9]{64}$/.test(captureHash||'')||!timeOk(now)||now>Date.now())throw Error('隔离预检范围或时点无效');
+  const event=captureEvents(root,code,now).find(event=>event.hash===captureHash);
+  if(!event)throw Error('隔离原始归档不存在或尚不可用');
+  const data=checkedCapture(event);
+  if(data.code!==code||data.status==='admitted'&&!data.rejected?.length)throw Error('仅允许预检原隔离或部分接纳的归档');
+  for(const source of ['eastmoney-public-history','baostock'])if(!allowedSource(source))throw Error('中心历史来源未通过既有研究访问门禁');
+  const {providers,gate,status}=recheckQuarantine(data,code,now);
+  return {mode:'read-only-original-quarantine-recheck',status,code,day:data.day,captureHash,
+    scopeHash:store.digest({root:archiveRoot(root),code,captureHash}),admittedGroups:gate.admittedGroups,rejectedRecords:gate.excludedRecords,
+    reasons:[...new Set(gate.rejected.map(row=>row.reason))],
+    sources:providers.map(row=>({source:row.source,status:row.status,rawHash:row.rawHash||null,rows:row.bars.length})),
+    proposedAvailableAt:now,writes:false,...flags};
+}
+
+/** Explicit, authenticated caller only. A review records who/why, re-parses
+ * immutable bytes and runs the original source/identity/consensus gates. There
+ * is no override flag, provider substitution, network fetch or past freeze.
+ */
+async function replayCenterHistoryQuarantine({root,code,captureHash,reviewerId,reason,requestId,replica=false,authorizationScope=null}={},deps={}) {
+  if(!codeOk(code)||!/^[a-f0-9]{64}$/.test(captureHash||'')||
+      typeof reviewerId!=='string'||!reviewerId.trim()||reviewerId.length>128||/[\x00-\x1f\x7f]/.test(reviewerId)||
+      typeof reason!=='string'||reason.trim().length<8||reason.length>1000||/[\x00-\x1f\x7f]/.test(reason)||
+      !/^[a-zA-Z0-9_-]{8,100}$/.test(requestId||''))throw Error('隔离回放需要明确的原归档、审核人、原因及请求ID');
+  if(authorizationScope!==null&&(!authorizationScope||authorizationScope.mode!=='local-private-research-archive'||
+      !/^[a-f0-9]{64}$/.test(authorizationScope.archiveScopeHash||'')||! /^(?:[a-f0-9]{64})$/.test(authorizationScope.instanceConfigHash||'')||
+      !Number.isSafeInteger(authorizationScope.operatorUid)||authorizationScope.operatorUid<0||
+      authorizationScope.archiveScopeHash!==store.digest({root:archiveRoot(root),code,captureHash})))throw Error('隔离回放授权范围哈希无效');
+  const canWrite=()=>{try{return !replica&&(!deps.canWrite||deps.canWrite()===true);}catch{return false;}};
+  if(!canWrite())return {ok:false,status:'read-only-instance',...flags};
+  const now=(deps.clock||Date.now)();
+  if(!timeOk(now)||now>Date.now())throw Error('隔离复核时点无效');
+  for(const source of ['eastmoney-public-history','baostock'])if(!allowedSource(source))throw Error('中心历史来源未通过既有研究访问门禁');
+  return withCaptureLock(root,code,async()=>{
+    if(!canWrite())return {ok:false,status:'read-only-instance',...flags};
+    const events=store.readEvents(codeRoot(root,code),{asOf:now}),prior=events.find(event=>event.requestId===requestId);
+    if(prior){
+      if((prior.data.captureHash||prior.data.replayOf)!==captureHash||prior.data.review?.reviewerId!==reviewerId||prior.data.review?.reason!==reason||
+          store.digest(prior.data.review?.authorizationScope??null)!==store.digest(authorizationScope))
+        throw Error('同一复核请求ID内容冲突');
+      return {ok:true,status:prior.data.status,reused:true,fingerprint:prior.hash,
+        admittedGroups:prior.data.admittedGroups||0,rejectedRecords:prior.data.rejected?.length||0,...flags};
+    }
+    const original=events.find(event=>event.hash===captureHash&&event.data.protocol===PROTOCOL);
+    if(!original)throw Error('隔离原始归档不存在或尚不可用');
+    const data=checkedCapture(original);
+    if(data.code!==code||data.status==='admitted'&&!data.rejected?.length)throw Error('仅允许复核原隔离或部分接纳的归档');
+    const {providers,gate,status}=recheckQuarantine(data,code,now),
+      review={reviewerId,reason,reviewedAt:now,method:'immutable-raw-original-normalizers-and-consensus',authorizationScope};
+    const outcome=gate.admittedGroups?{protocol:PROTOCOL,code,day:data.day,capturedAt:now,historyDays:data.historyDays,status,
+      providers,admittedBars:gate.admitted.flatMap(row=>row.evidence.map(evidence=>({...evidence,date:evidence.day,availableAt:now}))),
+      observations:[],comparisons:gate.comparisons.map(({code,day,market,adjustment,status,independentSources,supportingSources,excludedSources})=>
+        ({code,day,market,adjustment,status,independentSources,supportingSources,excludedSources})),replayOf:captureHash,review,
+      admittedGroups:gate.admittedGroups,rejected:gate.rejected,...flags}:
+      {protocol:REVIEW_PROTOCOL,code,day:data.day,captureHash,status,review,admittedGroups:0,rejected:gate.rejected,
+        sources:providers.map(row=>({source:row.source,status:row.status,rawHash:row.rawHash||null})),...flags};
+    if(!canWrite())return {ok:false,status:'read-only-instance',...flags};
+    const saved=store.appendEvent(codeRoot(root,code,true),'diagnostic',outcome,{requestId,now});
+    return {ok:true,status,reused:saved.reused,fingerprint:saved.hash,admittedGroups:gate.admittedGroups,
+      rejectedRecords:gate.excludedRecords,availableAt:now,...flags};
+  });
+}
+
+function readCenterHistory({root,codes,now=Date.now(),decisionAt=now}={}) {
+  if(!timeOk(now)||!timeOk(decisionAt)||decisionAt>now||now>Date.now())throw Error('中心历史回放时点无效');
   archiveRoot(root);
   const existing = fs.existsSync(root) ? fs.readdirSync(root).filter(codeOk).sort() : [];
   const chosen = codes === undefined ? existing.slice(0,MAX_CODES) : [...new Set(codes.filter(codeOk))].slice(0,MAX_CODES);
   const retained = new Map(), frozen = new Map(), revisions = [], quarantined = [], calendars = [], sourceStatus = [], summaries = [], comparisons = new Map();
-  let captures=0;
+  let captures=0;const governanceEvents=[];
   for (const code of chosen) {
-    const events = captureEvents(root,code,now);
+    const all=store.readEvents(codeRoot(root,code),{asOf:decisionAt});
+    governanceEvents.push(...all.filter(event=>[PROTOCOL,REVIEW_PROTOCOL].includes(event.data?.protocol)));
+    const events = all.filter(event=>event.data?.protocol===PROTOCOL);
     for (const event of events) {
       const data = checkedCapture(event);captures++;
       if (data.code !== code) throw Error('中心历史证券目录与回执不一致');
       const providers = data.providers;
       for (const provider of providers) {
-        if (provider.calendar) calendars.push(provider.calendar);
+        if (provider.calendar) calendars.push({...provider.calendar,
+          knownAt:Math.max(provider.calendar.knownAt,data.capturedAt),originalReceiptAt:provider.calendar.originalReceiptAt??provider.calendar.knownAt});
         sourceStatus.push({code,day:data.day,source:provider.source,status:provider.status,receivedAt:provider.receivedAt ?? null,
           reason:provider.reason || null});
       }
@@ -220,7 +407,8 @@ function readCenterHistory({root,codes,now=Date.now()}={}) {
           revisions.push({code:row.code,day:row.date,source:row.source,firstKnownAt:prior.knownAt,laterKnownAt:row.knownAt,
             reason:'later-provider-revision-keeps-first-frozen-value'});continue;
         }
-        if (!prior) retained.set(key,{...row,archiveSequence:event.sequence,archiveHash:event.hash});
+        if (!prior) retained.set(key,{...row,availableAt:Math.max(row.availableAt??row.knownAt,data.capturedAt),
+          archiveSequence:event.sequence,archiveHash:event.hash});
       }
       quarantined.push(...(data.rejected || []));
       for(const comparison of data.comparisons||[])comparisons.set([code,comparison.day].join('/'),comparison);
@@ -251,7 +439,8 @@ function readCenterHistory({root,codes,now=Date.now()}={}) {
       examples:compared.filter(row=>row.status!=='admitted').slice(-12)},
     revisionExamples:revisions.slice(-12),latestCaptures:summaries.slice(-20),omittedCodes:Math.max(0,existing.length-chosen.length),
     omittedEarlierObservations:Math.max(0,eligibleObservations.length-5000),
-    acquisitionClock:'actual-receipt-no-historical-backdating',
+    acquisitionClock:'actual-receipt-no-historical-backdating',decisionAt,
+    governance:projectGovernance(governanceEvents,{decisionAt,codes:chosen}),
     missing:!bars.length ? ['缺少通过独立来源一致性核对的真实后复权历史；查看逐源采集状态。'] : [],...flags},...flags};
 }
 
@@ -375,7 +564,7 @@ async function collectCenterHistory({root,code,day,historyDays=160,replica=false
   if (!timeOk(capturedAt) || capturedAt<startedAt) throw Error('中心历史采集时钟回退');
   const records=providers.flatMap(row=>row.bars||[]), marketCalendars=calendarUnion(providers.map(row=>row.calendar).filter(Boolean));
   const gate=require('./intelligence-research').auditCenterInputs(records,{purpose:'backtest',now:capturedAt,marketCalendars});
-  const admittedBars=gate.admitted.flatMap(row=>row.evidence.map(evidence=>({...evidence,date:evidence.day})));
+  const admittedBars=gate.admitted.flatMap(row=>row.evidence.map(evidence=>({...evidence,date:evidence.day,availableAt:capturedAt})));
   const currentAdmitted=gate.admitted.some(row=>row.code===code&&row.day===day),
     status=gate.admittedGroups>0 && !gate.excludedRecords && currentAdmitted ? 'admitted' : gate.admittedGroups>0 ? 'partially-admitted' : 'quarantined';
   const observations=[];
@@ -400,5 +589,5 @@ async function collectCenterHistory({root,code,day,historyDays=160,replica=false
   });
 }
 
-module.exports={PROTOCOL,ATTEMPT_PROTOCOL,requestUrl,allowedSource,normalizeEastmoney,normalizeBaoStock,fetchEastmoney,fetchBaoStock,
-  collectCenterHistory,readCenterHistory,readPendingCenterHistory,composeCenterResearchInputs};
+module.exports={PROTOCOL,ATTEMPT_PROTOCOL,REVIEW_PROTOCOL,requestUrl,allowedSource,normalizeEastmoney,normalizeBaoStock,fetchEastmoney,fetchBaoStock,
+  collectCenterHistory,readCenterHistory,readCenterHistoryGovernance,previewCenterHistoryQuarantine,replayCenterHistoryQuarantine,readPendingCenterHistory,composeCenterResearchInputs};

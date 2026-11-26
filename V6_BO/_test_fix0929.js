@@ -1,4 +1,4 @@
-// 验证 az+ 两处修复：① A股T+1 当日不可卖 ② 持仓建议感知利好（三峡新材场景）
+// 保留原 T+1 与停牌场景；任务27要求新闻线索不得降低持仓风控结论。
 const fs = require('fs'), path = require('path');
 const lines = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8').split('\n');
 const findIdx = re => { const i = lines.findIndex(l => re.test(l)); if (i < 0) throw new Error('未找到: ' + re); return i; };
@@ -38,28 +38,12 @@ ok(T.paperT1Locked({ buyTs: midnight.getTime() }) === true, '今天凌晨买入�
 // 边界：买入时间戳缺失不应崩
 ok(T.paperT1Locked({}) === false, '无买入时间戳时不崩');
 
-console.log('\n===== ② 持仓建议：重大利好要能把减仓降级 =====');
+console.log('\n===== ② 持仓建议：新闻线索不得把减仓降级 =====');
 const hsrc = fs.readFileSync(path.join(__dirname, 'holdings.js'), 'utf8');
-const GOOD_MAJOR_RE = (() => {
-  const m = hsrc.match(/const GOOD_MAJOR_RE = (\/.*?\/);/);
-  return eval(m[1]);
-})();
-const cases = [
-  ['三峡新材：筹划购买电池电解液公司珠海赛纬司不低于53.14%股份 股票停牌', true],
-  ['昌红科技：拟1亿元-2亿元回购股份', true],
-  ['某某：股东拟增持公司股份', true],
-  ['某某中标新能源项目', true],
-  ['某某：预计前三季度业绩预增', true],
-  ['某某：股价异动，无重大事项', false],
-  ['某某：日常经营性公告', false],
-];
-for (const [t, exp] of cases) {
-  ok(GOOD_MAJOR_RE.test(t) === exp, `${exp ? '重大利好' : '普通消息'}识别：${t.slice(0, 28)}…`);
-}
 // holdings.js 必须同时读 goodCodes 和 badCodes
 ok(/goodCodes\s*&&\s*S\.news\.goodCodes\.has\(code\)/.test(hsrc) || /goodCodes.*has\(code\)/.test(hsrc),
    'holdings.js 已接入 goodCodes（原来只有 badCodes）');
-ok(/majorGood/.test(hsrc) && /downgrade/.test(hsrc), '重大利好触发建议降级逻辑存在');
+ok(!/GOOD_MAJOR_RE|goodGuard|majorGood/.test(hsrc), '标题关键词降级风控的旧路径已移除');
 ok(/停牌/.test(hsrc), '识别停牌状态（量价失效）');
 
 console.log('\n===== ③ 端到端：verdict 真实跑一遍「停牌+收购」场景 =====');
@@ -84,27 +68,32 @@ const mkS = (good, title) => ({
 // rows：近 10 日 K 线，高点 4.15（停牌前的高点，用来构造"回撤 5.3%"）
 const rows = Array.from({ length: 12 }, (_, i) => ({ close: i === 11 ? 3.93 : 3.8 + i * 0.03, high: i === 5 ? 4.15 : 3.85 + i * 0.03 }));
 const snap = { price: 3.93, pct: 0, mainInflow: -1200000, mainPct: -2.1 };
-const run = (S) => require('./holdings')({
+const run = (S, quote = snap) => require('./holdings')({
   fs: mockFs, path: require('path'), dir: __dirname, S, em: {},
+  newsContext: () => ({...S.news,evidenceStatus:'available'}),
   sseSend: () => {}, sseSendEdit: () => {}, pushAll: () => {}
-}).verdict('600293', snap, rows, { positionPct: 30 });
+}).verdict('600293', quote, rows, { positionPct: 30 });
 
 // A. 停牌 + 收购 → 只能有「停牌中/复牌待办」，绝不能再出现任何技术面买卖建议
 {
-  const v = run(mkS(true, '三峡新材：筹划购买电池电解液公司珠海赛纬司不低于53.14%股份 股票停牌'));
+  const v = run(mkS(true, '三峡新材：筹划购买电池电解液公司珠海赛纬司不低于53.14%股份 股票停牌'), {...snap, suspended: true});
   const types = v.acts.map(a => a.type);
   ok(v.suspended === true, '识别为停牌股', 'suspended=' + v.suspended);
   ok(types.every(t => t === '停牌中' || t === '复牌待办'),
      '停牌时不给任何技术面买卖建议（原来会催回撤止盈）', types.join('/'));
   ok(!types.some(t => /回撤|止盈|止损|减仓|清仓/.test(t)), '回撤止盈/减仓/止损全部屏蔽');
 }
-// B. 重大利好但不停牌 → 回撤止盈降级为「持有观察」
+// B. 新闻为正面线索时，原回撤与减仓结论保持。
 {
   const v = run(mkS(true, '某某股份：拟回购公司股份，金额不低于2亿元'));
   const types = v.acts.map(a => a.type);
-  ok(types.includes('持有观察'), '重大利好把回撤止盈降级为持有观察', types.join('/'));
-  ok(!types.includes('回撤止盈') && !types.includes('回撤提醒'), '不再催分批止盈');
+  const baseline = run(mkS(false)).acts.map(a => a.type);
+  ok(JSON.stringify(types.filter(t => t !== '利好在案')) === JSON.stringify(baseline), '利好线索不改变原风控结论', types.join('/'));
+  ok(!types.includes('持有观察'), '不能按标题降级为持有观察');
   ok(types.includes('利好在案'), '卡片上明示当日利好来源');
+}
+for (const title of ['三峡新材：股票停牌', '三峡新材：股票不停牌']) {
+  ok(run(mkS(true, title)).suspended === false, '标题不能替代原报价停牌状态：' + title);
 }
 // C. 无利好 → 原逻辑不变，该催还得催
 {

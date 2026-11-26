@@ -248,10 +248,10 @@ function publicPlan(p) {
     ...FLAGS,
   };
 }
-function sourceList(workspaceRoot) {
+function sourceList(workspaceRoot, asOf) {
   if (!workspaceRoot) return { status: 'unconfigured', total: 0, rows: [] };
   try {
-    const events = S.readEvents(workspaceRoot).filter(
+    const events = S.readEvents(workspaceRoot, { asOf }).filter(
       (e) => e.kind === 'analysis',
     );
     return {
@@ -273,10 +273,11 @@ function sourceList(workspaceRoot) {
   }
 }
 function view(root, options = {}) {
-  const events = S.readEvents(root),
+  const asOf = options.asOf ?? Date.now();
+  const events = S.readEvents(root, { asOf }),
     plans = project(events);
   return {
-    research: sourceList(options.workspaceRoot),
+    research: sourceList(options.workspaceRoot, asOf),
     schemaVersion: 1,
     revision: events.length,
     headHash: events.at(-1)?.hash ?? null,

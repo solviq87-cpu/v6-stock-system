@@ -6,6 +6,7 @@ import workspaceStore from '../../core/research-workspace-store.js';
 import accountLock from '../../core/account-process-lock.js';
 import marketData from '../../core/market-data-center.js';
 import decisionPlans from '../../core/paper-decision-plan.js';
+import governance from '../../core/fayo-research-governance.js';
 import {mutate} from './engine.mjs';
 import minuteArchive from '../shortline-minute-archive.js';
 import {bookIdOk,booksOf,bookPath,createBook} from './workbooks.mjs';
@@ -122,7 +123,10 @@ function affectedDay(state,action,result){
     return state.bars.slice(-result.count).reduce((day,b)=>day>b.date.slice(0,10)?day:b.date.slice(0,10),'');
   }
 }
-function persist(dir,state){
+function persist(dir,state,{previousCandidateIds=state.candidates.map(c=>c.id),now=Date.now()}={}){
+  const research={...state,dictionaryVersion};
+  governance.registerModelTrials(research,previousCandidateIds,{now});
+  governance.closeModelTrials(research,{now});
   delete state.catalog;
   delete state.permissions;
   state.revision++;
@@ -140,7 +144,7 @@ export async function syncManualLedger(root,ledgerRoot,accountDir){
   const {importSettledPaperTrades}=await import('../shortline-paper-import.js');
   const dir=workspaceStore.privateRoot(root,true);
   return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
-    const state=load(dir);
+    const state=load(dir),previousCandidateIds=state.candidates.map(c=>c.id);
     const result=manualPresent?importManualDecisionLoop(state,{root:ledgerRoot}):{changed:false,imported:0,exitDays:[]};
     const paper=accountDir?importSettledPaperTrades(state,{accountDir}):{imported:0,exitDays:[],issues:[]};
     const changed=result.changed||paper.imported>0||paper.updated>0;
@@ -148,7 +152,7 @@ export async function syncManualLedger(root,ledgerRoot,accountDir){
       state.catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
       for(const day of new Set([...(result.exitDays||[]),...paper.exitDays]))refreshDailyReview(state,day);
       mutate(state,'learn:auto-candidate',{});
-      persist(dir,state);
+      persist(dir,state,{previousCandidateIds});
     }
     return {changed,revision:state.revision,imported:result.imported+paper.imported,updated:paper.updated||0,retry:!!(result.issues?.length||paper.issues.length)};
   });
@@ -158,21 +162,21 @@ export async function saveRecoveredMarket(root,rows,day){
   const {applyShortlineV6Source}=await import('../shortline-v6-data.js');
   const dir=workspaceStore.privateRoot(root,true);
   return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
-    const state=load(dir);
+    const state=load(dir),previousCandidateIds=state.candidates.map(c=>c.id);
     const changed=applyShortlineV6Source(state,{day,bars:[],market:rows,missing:[],evidence:[],latestClosed:false});
     if(changed.daysAdded||changed.daysRevised){
       state.catalog=JSON.parse(fs.readFileSync(catalogFile,'utf8'));
       const now=Date.now();
       state.marketResearchAsOf={day,knownAt:now};
       refreshDailyReview(state,day);
-      persist(dir,state);
+      persist(dir,state,{previousCandidateIds});
     }
     return {revision:state.revision};
   });
 }
 // The main account keeps its original path. Named books and fixtures can never
 // select an upstream ledger or a filesystem path supplied by the client.
-export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan,centerFeedback,beforeCenterCommit,beforeDecisionCommit}){
+export async function shortlineJob({root,book='main',replica=false,input,snapshot,view,knownDictionary,selection='standard',degraded,decisionPlan,centerFeedback,beforeCenterCommit,beforeDecisionCommit,readProspectiveReview}){
   if(!bookIdOk(book))throw error('无效研究账户',400);
   const scope=book==='demo'?'demo':'live',main=book==='main';
   const master=load(root),books=booksOf(master),current=books.find(b=>b.id===book);
@@ -217,9 +221,10 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
   const decisionResearch=decisionPlan?(await import('../../core/decision-plan-research.js')).default:null;
   return accountLock.withAccountLock(path.join(dir,'shortline'),()=>{
     let state=load(dir,scope),retiredMinuteDir=null;
+    const previousCandidateIds=state.candidates.map(c=>c.id);
     if(input.revision!==state.revision)throw error('另一台设备已更改档案，请重新读取后再提交',409);
     state.catalog=catalog;
-    let result;
+    let result,closedTrialState=null;
     try{
       const p=input.payload;
       if(input.action.startsWith('notice:')){
@@ -259,7 +264,22 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
           delete planInput.checkId;
           if(research.payload.checkId)planInput.checkId=research.payload.checkId;
         }
+        // Existing editor, replica and revision gates apply. Keep the five original
+        // validation stages; upgrades additionally need a sealed prospective
+        // trial, complete independent cohort and the original risk review.
+        // This optional reader is a native dependency, never input.payload.
+        let prospectiveReview=null;
+        if(book!=='demo'&&input.action==='learn:decision'&&p.decision==='approve'){
+          const current=[...state.versions].reverse().find(v=>v.approvedAt&&v.sampleScope!=='demo');
+          if(current?.numericModel){
+            const closure=governance.closeModelTrials({...state,dictionaryVersion},{now:Date.now()});
+            if(closure.closedCandidateIds.length)closedTrialState=structuredClone(state);
+            prospectiveReview=governance.modelComparison({...state,dictionaryVersion},{candidateId:p.id,now:Date.now(),readProspectiveReview});
+            if(!prospectiveReview.approvalEligible)throw Error('数值候选前瞻试验、完整独立队列或原风险证据未齐（'+prospectiveReview.status+'），保留当前获批版本');
+          }
+        }
         result=mutate(state,input.action,planInput);
+        if(prospectiveReview&&result)result.prospectiveReview={schemaVersion:1,evidenceFingerprint:prospectiveReview.evidenceFingerprint,days:prospectiveReview.days,pairedRows:prospectiveReview.pairedRows,meanGainPp:prospectiveReview.meanGainPp,policy:prospectiveReview.policy,trialFingerprint:prospectiveReview.trial.fingerprint,nativeReview:prospectiveReview.nativeReview,reviewSupported:true,approvalEligible:true,portfolioRiskCertified:true};
         // Only the native paper adapter supplies this internal job argument.
         // The browser research route never accepts or forwards an authority flag.
         if(decisionPlan){
@@ -273,7 +293,16 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
           if(item?.decision)item.decision.authorizedRole='edit';
         }
       }
-    }catch(e){throw error(e.message,422);}
+    }catch(e){
+      if(closedTrialState){
+        // A failed approval must not erase the one permitted holdout inspection.
+        // Persist only the pre-approval snapshot: no requested action, decision
+        // or changed weight from the failed reducer can enter the archive.
+        persist(dir,closedTrialState,{previousCandidateIds});
+        throw error(e.message+'；前瞻试验结果已封存，档案修订为 '+closedTrialState.revision+'，请重新读取后再提交',409);
+      }
+      throw error(e.message,422);
+    }
     if(centerFeedback){
       let authorized=false;
       try{authorized=typeof beforeCenterCommit==='function'&&beforeCenterCommit()===true;}catch{}
@@ -285,7 +314,7 @@ export async function shortlineJob({root,book='main',replica=false,input,snapsho
       if(!authorized)throw error('冻结计划提交前编辑授权或主实例角色已变化，原档案保留',403);
     }
     // Optional fields of v1 archives are absent on older installations.
-    persist(dir,state);
+    persist(dir,state,{previousCandidateIds});
     // Report a committed revision even if a secondary cleanup fails. The
     // generation and ledger cutoff already exclude the retired records.
     const maintenance=[];

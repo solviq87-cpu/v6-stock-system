@@ -1,0 +1,136 @@
+{
+  "checkedAt": "2026-11-26",
+  "method": "Official GitHub read-only frozen source inspection, not installed or connected",
+  "commits": [
+    {
+      "repo": "vnpy/vnpy",
+      "sha": "c6e231caf32b7fc97e6459817fff66458cf7e7c4",
+      "tree": "173e64b0e20b767e858d97bcf0c358bc3363376e",
+      "date": "2026-10-06T09:38:50Z",
+      "url": "https://github.com/vnpy/vnpy/commit/c6e231caf32b7fc97e6459817fff66458cf7e7c4",
+      "message": "[Fix] mypy related warning"
+    },
+    {
+      "repo": "vnpy/vnpy_rqdata",
+      "sha": "8cad1ef97efe1a48559abcff6fd741b2cdf2a132",
+      "tree": "bfdd18eb13d565d650cde1128625ae0c6d7ee913",
+      "date": "2026-10-05T14:26:04Z",
+      "url": "https://github.com/vnpy/vnpy_rqdata/commit/8cad1ef97efe1a48559abcff6fd741b2cdf2a132",
+      "message": "[Mod] 更新版本号到3.4.7.9"
+    },
+    {
+      "repo": "vnpy/vnpy_tushare",
+      "sha": "8388d81e7b7eac99a15e145940756f3a4a3a7aca",
+      "tree": "8e56bed3b30aa0ddc5f0d109a37f4f6b60495811",
+      "date": "2026-10-05T14:22:55Z",
+      "url": "https://github.com/vnpy/vnpy_tushare/commit/8388d81e7b7eac99a15e145940756f3a4a3a7aca",
+      "message": "[Mod] 更新版本号到1.4.21.1"
+    },
+    {
+      "repo": "microsoft/qlib",
+      "sha": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "tree": "10b09ec09f15c1163b1b9ebd715e64dcbfc06c61",
+      "date": "2026-10-08T10:15:27Z",
+      "url": "https://github.com/microsoft/qlib/commit/54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "message": "fix(security): constrain config-driven code execution (#2340)\n\n* security: constrain config-driven code execution\n\n* fix: address security test and lint failures\n\n* ci: restore dependency and title lint compatibility\n\n* ci: handle current MLflow and Windows OSQP changes\n\n* ci: use lxml release with cross-platform wheels\n\n* fix: defer optional CVXPY solver imports\n\n* style: document intentional lazy import\n\n* ci: skip broken released OSQP on Windows Python 3.8\n\n* test: make MLflow client timing check robust\n\n* ci: retry nondeterministic benchmark smoke test\n\n* fix: cap filelock before fork safety regression\n\n* fix: use filelock release compatible with multiprocessing\n\n* fix(security): restrict operator lookup and validate trusted roots\n\n* fix(security): preserve numeric expressions and legacy model imports\n\n* fix: preserve TRA initialization and document config migration\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix: preserve safe expression syntax and cache semantics\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix: use explicit scoped trust for file modules\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix: satisfy CI lint without weakening trust checks\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* test: handle escaped file paths in module refusal errors\n\nMatch the repr-formatted module path in refusal messages and cover Windows, UNC, quoted, and newline-containing paths on every platform.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix: preserve expression parser error logging\n\nLog ExpressionSyntaxError with its field and traceback before re-raising, while preserving custom operator NameError and SyntaxError handling. Add five regression cases covering logging, exception identity, and failed cache entries.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* test: isolate expression logger capture\n\nCapture parser logs directly on qlib.data without propagating to parent and root capture handlers. Restore logger state with monkeypatch and retain exact single-record, traceback, and exception-identity assertions.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\n\n* fix(security): preserve malformed feature boundaries and reject unsupported literals\n\n* test(security): cover malformed dollar-prefixed expressions\n\n---------\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>\nCo-authored-by: Yang Liu <DG-git-dev@users.noreply.github.com>"
+    },
+    {
+      "repo": "ricequant/rqalpha",
+      "sha": "0bf04946e8250b457e30c3c81d338a6b925da0bb",
+      "tree": "f2824277064a3ff1b3c66e90db17afc0dd7a3d3a",
+      "date": "2026-10-27T10:29:09Z",
+      "url": "https://github.com/ricequant/rqalpha/commit/0bf04946e8250b457e30c3c81d338a6b925da0bb",
+      "message": "add changelog (#1059)\n\nCo-authored-by: Don <lin.dongzhao@ricequant.com>"
+    },
+    {
+      "repo": "AI4Finance-Foundation/FinRL-Meta",
+      "sha": "fabd0077c1b6cb07d52d6de04315859705884696",
+      "tree": "319d16b5787569518382df52e0fc23ac905bc05b",
+      "date": "2026-11-22T21:21:49Z",
+      "url": "https://github.com/AI4Finance-Foundation/FinRL-Meta/commit/fabd0077c1b6cb07d52d6de04315859705884696",
+      "message": "Merge pull request #367 from dajiaohuang/fix-dataprocessor-cache-filename\n\nfix: use the enum value when building the dataset cache filename"
+    }
+  ],
+  "files": [
+    {
+      "repo": "vnpy/vnpy",
+      "commit": "c6e231caf32b7fc97e6459817fff66458cf7e7c4",
+      "path": "vnpy/trader/datafeed.py",
+      "blob": "d15340f8abd4977baf73ceab398d1afbf13b2fc5",
+      "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy/vnpy/trader/datafeed.py",
+      "permalink": "https://github.com/vnpy/vnpy/blob/c6e231caf32b7fc97e6459817fff66458cf7e7c4/vnpy/trader/datafeed.py"
+    },
+    {
+      "repo": "vnpy/vnpy_rqdata",
+      "commit": "8cad1ef97efe1a48559abcff6fd741b2cdf2a132",
+      "path": "vnpy_rqdata/rqdata_datafeed.py",
+      "blob": "afb6a910cd8917d5d94a424500c7879d3e7b7e15",
+      "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_rqdata/vnpy_rqdata/rqdata_datafeed.py",
+      "permalink": "https://github.com/vnpy/vnpy_rqdata/blob/8cad1ef97efe1a48559abcff6fd741b2cdf2a132/vnpy_rqdata/rqdata_datafeed.py"
+    },
+    {
+      "repo": "vnpy/vnpy_tushare",
+      "commit": "8388d81e7b7eac99a15e145940756f3a4a3a7aca",
+      "path": "vnpy_tushare/tushare_datafeed.py",
+      "blob": "14ddbe50c0a296c53b8f45f12f4bee288adb7445",
+      "local": "audit-inputs/fourth/upstream-sources/vnpy__vnpy_tushare/vnpy_tushare/tushare_datafeed.py",
+      "permalink": "https://github.com/vnpy/vnpy_tushare/blob/8388d81e7b7eac99a15e145940756f3a4a3a7aca/vnpy_tushare/tushare_datafeed.py"
+    },
+    {
+      "repo": "microsoft/qlib",
+      "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "path": "scripts/data_collector/yahoo/collector.py",
+      "blob": "82660f1112bdad3e3ba7fd22f3157228e13b67f5",
+      "local": "audit-inputs/fourth/upstream-sources/microsoft__qlib/scripts/data_collector/yahoo/collector.py",
+      "permalink": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/scripts/data_collector/yahoo/collector.py"
+    },
+    {
+      "repo": "microsoft/qlib",
+      "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "path": "scripts/data_collector/pit/collector.py",
+      "blob": "a3bb33d91a71d196e1b29757d01e3ac72f0cf679",
+      "local": "audit-inputs/fourth/upstream-sources/microsoft__qlib/scripts/data_collector/pit/collector.py",
+      "permalink": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/scripts/data_collector/pit/collector.py"
+    },
+    {
+      "repo": "microsoft/qlib",
+      "commit": "54355232463878d2eebb91fe0ee5fa7fa1f5976c",
+      "path": "scripts/data_collector/baostock_5min/collector.py",
+      "blob": "0a69beefb82bd31cccd3ad4916c29337bbf5a851",
+      "local": "audit-inputs/fourth/upstream-sources/microsoft__qlib/scripts/data_collector/baostock_5min/collector.py",
+      "permalink": "https://github.com/microsoft/qlib/blob/54355232463878d2eebb91fe0ee5fa7fa1f5976c/scripts/data_collector/baostock_5min/collector.py"
+    },
+    {
+      "repo": "ricequant/rqalpha",
+      "commit": "0bf04946e8250b457e30c3c81d338a6b925da0bb",
+      "path": "rqalpha/cmds/bundle.py",
+      "blob": "b8ee826ea9fddc8a69cd44161fcbe93f283d67e7",
+      "local": "audit-inputs/fourth/upstream-sources/ricequant__rqalpha/rqalpha/cmds/bundle.py",
+      "permalink": "https://github.com/ricequant/rqalpha/blob/0bf04946e8250b457e30c3c81d338a6b925da0bb/rqalpha/cmds/bundle.py"
+    },
+    {
+      "repo": "ricequant/rqalpha",
+      "commit": "0bf04946e8250b457e30c3c81d338a6b925da0bb",
+      "path": "rqalpha/data/bundle/daybar.py",
+      "blob": "64a520818bdb704dccb5262ee1fce94c9bff9488",
+      "local": "audit-inputs/fourth/upstream-sources/ricequant__rqalpha/rqalpha/data/bundle/daybar.py",
+      "permalink": "https://github.com/ricequant/rqalpha/blob/0bf04946e8250b457e30c3c81d338a6b925da0bb/rqalpha/data/bundle/daybar.py"
+    },
+    {
+      "repo": "AI4Finance-Foundation/FinRL-Meta",
+      "commit": "fabd0077c1b6cb07d52d6de04315859705884696",
+      "path": "meta/data_processors/akshare.py",
+      "blob": "32da2f4c116cdd237f94c4cda56e82aea761b4d2",
+      "local": "audit-inputs/fourth/upstream-sources/AI4Finance-Foundation__FinRL-Meta/meta/data_processors/akshare.py",
+      "permalink": "https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/fabd0077c1b6cb07d52d6de04315859705884696/meta/data_processors/akshare.py"
+    },
+    {
+      "repo": "AI4Finance-Foundation/FinRL-Meta",
+      "commit": "fabd0077c1b6cb07d52d6de04315859705884696",
+      "path": "meta/data_processors/tushare.py",
+      "blob": "ea6b61c2a5053b3644d815ce2f1ec52c0daa14ce",
+      "local": "audit-inputs/fourth/upstream-sources/AI4Finance-Foundation__FinRL-Meta/meta/data_processors/tushare.py",
+      "permalink": "https://github.com/AI4Finance-Foundation/FinRL-Meta/blob/fabd0077c1b6cb07d52d6de04315859705884696/meta/data_processors/tushare.py"
+    }
+  ]
+}

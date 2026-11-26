@@ -48,9 +48,18 @@ test('real server editor-only reads, explicit CLI writes, unknown failure and pe
  const cli=evidence=>{fs.writeFileSync(input,JSON.stringify(evidence));const r=spawnSync(process.execPath,['scripts/news-evidence.js','import',input],{cwd:tmp,env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);return JSON.parse(r.stdout).results[0];};
  const first=cli(original);let q=await request(p,endpoint+'?symbol=600000&limit=1','GET',null,token);
  assert.equal(q.body.result.summary.eligibleForResearchSupport,1);assert.equal(q.body.result.rows[0].evidence.title,original.title);
+ const firstRecordedAt=q.body.result.rows[0].recordedAt;
  const r2=cli({...original,kind:'revised',sourceRevisionId:'second',supersedes:first.eventHash,body:'corrected',receivedAt:now+1000,revisedAt:now+500});
  cli({...original,kind:'retracted',sourceRevisionId:'third',supersedes:r2.eventHash,body:'withdrawn',receivedAt:now+2000,revisedAt:now+1500});
  q=await request(p,endpoint+'?limit=1','GET',null,token);assert.deepEqual(q.body.result.summary,{totalRevisions:3,currentEvents:1,retractedEvents:1,eligibleForResearchSupport:0,unknownEvents:0});assert.equal(q.body.result.rows.length,1);
+ const old=await request(p,endpoint+'?symbol=600000&asOf='+firstRecordedAt+'&limit=1','GET',null,token);
+ assert.equal(old.body.result.total,1);assert.equal(old.body.result.rows[0].current,true);assert.equal(old.body.result.headHash,first.eventHash);
+ const cutoff=Date.now(),page=await request(p,endpoint+'?symbol=600000&asOf='+cutoff+'&offset=1&limit=1','GET',null,token);
+ assert.equal(page.body.result.asOf,cutoff);assert.equal(page.body.result.rows[0].eventHash,r2.eventHash);assert.equal(page.body.result.rows[0].current,false);
+ for(const query of ['?asOf=NaN','?asOf='+String(Date.now()+86400000),'?offset=-1','?offset=1.5','?asOf='])
+  assert.equal((await request(p,endpoint+query,'GET',null,token)).status,422,query);
+ for(const query of ['?asOf=1&asOf=2','?offset=0&offset=1','?limit=1&limit=2'])
+  assert.equal((await request(p,endpoint+query,'GET',null,token)).status,400,query);
  const state=await request(p,'/api/state','GET',null,token);assert.ok(state.body?.goodNews,state.raw+'\n'+logs.slice(-2000));
  assert.equal(state.body.goodNews.items.length,0,'withdrawn cached positive and neutral rows cannot remain in public state');
  assert.equal(state.body.goodNews.hotStocks.length,0);assert.equal(state.body.goodNews.hotSectors.length,0);assert.equal(state.body.badNews.items.length,0);assert.equal(state.body.badNews.codes.length,0);
@@ -62,7 +71,8 @@ test('real server editor-only reads, explicit CLI writes, unknown failure and pe
  const poll=await request(p,'/api/lock/pending-status?req='+encodeURIComponent(view.body.req));assert.ok(poll.body.token,poll.raw);
  assert.notEqual((await request(p,endpoint,'GET',null,poll.body.token)).body?.ok,true);
  const file=path.join(root,'000002.json'),before=fs.readFileSync(file);fs.writeFileSync(file,'{}');
- const broken=await request(p,endpoint,'GET',null,token);assert.equal(broken.status,422);assert.equal(broken.body.status,'unknown');assert.equal(broken.body.result,undefined);fs.writeFileSync(file,before);
+ const broken=await request(p,endpoint,'GET',null,token);assert.equal(broken.status,422);assert.equal(broken.body.status,'unknown');assert.equal(broken.body.result,undefined);
+ assert.equal((await request(p,endpoint+'?asOf='+firstRecordedAt,'GET',null,token)).status,422,'historical views still validate the entire original chain');fs.writeFileSync(file,before);
  const asset=await request(p,'/assets/news-evidence-workbench.js');assert.equal(asset.status,200);assert.match(asset.raw,/textContent/);
  assert.equal(fs.existsSync(path.join(tmp,'paper.json')),false,'no account or trade should be written');
 });

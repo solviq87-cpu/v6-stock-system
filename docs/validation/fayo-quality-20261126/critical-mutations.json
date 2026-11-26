@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "mode": "isolated-critical-mutation-review",
+  "revision": "5ea32ac70a753ecf6880757630d219c05c2417df",
+  "sourceHashes": {
+    "src/core/paper-application-service.js": "df1c54a88ffd36bb764d7101bcf8d9fc9f69da3f738e35d76a13f194010d3268",
+    "src/core/paper-service.js": "e20970856de52ac6ccbb006a281b073b2e1f192f7e86f22350fb48dfcc56966a",
+    "src/core/paper-account-ledger.js": "0582406cc0e5828f9f110a18db96acccf274199923725afb22dabbfb723183cd",
+    "tests/automatic-paper-commit-quote-time.test.js": "ea876bf69d9c571ebf10a22026387eafb2e051122b3a2d932705a699549156c5",
+    "tests/paper-service-http.test.js": "9363cc986cd71b5f4f2ce5692101c057f29ecb2fda37b4b1efa945cd2c616784",
+    "tests/paper-account-ledger.test.js": "1a608689a31ddcd21bc16abfed85d3c4b9d72bef30f9c8bf941d7d2c3b91064f",
+    "scripts/check-critical-mutations.js": "56b61eec955eed75f082da362f6b011e132c54782ce56562978447307f8c711d"
+  },
+  "sourceUnchanged": true,
+  "baseline": {
+    "status": "baseline-pass",
+    "reason": "原隔离测试通过",
+    "exitCode": 0,
+    "outputSha256": "ce36a98fa1950ca6efaa589885fc9cabe4c6beb4eef32cae5287bf39754f40ef"
+  },
+  "results": [
+    {
+      "id": "stale-quote-admitted",
+      "file": "src/core/paper-application-service.js",
+      "test": "tests/automatic-paper-commit-quote-time.test.js",
+      "invariant": "新增自动成交必须在落盘前通过原始报价15秒门禁",
+      "status": "killed",
+      "reason": "既有业务断言捕获错误变更",
+      "exitCode": 1,
+      "outputSha256": "e67e671655353c4ee07a0e2272584402b8515114ee36f771b9b4952707a2534b",
+      "failedAssertions": 4
+    },
+    {
+      "id": "unauthorized-read-admitted",
+      "file": "src/core/paper-service.js",
+      "test": "tests/paper-service-http.test.js",
+      "invariant": "原本机只读纸面账户HTTP仍拒绝无令牌读取",
+      "status": "killed",
+      "reason": "既有业务断言捕获错误变更",
+      "exitCode": 1,
+      "outputSha256": "6eda80d949a7df8c3208da00003abdc2ae61663b096dea5aa838550ad0ffcd73",
+      "failedAssertions": 2
+    },
+    {
+      "id": "duplicate-fill-booked",
+      "file": "src/core/paper-account-ledger.js",
+      "test": "tests/paper-account-ledger.test.js",
+      "invariant": "相同成交重复到达不再次扣款或增加持仓",
+      "status": "killed",
+      "reason": "既有业务断言捕获错误变更",
+      "exitCode": 1,
+      "outputSha256": "13860319e870315355932d522061b35fb4d2fa621a402b3872b323568cfe9cfe",
+      "failedAssertions": 2
+    },
+    {
+      "id": "cash-debit-corrupted",
+      "file": "src/core/paper-account-ledger.js",
+      "test": "tests/paper-account-ledger.test.js",
+      "invariant": "买入后的现金必须与价格数量费用精确一致",
+      "status": "killed",
+      "reason": "既有业务断言捕获错误变更",
+      "exitCode": 1,
+      "outputSha256": "62db4c31cda552f1dfcec61406fa49fc50312e366cda1206fb9cc923a7cfcff5",
+      "failedAssertions": 3
+    }
+  ],
+  "counts": {
+    "total": 4,
+    "killed": 4,
+    "survived": 0,
+    "inconclusive": 0,
+    "equivalent": null
+  },
+  "coverage": "仅四个预定义变异；不代表全部权限路径、故障组合或系统无缺陷",
+  "canTrade": false,
+  "canDeploy": false
+}

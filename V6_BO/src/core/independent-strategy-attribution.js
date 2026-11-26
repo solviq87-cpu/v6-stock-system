@@ -3,10 +3,14 @@
  * No native strategy inputs means NOT EVALUATED, never an invented signal. */
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
+const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
+const {atLockedLimit}=require('../strategy/historical-session');
+const {universeObservation}=require('./historical-universe');
 const SYSTEMS=['fourteen','bazi','gpt','python'];
 const round=x=>Math.round(x*10000)/10000;
 function attributeIndependentStrategies(history,{evidence=[],feeBps=8,slippageBps=10,sellTaxBps=5}={}){
  const dataset=validateDataset(history);
+ const priceBasis=assertUnadjustedExecutionPriceBasis(history);
  if(!Array.isArray(evidence)||evidence.length>dataset.stocks*dataset.barsPerStock*4)throw Error('策略证据数量无效');
  if(![feeBps,slippageBps,sellTaxBps].every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0&&x<=1000))throw Error('交易成本参数无效');
  const stocks=new Map(history.stocks.map(s=>[String(s.symbol||s.code),s]));
@@ -24,10 +28,16 @@ function attributeIndependentStrategies(history,{evidence=[],feeBps=8,slippageBp
   let outcome={status:'not-evaluated',reason:'未满足可计算的后续交易日条件'};
   if(e.verdict==='pass'&&i+2<bars.length){
    const buy=bars[i+1],sell=bars[i+2],prev=bars[i];
-   const blocked=buy.volume===0||sell.volume===0||buy.high===buy.low&&buy.open>=prev.close*1.098||sell.high===sell.low&&sell.open<=buy.close*.902;
-   if(blocked)outcome={status:'blocked',reason:'停牌或一字板无法保证成交'};
+   const stock=stocks.get(e.symbol),buyLock=atLockedLimit(buy,prev,stock,'buy'),sellLock=atLockedLimit(sell,buy,stock,'sell');
+   const blocked=buy.volume===0||sell.volume===0||(buy.suspended??stock.suspended)||(sell.suspended??stock.suspended)||(buy.tradable??stock.tradable)===false||(sell.tradable??stock.tradable)===false||(buy.isST??stock.isST)||buyLock.blocked||sellLock.blocked;
+   const membership=universeObservation(history.universeHistory,e.symbol,e.date);
+   const entryMembership=universeObservation(history.universeHistory,e.symbol,buy.date,{at:'open'});
+   const corporate=buy.corporateAction||sell.corporateAction||history.settlements?.some(x=>x.symbol===e.symbol&&x.effectiveDate>=buy.date&&x.effectiveDate<=sell.date);
+   if(!membership.eligible||!entryMembership.eligible)outcome={status:'blocked',reason:'缺少当时可知的股票池资格'};
+   else if(corporate)outcome={status:'blocked',reason:'公司行为需由原完整账本回测结算，本估算不推断权益'};
+   else if(blocked)outcome={status:'blocked',reason:buyLock.reason||sellLock.reason||'停牌、ST、禁交易或无成交'};
    else {
-    const entry=buy.open*(1+slippageBps/10000),exit=sell.open*(1-slippageBps/10000);
+    const entry=Math.min(buyLock.boundary,buy.open*(1+slippageBps/10000)),exit=Math.max(sellLock.boundary,sell.open*(1-slippageBps/10000));
     const netReturnPct=(exit*(1-(feeBps+sellTaxBps)/10000)/(entry*(1+feeBps/10000))-1)*100;
     outcome={status:'paper-estimate',entryDate:dates[i+1],exitDate:dates[i+2],netReturnPct:round(netReturnPct)};
    }
@@ -43,6 +53,7 @@ function attributeIndependentStrategies(history,{evidence=[],feeBps=8,slippageBp
    meanNetReturnPct:returns.length?round(returns.reduce((a,b)=>a+b,0)/returns.length):null}];
  }));
  return {schemaVersion:1,mode:'independent-offline-attribution',canTrade:false,verifiedLive:false,
+  priceBasis,executionCertification:'paper-estimate-only',
   datasetFingerprint:crypto.createHash('sha256').update(JSON.stringify(history)).digest('hex'),
   evidenceFingerprint:crypto.createHash('sha256').update(JSON.stringify(evidence)).digest('hex'),
   assumptions:'仅对有来源和日期的独立策略信号，估算下一交易日开盘买入、再下一交易日开盘卖出的纸面收益；不代表可成交或真实策略有效性',

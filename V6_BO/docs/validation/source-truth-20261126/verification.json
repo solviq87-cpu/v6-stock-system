@@ -1,0 +1,116 @@
+{
+  "branch": "fix/fayo-source-truth-audit-20261126",
+  "baseline": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "frozenRuntimeHashesUnchanged": true,
+  "runtimeHashes": {
+    "V6_BO/config/data-source-registry-2026.json": "5d0cbb1bf79af5f6a2c8a5897d19fc18dbf143148ff3a835f76c8d9761c00383",
+    "V6_BO/config/six-photo-sources.json": "28c52bffe4f8deff400b8fa4b3daa050aafafb0eab2f487d7c690f817a175165",
+    "V6_BO/package.json": "756da191b5a33549cf92a8312b15bde324743c489aa228ddd7c2cbb0e10cb9a5",
+    "V6_BO/scripts/six-photo-sources.py": "8620e0ba0b4149b73b7cc1e4bee1ab3abe8f9c6d1d7183215a7fce036c41cb0a",
+    "V6_BO/src/core/data-source-readiness-audit.js": "531eb456b3788ebeed444c56000de8602f93a3d1fcf1dc2a0c8f6f6cecc18c9b",
+    "V6_BO/src/core/six-photo-backups.js": "b3a61146bcfd6294d00c9bd21d018ad8df0995a56117ca30d9cf2734adc4d405",
+    "V6_BO/tests/data-source-lineage.test.js": "d3ca1ebb73917d273684252d2c7d78bf4802b5a6e7c1fc8688aaaa7df010a1ee",
+    "V6_BO/tests/data-source-readiness-audit.test.js": "5a7da108d96172a68764e6b5f10c8bd6eae7aa8d20208c749c9dedf94faed6f0",
+    "V6_BO/tests/six-photo-akshare-compatibility.test.js": "a44864abfe8a7f64fd254c9a8986eda9cd2e3aac16e6e075b9e20ef287833d97",
+    "package.json": "5877ede3d151af59b8062482890107e8381bbb0612473e276999eefa9144eb0f"
+  },
+  "changedFiles": [
+    "DEPLOYMENT.md",
+    "HANDOFF.md",
+    "V6_BO/config/data-source-registry-2026.json",
+    "V6_BO/config/six-photo-sources.json",
+    "V6_BO/docs/SOURCE_READINESS_GOVERNANCE_20261115.md",
+    "V6_BO/docs/SOURCE_TRUTH_REVIEW_20261126.md",
+    "V6_BO/package.json",
+    "V6_BO/scripts/six-photo-sources.py",
+    "V6_BO/src/core/data-source-readiness-audit.js",
+    "V6_BO/src/core/six-photo-backups.js",
+    "V6_BO/tests/data-source-lineage.test.js",
+    "V6_BO/tests/data-source-readiness-audit.test.js",
+    "V6_BO/tests/six-photo-akshare-compatibility.test.js",
+    "package.json"
+  ],
+  "environment": {
+    "node": "v24.22.3",
+    "modelPython": "3.12.14",
+    "nativePython": "/usr/bin/python3",
+    "V6_TEST_CONCURRENCY": "2",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "RUNNER_TEMP": "/tmp"
+  },
+  "validation": [
+    {
+      "command": "npm run check",
+      "exitCode": 0
+    },
+    {
+      "command": "git diff --check",
+      "exitCode": 0
+    },
+    {
+      "command": "Python ast.parse scripts/six-photo-sources.py",
+      "exitCode": 0
+    },
+    {
+      "command": "node --test tests/data-source-readiness-audit.test.js tests/data-source-lineage.test.js tests/six-photo-akshare-compatibility.test.js tests/six-photo-backups.test.js",
+      "cwd": "V6_BO",
+      "tests": 47,
+      "pass": 47,
+      "fail": 0,
+      "skip": 0
+    },
+    {
+      "command": "node --test tests/public-quote-endpoint-health.test.js tests/public-quote-publication-freshness.test.js tests/public-quote-hidden-redirect.test.js tests/multi-source-publisher-lineage.test.js tests/data-source-catalog.test.js",
+      "cwd": "V6_BO",
+      "tests": 26,
+      "pass": 26,
+      "fail": 0,
+      "skip": 0
+    },
+    {
+      "command": "V6_MODEL_PYTHON=/workspace/scratch/75d99b6e6e9b/test-python/bin/python3 V6_TEST_CONCURRENCY=2 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 RUNNER_TEMP=/tmp npm test",
+      "exitCode": 0,
+      "tests": 5009,
+      "pass": 5008,
+      "fail": 0,
+      "skip": 1,
+      "skipReason": "actual PowerShell wrapper requires unavailable PowerShell runtime",
+      "durationMs": 287869.627111,
+      "tapCompleteness": "passed by original runner"
+    },
+    {
+      "command": "node V6_BO/tests/full-server-isolated-smoke.js",
+      "exitCode": 0,
+      "scope": "isolated copy with generated credentials; outbound/source-private access guarded"
+    }
+  ],
+  "limitations": [
+    "No real quote API calls or delivery messages",
+    "No production deployment",
+    "New candidate routes not implemented, entitled or enabled",
+    "No 5/20/60-trading-day certification",
+    "Working tree validation, exact remote commit CI pending"
+  ],
+  "phase": "frozen-runtime full regression; followed by documentation and original-ID retention assertion only",
+  "afterRegression": {
+    "runtimeChanged": false,
+    "addedTest": "original 120 identities retained",
+    "command": "node --test V6_BO/tests/data-source-lineage.test.js",
+    "exitCode": 0,
+    "tests": 10,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0,
+    "sourceSha256": {
+      "V6_BO/tests/data-source-lineage.test.js": "e41d603dd2c6120229bf1ca39563baa3d217a0d928cea087ed4a38fb4332bc18",
+      "V6_BO/tests/fixtures/source-registry-120-ids.json": "8478079d8d462448a208262921ea4f1a12935b706905ecaeb30bad00409f4cd6"
+    }
+  },
+  "logSha256": {
+    "full-regression.log": "b78fe99e7c9b49b42e3918501e04a1d422d37fe966d286bcb0153e60b3b7a96a",
+    "service-smoke.log": "ee60448bbb995095618d47e5dae993d7cc276c2f3ad50bd7b1abff9b4fea38c1",
+    "retention-final.tap": "c2ee6f05add980f51fc125b888d6a8e7d7d2d268632b67915f517285a82e1bd9"
+  }
+}

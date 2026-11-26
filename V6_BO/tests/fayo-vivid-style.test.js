@@ -50,3 +50,12 @@ test('home groups the trading session before research on desktop and phone',()=>
  assert.match(browser,/regions\.opportunity\.top,regions\.risk\.top/);
  assert.match(browser,/regions\.more\.top>=regions\.risk\.bottom/);
 });
+
+test('unified risk summary preserves authoritative severity and unknowns beside original home regions',()=>{
+ assert.match(browser,/\.fy-home-layout > \[data-risk-summary\]/);
+ assert.match(browser,/headlineRisk\.getAttribute\('data-risk-id'\)/);
+ assert.match(browser,/headlineRisk\.getAttribute\('data-risk-level'\),'3'/);
+ assert.match(browser,/assert\.match\(await summary\.innerText\(\),\/无法评估\//);
+ assert.ok(browser.includes("assert.deepEqual(regions.headings,['大盘一眼看','今日机会','风险与持仓'])"));
+ assert.match(css,/\.fy-reference-shell \.fy-home-layout>\.fy-risk-summary\{grid-column:1\/-1\}/);
+});

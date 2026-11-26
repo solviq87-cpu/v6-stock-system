@@ -14,13 +14,13 @@ const SCORES = new Set(['pool', 'trend', 'pre']);
 function targetFor(type, requested) {
   if (SCORES.has(type)) return null;
   const explicit = requested === 'zt' ? 'ztNext' : requested === 'up3' ? 'up3Next' : requested;
-  const actual = TYPES[type] || null;
+  const actual = Object.hasOwn(TYPES,type) ? TYPES[type] : null;
   if (explicit != null && !Object.hasOwn(TARGETS, explicit)) return null;
   if (actual && explicit && actual !== explicit) return null;
   return actual || explicit || null;
 }
 function shapeTarget(target) { return target === 'ztNext' ? 'zt' : target === 'up3Next' ? 'up3' : null; }
-function label(target) { return TARGETS[target] || '事件目标未知'; }
+function label(target) { return Object.hasOwn(TARGETS,target) ? TARGETS[target] : '事件目标未知'; }
 function bounded(value, type) {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   return Math.max(0, Math.min(type === 'auczt' ? 45 : 100, value));

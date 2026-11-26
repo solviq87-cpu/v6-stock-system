@@ -3,9 +3,11 @@
 // Execute the production composition boundary. In particular, do not replace
 // marketDisplaySession with an ISO-date stub: its real contract is YYYYMMDD.
 const test = require('node:test'), assert = require('node:assert/strict');
-const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm'), os = require('node:os');
 const {createRequire} = require('node:module');
 const {decisionPlanPayload, bindAuthoritativePlan} = require('../src/core/paper-decision-plan');
+const {createPaperApplicationService} = require('../src/core/paper-application-service');
+const {createPaperPlanObservationStore} = require('../src/core/paper-plan-observation-store');
 
 const serverFile = path.resolve(__dirname, '..', 'server.js');
 const source = fs.readFileSync(serverFile, 'utf8'), serverRequire = createRequire(serverFile);
@@ -16,8 +18,10 @@ function section(start, end) {
   return source.slice(a, b);
 }
 
-async function setup() {
+async function setup(t) {
   const rules = await import('../public/nova/system-picks.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'v6-production-risk-contract-'));
+  t.after(() => fs.rmSync(root, {recursive: true, force: true}));
   let now = at(day, '10:00:00'), replica = false, enabled = true, configured = false, factoryCalls = 0, options;
   const initialNow = now, calls = {archive: [], history: [], push: [], rules: 0, decisions: 0};
   // The server runs with China local wall time. Keep the test process timezone
@@ -34,22 +38,32 @@ async function setup() {
   }
   const card = {authority: 'fayo-decision-center', decisionId: 'a'.repeat(64), code: '600000', name: '隔离测试', day,
     calculatedAt: now - 7000, strategyAt: now - 10000, quoteBasis: {source: 'tencent', quoteAt: now - 8000},
-    plan: {buyLow: 9.8, buyHigh: 10.1, stop: 9, target: 12, positionPct: 19.6}};
+    plan: {buyLow: 9.8, buyHigh: 10.1, stop: 9.4, target: 10.8, positionPct: 19.6}};
   const plan = bindAuthoritativePlan({id: 'plan-00000000-0000-4000-8000-000000000001', sampleSet: 'real',
     frozenAt: new Date(now - 6000).toISOString(), ...decisionPlanPayload(card)}, card);
   const wire = {code: plan.code, name: '隔离测试', price: 10, preClose: 10, volume: 100000,
     quoteAt: now - 1000, receivedAt: now - 500, quoteSource: 'tencent', quoteMode: 'public-live-unverified', canTrade: true,
-    score: 88, paths: ['温和连阳'], tradeDate: '20261125'};
-  const book = {revision: 1, fingerprint: 'b'.repeat(64), feePolicy: {version: 'legacy-A-B', feeBps: 2.5, minFee: 5, sellTaxBps: 5},
-    account: {cash: 10000, positions: {}, events: []}, orders: {},
-    legacy: {initial: 10000, enabled: true, cash: 10000, positions: {}, trades: []}};
-  const store = {label: 'store-boundary'}, runtime = {label: 'captured-runtime'};
+    score: 88, paths: ['温和连阳'], tradeDate: day};
+  const authorityFile = path.join(root, 'authority.json');
+  const authority = createPaperApplicationService({file: authorityFile, clock: () => now, calendar: {isOpen: () => true}});
+  authority.adoptLegacy({initial: 10000, enabled: true, cash: 10000, positions: {}, trades: []});
+  const book = authority.read();
+  const store = createPaperPlanObservationStore({root: path.join(root, 'observations'), clock: () => now,
+    canWrite: () => !replica && enabled});
+  const runtime = {label: 'captured-runtime'};
   const context = {
-    Date: ChinaClock, Map, Set, console,
+    Date: ChinaClock, Map, Set, console, path, __dirname: path.dirname(serverFile),
+    process: {env: {V6_RISK_EVIDENCE_DIR: path.join(root, 'risk')}},
     require(id) {
       if (id === './src/server/decision-evidence-runtime') return {...serverRequire(id), createDecisionEvidenceRuntime(value) {
         options = value; factoryCalls++; return runtime;
       }};
+      // Exercise the real unified risk runtime and the production factory;
+      // only replace its wall clock so every original quote has one timeline.
+      if (id === './src/server/risk-workbench-runtime') return {...serverRequire(id), createRiskWorkbenchRuntime(value) {
+        return serverRequire(id).createRiskWorkbenchRuntime({...value, clock: () => now});
+      }};
+      if (id === './src/core/research-risk-center') return {readResearchRiskCenter: () => ({})};
       if (id === './src/server/research-workspace-job') return {async runWorkspaceJob(value) {
         calls.archive.push(value); return {ok: true, state: {plans: [plan]}};
       }};
@@ -70,6 +84,7 @@ async function setup() {
     _paperAuthority: {pool: {read: () => book}},
     PAPER_CFG: {pool: {maxPos: 5, initial: 10000}}, PAPER: {pool: book.legacy, pre: {positions: {}}},
     newsWarnsCode: () => false, A: {isLimitUp: () => false},
+    decisionCrossChecks: new Map(), dabankeReview: {summary: () => null}, newsEvidenceVisibleState: () => ({}),
     aShareCalendarDate: serverRequire('./src/core/a-share-calendar').aShareCalendarDate,
     S: {lastPx: new Map([[plan.code, {wireQuote: wire, p: wire.price, t: now, quoteAt: wire.quoteAt}]]),
       stocks: [wire], candidatePool: [wire], trendPool: [], ztCodes: new Set(), klines: new Map()}
@@ -84,17 +99,44 @@ async function setup() {
     section('function paperLotOf(code) {', 'function paperBuy('),
     section('function limitPctOfCode(code, name) {', '// 卖出巡检：止盈/收益联动止损'),
     section('function latestResearchClose(){', 'const shortlineCalendarLoadedAt='),
+    section('let _riskWorkbenchRuntime=null;', 'let _decisionFeedbackRuntime='),
     section('function centerEvidenceRuntime(){', 'function manualResearchLedgerDir()')
   ].join('\n'), context, {filename: 'production-decision-evidence-contract.js'});
   assert.equal(context.centerEvidenceRuntime(), runtime);
-  return {context, options, plan, card, wire, book, calls, store, initialNow,
+  async function commitObservation() {
+    const input = await options.readContext([plan]), current = options.session(input.now);
+    const observed = options.observe({...input, plans: [plan], day: current.day, continuous: current.continuous});
+    assert.deepEqual(observed.rejected, []);
+    const committed = await store.append({records: observed.records, alerts: observed.alerts, now: input.now});
+    assert.equal(committed.alerts.length, 1, 'the original observer must commit a fresh trigger before dispatch');
+    return committed.alerts[0];
+  }
+  function refreshQuote(price = wire.price) {
+    Object.assign(wire, {price, quoteAt: now, receivedAt: now, tradeDate: context.aShareCalendarDate(now)});
+    Object.assign(context.S.lastPx.get(plan.code), {p: price, t: now, quoteAt: now});
+  }
+  function purchase() {
+    const quote = context.paperAuthorityQuotes()[plan.code], legacy = structuredClone(authority.legacy());
+    const trade = {t: now, side: '买入', code: plan.code, name: plan.name, price: 10, shares: 100, amount: 1000,
+      fee: 5, reason: '作战台计划[' + plan.id + '] 原账户风控'};
+    legacy.cash -= 1005;
+    legacy.positions[plan.code] = {code: plan.code, name: plan.name, shares: 100, buyPrice: 10,
+      buyTs: now, basis: 1005};
+    legacy.trades.unshift(trade);
+    authority.saveLegacy(legacy, authority.read().revision, {action: 'buy', quotes: {[plan.code]: quote}});
+    Object.assign(book, authority.read()); context.PAPER.pool = book.legacy;
+    now++; refreshQuote();
+    return book.account.events.at(-1);
+  }
+  return {context, options, plan, card, wire, book, calls, store, initialNow, authorityFile,
+    commitObservation, refreshQuote, purchase, riskRuntime: () => context.riskWorkbenchRuntime(),
     now: () => now, factoryCalls: () => factoryCalls,
     set(value) { if (value.now !== undefined) now = value.now; if (value.replica !== undefined) replica = value.replica;
       if (value.enabled !== undefined) enabled = value.enabled; if (value.configured !== undefined) configured = value.configured; }};
 }
 
-test('production YYYYMMDD market session is normalized before reaching the core, preserving original continuous and primary gates', async () => {
-  const x = await setup(), {options, context} = x;
+test('production YYYYMMDD market session is normalized before reaching the core, preserving original continuous and primary gates', async t => {
+  const x = await setup(t), {options, context} = x;
   assert.equal(context.marketDisplaySession(x.now()).day, '20261125');
   assert.equal(options.session(x.now()).day, day); assert.equal(options.session(x.now()).continuous, true);
   assert.equal(options.isPrimary(), true); x.set({replica: true}); assert.equal(options.isPrimary(), false);
@@ -109,8 +151,8 @@ test('production YYYYMMDD market session is normalized before reaching the core,
   assert.equal(context.centerEvidenceRuntime(), context.centerEvidenceRuntime()); assert.equal(x.factoryCalls(), 1);
 });
 
-test('production observer delegates history to the single bounded background collector', async () => {
-  const x = await setup();
+test('production observer delegates history to the single bounded background collector', async t => {
+  const x = await setup(t);
   assert.equal(x.options.historyDay,undefined);assert.equal(x.options.historySymbols,undefined);assert.equal(x.options.collectHistory,undefined);
   assert.equal((source.match(/decisionBackground\(\)\.tick\(\)/g)||[]).length,1);
   assert.doesNotMatch(source,/centerEvidenceRuntime\(\)\.tickHistory\(/);
@@ -120,8 +162,8 @@ test('production observer delegates history to the single bounded background col
   assert.equal(x.calls.history.length,0);
 });
 
-test('real server readContext shares its post-await clock with original quote evidence, entry/exit checks and the real observer', async () => {
-  const x = await setup(), before = JSON.stringify({book: x.book, plan: x.plan, wire: x.wire});
+test('real server readContext shares its post-await clock with original quote evidence, entry/exit checks and the real observer', async t => {
+  const x = await setup(t), before = JSON.stringify({book: x.book, plan: x.plan, wire: x.wire});
   const context = await x.options.readContext([x.plan]);
   assert.equal(context.now, x.initialNow + 8); assert.equal(context.now, x.now());
   assert.equal(x.calls.rules, 1); assert.equal(x.calls.decisions, 1);
@@ -143,8 +185,8 @@ test('real server readContext shares its post-await clock with original quote ev
   assert.equal(JSON.stringify({book: x.book, plan: x.plan, wire: x.wire}), before);
 });
 
-test('production exit receipts retain paused-account and original limit-down exclusions instead of certifying a window', async () => {
-  const x = await setup(); x.book.legacy.enabled = false;
+test('production exit receipts retain paused-account and original limit-down exclusions instead of certifying a window', async t => {
+  const x = await setup(t); x.book.legacy.enabled = false;
   let context = await x.options.readContext([x.plan]);
   assert.equal(context.exitEligibilityByPlan[x.plan.id].allowed, false); assert.match(context.exitEligibilityByPlan[x.plan.id].reason, /暂停/);
   x.book.legacy.enabled = true; x.wire.price = 9;
@@ -155,8 +197,8 @@ test('production exit receipts retain paused-account and original limit-down exc
   assert.equal(context.entryEligibilityByPlan[x.plan.id].allowed, false);
 });
 
-test('production readContext prechecks only today or the historical plan bound to a currently held original purchase lot', async () => {
-  const x = await setup();
+test('production readContext prechecks only today or the historical plan bound to a currently held original purchase lot', async t => {
+  const x = await setup(t);
   const oldDay = '2026-11-24';
   const oldPlan = (number, code = '600001') => {
     const card = {...x.card, code, day: oldDay, calculatedAt: at(oldDay, '09:29:30'), strategyAt: at(oldDay, '09:29:00')};
@@ -183,59 +225,69 @@ test('production readContext prechecks only today or the historical plan bound t
   assert.deepEqual(Object.keys(context.exitEligibilityByPlan), [x.plan.id]);
 });
 
-test('queued production alerts recheck enablement, original quote age, session, date and primary status before delivery', async () => {
-  const x = await setup(); x.set({configured: true});
-  const alert = {id: 'c'.repeat(64), kind: 'entry', day, code: '600000', price: 10, source: 'tencent',
-    quoteAt: x.wire.quoteAt, reason: '原始报价条件'};
-  assert.equal(x.options.sendPrivate(alert), true);
+test('queued production alerts recheck enablement, original quote age, session, date and primary status before delivery', async t => {
+  const x = await setup(t); x.set({configured: true});
+  const alert = await x.commitObservation();
+  assert.equal(await x.options.sendPrivate(alert), true);
   const queued = x.calls.push.at(-1)[2];
   assert.equal(typeof queued.beforeSend, 'function'); assert.equal(queued.beforeSend().ok, true);
-  for (const patch of [{enabled: false}, {replica: true}, {configured: false}, {now: alert.quoteAt + 15001}]) {
-    x.set({now: x.initialNow, enabled: true, replica: false, configured: true}); x.set(patch);
+  const dispatchAt = x.now();
+  for (const patch of [{enabled: false}, {replica: true}, {configured: false}, {now: alert.quoteAt + 15001},
+    {now: at('2026-11-26', '10:00:00')}]) {
+    x.set({now: dispatchAt, enabled: true, replica: false, configured: true}); x.set(patch);
     assert.equal(queued.beforeSend().ok, false); const count = x.calls.push.length;
-    assert.equal(x.options.sendPrivate(alert), false); assert.equal(x.calls.push.length, count);
+    assert.equal(await x.options.sendPrivate(alert), false); assert.equal(x.calls.push.length, count);
   }
-  x.set({now: x.initialNow, enabled: true, replica: false, configured: true});
-  alert.day = '2026-11-24'; assert.equal(queued.beforeSend().ok, false); alert.day = day;
-  alert.quoteAt = x.initialNow + 1; assert.equal(queued.beforeSend().ok, false);
-  x.set({now: at(day, '11:29:59')}); alert.quoteAt = x.now();
-  assert.equal(x.options.sendPrivate(alert), true);
-  const beforeLunch = x.calls.push.at(-1)[2].beforeSend;
-  x.set({now: at(day, '11:30:00')});
-  assert.equal(x.now() - alert.quoteAt, 1000); assert.equal(beforeLunch().ok, false);
+  x.set({now: dispatchAt, enabled: true, replica: false, configured: true});
+  // Frozen queued evidence does not trust a caller-mutated alert object.
+  assert.equal(await x.options.sendPrivate({...alert, day: '2026-11-24'}), false);
+  assert.equal(await x.options.sendPrivate({...alert, quoteAt: dispatchAt + 1}), false);
+  assert.equal(x.calls.push.length, 1);
+  const lunch = await setup(t); lunch.set({configured: true, now: at(day, '11:29:59')}); lunch.refreshQuote();
+  const lunchAlert = await lunch.commitObservation();
+  assert.equal(await lunch.options.sendPrivate(lunchAlert), true);
+  const beforeLunch = lunch.calls.push.at(-1)[2].beforeSend;
+  assert.equal(beforeLunch().ok, true); lunch.set({now: at(day, '11:30:00')});
+  assert.equal(lunch.now() - lunchAlert.quoteAt, 1000); assert.equal(beforeLunch().ok, false);
 });
 
-test('production holding-risk classification requires a stop or target alert tied to an actual entry event', async () => {
-  const x = await setup(); x.set({configured: true});
-  for (const [kind, entryEventId, holdingRisk] of [['entry', null, false], ['entry', 'buy-event', false],
-    ['stop', null, false], ['target', null, false], ['stop', 'buy-event', true], ['target', 'buy-event', true]]) {
-    const alert = {id: 'd'.repeat(64), kind, entryEventId, day, code: '600000', name: '隔离测试',
-      price: 10, quoteAt: x.wire.quoteAt, source: 'tencent', reason: '冻结计划触发'};
-    assert.equal(x.options.sendPrivate(alert), true);
+test('production holding-risk classification requires a committed stop or target tied to the actual authoritative entry', async t => {
+  for (const kind of ['entry', 'stop', 'target']) {
+    const x = await setup(t); x.set({configured: true});
+    const entry = kind === 'entry' ? null : x.purchase();
+    x.refreshQuote(kind === 'stop' ? 9.3 : kind === 'target' ? 10.9 : 10);
+    const alert = await x.commitObservation(), holdingRisk = kind !== 'entry';
+    assert.equal(alert.kind, kind); assert.equal(alert.entryEventId, entry?.eventId || null);
+    // A caller cannot manufacture the old holding-risk quota exemption.
+    assert.equal(await x.options.sendPrivate({...alert, entryEventId: holdingRisk ? null : 'forged-buy-event'}), false);
+    assert.equal(x.calls.push.length, 0);
+    const before = fs.readFileSync(x.authorityFile, 'utf8');
+    assert.equal(await x.options.sendPrivate(alert), true);
     const [message, force, delivery] = x.calls.push.at(-1);
     assert.equal(message.split('\n')[0], holdingRisk ? '═══ 持仓风控·计划条件观察 ═══' : '═══ 计划条件观察 ═══');
     assert.equal(force, false); assert.equal(delivery.private, true); assert.equal(delivery.sseEdit, true);
     assert.equal(delivery.signalRefs[0].type, 'plan-' + kind);
+    assert.equal(delivery.signalRefs[0].signalId, alert.id);
+    assert.equal(fs.readFileSync(x.authorityFile, 'utf8'), before);
     const gate = {todayStr: () => '20261125', envCold: () => false, _govCfg: () => 0};
     vm.createContext(gate);
     vm.runInContext(section('const MSG_CAP = ', '// ⛔⛔ 返回值语义'), gate, {filename: 'production-message-quota-contract.js'});
+    gate.msgGate('═══ 普通信息 ═══', false); // Consume the unchanged one-message bucket.
     assert.equal(gate.msgGate(message, false).kind, holdingRisk ? '日报' : '其它');
     assert.equal(gate.msgGate(message, false).ok, holdingRisk); // Only actual holding alerts bypass the existing one-message bucket.
   }
 });
 
-test('actual factory binds private research, delegates history and keeps notifications on original primary private channel', async () => {
-  const x = await setup(); assert.equal(x.options.store, x.store);
+test('actual factory binds private research, delegates history and keeps notifications on original primary private channel', async t => {
+  const x = await setup(t); assert.equal(x.options.store, x.store);
   await x.options.readArchive();
   assert.equal(x.calls.archive[0].action, 'shortline'); assert.equal(x.calls.archive[0].book, 'main');
   assert.equal(x.calls.archive[0].root, '/private-fixture/shortline-research'); assert.equal(x.calls.archive[0].replica, false);
   assert.equal(x.options.collectHistory,undefined);assert.equal(x.calls.history.length,0);
-  x.set({replica: true});
-  const alert = {id: 'trigger-id', kind: 'entry', day, code: '600000', name: '隔离测试', price: 10, source: 'tencent',
-    quoteAt: x.wire.quoteAt, reason: '真实原始时点'};
-  x.set({configured: true}); assert.equal(x.options.sendPrivate(alert), false); assert.equal(x.calls.push.length, 0);
-  x.set({replica: false, configured: false}); assert.equal(x.options.sendPrivate(alert), false);
-  x.set({configured: true}); assert.equal(x.options.sendPrivate(alert), true);
+  const alert = await x.commitObservation();
+  x.set({replica: true, configured: true}); assert.equal(await x.options.sendPrivate(alert), false); assert.equal(x.calls.push.length, 0);
+  x.set({replica: false, configured: false}); assert.equal(await x.options.sendPrivate(alert), false);
+  x.set({configured: true}); assert.equal(await x.options.sendPrivate(alert), true);
   const [message, force, delivery] = x.calls.push[0];
   assert.equal(force, false); assert.equal(delivery.private, true); assert.equal(delivery.sseEdit, true);
   assert.equal(delivery.signalRefs[0].ts, x.wire.quoteAt); assert.equal(delivery.signalRefs[0].signalId, alert.id);
@@ -282,17 +334,30 @@ function privatePushHarness({requiresNewsReview = false} = {}) {
   return {context, queued, checks, logs, releases: () => releases, setNews: value => { newsAllowed = value; }};
 }
 
-test('real factory hook survives actual pushAll composition and reaches the private queue with a live validity check', async () => {
-  const x = await setup(), push = privatePushHarness();
+test('real factory hook survives actual pushAll composition and reaches the private queue with live validity and truthful receipt evidence', async t => {
+  const x = await setup(t), push = privatePushHarness();
   x.context.pushAll = push.context.pushAll; x.set({configured: true});
-  const alert = {id: 'e'.repeat(64), kind: 'stop', entryEventId: 'original-buy-event', day, code: '600000',
-    price: 9, source: 'tencent', quoteAt: x.wire.quoteAt, reason: '止损价触及'};
-  assert.equal(x.options.sendPrivate(alert), true); assert.equal(push.queued.length, 1);
+  x.purchase(); x.refreshQuote(9.3); const alert = await x.commitObservation();
+  const before = fs.readFileSync(x.authorityFile, 'utf8');
+  assert.equal(await x.options.sendPrivate(alert), true); assert.equal(push.queued.length, 1);
   const passed = push.queued[0].options;
   assert.equal(passed.private, true); assert.equal(passed.sseEdit, true); assert.equal(passed.beforeSend().ok, true);
   assert.equal(passed.signalRefs[0].signalId, alert.id); assert.equal(passed.signalRefs[0].ts, alert.quoteAt);
-  x.set({enabled: false}); assert.equal(passed.beforeSend().ok, false);
-  await Promise.resolve();
+  push.queued[0].callback(true, 'ok'); await Promise.resolve();
+  const report = await x.riskRuntime().read({accountId: 'pool'});
+  const group = report.alerts.groups.find(row => row.rootCauseId.endsWith('/stop'));
+  assert.equal(group.notification.status, 'gateway-accepted'); assert.equal(group.notification.receiverConfirmed, false);
+  assert.equal(await x.options.sendPrivate(alert), false); assert.equal(push.queued.length, 1);
+  assert.equal(fs.readFileSync(x.authorityFile, 'utf8'), before);
+  const denied = await setup(t), stopped = privatePushHarness();
+  denied.context.pushAll = stopped.context.pushAll; denied.set({configured: true});
+  const blockedAlert = await denied.commitObservation();
+  assert.equal(await denied.options.sendPrivate(blockedAlert), true);
+  denied.set({enabled: false}); assert.equal(stopped.queued[0].options.beforeSend().ok, false);
+  stopped.queued[0].callback(false, '私密消息出队条件已失效'); await Promise.resolve();
+  const blocked = await denied.riskRuntime().read({accountId: 'pool'});
+  assert.equal(blocked.alerts.groups.find(row => row.rootCauseId.endsWith('/entry')).notification.status, 'gateway-rejected');
+  assert.equal(stopped.releases(), 1);
 });
 
 test('actual pushAll preserves original news rejection before the caller hook, both at enqueue and queue retry', async () => {

@@ -1,0 +1,742 @@
+{
+  "schemaVersion": 1,
+  "checkedAtUtc": "2026-11-25T17:50:15Z",
+  "handoffTo": "绯曜 FAYO｜总管与最终交付",
+  "baseline": "b9b44474be7fd27732e37d868ed64dbfddd3e8e9",
+  "scope": "第四完整清单实施细则→原78任务；不新增任务编号；新总管统一总表、最终集成、合并和验收",
+  "responsibilityNote": "各模块仍沿原负责人。R/G/W/A/I/D为既有证据组标记，不重新任命具体人员。67仅已证标题；68—78保持未知。",
+  "latestPrSnapshots": [
+    {
+      "pr": 353,
+      "branch": "feat/fayo-research-governance-20261126",
+      "head": "c3c26519b005db219265c5b9b5718d8d053d8928",
+      "tasks": "07/08/09/10/12/13/21/24/25/26/28",
+      "change": "新增概率持久档案/可信来源、完整计划分母与模型收口；研究风险缓存24h未知/过期边界",
+      "tests": "本组文档报告全量5049/5045通过/0失败/4跳过；非本子任务重跑，新head CI另核",
+      "doc": "docs/FAYO_RESEARCH_GOVERNANCE_20261126.md"
+    },
+    {
+      "pr": 356,
+      "branch": "feat/fayo-advanced-safety-20261126",
+      "head": "fd3caeeef55b1cad63be14764a47e11a695c0b2e",
+      "tasks": "37/38/39/40/41/42/48/49/50/51/52/53/54/55/56/57/58",
+      "change": "原账户防御/对账/期初证据、数据原始字节与修订/隔离、原worker/双端/备份恢复CLI接线",
+      "tests": "新文档首次全量5070/5061通过/5失败/4跳过，失败后专项修复通过；文档明确等待精确head全量CI，不写新head全绿",
+      "doc": "docs/FAYO_ADVANCED_SAFETY_RUNTIME_20261126.md"
+    },
+    {
+      "pr": 357,
+      "branch": "feat/fayo-intelligence-evolution-20261126",
+      "head": "9a1132264a191091ea526cba698177f2b5d0c703",
+      "tasks": "31/32/33/34/35/36/43/44/45/46/47/59/60/61/62/63/64/65/66",
+      "change": "原增强固定head未变化；warmup测试失败由#360依赖补丁修正",
+      "tests": "固定head CI原失败保留；#360测试修正单独通过不等于本组全任务验收",
+      "doc": "docs/FAYO_INTELLIGENCE_EVOLUTION_20261126.md"
+    },
+    {
+      "pr": 358,
+      "branch": "feat/fayo-evidence-workbench-20261126-complete",
+      "head": "1c5675e70fc48c1666894b5e17c6d6961660ba16",
+      "tasks": "11/15/16/17/19/27",
+      "change": "在途beforeCommit授权握手、回放来源/版本、纪律原结算身份、标题伪加分边界；完整继承旧#358/#355",
+      "tests": "本组文档报告全量5045/5041通过/0失败/4跳过，隔离服务/双端浏览器；新head CI另核",
+      "doc": "docs/FAYO_EVIDENCE_WORKBENCH_20261126.md"
+    },
+    {
+      "pr": 359,
+      "branch": "feat/fayo-risk-center-20261126",
+      "head": "86a5bf4787f2b5a1746fffc11b9a60a06b5e387f",
+      "tasks": "01/02/03/04/05/14/30",
+      "change": "统一风险工作台固定head未变化；另有本聊天风险状态依赖补丁开发",
+      "tests": "原UI版本断言失败保留；不可只重跑掩盖实际版本冲突",
+      "doc": "docs/FAYO_RISK_INTEGRATION_CONTRACT_20261126.md"
+    },
+    {
+      "pr": 360,
+      "branch": "fix/fayo-warmup-fixture-20261126",
+      "head": "aecebd190075269cb5af588afc9ace4819954558",
+      "tasks": "44（43相关验证）",
+      "change": "仅修夹具，保留相同递归种子应pass反例，生产算法未改；base为#357分支",
+      "tests": "42专项/0失败；npmcheck通过；已取得该head push/PR CI成功；未合入#357",
+      "doc": "docs/FAYO_WARMUP_FIXTURE_20261126.md"
+    },
+    {
+      "pr": 361,
+      "branch": "audit/fayo-risk-integration-20261126",
+      "head": "5ea32ac70a753ecf6880757630d219c05c2417df",
+      "tasks": "02/04/05/20/22/30/49/50/55/57；全78固定审查",
+      "change": "原始报价自动提交15秒复核、提醒严重身份/不确定回执、真实workflow门禁、78附表",
+      "tests": "工作树全量5027/5026通过/0失败/1 PowerShell跳过；完整服务/双端8场景6视口；精确head CI另核",
+      "doc": "docs/FAYO_SUPPLEMENT_REVIEW_20261126.md"
+    },
+    {
+      "pr": 362,
+      "branch": "fix/fayo-source-truth-audit-20261126",
+      "head": "a72f953c93e25a8a26ac784ecd7b68eaa7d71465",
+      "tasks": "18/20/22/23/29/43/51/53/54相关",
+      "change": "AKShare新接口优先/显式旧版兼容、来源身份修正、120原+2候选逐阶段只读审计，未启用新增源",
+      "tests": "冻结runtime全量5009/5008通过/0失败/1 PowerShell跳过；之后仅文档及原120ID保留断言，lineage10/10重验。正式证据V6_BO/docs/validation/source-truth-20261126/verification.json含afterRegression/新hash；精确PR CI另验，真实源未请求",
+      "doc": "V6_BO/docs/SOURCE_TRUTH_REVIEW_20261126.md"
+    }
+  ],
+  "requirements": [
+    {
+      "section": "1",
+      "requirement": "现状、复用与分阶段总表",
+      "originalTasks": "01—78（固定分母）",
+      "owners": "全体原负责人；新总管统一维护",
+      "observed": "78项固定证据附表已在#361；01—66职责可证、67标题可证、68—78原文未取得",
+      "limit": "本组仅交接，不生成第二份动态总表；旧head结果不得套新head",
+      "next": "取得67—78原交付证据；逐项代码/测试/合入/接通/连续运行独立登记",
+      "status": "partial-evidence",
+      "prs": "#361；全部原PR",
+      "stage": {
+        "code": "partial-evidence",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "2",
+      "requirement": "成熟项目具体源码与调用链",
+      "originalTasks": "18/20/22/23/25/26/29/43/44/51/52/54",
+      "owners": "D/A/I/G原任务组",
+      "observed": "已冻结6官方repo提交、10实际源码和12许可/依赖文件，另核官方XtData接口；详见成熟源码表",
+      "limit": "全部为只读研究；未安装、未取得账号或真实行情。XtData官方SDK源代码commit未知",
+      "next": "先权利/字段/时间合同再最小适配；Qlib PIT估算日不作为可知；FinRL旧AK名须锁版本",
+      "status": "research-complete-live-unknown",
+      "prs": "#362来源兼容；各原组研究",
+      "stage": {
+        "code": "research-complete-live-unknown",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.1",
+      "requirement": "来源身份与统一量价合同",
+      "originalTasks": "18/20/22/23/51/52/53",
+      "owners": "D/A原任务组",
+      "observed": "原统一行情/来源谱系；#362新增分阶段核查、修正版证据URL与AK新名兼容；#356新head时点/修订/历史主数据接线",
+      "limit": "120原路线与新增2候选是登记数；不是122可用或独立源；当前活源覆盖未认证",
+      "next": "逐记录证券/交易所/时区/交易日/周期/单位/复权/发布者与传输路径；源文与接收时间分存",
+      "status": "partial-code",
+      "prs": "#356/#362",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.2",
+      "requirement": "零、缺失、停牌、失败与HTTP200旧内容",
+      "originalTasks": "06/22/23/53",
+      "owners": "D/A原任务组",
+      "observed": "原报价门禁；#356原始字节隔离/审核重放；#361提交前15秒门禁",
+      "limit": "已有异常合同不代表所有供应商解析分支覆盖；HTTP成功不能算内容有效",
+      "next": "固定源版本检查原始字段/时间/错误类型；失败或冲突保留原值时间和原因",
+      "status": "partial-code",
+      "prs": "#356/#361/#362",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.3",
+      "requirement": "分钟起止、累计/区间与K线闭合",
+      "originalTasks": "22/23/33/43/44/51",
+      "owners": "D/I/A原任务组",
+      "observed": "已有时点审计、闭合研究；外部源码已确认vn.py/BaoStock有bar终点转起点，Qlib有标准化",
+      "limit": "历史bar时间不满足当前报价；所有周期/供应商统一合同尚未逐条认证",
+      "next": "分钟起止及closed显式；禁止重复平移；未闭合疑似、日高低路径不明保留未知",
+      "status": "partial-evidence",
+      "prs": "#357/#360/#356/#362",
+      "stage": {
+        "code": "partial-evidence",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.4",
+      "requirement": "逐票15秒与局部备用、历史用途时效",
+      "originalTasks": "02/04/20/22/23/29/53/60",
+      "owners": "R/D/A/I原任务组",
+      "observed": "#361权威自动成交持锁及最终写前原始报价15秒检查；#362备用适配元数据/用途核查",
+      "limit": "实际逐票覆盖与局部备用实网运行未知；历史接口不能因取回快成为现价",
+      "next": "同交易日逐票时间；只对适用失效对象切换；历史数据按周期与可知合同评价",
+      "status": "partial-code",
+      "prs": "#361/#362/#356",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.5",
+      "requirement": "上游去重、信息独立性、对齐后冲突",
+      "originalTasks": "14/22/23/24/29/53",
+      "owners": "R/D/G/A原任务组",
+      "observed": "14候选官方调查与原120路线去重；Qlib中国基准也走Eastmoney；#362区分发布者/包装工具",
+      "limit": "不能把工具数当独立证据；传输备用不自动增加信息独立性",
+      "next": "复权/单位/时点/标的对齐后判冲突，记录候选原值；不平均冲突掩盖异常",
+      "status": "partial-code",
+      "prs": "#362/#356",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "3.6",
+      "requirement": "有界请求、重连、乱序、字段变更与脱敏",
+      "originalTasks": "06/20/22/29/48/50/53/54/55/57",
+      "owners": "D/A原任务组",
+      "observed": "原采集/worker/预算可复用；#356单worker8秒等局部预算；官方源码提示无界月份回退不可迁入",
+      "limit": "全部通道断线恢复/订阅恢复/乱序/HTTP200旧内容/脱敏组合仍待最终实测",
+      "next": "每源限速、最大重试与退避、连接与订阅状态；恢复重验原时点和权限；日志无秘密",
+      "status": "partial-unverified",
+      "prs": "#356/#362；原数据链",
+      "stage": {
+        "code": "partial-unverified",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.1",
+      "requirement": "实际分支保护与缺失检查",
+      "originalTasks": "20/50/55/57",
+      "owners": "D/A原任务组；新总管管理配置",
+      "observed": "#361候选ruleset补visual-geometry，去路径过滤并用真实检查审计脚本；远端protected=false/rulesets空及传统保护403已记录",
+      "limit": "仓库JSON active不是远端已激活；管理配置未改，无法以403独断所有有效规则",
+      "next": "新总管核全部有效规则/绕过权限和故意失败实际阻断；缺check不得绿",
+      "status": "partial-code-external-config",
+      "prs": "#361",
+      "stage": {
+        "code": "partial-code-external-config",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.2",
+      "requirement": "consumer/provider兼容与负向契约",
+      "originalTasks": "20/22/49/50/53/55",
+      "owners": "D/A原任务组",
+      "observed": "#356账户/门禁/数据增量；#358 optional beforeCommit兼容；#362 AK新旧版显式兼容",
+      "limit": "旧/新枚举、缺字段、权限、旧价的跨组最终组合未认证",
+      "next": "精确最终SHA验证旧consumer+新provider、新consumer缺字段/未知枚举/撤权/旧价；保持fail-closed",
+      "status": "partial-code",
+      "prs": "#356/#358/#361/#362",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.3",
+      "requirement": "有限变异测试",
+      "originalTasks": "22/43/49/50",
+      "owners": "D/I/A原任务组；本聊天补丁",
+      "observed": "quality独立worktree只做4个in-memory变异：旧价/只读HTTP越权/幂等/现金；不改生产算法",
+      "limit": "17专项结果由父代理提供；具体变异kill结果与修订待最终PR证据；不是全面变异覆盖",
+      "next": "逐mutant记录killed/survived/equivalent/inconclusive、原测试与缺陷敏感度；不得弱化断言",
+      "status": "partial-local-code",
+      "prs": "fix/fayo-product-quality-20261126（依赖#361）",
+      "stage": {
+        "code": "partial-local-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.4",
+      "requirement": "固定种子组合故障与重放缩减",
+      "originalTasks": "04/22/43/49/50/53/57/60/66",
+      "owners": "R/D/I/A原任务组",
+      "observed": "原锁/重启/权限测试及#356并发防御、#358在途授权可复用",
+      "limit": "五种指定组合及失败缩减/重放本轮未认证完整实现，不把单故障测试相加",
+      "next": "断网+撤权、旧价+高分、重启+重复、部分成交+撤单、迟到+切股；固定seed保留最小失败序列",
+      "status": "partial-unverified",
+      "prs": "#356/#358/#361/#357",
+      "stage": {
+        "code": "partial-unverified",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.5",
+      "requirement": "只读一键八模块自检",
+      "originalTasks": "06/48/49/50/53/54/55/57",
+      "owners": "D/A原任务组",
+      "observed": "已有readiness/服务状态/原风险；#356只读advanced报告与备份preflight",
+      "limit": "本聊天七维CLI不是线上health或八模块自检；完整五状态聚合未验",
+      "next": "normal/degraded/fault/unconfigured/unchecked分列；关键失败不得整体健康；GET无写无外发",
+      "status": "partial-unverified",
+      "prs": "#356；原06运行链",
+      "stage": {
+        "code": "partial-unverified",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.6",
+      "requirement": "显式偏好与推测分开，可看改删",
+      "originalTasks": "16/19/35/50/66",
+      "owners": "W/I/A原任务组",
+      "observed": "#358私有CAS模板、本人日志、授权握手可复用",
+      "limit": "模板不等于全套偏好管理；explicit/inferred及删除传播未完整认证",
+      "next": "用户隔离与版本/来源；只影响研究显示，原风控不可被偏好放宽",
+      "status": "partial-reuse",
+      "prs": "#358/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.7",
+      "requirement": "前后判断变化与可比原因",
+      "originalTasks": "11/18/34/35/45/51/60/65",
+      "owners": "W/D/I/A原任务组",
+      "observed": "#358新闻/日报快照/规则解释、#356原始可用时间，原计划/信号档案",
+      "limit": "未认证统一判断变化首页与所有触发原因；不同口径不能强算变化",
+      "next": "前后decisionID/时间/证据/数据+策略版本，标行情/补数/持仓/规则/人工；不同比较合同=不可比",
+      "status": "partial-reuse",
+      "prs": "#358/#356/#357/#359",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.8",
+      "requirement": "无候选、图缺、计划阻止与账户失败的原因",
+      "originalTasks": "04/06/16/17/22/34/39/53/66",
+      "owners": "R/D/W/I/A原任务组",
+      "observed": "#358候选池范围/解释缺失，#356退出限制/缺目录不创建，#359风险动作",
+      "limit": "全主页空/缺/过期/失败在最终双端尚未完整认证",
+      "next": "账户失败不能显示空仓；每种缺失给影响范围、允许降级动作与恢复/重新评估条件",
+      "status": "partial-code",
+      "prs": "#356/#358/#359",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.9",
+      "requirement": "弱网只读快照、重连重验与超时先查",
+      "originalTasks": "04/22/49/50/55/57/60/66",
+      "owners": "R/D/A/I原任务组",
+      "observed": "原幂等/权限/缓存；#358编辑使旧结果失效、晚到解释回退；#356陈旧私有响应拒绝",
+      "limit": "离线交易不排队、全部登出撤权私缓存清除、网络不确定先查后重试未全链认证",
+      "next": "快照注明原日期且只读；乱序拒绝；重连核身份/设备/报价/账户；提交结果不确定先查询原事件",
+      "status": "partial-reuse",
+      "prs": "#356/#358/#361/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "4.10",
+      "requirement": "隔离压力与恢复演练",
+      "originalTasks": "10/14/26/39/40/43/49/50/56/57",
+      "owners": "G/R/I/A原任务组",
+      "observed": "#356备份/恢复CLI及防御同锁测试，#359固定压力情景，原模拟链可复用",
+      "limit": "隔离小账户演练不是生产RPO/RTO或真实策略实绩",
+      "next": "独立账户/账本/时钟/凭据/通知；跌市退潮跌停停牌断流旧价重复恢复失败逐项留痕",
+      "status": "partial-code",
+      "prs": "#356/#359/#353",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "5",
+      "requirement": "首页六区与双端同源",
+      "originalTasks": "01/03/04/06/14/16/30/34/35/50/55/66",
+      "owners": "R/D/W/I/A原任务组",
+      "observed": "原粉紫同源UI；#359风险卡、#356advanced-risk-view、#358证据组件与跨端模板",
+      "limit": "各组局部浏览器≠最终六区已整合；本聊天qualityCLI不新增首页",
+      "next": "市场/风险/持仓/机会/判断变化/健康统一顶栏状态+数据时点；文字图标并用；研究与许可分开",
+      "status": "partial-integration",
+      "prs": "#353/#356/#357/#358/#359",
+      "stage": {
+        "code": "partial-integration",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "6.1",
+      "requirement": "投资记忆",
+      "originalTasks": "16/19/35/45/50/51/66",
+      "owners": "W/I/A原任务组",
+      "observed": "原本人日志、冻结计划与#358私有CAS可复用",
+      "limit": "五类记忆的完整读改删/用户隔离本轮未认证，不新建第二账本",
+      "next": "每条来源/时间/范围/版本/失效；explicit/observed/inferred/validated；研究偏好不改账户",
+      "status": "partial-reuse",
+      "prs": "#358/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "6.2",
+      "requirement": "错误记忆",
+      "originalTasks": "19/43/45/49/50/51/64",
+      "owners": "W/I/A原任务组",
+      "observed": "#358原结算纪律追踪及版本引用；原缺陷记录可复用",
+      "limit": "亏损不能自动归错误；跨版本复发闭环与删除政策需证据",
+      "next": "错误类型、反例、修复版、复发关联和后续观察；不删除权威成交和审计",
+      "status": "partial-reuse",
+      "prs": "#358/#356/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "6.3",
+      "requirement": "成功记忆",
+      "originalTasks": "19/25/28/35/45/50/51/63/64",
+      "owners": "W/G/I/A原任务组",
+      "observed": "原结算/样本成熟与#353固定试验存证",
+      "limit": "不能只保留成功或把未经独立验证经验升为规则",
+      "next": "成功范围/失败试验/基线与干预同存；候选规则回到原验证批准",
+      "status": "partial-reuse",
+      "prs": "#353/#358/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "6.4",
+      "requirement": "风险习惯记忆",
+      "originalTasks": "01/02/04/19/35/45/50/51/66",
+      "owners": "R/W/I/A原任务组",
+      "observed": "原风险事件/本人日志可引用",
+      "limit": "习惯推测不是用户明确授权，更不能放宽硬门禁",
+      "next": "行为证据/推测等级/用户更正删除；原资金、授权和退出限制始终独立",
+      "status": "partial-reuse",
+      "prs": "#359/#358/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "6.5",
+      "requirement": "个性解释记忆",
+      "originalTasks": "16/17/19/21/35/50/64/66",
+      "owners": "W/G/I/A原任务组",
+      "observed": "#358五问引用与可选模型；#353概率语义治理",
+      "limit": "个性化内容与引用质量、隐私及删除传播未整体认证",
+      "next": "只影响研究解释；不可编造因果、概率或交易许可；原模板/解释合同共用",
+      "status": "partial-reuse",
+      "prs": "#358/#353/#357",
+      "stage": {
+        "code": "partial-reuse",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "7",
+      "requirement": "七维质量合同、覆盖与未知",
+      "originalTasks": "06/07/08/12/13/17/19/21/22/23/25/26/28/43/48/49/50/51/55/56/57/63/64/66",
+      "owners": "沿原责任组；新总管固定统一评价范围",
+      "observed": "本聊天quality合同30项/7维及只读CLI；详见七维定义文件；五关键安全项不可NA/放宽",
+      "limit": "只有局部代码/离线验证；真实指标0/30已认证，表示证据未知而非质量0；无综合分",
+      "next": "每项版本/窗口/分子分母/样本/证据hash/预登记阈值；训练调参终验隔离；critical fail独立阻断",
+      "status": "partial-local-code",
+      "prs": "fix/fayo-product-quality-20261126（依赖#361）",
+      "stage": {
+        "code": "partial-local-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "7-coverage",
+      "requirement": "全面性单独保留78项与跨模块双端",
+      "originalTasks": "01—78（固定分母）",
+      "owners": "全体原负责人；新总管",
+      "observed": "本组78行附表与各组PR证据可接入新总管总表",
+      "limit": "01—66职责恢复率不等于完成率；未知68—78不能删除",
+      "next": "列代码、接线、数据、测试、部署、运行各自覆盖；跨模块/双端另维度，不重归一高分",
+      "status": "partial-evidence",
+      "prs": "#361；全部原PR",
+      "stage": {
+        "code": "partial-evidence",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "8.1",
+      "requirement": "保留有效策略、门禁、账本、权限、审计",
+      "originalTasks": "01/02/04/20/22/26/28/29/49/50/55/57/62",
+      "owners": "所有原责任组",
+      "observed": "现有四策略和权威服务继续；各补丁不建立新账户写者",
+      "limit": "最终组合必须再次验证；旧代码回切不理解新defensiveControl是实质兼容风险",
+      "next": "先保全升级后新增流水/证据/通知预留；不能旧账本覆盖或删限制字段恢复写入",
+      "status": "mandatory-regression",
+      "prs": "#356/#361；全部PR",
+      "stage": {
+        "code": "mandatory-regression",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "8.2",
+      "requirement": "停止数量冒质量、伪概率、伪时点与仅成功统计",
+      "originalTasks": "21/22/23/24/25/27/29/30/43/51/53/61/64",
+      "owners": "D/G/W/R/I/A原任务组",
+      "observed": "#353概率语义、#358标题伪加分、#362源身份和阶段分开；源码审计揭示估算时点风险",
+      "limit": "剩余通知/历史渠道/全部sourcePath仍需抽验；不重写历史证据",
+      "next": "去重先依赖/迁移/等价；未知不0，receivedAt不刷新sourceTime，研究框架不算独立上游",
+      "status": "partial-code",
+      "prs": "#353/#358/#362",
+      "stage": {
+        "code": "partial-code",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "8.3",
+      "requirement": "暂缓授权/稳定性/样本/回滚不足内容",
+      "originalTasks": "08/20/23/25/28/43/51/55/56/61/62/67",
+      "owners": "所有原负责人；新总管登记条件",
+      "observed": "TickFlow/AShareAPI仅未启用候选；RQAlpha许可限制、Qlib估算日和真实授权未知已登记",
+      "limit": "不以文档存在或免费广告成为正式链；没有现场连续运行/成熟样本",
+      "next": "逐项owner、暂缓原因、解除条件和复核日期；无需条件的其他开发继续",
+      "status": "conditional",
+      "prs": "#362；各原组",
+      "stage": {
+        "code": "conditional",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    },
+    {
+      "section": "9",
+      "requirement": "依赖推进、完整交接与真实连续运行",
+      "originalTasks": "01—78（固定分母）",
+      "owners": "新总管最终集成/合并/验收；原组对模块证据负责",
+      "observed": "本组独立补丁/源码表/映射/指标草表交接；原组活动PR按最新head审查",
+      "limit": "本聊天不继续第二总管，不进行最终合并/生产发布；未认证5/20/60日",
+      "next": "固定发布SHA和每批依赖/冲突；记录真实启用时间、交易时段、样本、中断、版本变更及恢复负责人",
+      "status": "handoff",
+      "prs": "全部原PR及本组补丁",
+      "stage": {
+        "code": "handoff",
+        "wiring": "仅限observed明确读到的调用；全链见limit",
+        "test": "相应PR精确head/本轮日志分别登记，旧结果不沿用",
+        "merged": "本次dev b9未含所列活动候选",
+        "realData": "未在本子任务认证",
+        "deployment": "未认证",
+        "continuousOperation": "未认证；5/20/60交易日不可提前关闭"
+      }
+    }
+  ],
+  "sharedConflicts": [
+    {
+      "files": "V6_BO/server.js",
+      "prs": "#353/#356/#358/#359",
+      "rule": "按实际调用合并：#353缓存传入所有risk读取；#356异步advanced/双重身份角色检查与readContext原门禁回执；#358worker提交时授权；#359单一observer/唯一sendPlanAlert。不能覆盖整文件。",
+      "acceptance": "HTTP+worker撤权/角色切换、同账户同snapshot、唯一观察/通知及GET无副作用。"
+    },
+    {
+      "files": "paper-application-service.js / paper-account-ledger.js / account-safety-state.js",
+      "prs": "#356/#361",
+      "rule": "#356同一原账户防御/对账与#361自动成交最终15秒门禁叠加；新defensiveControl旧程序不认识，回滚维持限制。",
+      "acceptance": "自动买卖旧价、锁等待、冻结预算、部分成交、审批CAS、重复/重启；现金持仓/成交勾稽。"
+    },
+    {
+      "files": "research-workspace-job.js / research-workspace-store.js / shortline/store.mjs",
+      "prs": "#353/#358",
+      "rule": "保留概率存证来源/预算/收口及optional beforeCommit；授权回调必须抵达实际原子发布前，不只入口检查。",
+      "acceptance": "旧接口兼容、撤权无写、并发CAS、回执前二次校验、封存后改证据失效。"
+    },
+    {
+      "files": "intelligence-research.js / center-history.js / market-data-center.js",
+      "prs": "#353/#356/#362",
+      "rule": "保留availableAt/knownAt/原始字节/版本与来源谱系；研究摘要不能回填旧时点；AK版本/字段兼容保留。",
+      "acceptance": "晚到/修订/损坏/来源去重/旧价HTTP200；供应商未连接保持未知。"
+    },
+    {
+      "files": "index.html / sw.js / market.js / UI workflow / browser scripts",
+      "prs": "#353/#356/#358/#359/#361",
+      "rule": "六区/证据组件/风险卡逐块保留；新总管统一appVer/frontendRevision/SW，版本断言同时更新；#361取消paths过滤仍保留所有组真实浏览器命令。",
+      "acceptance": "精确最终SHA桌面/手机、权限、缓存更新、全部原入口及布局回归；缺脚本不能绿色占位。"
+    },
+    {
+      "files": "HANDOFF.md / DEPLOYMENT.md / docs任务表",
+      "prs": "全部",
+      "rule": "保留各组历史和新约束，以新总管接最终集成；本聊天只维护本次证据交接。",
+      "acceptance": "部署前备份实际私有卷；升级后增量/新防御字段/通知预留保全；不得旧账本覆盖。"
+    }
+  ],
+  "qualityPatch": {
+    "branch": "fix/fayo-product-quality-20261126",
+    "dependsOnPr": 361,
+    "pr": null,
+    "codeStage": "partial local code/readonly CLI",
+    "verification": "父代理报告17专项；最终PR/head待收口",
+    "realWebAndEffects": "unknown"
+  },
+  "evidencePaths": [
+    "../../FOURTH_SCHEME_TASK_MAPPING_20261126.md",
+    "../../MATURE_PROJECT_SOURCE_REVIEW_20261126.md",
+    "../../SEVEN_DIMENSION_QUALITY_DEFINITIONS_20261126.md",
+    "source-pr362-final-verification.json"
+  ],
+  "continuousObservation": {
+    "startedAt": null,
+    "effectiveTradingDays": null,
+    "interruptionLog": null,
+    "status": "未取得真实启用及5/20/60交易日回执；没有预填天数"
+  }
+}

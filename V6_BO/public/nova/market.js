@@ -1,5 +1,7 @@
+import {createResearchReplay} from './evidence-workbench.mjs';
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
+import {createRiskSummary} from './risk-workbench-view.mjs';
 import {decisionSectorReader,sectorDay} from './decision-sector-context.mjs';
 import {createDrawerRadar} from './intelligence-view.mjs';
 import {eligiblePick,pickReasons,topSystemPicks,systemPickDay} from './system-picks.mjs';
@@ -256,7 +258,7 @@ export function marketOverviewParts(state,{homeDay}={}){
  const emotion=mood&&mood.date===(target||currentDay)?mood:null;
  const needed=[['upLimit','涨停家数'],['downLimit','跌停家数'],['breakRate','炸板率'],['height','连板高度'],['leader','高标反馈'],['diffusion','题材扩散度']];
  const missing=needed.filter(([key])=>{const value=recoveredMetric(recovery,key,target||currentDay);return !value||value.date!==(target||currentDay);}).map(x=>x[1]);
- const emotionText=emotion?'当前处于'+emotion.value+'阶段，置信度 '+format(emotion.confidence,0)+'%。':
+ const emotionText=emotion?'当前处于'+emotion.value+'阶段，规则判定分 '+format(emotion.confidence,0)+' / 100（非胜率）。':
   '数据不足，暂不判断。'+(missing.length?'还需核对 '+missing.join('、')+' 的多日记录。':'现有多日记录尚未形成一致的周期证据。');
  const sentiment=h('article',{},h('h3',{},'市场情绪 ',glossary('情绪周期','用多个交易日的涨跌停、炸板、高标和题材扩散判断短线情绪。')),
    h('p',{},emotionText),breadth!==null?h('div',{class:'fy-breadth-gauge',style:'--breadth:'+Math.round(breadth*1.8)+'deg'},h('strong',{},format(breadth,1)+'%')):null,
@@ -447,7 +449,7 @@ export function renderEvidence(data,ctx,depth=0) {
  if(data==null||Array.isArray(data)&&!data.length)return empty('尚无该项历史记录','保留真实缺数状态，数据就绪后在这里显示。');
  if(depth>6)return h('span',{class:'fy-muted'},'展开上层证据查看详情');
  if(typeof data!=='object')return h('p',{},String(data));
- const labels={name:'名称',code:'代码',pct:'涨跌幅',price:'快照价',score:'评分',mainInflow:'主力净额',time:'时间',source:'来源',note:'说明',reason:'依据',day:'交易日',date:'日期',prob:'概率',count:'数量',items:'明细',rows:'记录',picked:'候选',plan:'计划',strong:'强势观察',status:'状态',total:'合计'};
+ const labels={name:'名称',code:'代码',pct:'涨跌幅',price:'快照价',score:'评分',mainInflow:'主力净额',time:'时间',source:'来源',note:'说明',reason:'依据',day:'交易日',date:'日期',prob:'原始研究值（口径见来源）',count:'数量',items:'明细',rows:'记录',picked:'候选',plan:'计划',strong:'强势观察',status:'状态',total:'合计'};
  if(Array.isArray(data)) {
   const stocks=ctx?rowsFrom(data):[],records=stocks.length?stocks:data,size=stocks.length?12:40;
   const list=h('div',{class:stocks.length?'fy-stock-grid':'fy-list'}),more=button('显示更多记录',()=>appendMore(),'quiet');let shown=0;
@@ -1084,6 +1086,7 @@ export function createStockDrawer(ctx) {
  let leadershipKey='',historyPending=false,minutesPending=false,minutesError='',offlineTheme='',archived=new Map(),livePoints=new Map(),themes=[],chartDay='';
  const minuteSlot=h('div',{class:'fy-minute-slot'});
  const overview=h('section',{class:'fy-drawer-summary','aria-label':'个股概况'});
+ const stockRisk=createRiskSummary(ctx,{title:'个股风险与执行约束',autoload:false});stockRisk.hidden=true;
  const decisionLinks=linkedDecisionPanel(ctx,{compact:true,when:selected=>selected.code===code&&selected.day===chartDay&&!!row?.decisionPlan});
  const decisionRadar=createDrawerRadar(ctx,()=>({code,day:chartDay}));
  function paintSummary(){
@@ -1091,14 +1094,14 @@ export function createStockDrawer(ctx) {
   const fact=state.dabanke?.day===chartDay&&state.dabanke.knownAt<=now?state.dabanke.facts?.[code]:null;
   const tags=[...new Set([...(historical?[]:[offlineTheme]),...(Array.isArray(row?.themes)?row.themes:[]),...themes,...(fact?.themes||[])].filter(x=>typeof x==='string'&&x.trim()))];
   const cutoff=historical?Math.min(now,Date.parse(chartDay+'T23:59:59+08:00')):now;
-  const issuer=row?.issuerEvidence?.events||[];
-  const events=[...issuer,...newsRows(state).filter(e=>e.codes?.includes(code)&&/公告|巨潮/.test(e.source||''))]
+  const issuer=historical?[]:row?.issuerEvidence?.events||[];
+  const events=[...issuer,...(historical?[]:newsRows(state)).filter(e=>e.codes?.includes(code)&&/公告|巨潮/.test(e.source||''))]
    .filter(e=>{const t=typeof e.publishedAt==='number'?e.publishedAt:Date.parse(e.publishedAt);return t>0&&t<=cutoff&&e.title&&e.url;})
    .sort((a,b)=>new Date(b.publishedAt)-new Date(a.publishedAt));
   const uniqueEvents=[...new Map(events.map(e=>[e.url,e])).values()].slice(0,3);
   const why=[row?.selectionWhy,...pickReasons(row||{}),row?.reasonRaw,row?.reason,fact?.logic].find(x=>typeof x==='string'&&x.trim());
-  const conclusion=ctx.decisionPayload?.conclusions?.[code]||row?.conclusion;
-  updateReadout(overview,conclusionBar({...row,conclusion},{day:chartDay,now}),h('strong',{},why||'当前没有可核实的入选依据。'),
+  const conclusion=historical?null:ctx.decisionPayload?.conclusions?.[code]||row?.conclusion;
+  updateReadout(overview,historical?h('p',{class:'fy-note'},'历史价格/原记录展示；当时可知的证据请进入联动回放，不用于当前执行。'):conclusionBar({...row,conclusion},{day:chartDay,now}),h('strong',{},why||'当前没有可核实的入选依据。'),
    h('p',{class:'fy-muted'},tags.length?'所属题材 · '+tags.join(' / '):row?.sector?'所属行业或板块 · '+row.sector:'本股暂无已记录题材'),
    h('details',{class:'fy-details',id:'fy-stock-notices-'+code},h('summary',{},'近期公告 · '+uniqueEvents.length+' 条'),
     uniqueEvents.length?uniqueEvents.map(e=>h('p',{},safeLink(e.url,e.title),' · '+dateTime(e.publishedAt))):h('p',{},'本次公告源中没有该股的匹配记录。')));
@@ -1116,7 +1119,7 @@ export function createStockDrawer(ctx) {
  const sectorChip=h('div',{class:'fy-stock-role-summary',hidden:true});
  const close=()=>{
   shortline.replaceChildren();shortline.hidden=true;
-  generation++;controller?.abort();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
+  generation++;controller?.abort();stockRisk.clear();drawer.hidden=true;overlay.hidden=true;document.body.classList.remove('fy-drawer-open');
   // A shared-state refresh may replace the originating opportunity while the
   // drawer is open. Restore the same stock in the current DOM in that case.
   const origin=previousFocus?.isConnected&&previousFocus.getClientRects().length?previousFocus:
@@ -1125,8 +1128,8 @@ export function createStockDrawer(ctx) {
  };
  const closeButton=button(icon('close'),close,'quiet');closeButton.setAttribute('aria-label','关闭股票研究面板');
  const tabNav=h('div',{class:'fy-tabs'});
- for(const[key,label]of [['chart','走势'],['evidence','依据'],['leadership','带动性'],['company','公告'],['sources','核对'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
- drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,decisionLinks,decisionRadar,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
+ for(const[key,label]of [['chart','走势'],['evidence','依据'],['leadership','带动性'],['company','公告'],['sources','核对'],['tracking','跟踪'],['analysis','诊断'],['marks','当日标记'],['replay','联动回放']])tabNav.append(h('button',{type:'button','data-detail-tab':key,onClick:()=>{tab=key;paint();}},label));
+ drawer.append(h('header',{class:'fy-drawer-header'},h('div',{},h('span',{class:'fy-eyebrow'},'FAYO / STOCK LENS'),title,sectorChip),closeButton),quote,meta,overview,decisionLinks,stockRisk,decisionRadar,tabNav,body,shortline,h('footer',{class:'fy-drawer-footer'},button('在实验室继续研究',()=>{close();ctx.navigate('lab','records');}),'历史研究 · 原始时点独立核验'));
  overlay.addEventListener('click',close);
  drawer.addEventListener('keydown',event=>{
   if(event.key==='Escape'){event.preventDefault();close();}
@@ -1161,7 +1164,7 @@ export function createStockDrawer(ctx) {
    sectorChip.replaceChildren(...(roleInfo?[roleBadge(roleInfo),h('small',{},[roleInfo.evidence,roleInfo.also?.evidence].filter(Boolean).join(' · '))]:[]));
   }
   tabNav.querySelectorAll('button').forEach(b=>{
-   b.hidden=Boolean(row?.historicalClose&&!['chart','evidence'].includes(b.dataset.detailTab));
+   b.hidden=Boolean(row?.historicalClose&&!['chart','evidence','replay'].includes(b.dataset.detailTab)||b.dataset.detailTab==='replay'&&!ctx.canEdit);
    b.setAttribute('aria-pressed',String(b.dataset.detailTab===tab));
   });
   if(tab==='chart'){
@@ -1223,6 +1226,9 @@ export function createStockDrawer(ctx) {
     return h('article',{class:'fy-item'},h('strong',{},entry.date+' · '+entry.system),h('div',{class:'fy-grid four'},windows));
    });
    body.replaceChildren(section('信号后的真实观察','1 / 5 / 20 / 60 交易日与今日涨跌分开',note(tracking.note),tracked.length?h('div',{class:'fy-stack'},tracked):empty('尚无与该股匹配的有效跟踪证据','不会显示其他股票或未经协议验证的收益。')));
+  }else if(tab==='replay'){
+   if(body.firstChild?.dataset?.replayCode!==code){const cutoff=row?.historicalClose&&chartDay?Math.min(Date.now(),Date.parse(chartDay+'T23:59:59+08:00')):null;
+    const replay=createResearchReplay(ctx,{symbol:code,asOf:cutoff,signal:controller.signal,memory:ctx.viewMemory});replay.dataset.replayCode=code;body.replaceChildren(replay);}
   }else if(tab==='marks'){
    const date=h('input',{type:'date','aria-label':'标记交易日'}),output=h('div');let markRequest=0;
    date.addEventListener('input',()=>{markRequest++;output.replaceChildren();});
@@ -1420,6 +1426,7 @@ export function createStockDrawer(ctx) {
    if(!quote.hidden)meta.textContent='同标的独立报价 · '+meta.textContent;
   }
   overlay.hidden=false;drawer.hidden=false;document.body.classList.add('fy-drawer-open');paint();drawer.focus();loadHistory();void loadMinutes();
+  stockRisk.clear();if(!row.historicalClose)void stockRisk.refresh({code:nextCode,signal:controller.signal});
   if(row.historicalClose){shortline.replaceChildren();shortline.hidden=true;}
   else void checkShortline(nextCode,row,controller.signal,generation);
  }

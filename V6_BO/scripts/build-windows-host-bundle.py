@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Package an exact Git source revision; never copy a developer's runtime state."""
 import argparse
+import base64
+from datetime import datetime, timezone
 import hashlib
 import io
 import json
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
+import sys
 import tarfile
 import zipfile
 
@@ -51,7 +54,45 @@ def git(repo, *args):
     return result.stdout
 
 
+def dependency_inventory(payload):
+    """Lockfile inventory, not proof of an installed or vulnerability-free tree.
+
+    Deliberately omit registry URLs, environment, home paths and arbitrary npm
+    metadata: dependency URLs can contain credentials. Optional Python
+    requirements remain separately fingerprinted and are not called installed.
+    """
+    lock_bytes = payload.get('package-lock.json')
+    lock = json.loads(lock_bytes) if lock_bytes else {}
+    components = []
+    for location, value in sorted(lock.get('packages', {}).items()):
+        if not location or not isinstance(value, dict):
+            continue
+        name = location.split('node_modules/')[-1]
+        version = value.get('version')
+        if (not re.fullmatch(r'(?:@[a-zA-Z0-9._-]+/)?[a-zA-Z0-9._-]+', name) or
+                not isinstance(version, str) or not re.fullmatch(r'[a-zA-Z0-9.+_-]{1,120}', version)):
+            raise ValueError('invalid-lockfile-component')
+        ref = 'npm:' + location + '@' + version
+        component = {'type': 'library', 'name': name, 'version': version,
+                     'bom-ref': ref, 'scope': 'optional' if value.get('dev') or value.get('optional') else 'required'}
+        integrity = value.get('integrity', '')
+        match = re.fullmatch(r'(sha256|sha384|sha512)-([A-Za-z0-9+/]+={0,2})', integrity)
+        if match:
+            raw = base64.b64decode(match[2], validate=True)
+            bits = int(match[1][3:])
+            if len(raw) != bits // 8:
+                raise ValueError('invalid-lockfile-integrity')
+            component['hashes'] = [{'alg': 'SHA-' + str(bits), 'content': raw.hex()}]
+        components.append(component)
+    return {'bomFormat': 'CycloneDX', 'specVersion': '1.5', 'version': 1,
+            'metadata': {'lifecycles': [{'phase': 'pre-build'}],
+                         'properties': [{'name': 'fayo:inventory-scope', 'value': 'npm-lockfile;not-installed-runtime'},
+                                        {'name': 'fayo:optional-python-environment', 'value': 'not-inspected'}]},
+            'components': components}
+
+
 def build_bundle(repo, sha, controls, output, ci_url=None):
+    build_started_at = datetime.now(timezone.utc).isoformat()
     if not isinstance(sha, str) or not SHA.fullmatch(sha):
         raise ValueError('full-source-sha-required')
     if ci_url is not None and not CI.fullmatch(ci_url):
@@ -115,12 +156,25 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
     files.update(launchers)
     if not required.issubset(files):
         raise ValueError('required-controls-missing')
-    manifest = {'schemaVersion': 1, 'sourceSha': sha,
+    provenance = {'schemaVersion': 1, 'sourceSha': sha,
+                  'sourceTree': git(repo, 'rev-parse', sha + '^{tree}').decode().strip(),
+                  'sourceCommittedAt': git(repo, 'show', '-s', '--format=%cI', sha).decode().strip(),
+                  'builder': 'V6_BO/scripts/build-windows-host-bundle.py',
+                  'builderSha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                  'dependencyLockSha256': hashlib.sha256(payload['package-lock.json']).hexdigest() if 'package-lock.json' in payload else None,
+                  'pythonRequirementHashes': {p: hashlib.sha256(data).hexdigest() for p, data in sorted(payload.items()) if p.startswith('requirements-') and p.endswith('.txt')},
+                  'buildTimeBasis': 'external-build-receipt',
+                  'ciReference': ci_url, 'ciVerified': False, 'signatureVerified': False,
+                  'installedDependenciesVerified': False,
+                  'rollbackPolicy': 'preserve-current-business-records-and-revert-program-only'}
+    sbom = dependency_inventory(payload)
+    manifest = {'schemaVersion': 1, 'sourceSha': sha, 'provenance': provenance, 'sbom': sbom,
                 'files': [{'path': p, 'sha256': hashlib.sha256(data).hexdigest()} for p, data in sorted(payload.items())]}
     files['manifest.json'] = (json.dumps(manifest, ensure_ascii=True, indent=2) + '\n').encode()
     files['source.json'] = (json.dumps({'sourceSha': sha, 'controlsSourceSha': sha, 'ciUrl': ci_url,
                                       'scope': 'windows-wsl-local-backend', 'productionDeployed': False,
-                                      'accountMigrationPerformed': False}, indent=2) + '\n').encode()
+                                      'accountMigrationPerformed': False, 'provenance': provenance,
+                                      'sbomManifestField': 'manifest.json#/sbom'}, indent=2) + '\n').encode()
     if len({p.casefold() for p in files}) != len(files):
         raise ValueError('windows-case-collision')
     files['SHA256SUMS.txt'] = ''.join(hashlib.sha256(data).hexdigest() + '  ' + p + '\n'
@@ -136,7 +190,11 @@ def build_bundle(repo, sha, controls, output, ci_url=None):
     return {'code': 'bundle-created', 'sourceSha': sha, 'payloadFiles': len(payload),
             'payloadBytes': sum(map(len, payload.values())), 'bundleBytes': output.stat().st_size,
             'bundleHash': hashlib.sha256(output.read_bytes()).hexdigest(),
-            'productionDeployed': False, 'ciUrl': ci_url}
+            'productionDeployed': False, 'ciUrl': ci_url,
+            'buildStartedAt': build_started_at, 'buildFinishedAt': datetime.now(timezone.utc).isoformat(),
+            'builderPython': '.'.join(map(str, sys.version_info[:3])),
+            'manifestSha256': hashlib.sha256(files['manifest.json']).hexdigest(),
+            'sbomComponentCount': len(sbom['components']), 'ciVerified': False, 'signatureVerified': False}
 
 
 def main():
