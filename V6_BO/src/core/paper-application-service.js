@@ -148,6 +148,12 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    catch{status='unknown';reasonCodes=['ACCOUNT_PREVIEW_UNAVAILABLE'];reason='原账户快照尚未完成核验';}
    const finishedAt=clock();
    if(!Number.isSafeInteger(now)||!Number.isSafeInteger(finishedAt)||finishedAt<now||finishedAt-now>5000){status='unknown';reasonCodes=['ACCOUNT_PREVIEW_EXPIRED'];reason='原账户预检时间已失效';}
+   if(status==='allowed'){
+    // The final account reread can consume the remainder of the original
+    // quote window, even while the five-second preview budget is respected.
+    try{requireCurrentAutomaticQuote(quote,finishedAt);}
+    catch(error){status='unknown';reasonCodes=error.reasonCodes||['ACCOUNT_PREVIEW_QUOTE_INVALID'];reason=error.message;}
+   }
    const equity=valuation.every(row=>Number.isFinite(row.price))&&s?s.account.cash+valuation.reduce((sum,row)=>sum+row.quantity*row.price,0):null;
    let riskBudget=null;
    if(s?.riskPolicy&&risk){
@@ -186,6 +192,11 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
    const quoteAt=quote?.quoteAt??quote?.timestamp;
    if(!quote||quote.symbol!==symbol||quote.price!==price||quote.tradeDate!==tradeDate||!Number.isSafeInteger(quoteAt)||quoteAt>now||now-quoteAt>15000)
     return unknown('ACCOUNT_PREVIEW_QUOTE_INVALID','原账户预检报价缺失、过期或不一致');
+   try{
+    requireCurrentAutomaticQuote(quote,now);
+    requireExecutionClock(s,now,now);
+    if(!Number.isSafeInteger(quote.volume))return unknown('ACCOUNT_PREVIEW_QUOTE_INVALID','原账户预检成交量不是有效整数股数');
+   }catch(error){return unknown(error.reasonCodes?.[0]||'ACCOUNT_PREVIEW_QUOTE_INVALID',error.message);}
    createFillEvidence(quote,{executionAt:now,executionKind:'automatic-paper',symbol,tradeDate,price});
    const context={...(quote.riskContext||{observedAt:quote.timestamp,marks:quote.marks||{}}),requireImportedEvidence:true};
    const positions=Object.entries(s.account.positions).filter(([,position])=>position.quantity>0);

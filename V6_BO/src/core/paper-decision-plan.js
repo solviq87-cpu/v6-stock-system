@@ -83,7 +83,13 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   if (plan.intendedDate !== day || aShareCalendarDate(Date.parse(plan.frozenAt)) !== day)
     throw Error('计划日期已失效，请回到今日作战台重新核对');
   if(!currentDecisionAllows(plan,authoritative))throw Error('后端权威候选、策略批次或来源已变化，请刷新作战台；未按客户端价格成交');
-  if (!continuous) throw Error('仅在原连续竞价时段确认模拟买入，当前没有排入待成交队列');
+  // Share the existing plan observer's continuous-auction windows. A caller
+  // flag alone cannot certify an exchange-local clock or a fresh quote from
+  // the same window. The already-committed retry above remains read-only.
+  const windows=require('./paper-plan-observer').sessions(day);
+  const window=windows.find(([start,end])=>now>=start&&now<end);
+  if (continuous!==true || aShareCalendarDate(now)!==day || !window)
+    throw Error('仅在原连续竞价时段确认模拟买入，当前没有排入待成交队列');
   if (!candidate || candidate.code !== plan.code || !eligiblePick(candidate) ||
       systemPickDay(candidate,poolDay,now) !== day || newsBlocked) throw Error('该股当前已不符合原候选条件');
   if (!account || account.enabled !== true) throw Error('原模拟跟踪账户尚未启用');
@@ -92,7 +98,13 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
     throw Error('最新原始报价未进入计划买入区间；没有成交或后台挂单');
   const quoteAt = quote.quoteAt ?? quote.timestamp;
   if (!Number.isSafeInteger(quoteAt) || quoteAt <= 0 || quoteAt > now || now-quoteAt > 15000 ||
-      aShareCalendarDate(quoteAt) !== day) throw Error('原始报价过期、缺失或日期不一致');
+      aShareCalendarDate(quoteAt) !== day || quoteAt < window[0] ||
+      quoteAt < Date.parse(plan.frozenAt)) throw Error('原始报价过期、缺失、早于冻结计划或不在当前连续竞价时段');
+  const quoteView=require('./quote-observation-view');
+  if (!quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView(quote,now).missingReason==='conflicting-quote-evidence' ||
+      quote.provider!=null&&quote.quoteSource!=null&&quote.provider!==quote.quoteSource ||
+      quote.timestamp!=null&&quote.timestamp!==quoteAt)
+    throw Error('原始报价只读、来源冲突或时点不一致');
   if (!finite(equity) || equity <= 0 || !finite(account.cash) || account.cash < 0 ||
       !Number.isSafeInteger(policy?.maxPos) || policy.maxPos < 1) throw Error('原账户预算尚未完成核对');
   const allocationPct = Math.min(account.cash,equity/policy.maxPos*.98)/equity*100;
