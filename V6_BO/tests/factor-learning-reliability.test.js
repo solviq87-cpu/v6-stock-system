@@ -2,7 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {assessFactorReliability,pairedStability,assessShadowDecay,
  assessShadowRecovery}=require('../src/core/factor-learning-reliability');
-const rows=(ics,regime='unknown')=>ics.map((ic,i)=>({day:'d'+i,regime,ic}));
+const fixtureDay=i=>new Date(Date.UTC(2026,0,1+i)).toISOString().slice(0,10);
+const rows=(ics,regime='unknown')=>ics.map((ic,i)=>({day:fixtureDay(i),regime,ic}));
 test('persistent directional information is eligible for bounded, confidence-adjusted shadow learning',()=>{
  const r=assessFactorReliability(rows(Array(30).fill(.36)));
  assert.equal(r.reliable,true);
@@ -32,7 +33,7 @@ test('few days and random daily sign patterns cannot be mistaken for persistent 
 });
 test('opposing bull/weak-market regimes block a misleading overall positive IC',()=>{
  const mixed=Array.from({length:32},(_,i)=>({
-  day:'d'+i,ic:i%2===0?.5:-.2,
+  day:fixtureDay(i),ic:i%2===0?.5:-.2,
   regime:i%2===0?'not-systemic-selloff':'systemic-selloff'
  }));
  const r=assessFactorReliability(mixed);
@@ -50,7 +51,7 @@ test('regime comparison never treats unknown market labels as proven context',()
 });
 test('unstable improvement across validation halves blocks promotion',()=>{
  const baseline={x:1},candidate={x:2};
- const days=Array.from({length:10},(_,i)=>({day:'d'+i,improvement:i<5?.1:-.08}));
+ const days=Array.from({length:10},(_,i)=>({day:fixtureDay(i),improvement:i<5?.1:-.08}));
  const ic=(window,_,weights)=>({
   days:1,meanIC:weights.x===1?0:window[0].improvement
  });
@@ -121,7 +122,7 @@ test('incomplete last block cannot inflate the complete five-session confirmatio
 // Prospective shadow-decay tests. Controlled IC values are synthetic and
 // deliberately not used as evidence of actual market performance.
 test('accepted shadow underperforms immutable base on fresh days: pause and request research rollback review only',()=>{
- const days=Array.from({length:10},(_,i)=>({day:'new-'+i,base:.16,shadow:-.23}));
+ const days=Array.from({length:10},(_,i)=>({day:fixtureDay(i+30),base:.16,shadow:-.23}));
  const score=(sample,_ids,weight)=>({days:1,
   meanIC:weight.x===1?sample[0].base:sample[0].shadow});
  const report=assessShadowDecay(days,['x','y'],{x:1,y:1},{x:2,y:1},score);
@@ -136,7 +137,7 @@ test('accepted shadow underperforms immutable base on fresh days: pause and requ
 test('two losing variants alone cannot manufacture relative shadow decay, and four days cannot certify it',()=>{
  const score=(sample,_ids,weights)=>({days:1,
   meanIC:weights.x===1?sample[0].base:sample[0].shadow});
- const days=Array.from({length:10},(_,i)=>({day:'new-'+i,base:-.4,shadow:-.39}));
+ const days=Array.from({length:10},(_,i)=>({day:fixtureDay(i+30),base:-.4,shadow:-.39}));
  const stable=assessShadowDecay(days,['x','y'],{x:1},{x:2},score);
  assert.equal(stable.alert,false);
  assert.equal(stable.status,'no-decay-detected');
@@ -149,8 +150,8 @@ test('decay uses newest ten matured samples rather than dilution from older hist
  const score=(sample,_ids,weights)=>({days:1,
   meanIC:weights.x===1?sample[0].base:sample[0].shadow});
  const days=[
-  ...Array.from({length:15},(_,i)=>({day:'old-'+i,base:0,shadow:.5})),
-  ...Array.from({length:10},(_,i)=>({day:'new-'+i,base:.15,shadow:-.15}))
+  ...Array.from({length:15},(_,i)=>({day:fixtureDay(i),base:0,shadow:.5})),
+  ...Array.from({length:10},(_,i)=>({day:fixtureDay(i+30),base:.15,shadow:-.15}))
  ];
  const r=assessShadowDecay(days,['x','y'],{x:1},{x:2},score);
  assert.equal(r.windowDays,10);
@@ -161,7 +162,7 @@ test('decay uses newest ten matured samples rather than dilution from older hist
 test('mismatched per-day IC coverage cannot be compared as equal evidence',()=>{
  const score=(_sample,_ids,weights)=>({days:weights.x===1?1:0,meanIC:.2});
  assert.throws(()=>assessShadowDecay(
-  Array.from({length:5},(_,i)=>({day:String(i)})),['x','y'],{x:1},{x:2},score
+  Array.from({length:5},(_,i)=>({day:fixtureDay(i)})),['x','y'],{x:1},{x:2},score
  ),/覆盖不一致/);
 });
 
@@ -169,7 +170,7 @@ test('cooldown recovery requires ten new mature days in two complete five-day bl
  const evaluate=(arr,_ids,weights)=>({
   days:1,meanIC:weights.a===1?arr[0].base:arr[0].shadow
  });
- const good=Array.from({length:10},(_,i)=>({day:'d'+i,base:.10,shadow:.25}));
+ const good=Array.from({length:10},(_,i)=>({day:fixtureDay(i),base:.10,shadow:.25}));
  const weights={a:1,b:1},shadow={a:2,b:1};
  const nine=assessShadowRecovery(good.slice(0,9),['a','b'],weights,shadow,evaluate);
  assert.equal(nine.status,'cooldown-insufficient-fresh-evidence');
@@ -188,7 +189,7 @@ test('cooldown recovery requires ten new mature days in two complete five-day bl
 test('a single improving week with a second weak week cannot clear cooldown',()=>{
  const score=(arr,_ids,w)=>({days:1,meanIC:w.a===1?arr[0].base:arr[0].shadow});
  const data=Array.from({length:10},(_,i)=>({
-  day:'d'+i,base:.15,shadow:i<5?.3:-.05
+  day:fixtureDay(i),base:.15,shadow:i<5?.3:-.05
  }));
  const result=assessShadowRecovery(data,['a','b'],{a:1},{a:2},score);
  assert.equal(result.status,'cooldown-recovery-unconfirmed');
@@ -199,7 +200,7 @@ test('a single improving week with a second weak week cannot clear cooldown',()=
 test('positive but persistently weaker shadow than fixed base cannot fake recovery',()=>{
  const score=(arr,_ids,w)=>({days:1,meanIC:w.a===1?arr[0].base:arr[0].shadow});
  const data=Array.from({length:10},(_,i)=>({
-  day:'d'+i,base:.35,shadow:.15
+  day:fixtureDay(i),base:.35,shadow:.15
  }));
  const result=assessShadowRecovery(data,['a','b'],{a:1},{a:2},score);
  assert.equal(result.firstBlock.passed,false);
@@ -209,7 +210,7 @@ test('positive but persistently weaker shadow than fixed base cannot fake recove
 });
 test('recovery rejects mismatched coverage and non-finite IC instead of assuming recovered',()=>{
  const mismatched=(_d,_ids,w)=>({days:w.a===1?1:0,meanIC:0});
- const data=Array.from({length:10},(_,i)=>({day:String(i)}));
+ const data=Array.from({length:10},(_,i)=>({day:fixtureDay(i)}));
  assert.throws(()=>assessShadowRecovery(data,['a','b'],{a:1},{a:2},mismatched),/覆盖不一致/);
  const broken=(_d,_ids,w)=>({days:1,meanIC:w.a===1?.2:NaN});
  assert.throws(()=>assessShadowRecovery(data,['a','b'],{a:1},{a:2},broken),/证据无效/);
@@ -240,9 +241,9 @@ test('rounded market-regime IC just below 0.08 must not falsely block a reliable
 
 test('a real regime IC beyond 0.08 still blocks opposite-market factor reweighting',()=>{
  const samples=[
-  ...Array.from({length:8},(_,i)=>({day:'early-'+i,ic:-.08004,
+  ...Array.from({length:8},(_,i)=>({day:fixtureDay(i),ic:-.08004,
    regime:'systemic-selloff'})),
-  ...Array.from({length:22},(_,i)=>({day:'late-'+i,ic:.13,
+  ...Array.from({length:22},(_,i)=>({day:fixtureDay(i+31),ic:.13,
    regime:'not-systemic-selloff'}))
  ];
  const report=assessFactorReliability(samples);
@@ -252,4 +253,53 @@ test('a real regime IC beyond 0.08 still blocks opposite-market factor reweighti
  assert.equal(report.reliable,false);
  assert.equal(report.suggestedWeightMultiplier,0);
  assert.equal(report.canTrade,false);
+});
+
+test('duplicate, missing, impossible or reversed IC dates cannot create reliable learning',()=>{
+ for(const mutate of [
+  d=>{d[1].day=d[0].day;},d=>{delete d[1].day;},d=>{d[1].day='2026-02-30';},
+  d=>{[d[0],d[1]]=[d[1],d[0]];}
+ ]){
+  const d=rows(Array(30).fill(.4));mutate(d);
+  assert.throws(()=>assessFactorReliability(d),/日期/);
+ }
+});
+const pairedDays=()=>Array.from({length:10},(_,i)=>({day:fixtureDay(i),base:.1,shadow:.25}));
+const pairedScore=(sample,_ids,w)=>({days:1,meanIC:w.a===1?sample[0].base:sample[0].shadow});
+const compareAll=(data,score)=>[
+ ()=>pairedStability(data,['a','b'],{a:1,b:1},{a:2,b:1},score),
+ ()=>assessShadowDecay(data,['a','b'],{a:1,b:1},{a:2,b:1},score),
+ ()=>assessShadowRecovery(data,['a','b'],{a:1,b:1},{a:2,b:1},score)
+];
+test('all paired diagnostics reject duplicate and out-of-order days before scoring',()=>{
+ for(const change of [d=>{d[1].day=d[0].day;},d=>{d.reverse();},d=>{d[0].day='2026-02-30';}]){
+  const data=pairedDays();change(data);let calls=0;
+  for(const fn of compareAll(data,(...args)=>{calls++;return pairedScore(...args);}))
+   assert.throws(fn,/日期/);
+  assert.equal(calls,0);
+ }
+});
+test('one-day comparison rejects impossible count and IC ranges',()=>{
+ for(const score of [
+  ()=>({days:2,meanIC:.3}),()=>({days:-1,meanIC:null}),
+  ()=>({days:'1',meanIC:.3}),()=>({days:0,meanIC:.5}),
+  ()=>({days:1,meanIC:1.01}),()=>({days:1,meanIC:-1.01})
+ ]){
+  for(const fn of compareAll(pairedDays(),score))assert.throws(fn,/IC证据无效/);
+ }
+});
+test('legitimate absent pairs remain insufficient rather than fabricated zero IC',()=>{
+ const empty=()=>({days:0,meanIC:null});
+ const [stability,decay,recovery]=compareAll(pairedDays(),empty).map(fn=>fn());
+ assert.equal(stability.comparableDays,0);assert.equal(stability.halfPeriodsConsistent,false);
+ assert.equal(decay.status,'insufficient-fresh-evidence');assert.equal(decay.alert,false);
+ assert.equal(recovery.status,'cooldown-insufficient-fresh-evidence');assert.equal(recovery.recovered,false);
+});
+test('well-formed input keeps the existing recovery gate and immutable observations',()=>{
+ const data=pairedDays(),before=JSON.stringify(data);
+ const [stability,decay,recovery]=compareAll(data,pairedScore).map(fn=>fn());
+ assert.equal(stability.comparableDays,10);assert.equal(stability.halfPeriodsConsistent,true);
+ assert.equal(decay.alert,false);assert.equal(recovery.recovered,true);
+ assert.equal(recovery.productionWeightsChanged,false);assert.equal(recovery.canTrade,false);
+ assert.equal(JSON.stringify(data),before);
 });
