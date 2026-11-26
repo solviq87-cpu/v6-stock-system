@@ -39,13 +39,25 @@ function read(file){
 function write(file,data){
   atomicWrite(file,gzipSync(JSON.stringify({v:1,sha256:digest(JSON.stringify(data)),data})));
 }
+// End-of-bar timestamps, not the opening auction or lunch interval.
+function minuteEnd(date,day,period){
+  if(typeof date!=='string'||!date.startsWith(day+' ')||!['1m','5m'].includes(period)||!validDay(day))return NaN;
+  const at=cnTime(date),m=Number(date.slice(11,13))*60+Number(date.slice(14,16)),step=period==='5m'?5:1;
+  const origin=m>570&&m<=690?570:m>780&&m<=900?780:null;
+  return Number.isSafeInteger(at)&&origin!==null&&(m-origin)%step===0&&date.slice(11,13)<='23'&&date.slice(14,16)<='59'?at:NaN;
+}
 function validateBar(b,day,key){
-  const at=cnTime(b.date),available=cnTime(b.availableAt);
+  if(!b||typeof b!=='object')throw invalid();
+  const at=minuteEnd(b.date,day,b.period),available=cnTime(b.availableAt);
   if(!shard.test(key)||key!==b.role+'-'+b.code+'-'+b.period||!b.date.startsWith(day+' ')||
       !Number.isSafeInteger(at)||!Number.isSafeInteger(b.knownAt)||b.knownAt<at||
       !Number.isSafeInteger(available)||available> b.knownAt||b.knownAt-available>=60000||
+      available<Date.parse(day+'T15:00:00+08:00')||
+      (b.priceBasis!=null&&b.priceBasis!=='unadjusted')||
+      (b.role==='stock'&&b.volumeUnit!=null&&b.volumeUnit!=='shares')||
+      (b.secid!=null&&b.secid!==(b.role==='sector'?'90.':b.code.startsWith('6')?'1.':'0.')+b.code)||
       ![b.open,b.high,b.low,b.close].every(positive)||b.high<Math.max(b.open,b.close)||b.low>Math.min(b.open,b.close)||
-      !Number.isFinite(b.volume)||b.volume<0||(b.amount!=null&&(!Number.isFinite(b.amount)||b.amount<0))||
+      !Number.isSafeInteger(b.volume)||b.volume<0||(b.amount!=null&&(!Number.isFinite(b.amount)||b.amount<0))||
       typeof b.source!=='string'||!b.source.startsWith('V6/'))throw invalid();
 }
 function linksFor(dir,day,code){
@@ -75,11 +87,21 @@ function saveMinuteBars(root,{day,code,observedAtMs},rows){
   if(!rows.length)return result;
   const groups=new Map();
   for(const b of rows){
+    if(!b||typeof b!=='object')throw invalid();
     const key=b.role+'-'+b.code+'-'+b.period;
     validateBar(b,day,key);
     if(b.role==='stock'&&b.code!==code||b.knownAt>observedAtMs)throw invalid();
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(b);
+  }
+  // Validate incoming duplicate identities before publishing any shards.
+  for(const group of groups.values()){
+    const seen=new Map();
+    for(const b of group){
+      const prior=seen.get(b.date);
+      if(prior&&['open','high','low','close','volume','amount','priceBasis','volumeUnit','secid'].some(k=>prior[k]!==b[k]))throw invalid();
+      if(!prior)seen.set(b.date,b);
+    }
   }
   const dir=folder(root,day,true),links=linksFor(dir,day,code);
   let newLinks=false;
@@ -117,4 +139,4 @@ function readMinuteBars(root,{day,code,observedAtMs}={}){
   }
   return out.sort((a,b)=>a.date.localeCompare(b.date)||a.role.localeCompare(b.role)||a.period.localeCompare(b.period));
 }
-module.exports={saveMinuteBars,readMinuteBars};
+module.exports={saveMinuteBars,readMinuteBars,minuteEnd};
