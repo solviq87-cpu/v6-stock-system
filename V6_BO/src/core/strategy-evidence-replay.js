@@ -39,8 +39,8 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
   if(!signal)throw Error('策略归因缺少对应原生信号证据');
   windows[group].push({...r,observedThrough:signal.observedThrough,evaluatorVersion:signal.evaluatorVersion});
  }
- const stats=records=>Object.fromEntries(SYSTEMS.map(system=>{
-  const items=records.filter(x=>x.system===system),done=items.filter(x=>x.outcome.status==='paper-estimate');
+ const summarize=items=>{
+  const done=items.filter(x=>x.outcome.status==='paper-estimate');
   const returns=done.map(x=>x.outcome.netReturnPct);
   const evaluatorVersions=[...new Set(items.map(x=>x.evaluatorVersion))].sort();
   // Trades can overlap across symbols. Do not compound them in input/file order;
@@ -54,7 +54,7 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
   for(const day of dailyReturns){equity*=1+day.returnPct/100;peak=Math.max(peak,equity);maxDrawdownPct=Math.max(maxDrawdownPct,(peak-equity)/peak*100);}
   const gains=returns.filter(x=>x>0).reduce((a,b)=>a+b,0);
   const losses=Math.abs(returns.filter(x=>x<0).reduce((a,b)=>a+b,0));
-  return [system,{status:returns.length>=30?'sample-observed':returns.length?'insufficient-sample':'not-evaluated',
+  return {status:returns.length>=30?'sample-observed':returns.length?'insufficient-sample':'not-evaluated',
    evidenceCount:items.length,paperTrades:done.length,blocked:items.filter(x=>x.outcome.status==='blocked').length,
    winRatePct:returns.length?+(100*returns.filter(x=>x>0).length/returns.length).toFixed(4):null,
    meanNetReturnPct:returns.length?+(returns.reduce((a,b)=>a+b,0)/returns.length).toFixed(4):null,
@@ -63,7 +63,23 @@ function replayStrategyEvidence(history, evidenceBundle, options={}){
    drawdownMethod:'按退出交易日聚合的等权纸面组合日收益；非真实资金曲线',
    dailyPortfolioReturns:dailyReturns,evaluatorVersions,mixedEvaluatorVersions:evaluatorVersions.length>1,
    metricsNote:(returns.length<30?'样本不足30笔，仅展示描述性统计，不作策略有效性结论':'纸面估计统计，不代表真实可成交收益')+
-    (evaluatorVersions.length>1?'；混合评估器版本，仅为组合描述，不能作为单一版本有效性证据':'')}];
+    (evaluatorVersions.length>1?'；混合评估器版本，仅为组合描述，不能作为单一版本有效性证据':'')};
+ };
+ const stats=records=>Object.fromEntries(SYSTEMS.map(system=>{
+  const items=records.filter(x=>x.system===system),total=summarize(items);
+  // Do not let a pooled sample pass the per-version minimum. Keep the original
+  // aggregate for compatibility; bound extra output and preserve all records.
+  const versionSummaryStatus=!items.length?'empty':total.evaluatorVersions.length>64?'too-many-versions':'available';
+  const versionSummaries=[];
+  if(versionSummaryStatus==='available'){
+   const groups=new Map();
+   for(const row of items){const xs=groups.get(row.evaluatorVersion)||[];xs.push(row);groups.set(row.evaluatorVersion,xs);}
+   for(const evaluatorVersion of total.evaluatorVersions){
+    const {dailyPortfolioReturns,evaluatorVersions,mixedEvaluatorVersions,...summary}=summarize(groups.get(evaluatorVersion));
+    versionSummaries.push({evaluatorVersion,...summary});
+   }
+  }
+  return [system,{...total,versionSummaryStatus,versionSummaries}];
  }));
  return {schemaVersion:1,mode:'audited-strategy-evidence-replay',canTrade:false,verifiedLive:false,
   datasetFingerprint:base.datasetFingerprint,evidenceBundleFingerprint:hash(evidenceBundle),

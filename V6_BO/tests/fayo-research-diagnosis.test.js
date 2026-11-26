@@ -4,7 +4,7 @@ const {rollingPaperDiagnosis}=require('../src/core/strategy-health-monitor');
 const {settledPnlAttribution}=require('../src/core/intelligence-execution-validation');
 // Synthetic unit fixtures, not effectiveness evidence or independent market sessions.
 const dates=Array.from({length:64},(_,i)=>new Date(Date.UTC(2026,0,1+i)).toISOString().slice(0,10));
-const rows=dates.flatMap((signalDate,i)=>['a','b'].map(symbol=>({signalDate,symbol,verdict:'pass',outcome:{status:'paper-estimate',exitDate:dates[i+2],netReturnPct:i<40?2:-2}})));
+const rows=dates.flatMap((signalDate,i)=>['a','b'].map(symbol=>({signalDate,symbol,verdict:'pass',evaluatorVersion:'native-test/v1',outcome:{status:'paper-estimate',exitDate:dates[i+2],netReturnPct:i<40?2:-2}})));
 const input={sessionDates:dates,splitDate:dates[0],universeCount:2,marketQuality:{reviewReady:true}};
 test('common windows purge label overlap and warn only on descriptive paper deterioration',()=>{
  const r=rollingPaperDiagnosis(rows,input);
