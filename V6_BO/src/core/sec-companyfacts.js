@@ -81,6 +81,7 @@ async function boundedJsonEvidence(response,maxBytes=12*1024*1024){
   rawBytes=Buffer.concat(chunks);raw=rawBytes.toString('utf8');byteBasis='response-body';
  }else{
   raw=await response.text();if(Buffer.byteLength(raw)>maxBytes)throw Error('SEC响应超过限制');
+  rawBytes=Buffer.from(raw,'utf8');byteBasis='decoded-body-text';
  }
  try{return {data:JSON.parse(raw),rawBytes,byteBasis};}catch{throw Error('SEC返回无效JSON');}
 }

@@ -53,7 +53,7 @@ function quotes(rows,session,now){
   extra:{coverage:stats,latestOriginalQuoteAt:latestQuoteAt,lastSuccessAtKind:'observed-receipt',tradePermissionCertified:false}});
 }
 function buildSystemReadiness({now=Date.now(),version=null,replica=false,session=null,quoteRows,taskRows,
- risk=null,plans=null,background=null,feedback=null,model=null,worker=null,notificationConfigured=null}={}){
+ risk=null,plans=null,background=null,feedback=null,model=null,worker=null,notificationConfigured=null,trace=null}={}){
  if(!Number.isSafeInteger(now)||now<=0||now>8e15)throw Error('运行就绪度查询时钟无效');
  const components=[quotes(quoteRows,session,now)];
  for(const [id,label] of Object.entries(TASKS)){
@@ -124,6 +124,19 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
  const workerOk=worker?.available===true&&Object.values(lanes).every(x=>x.active!==null);
  components.push(component('worker-budget','共享研究线程声明预算',workerOk?'normal':'unverified',['后台研究','独立账户风险查询'],now,{
   extra:{scope:'declared-worker-v8-old-generation-only',lanes,processRssCertified:false,productionLoadCertified:false}}));
+ // Only allowlisted process-local counts and monotonic durations cross this read boundary.
+ const hookNames=['task.tick','task.pool','market.snapshot','market.universe','market.history','factor.evaluate','strategy.evaluate','candidate.publish','risk.entry','risk.notification','paper.transaction','paper.publish','paper.buy','paper.sell','notification.digest','notification.queue','notification.attempt','notification.delivery','research.stage','task.decision-background','task.decision-evidence','market.financials','risk.plan-context','risk.plan-observation','risk.plan-persist','notification.dispatch'];
+ const count=(x,max=1024)=>Number.isSafeInteger(x)&&x>=0&&x<=max?x:null;
+ const duration=x=>Number.isFinite(x)&&x>=0?x:null;
+ const hooks=hookNames.map(stage=>{
+  const matches=Array.isArray(trace?.hooks)?trace.hooks.slice(0,hookNames.length).filter(r=>r?.stage===stage):[];
+  const r=trace?.scope==='this-process-observed-stages'&&matches.length===1?matches[0]:null;
+  const samples=count(r?.samples),completed=count(r?.completed),failed=count(r?.failed),blocked=count(r?.blocked),unknown=count(r?.unknown),skipped=count(r?.skipped),timedSamples=count(r?.timedSamples);
+  const valid=[samples,completed,failed,blocked,unknown,skipped,timedSamples].every(v=>v!==null)&&completed+failed+blocked+unknown+skipped===samples&&timedSamples<=samples;
+  const p50Ms=valid&&timedSamples?duration(r.p50Ms):null,p95Ms=valid&&timedSamples?duration(r.p95Ms):null;
+  return {stage,status:valid&&samples?'observed':'not-observed',samples:valid?samples:0,completed:valid?completed:0,failed:valid?failed:0,blocked:valid?blocked:0,unknown:valid?unknown:0,skipped:valid?skipped:0,timedSamples:valid?timedSamples:0,p50Ms:p50Ms!==null&&p95Ms!==null&&p50Ms<=p95Ms?p50Ms:null,p95Ms:p50Ms!==null&&p95Ms!==null&&p50Ms<=p95Ms?p95Ms:null};
+ });
+ const runtimeTrace={scope:'this-process-observed-stages',hooks,active:count(trace?.active,128),dropped:count(trace?.dropped,Number.MAX_SAFE_INTEGER),evicted:count(trace?.evicted,Number.MAX_SAFE_INTEGER),endToEndCertified:false,receiverDeliveryCertified:false};
  const dependencies=[
   {id:'authorized-live-data-and-full-coverage',ready:false,missing:['尚需实际线路、独立上游、用途授权及全市场覆盖回执']},
   {id:'original-account-external-reconciliation',ready:false,missing:['原账户内部证据不能代替外部权威账本与真实对账']},
@@ -132,6 +145,6 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
   {id:'production-and-runtime-acceptance',ready:false,missing:['目标部署和5/20/60真实交易日证据尚须独立核验']}
  ];
  return {schemaVersion:1,protocol:PROTOCOL,asOf:now,version:typeof version==='string'?version.slice(0,80):null,
-  instanceRole:replica?'replica':'primary',components,dependencies,readOnly:true,canTrade:false,canNotify:false,writesAccount:false};
+  instanceRole:replica?'replica':'primary',components,dependencies,runtimeTrace,readOnly:true,canTrade:false,canNotify:false,writesAccount:false};
 }
 module.exports={buildSystemReadiness,PROTOCOL};

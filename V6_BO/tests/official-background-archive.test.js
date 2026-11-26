@@ -88,3 +88,13 @@ test('existing manual market CLI reads a frozen background snapshot with no netw
  const result=spawnSync(process.execPath,[path.resolve(__dirname,'../scripts/market-data-sync.js'),'--background-as-of',root,'ecb',JSON.stringify(ECB),new Date(e.recordedAt).toISOString()],{encoding:'utf8',timeout:5000,env:{...process.env,V6_MARKET_SYNC_INTERVAL_MS:'60000'}});
  assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout);assert.equal(out.receipt.hash,e.hash);assert.equal(out.canTrade,false);assert.deepEqual(fs.readFileSync(file),before);
 });
+
+test('SEC and World Bank decoded text fallback retain explicit archive byte basis',async t=>{
+ const root=fixture(t),secRaw=Buffer.from(JSON.stringify({cik:320193,facts:{'us-gaap':{Assets:{units:{USD:[{end:'2024-12-31',val:2000,accn:'0000320193-25-000011',form:'10-K',filed:'2025-02-02'}]}}}}})),
+  wbRaw=Buffer.from(JSON.stringify([{pages:1},[{countryiso3code:'CHN',indicator:{id:WB.indicator},date:'2023',value:0}]]));
+ const sr=await collectSecCompanyFact({...SEC,userAgent:'FAYO research researcher@example.org',archiveRoot:root,fetchImpl:async()=>response(secRaw,'application/json',true)});
+ const wr=await collectWorldBankIndicator({...WB,archiveRoot:root,fetchImpl:async()=>response(wbRaw,'application/json',true)});
+ for(const [r,provider,scope,raw] of [[sr,'sec-edgar',SEC,secRaw],[wr,'worldbank',WB,wbRaw]]){
+  assert.equal(r.archiveReceipt.dataVersion,sha(raw));assert.equal(read(root,provider,scope).receipt.byteBasis,'decoded-body-text');
+ }
+});

@@ -4767,7 +4767,13 @@ function fundHistoryCache(){
     cache:S.fundDays,fetchHistory:(code,days)=>em.fetchFundFlowDays(code,days)});
 }
 async function rebuildPool({follow = false} = {}) {
-  if (!S.stocks.length) { setAllStocks(await em.fetchAllStocks()); }
+  const trace=require('./src/core/runtime-trace');
+  return trace.async('task.pool',async root=>{
+  const factors=trace.batch('factor.evaluate'),strategies=trace.batch('strategy.evaluate');
+  try {
+  if (!S.stocks.length) { setAllStocks(await trace.async('market.universe',async span=>{
+    const rows=await em.fetchAllStocks();if(!Array.isArray(rows)||!rows.length)span.mark('unknown','SOURCE_UNAVAILABLE');return rows;
+  })); }
   const all = S.stocks.filter(s =>
     !A.isJunkName(s.name) && !s.name.includes('N') && !s.name.includes('C ') &&
     (!s.listedDate || listedDaysAgo(s.listedDate) == null || listedDaysAgo(s.listedDate) >= 30) && s.price > 0 && // 上市满30日；备用源无上市日期时放行
@@ -4789,6 +4795,7 @@ async function rebuildPool({follow = false} = {}) {
   const tradeKey = await dataTradeDay();
   const todayDash = `${todayStr().slice(0, 4)}-${todayStr().slice(4, 6)}-${todayStr().slice(6, 8)}`;
   let kdone = 0, kHit = 0, kStale = 0;
+  await trace.async('market.history',async span=>{
   await em.pool(codes, async code => {
     if (Date.now() - _poolT0 > _poolBudget) return null;   // 超预算就放弃剩余，用已拿到的先出池
     if (S.klines.has(code)) return S.klines.get(code);
@@ -4826,6 +4833,8 @@ async function rebuildPool({follow = false} = {}) {
     if (!(k && k.rows && k.rows.length) && stale) { klineSet(code, stale); kStale++; return stale; }
     return k;
   }, 20);
+  if(!codes.some(code=>S.klines.get(code)?.rows?.length))span.mark('unknown','SOURCE_UNAVAILABLE');
+  });
 
   console.log(`[pool] K线完成 ${kdone} 只，磁盘缓存命中 ${kHit} 只 / 陈旧兜底 ${kStale} 只，数据源最新交易日 ${tradeKey}`);
 
@@ -4840,6 +4849,7 @@ async function rebuildPool({follow = false} = {}) {
   const fundsCodes=[...codes].sort((a,b)=>Number(fundsPriority.has(b))-Number(fundsPriority.has(a))||
     (fundsCache.status(a)?.at||0)-(fundsCache.status(b)?.at||0)||a.localeCompare(b));
   let fdone = 0;
+  await trace.async('market.history',async span=>{
   await em.pool(fundsCodes, async code => {
     if(Date.now()>=fundsDeadline)return S.fundDays.get(code)||null;
     try {
@@ -4848,6 +4858,8 @@ async function rebuildPool({follow = false} = {}) {
       return f;
     } catch { return null; }
   }, 10);
+  if(!fundsCodes.some(code=>S.fundDays.get(code)?.length))span.mark('unknown','SOURCE_UNAVAILABLE');
+  });
 
   // push2 批量主力资金兜底通道：fflow 历史接口被反爬时，用快照级 当日/5日/10日 主力净流入补齐
   S.flow5d = S.flow5d || new Map();
@@ -4900,14 +4912,14 @@ async function rebuildPool({follow = false} = {}) {
   const scored = [];
   for (let i = 0; i < t2.length; i++) {
     const { s, k, t2d } = t2[i];
-    const profitRatio = A.calcProfitRatio(k.rows);
+    const profitRatio = factors.run(()=>A.calcProfitRatio(k.rows));
     const zt90 = k.rows.slice(-90).filter(r => A.isLimitUp(s.code, s.name, r.pct)).length;
     // gm 轮：近5日涨停基因（次日涨停率约40%的最强单一因子）—— 与回测/学习同一把尺子
     const zt5 = k.rows.slice(-5).filter(r => A.isLimitUp(s.code, s.name, r.pct)).length;
-    const { score, detail, basis: _scoreBasis } = A.scoreStock({
+    const { score, detail, basis: _scoreBasis } = factors.run(()=>A.scoreStock({
       rows: k.rows, profitRatio, turnoverRank2d: i + 1, total,
       mainPct: s.mainPct, pct: s.pct, zt90, zt5
-    });
+    }));
     // ---- 选股路径标记：每条路径同时记录「触发它的真实数据」，面板直接显示为什么选中 ----
     const last5 = k.rows.slice(-5);
     const paths = [], pathWhy = {};
@@ -5069,7 +5081,7 @@ async function rebuildPool({follow = false} = {}) {
     let rows = laRowsCache.get(c.code);
     if (!rows) { rows = S.klines.get(c.code); rows = rows && rows.rows; laRowsCache.set(c.code, rows); }
     if (!rows || rows.length < 6) continue;
-    const pr = laProb(c.code, c.name, rows, 'up3');
+    const pr = strategies.run(()=>laProb(c.code, c.name, rows, 'up3'));
     if (!pr) continue;
     c.laP = +(pr.p * 100).toFixed(1);                 // 自学给的次日涨≥3%概率
     c.laBase = +(pr.base * 100).toFixed(1);           // 全市场基准
@@ -5154,7 +5166,7 @@ async function rebuildPool({follow = false} = {}) {
       const sec = sectorOfStock({ code: c.code, name: c.name });
       const ztArr = (S.ztBySector || {})[sec] || [];
       const leaderPct = ztArr.length ? Math.max(...ztArr.map(z => +z.pct || 0)) : null;
-      const r = BAZI.evaluate({
+      const r = strategies.run(()=>BAZI.evaluate({
         code: c.code, name: c.name, rows, price: c.price,
         fundDays: S.fundDays.get(c.code), mainInflow: c.mainInflow, floatCap: c.floatCap,
         sectorInfo: {
@@ -5162,7 +5174,7 @@ async function rebuildPool({follow = false} = {}) {
           streak: null,  // 今日主线排名不能证明连续两日上榜；保留未知，不编造历史。
           leaderPct
         }
-      });
+      }));
       c.bazi = { total: r.total, stage: r.stage, verdict: r.verdict, line: r.line, advise: r.advise,
         scoreKind: r.scoreKind, calibrationCertified: false, evidenceComplete: r.evidenceComplete,
         actionable: r.actionable, coverage: r.coverage, fundsEvidence: r.dims.fund.fundsEvidence || null };
@@ -5223,7 +5235,7 @@ async function rebuildPool({follow = false} = {}) {
   const beforeCapN = picked.length;
   picked = picked.slice(0, POOL_CAP);
   if (beforeCapN > POOL_CAP) console.log(`[pool] 过闸 ${beforeCapN} 只，按最终顺序取前 ${POOL_CAP} 只入池（池上限）`);
-  S.candidatePool = picked;
+  trace.sync('candidate.publish',span=>{S.candidatePool = picked;if(!picked.length)span.mark('skipped','NO_CANDIDATE');});
   if (follow) {
     try { await followSystemPicks(picked,tradeKey); }
     catch (error) { console.error('[paper/pool] 精选跟单未完成',error.message); }
@@ -5536,6 +5548,8 @@ async function rebuildPool({follow = false} = {}) {
   console.log(`[pool] 精选池完成，Top1: ${scored[0] ? scored[0].name + ' ' + scored[0].score + '分' : '无'}`);
   resolveSignals(); // K线已刷新，回验历史信号并更新学习校准
   trendSelfOptimize(); // 趋势票失败率自动控制（命中率过低收紧阈值/过高放宽，留档）
+  } finally { factors.end();strategies.end(); }
+  },{versions:{application:typeof APP_VER==='string'?APP_VER:undefined}});
 }
 
 // ---------------- 市场主线分析：按涨停家数/连板高度聚合 ----------------
@@ -6339,7 +6353,10 @@ function publishFastStockMoves(plan, rows, now, timing) {
   }
 }
 async function tick() {
-  if (S.loop.running) return;
+  const trace=require('./src/core/runtime-trace');
+  return trace.async('task.tick',async root=>{
+  if (S.loop.running) {root.mark('skipped','ALREADY_RUNNING');return;}
+  const strategies=trace.batch('strategy.evaluate');
   S.loop.running = true;
   try {
     // ⛔ 2026-10-09 修（用户"板块强势股一个没推 / 盘中不推优质票"）：原监控池只有精选池前100只，
@@ -6360,7 +6377,9 @@ async function tick() {
     for (const code of S.inflowHistory.keys()) if (!requestedCodes.has(code)) S.inflowHistory.delete(code);
     const startedAt = Date.now();
     let snaps;
-    try { snaps = await em.fetchBatchSnapshot(codes); }
+    try { snaps = await trace.async('market.snapshot',async span=>{
+      const rows=await em.fetchBatchSnapshot(codes);if(!Array.isArray(rows)||!rows.length)span.mark('unknown','SOURCE_UNAVAILABLE');return rows;
+    }); }
     catch (e) {
       S.loop.monitor = monitorCoverage(plan, [], Date.now(), 'fetch-failed', PAPER);
       publishFastStockMoves(plan, [], Date.now(), {startedAt, failed:true});
@@ -6396,14 +6415,14 @@ async function tick() {
         const poolItem = S.candidatePool.find(c => c.code === s.code);
         const ztInSector = sectorZTCountFor(s);
         const gap = numGapRaw(s.code, s.name, s.pct); // 取不到为 null，下面门槛显式排除
-        const prob = A.limitUpProbability({
+        const prob = strategies.run(()=>A.limitUpProbability({
           score: numNeutral('score', poolItem ? poolItem.score : null),
           mainPct: numNeutral('mainPct', s.mainPct),
           profitRatio: numNeutral('profitRatio', poolItem ? poolItem.profitRatio : null),
           zt90: numNeutral('zt90', poolItem ? poolItem.zt90 : null),
           sectorZT: ztInSector, gap: numNeutral('gap', gap),
           turnover: numNeutral('turnover', s.turnover), inflowStreakMin: streakMin
-        });
+        }));
         const probC = calibratedProb(prob * 100); // 学习校准后的概率
         // Positive news never lowers the original model threshold; preserve the negative safety gate.
         const goodHit = S.news.goodCodes && newsSupportsCode(s.code);
@@ -6461,7 +6480,7 @@ async function tick() {
       // ⛔ 同上：原写 `s.pct < A.limitPctOf(...) - 0.25`（容差 0.25 是这一路自己的松紧要求，保留），
       //   但限幅规则与新股无限制期必须走同一个入口。
       if (k && k.rows && k.rows.length >= 25 && (s.mainInflow || 0) > 0 && !A.isNearLimitUp(s.code, s.name, s.pct, 0.25)) {
-        const tr = A.trendCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price });
+        const tr = strategies.run(()=>A.trendCheck({ rows: k.rows, fundDays: S.fundDays.get(s.code), price: s.price }));
         if (tr) {
           const ts = S.trendState.get(s.code) || { belowMa5: !tr.aboveMa5, aboveTicks: 0, belowHigh: !tr.brokeHigh, highTicks: 0, firedMa5: false, firedHigh: false };
           const priorTrendState = {...ts};
@@ -6572,7 +6591,7 @@ async function tick() {
       //   ⚠️ 必须判在 govTake **之前**（与 similar 那处同约定）：modDayTake 只占模块额度、
       //   不占总名额，先判不会造成"名额被占却没推出去"。
       if (!modDayTake(alertType(a))) { console.log(`[gov] ${a.type} ${a.name}(${a.code}) 已拦下：模块日上限`); continue; }
-      const _gv = govTake(a.code, alertType(a), strong, a.prob, a);
+      const _gv = trace.sync('risk.entry',span=>{const decision=govTake(a.code, alertType(a), strong, a.prob, a);if(!decision.ok)span.mark('blocked','BUSINESS_REJECTED');return decision;});
       if (!_gv.ok) { console.log(`[gov] ${a.type} ${a.name}(${a.code}) 已拦下：${_gv.why}`); continue; }
       S.lastPush.set(key, now);
       // 当日第几次推：强势股会被反复推，标注出来让用户知道是"加推"而不是重复啰嗦
@@ -6704,10 +6723,13 @@ async function tick() {
     S.loop.tickCount++;
     S.loop.lastError = null;
   } catch (e) {
+    root.fail(e);
     S.loop.lastError = String(e && e.message || e);
   } finally {
+    strategies.end();
     S.loop.running = false;
   }
+  },{versions:{application:typeof APP_VER==='string'?APP_VER:undefined}});
 }
 
 function countStreak(h) {
@@ -10485,16 +10507,17 @@ function alertScore(a) {
   return (a.prob || 0) * 2 + (a.riseProb || 0) + (a.mainPct || 0) * 3 + (a.strong ? 30 : 0);
 }
 function enqueueIntraday(list) {
+  const trace=require('./src/core/runtime-trace');
   for (const a of list) {
     const k = a.type + ':' + a.code;
     const old = INTRADAY.buf.get(k);
     if (!old) {
-      INTRADAY.buf.set(k, a);
+      INTRADAY.buf.set(k, trace.associate(a));
       if (!INTRADAY.firstAt) INTRADAY.firstAt = Date.now();
       continue;
     }
     // 同一窗口内重复命中：保留评分更高的那条，避免被后面一次弱信号覆盖掉
-    if (alertScore(a) >= alertScore(old)) INTRADAY.buf.set(k, a);
+    if (alertScore(a) >= alertScore(old)) INTRADAY.buf.set(k, trace.associate(a));
   }
   if (INTRADAY.timer) return;
   const since = Date.now() - INTRADAY.lastSent;
@@ -10512,7 +10535,7 @@ function enqueueIntradayMsg(text, opt) {
     pushAll(text, false, opt || {});
     return;
   }
-  INTRADAY.parts.push({ text, opt: opt || {} });
+  INTRADAY.parts.push(require('./src/core/runtime-trace').associate({ text, opt: opt || {} }));
   if (INTRADAY.timer) return;
   const wait = Math.max(5000, Math.min(INTRADAY_MAX_WAIT, INTRADAY_MIN_GAP - since));
   INTRADAY.timer = setTimeout(() => { INTRADAY.timer = null; flushIntraday(); }, wait);
@@ -10525,10 +10548,12 @@ function flushIntraday() {
   INTRADAY.buf.clear(); INTRADAY.firstAt = 0; INTRADAY.lastSent = Date.now();
   if (!list.length && !parts.length) return;
   // go 轮 A6：盘中预警汇总改私密（hg 轮起直推段也合并进这一条，private 统一在这里）；
+  const trace=require('./src/core/runtime-trace'),origins=[];
   let msg = '', opt = { private: true };
   if (list.length) {
     list.sort((x, y) => (ALERT_RANK[x.type] ?? 9) - (ALERT_RANK[y.type] ?? 9) || alertScore(y) - alertScore(x));
     const top = list.slice(0, INTRADAY_MAX_ITEMS);
+    origins.push(...top.map(trace.contextOf));
     opt.recommendationRows = freezeRecommendationRows(top, true);
     opt.newsRecommendationRows = freezeNewsRecommendationRows(top);
     // Persist only the exact signals included in this batch, never omitted rows.
@@ -10554,6 +10579,7 @@ function flushIntraday() {
   for (const p of parts) {
     const body = String(p.text || '').replace(/^═══ 📊 量化看盘·盘中推送 ═══\n?/, '');
     if (!body) continue;
+    origins.push(trace.contextOf(p));
     msg = msg ? msg + '\n' + body : body;
     if (p.opt && p.opt.undo) opt.undo = (opt.undo || []).concat(p.opt.undo);
     if (p.opt && Array.isArray(p.opt.recommendationRows)) opt.recommendationRows = (opt.recommendationRows || []).concat(p.opt.recommendationRows);
@@ -10564,7 +10590,9 @@ function flushIntraday() {
     }
   }
   if (!msg) return;
-  pushAll(msg, false, opt);
+  trace.detached(()=>trace.withLinks(origins,()=>trace.sync('notification.digest',span=>{
+    if(!pushAll(msg, false, opt))span.mark('blocked','NOTIFICATION_BLOCKED');
+  })));
 }
 
 function buildAlertsReport(list, opt) {
@@ -11471,7 +11499,8 @@ function systemReadinessFor(now=Date.now()){
     risk:readStatus(_riskWorkbenchRuntime),plans:readStatus(decisionEvidenceRuntime),
     background:readStatus(_decisionBackground),feedback:readStatus(_decisionFeedbackRuntime),
     model:readStatus(_approvedFactorCache),
-    worker:require('./src/server/worker-admission-budget').stats()});
+    worker:require('./src/server/worker-admission-budget').stats(),
+    trace:require('./src/core/runtime-trace').summary()});
 }
 function sharedMarketRead(kind,edit) {
   const session=marketDisplaySession();

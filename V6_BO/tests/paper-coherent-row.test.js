@@ -108,7 +108,7 @@ test('scheduled system picks commit once to A with the same three codes as the d
  const before=fs.readFileSync(x.file);
  x.c.PAPER.pool.positions={};x.c.PAPER.pool.cash=10000;
  await scan();assert.deepEqual(fs.readFileSync(x.file),before,'durable same-day fills independently prevent repurchase');
- assert.match(source,/S\.candidatePool = picked;\s*if \(follow\) \{\s*try \{ await followSystemPicks\(picked,tradeKey\)/);
+ assert.match(source,/trace\.sync\('candidate\.publish',span=>\{S\.candidatePool = picked;[^\n]*\}\);\s*if \(follow\) \{\s*try \{ await followSystemPicks\(picked,tradeKey\)/);
  assert.match(source,/mod === 'pool'\) tasks.push\(_g\('pool', \(\) => rebuildPool\(\)\)\)/);
  assert.doesNotMatch(source,/paperBuy\('pool',\s*fresh/);
 });

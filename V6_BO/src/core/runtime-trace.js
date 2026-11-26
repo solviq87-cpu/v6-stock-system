@@ -11,7 +11,7 @@ const STAGES=new Set(['task.tick','task.pool','market.snapshot','market.universe
  'notification.queue','notification.attempt','notification.delivery','research.stage',
  'task.decision-background','task.decision-evidence','market.financials','risk.plan-context',
  'risk.plan-observation','risk.plan-persist','notification.dispatch']);
-const GROUPS=['market','factor','strategy','candidate','risk','paper','notification'];
+const GROUPS=['task','market','factor','strategy','candidate','risk','paper','notification','research'];
 const CODES=new Set(['STAGE_FAILED','SOURCE_UNAVAILABLE','RISK_REJECTED','BUSINESS_REJECTED',
  'NO_CHANGE','NOTIFICATION_BLOCKED','QUEUE_FULL','DELIVERY_UNKNOWN','DELIVERY_FAILED',
  'DELIVERY_RETRY','REPLICA','SESSION_CLOSED','ACCOUNT_DISABLED','NO_CANDIDATE','ALREADY_RUNNING','AUTOMATIC_QUOTE_NOT_CURRENT',
@@ -89,25 +89,28 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  function annotateCurrent(meta){controls.get(current())?.annotate(meta);}
  function batch(stage,meta){let span=null;return {run(fn){span??=begin(stage,meta);return span.measure?span.measure(fn):span.run(fn);},end(){return span?.end();}};}
  function resume(context,fn){return trusted(context)?storage.run(context,fn):fn();}
+ function detached(fn){return storage.run(null,fn);}
  function withLinks(contexts,fn){
-  const links=[];for(const value of Array.isArray(contexts)?contexts.slice(0,32):[]){if(trusted(value)&&!links.some(x=>x.spanId===value.spanId))links.push({traceId:value.traceId,spanId:value.spanId});}
+  const links=[];for(const value of Array.isArray(contexts)?contexts.slice(0,32):[]){if(trusted(value)&&ID.test(value.spanId||'')&&!links.some(x=>x.spanId===value.spanId))links.push({traceId:value.traceId,spanId:value.spanId});}
   const parent=current();if(!links.length)return fn();
   const context=issue({traceId:parent?.traceId||crypto.randomBytes(16).toString('hex'),spanId:parent?.spanId||null,
    versions:parent?.versions||Object.freeze({}),links:Object.freeze(links.slice(0,16).map(Object.freeze))});
   return storage.run(context,fn);
  }
- function associate(value,context=current()){if(value&&typeof value==='object'&&trusted(context))associations.set(value,context);return value;}
+ function associate(value,context=current()){if(value&&typeof value==='object'){if(trusted(context))associations.set(value,context);else associations.delete(value);}return value;}
  const contextOf=value=>value&&typeof value==='object'?associations.get(value)||null:null;
  function read({recent=32}={}){const count=Number.isSafeInteger(recent)?Math.max(0,Math.min(128,recent)):32;
   return {schemaVersion:1,scope:'this-process-observed-stages',capacity:limit,active:active.size,dropped,evicted,
    spans:clone(count?rows.slice(-count):[]),canTrade:false,writesAccount:false};}
  function summary(){
-  const stages=GROUPS.map(stage=>{const values=rows.filter(row=>row.stage.startsWith(stage+'.')),times=values.map(row=>row.durationMs).filter(Number.isFinite).sort((a,b)=>a-b);
+  const describe=(stage,values)=>{const times=values.map(row=>row.durationMs).filter(Number.isFinite).sort((a,b)=>a-b);
    const percentile=p=>times.length?times[Math.ceil(times.length*p)-1]:null;
    return {stage,status:values.length?'observed':'not-observed',samples:values.length,completed:values.filter(r=>r.status==='completed').length,
     failed:values.filter(r=>r.status==='failed').length,blocked:values.filter(r=>r.status==='blocked').length,
-    unknown:values.filter(r=>r.status==='unknown').length,p50Ms:percentile(.5),p95Ms:percentile(.95)};});
-  return {...read({recent:0}),observedSpanCount:rows.length,stages,coverage:'only executed hooks; unobserved stages are not inferred'};
+    unknown:values.filter(r=>r.status==='unknown').length,skipped:values.filter(r=>r.status==='skipped').length,timedSamples:times.length,p50Ms:percentile(.5),p95Ms:percentile(.95)};};
+  const stages=GROUPS.map(stage=>describe(stage,rows.filter(row=>row.stage.startsWith(stage+'.'))));
+  const hooks=[...STAGES].map(stage=>describe(stage,rows.filter(row=>row.stage===stage)));
+  return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,coverage:'only executed hooks; unobserved stages are not inferred'};
  }
  // Only internal workerData may carry this small envelope. Main-thread callers
  // cannot restore a JSON/client context; same-process resume requires issuance.
@@ -136,6 +139,6 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  }
  const wrapSync=(stage,fn,meta)=>function(...args){return sync(stage,()=>fn.apply(this,args),typeof meta==='function'?safeCall(()=>meta(...args),{}):meta);};
  const wrapAsync=(stage,fn,meta)=>function(...args){return asyncStage(stage,()=>fn.apply(this,args),typeof meta==='function'?safeCall(()=>meta(...args),{}):meta);};
- return {begin,sync,async:asyncStage,wrapSync,wrapAsync,batch,capture,markCurrent,annotateCurrent,resume,withLinks,associate,contextOf,read,summary,workerContext,inWorker,createStageTrace};
+ return {begin,sync,async:asyncStage,wrapSync,wrapAsync,batch,capture,markCurrent,annotateCurrent,resume,detached,withLinks,associate,contextOf,read,summary,workerContext,inWorker,createStageTrace};
 }
 module.exports={...createRuntimeTrace(),createRuntimeTrace};
