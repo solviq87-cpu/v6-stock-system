@@ -67,25 +67,41 @@ function observationCounts(data,names){
  return Object.values(result).some(n=>n===null)?null:result;
 }
 export function renderRuntimeObservationCoverage(observation){
- const confirmed=observation?.elapsedTradingDaysComplete===true;
  const calendar=observation?.calendar||{};
- const coverageRows=arr(observation?.days).slice(-60).map(d=>{
+ const confirmed=observation?.elapsedTradingDaysComplete===true&&calendar.runtimeEligible===true&&
+  ['omittedAttemptDays','versionMismatchDays','unverifiedVersionDays'].every(key=>Array.isArray(calendar[key])&&calendar[key].length===0);
+ const validDay=day=>typeof day==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&Number.isFinite(Date.parse(day+'T00:00:00Z'))&&new Date(day+'T00:00:00Z').toISOString().slice(0,10)===day;
+ const rawDays=arr(observation?.days),byDay=new Map(),duplicates=new Set();let invalidDays=0;
+ for(const d of rawDays){
+  if(!validDay(d?.day)){invalidDays++;continue;}
+  if(byDay.has(d.day))duplicates.add(d.day);else byDay.set(d.day,d);
+ }
+ const coverageRows=[...byDay.keys()].sort().slice(-60).map(day=>{
+  const d=byDay.get(day);
+  if(duplicates.has(day))return {day,held:null,account:null,duplicate:true};
   let held=observationCounts(d.heldMonitorCoverage,['attemptedMinutes','observedMinutes','missingMinutes','observedExpectedSymbolMinutes','observedFreshSymbolMinutes']);
-  if(held&&(d.heldMonitorCoverage.scope!=='original-monitor-held-symbols-v1'||held.observedMinutes+held.missingMinutes!==held.attemptedMinutes||held.observedFreshSymbolMinutes>held.observedExpectedSymbolMinutes||!held.observedMinutes&&held.observedExpectedSymbolMinutes!==0))held=null;
+  if(held&&(d.heldMonitorCoverage.scope!=='original-monitor-held-symbols-v1'||d.heldMonitorCoverage.fullMarketCertified!==false||held.observedMinutes+held.missingMinutes!==held.attemptedMinutes||held.observedFreshSymbolMinutes>held.observedExpectedSymbolMinutes||!held.observedMinutes&&held.observedExpectedSymbolMinutes!==0))held=null;
   let account=observationCounts(d.accountReconciliation,['attempted','verifiedLocal','unsuccessful','unknown']);
-  if(account&&(d.accountReconciliation.scope!=='original-paper-local-joint-reconciliation-v1'||account.verifiedLocal+account.unsuccessful+account.unknown!==account.attempted))account=null;
-  return {day:d.day,held,account};
+  if(account&&(d.accountReconciliation.scope!=='original-paper-local-joint-reconciliation-v1'||d.accountReconciliation.verifiedExternal!==false||account.verifiedLocal+account.unsuccessful+account.unknown!==account.attempted))account=null;
+  if(Object.hasOwn(d,'attemptSamples')){
+   const attempts=countValue(d.attemptSamples);
+   if(held&&(attempts===null||held.attemptedMinutes!==attempts))held=null;
+   if(account&&(attempts===null||account.attempted!==attempts))account=null;
+  }else if(held&&account&&held.attemptedMinutes!==account.attempted){held=null;account=null;}
+  return {day,held,account};
  });
- const receiptLabel=r=>r.held&&r.held.attemptedMinutes?`${format(r.held.observedMinutes,0)} / ${format(r.held.attemptedMinutes,0)}（缺 ${format(r.held.missingMinutes,0)}）`:'未知';
+ const receiptLabel=r=>r.duplicate?'重复交易日，待核':r.held&&r.held.attemptedMinutes?`${format(r.held.observedMinutes,0)} / ${format(r.held.attemptedMinutes,0)}（缺 ${format(r.held.missingMinutes,0)}）`:'未知';
  const coverageLabel=r=>r.held&&r.held.observedMinutes&&r.held.observedExpectedSymbolMinutes>0?`${format(r.held.observedFreshSymbolMinutes,0)} / ${format(r.held.observedExpectedSymbolMinutes,0)} · ${format(100*r.held.observedFreshSymbolMinutes/r.held.observedExpectedSymbolMinutes)}%`:'未知';
  const accountLabel=r=>r.account&&r.account.attempted?`本地一致 ${format(r.account.verifiedLocal,0)} · 未成功 ${format(r.account.unsuccessful,0)} · 未知 ${format(r.account.unknown,0)}`:'未知';
  return section('运行观察与持仓覆盖','只展示原持仓巡检和原双账户的已取得回执；不代表全市场覆盖或外部券商对账。',
   facts([['交易日窗口',confirmed?'范围已核对':'完整范围待核'],['已知结束交易日',countValue(observation?.elapsedTradingDays)],
    ['历史观察日被当前日历漏列',Array.isArray(calendar.omittedAttemptDays)?calendar.omittedAttemptDays.length:null],
-   ['日历版本变化日',Array.isArray(calendar.versionMismatchDays)?calendar.versionMismatchDays.length:null]]),
+   ['日历版本变化日',Array.isArray(calendar.versionMismatchDays)?calendar.versionMismatchDays.length:null],
+   ['日历版本证据待核日',Array.isArray(calendar.unverifiedVersionDays)?calendar.unverifiedVersionDays.length:null],['重复观察日待核',duplicates.size],['无效观察日记录',invalidDays]]),
   coverageRows.length?table([{label:'交易日',value:r=>r.day||'未知'},{label:'持仓回执分钟（取得 / 已尝试）',value:receiptLabel},
    {label:'已取得股票×分钟有效覆盖',value:coverageLabel},{label:'原双账户本地检查',value:accountLabel}],coverageRows):empty('尚无真实观察回执','等待已验证安装和真实交易日采样。'),
-  arr(observation?.days).length>60?note('仅显示最近60个已知交易日，完整记录可导出。'):null,
+  byDay.size>60?note('仅显示最近60个已知交易日，完整记录可导出。'):null,
+  duplicates.size||invalidDays?note('重复或无效交易日不计入本表的有效回执；原报告保留。'):null,
   note('此处的已尝试分钟不是完整交易时段；未尝试和缺失分钟不进入已取得覆盖率的分母，但完整窗口评价仍需保留这些缺口。没有原回执时保持未知。'));
 }
 
@@ -117,17 +133,37 @@ export function renderBackgroundArchive(overview){
 // The original task ledger has a fixed denominator. Each positive state is
 // specific to its own axis, and even a positive declaration is not certification.
 const TASK_AXES=[['code','代码','implemented'],['interface','接线','connected'],['realData','真实数据','available'],['validation','验证','passed'],['deployed','部署','deployed'],['observation','观察','verified']];
-const TASK_PENDING=new Set(['unknown','missing','partial','failed','blocked','waiting','not-deployed','observing']);
+const TASK_COMMON=new Set(['unknown','missing','partial','failed','blocked']);
+// Presentation rechecks the same reference shapes as the original server.
+// This is not a network verification or independent acceptance grant.
+const safeRef = value => typeof value==='string'&&value.length<=300&&(
+    /^https:\/\/github\.com\/solviq87-cpu\/v6-stock-system\/(?:pull\/[1-9]\d*|commit\/[a-f0-9]{40}|actions\/runs\/[1-9]\d*(?:\/attempts\/[1-9]\d*)?)(?:#[A-Za-z0-9_-]+)?$/.test(value)||
+    /^(?:V6_BO|docs|tests)\//.test(value)&&!/[\\?:#%\x00-\x20\x7f]/.test(value)&&value.split('/').every(part=>part&&part!=='.'&&part!=='..'));
+const receiptRef = ref => /^(?:V6_BO\/)?docs\/validation\/.+\.(?:json|md|txt|log|tap)$/i.test(ref);
+  const runRef = ref => /^https:\/\/github\.com\/solviq87-cpu\/v6-stock-system\/actions\/runs\//.test(ref);
+  const completionRef = (axis,ref,sha) => {
+    if(axis==='code')return /^V6_BO\/(?:src\/|scripts\/|public\/|strategies\/|config\/|deploy\/)/.test(ref)&&
+      !/\/(?:tests|fixtures|docs)\//.test(ref)&&/\.(?:js|cjs|mjs|json|py|ts|tsx|css|html|sh|ps1|ya?ml)$/i.test(ref)||
+      ref==='https://github.com/solviq87-cpu/v6-stock-system/commit/'+sha;
+    if(axis==='interface'||axis==='validation')return runRef(ref)||receiptRef(ref);
+    return receiptRef(ref);
+  };
 function taskStatus(row,key,positive){
  const axis=row?.[key],status=axis?.status;
- if(!Array.isArray(axis?.evidence)||!axis.evidence.some(ref=>typeof ref==='string'&&ref.trim()))return 'unknown';
- return status===positive||TASK_PENDING.has(status)?status:'unknown';
+ if(!Array.isArray(axis?.evidence)||!axis.evidence.some(safeRef))return 'unknown';
+ if(status===positive){
+  if(typeof row.sourceSha!=='string'||!/^[a-f0-9]{40}$/.test(row.sourceSha)||axis.reason!=null||
+    axis.evidence.length>12||!axis.evidence.every(safeRef)||!axis.evidence.some(ref=>completionRef(key,ref,row.sourceSha)))return 'unknown';
+  return status;
+ }
+ return TASK_COMMON.has(status)||key==='deployed'&&status==='not-deployed'||key==='observation'&&['waiting','observing'].includes(status)?status:'unknown';
 }
 export function summarizeTaskDelivery(entries){
  const byId=new Map(),duplicates=new Set();let invalidRows=0;
  for(const row of arr(entries)){
   if(!Number.isInteger(row?.id)||row.id<1||row.id>78){invalidRows++;continue;}
-  if(byId.has(row.id))duplicates.add(row.id);else byId.set(row.id,row);
+  if(byId.has(row.id)||arr(row.issues).includes('duplicate-task-id'))duplicates.add(row.id);
+  if(!byId.has(row.id))byId.set(row.id,row);
  }
  const rows=Array.from({length:78},(_,i)=>{
   const id=i+1,recordState=duplicates.has(id)?'duplicate':byId.has(id)?'received':'missing';
@@ -165,7 +201,7 @@ export function renderTaskDeliveryStatus(entries){
   table([{label:'交付阶段',value:r=>r.label},{label:'正向登记 / 78',value:r=>r.positive},{label:'部分具备',value:r=>r.partial},
    {label:'失败或阻塞',value:r=>r.failed},{label:'待核或未完成',value:r=>r.pending}],summary.axes),
   h('details',{class:'fy-details'},h('summary',{},'查看78项任务明细'),h('div',{class:'fy-toolbar'},field('显示范围',filter)),visible,list),
-  note('缺失或重复编号保留在78项分母中；不明状态或没有证据的正向声明保持待核。原始证据可随完整报告导出。'));
+  note('缺失或重复编号保留在78项分母中；不明状态或没有证据的正向声明保持待核。正向登记必须匹配源码版本和相应阶段的证据类型；原始证据可随完整报告导出。'));
 }
 
 export function renderDeepResearch(ctx){

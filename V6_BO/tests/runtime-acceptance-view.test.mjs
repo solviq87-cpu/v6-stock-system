@@ -49,7 +49,9 @@ test('unverified background rows do not show a numeric value and archive absence
 const taskModule=await import('../public/nova/deep-research.js');
 const positive={code:'implemented',interface:'connected',realData:'available',validation:'passed',deployed:'deployed',observation:'verified'};
 const taskAxis=(status,evidence=['docs/FAYO_78_TASK_AUDIT_20261126.md'])=>({status,evidence});
-const fullTask=id=>({id,title:'任务'+id,...Object.fromEntries(Object.entries(positive).map(([key,status])=>[key,taskAxis(status)]))});
+const sourceSha='a'.repeat(40);
+const stageRef=key=>key==='code'?'V6_BO/src/core/runtime-acceptance.js':key==='interface'||key==='validation'?'https://github.com/solviq87-cpu/v6-stock-system/actions/runs/123':'docs/validation/test/receipt.json';
+const fullTask=id=>({id,title:'任务'+id,sourceSha,...Object.fromEntries(Object.entries(positive).map(([key,status])=>[key,taskAxis(status,[stageRef(key)])]))});
 test('task delivery summary keeps the fixed 78 denominator, six separate axes, and unknown deployment/observation',()=>{
  const rows=Array.from({length:78},(_,i)=>({...fullTask(i+1),code:taskAxis('partial'),deployed:taskAxis('unknown'),observation:taskAxis('waiting')}));
  const x=taskModule.summarizeTaskDelivery(rows);
@@ -80,4 +82,47 @@ test('task panel filters failed/blocked tasks and can restore all 78 entries wit
  select.value='blocked';select.dispatch('change');assert.match(root.textContent,/当前显示 1 \/ 78 项/);assert.match(root.textContent,/失败任务/);assert.doesNotMatch(root.textContent,/缺少该编号回执/);
  select.value='missing';select.dispatch('change');assert.match(root.textContent,/当前显示 76 \/ 78 项/);assert.match(root.textContent,/缺少该编号回执/);
  select.value='all';select.dispatch('change');assert.match(root.textContent,/当前显示 78 \/ 78 项/);
+});
+
+test('normalized server duplicate issues remain duplicate instead of counting a unique received task',()=>{
+ const row={...fullTask(1),issues:['duplicate-task-id']};
+ const r=taskModule.summarizeTaskDelivery([row,fullTask(2)]);
+ assert.equal(r.received,1);assert.deepEqual(r.duplicateIds,[1]);assert.equal(r.allPositive,1);assert.equal(r.rows[0].recordState,'duplicate');
+});
+test('positive delivery declarations require a source version and appropriate stage receipts',()=>{
+ const generic='https://github.com/solviq87-cpu/v6-stock-system/pull/123';
+ const cases=[
+  [{...fullTask(1),sourceSha:null},Object.keys(positive)],
+  [{...fullTask(1),code:taskAxis('implemented',['V6_BO/tests/runtime-acceptance.test.js'])},['code']],
+  [{...fullTask(1),code:taskAxis('implemented',['https://github.com/solviq87-cpu/v6-stock-system/commit/'+'b'.repeat(40)])},['code']],
+  [{...fullTask(1),realData:taskAxis('available',[generic]),deployed:taskAxis('deployed',[generic]),observation:taskAxis('verified',[generic])},['realData','deployed','observation']],
+  [{...fullTask(1),validation:taskAxis('passed',['https://example.com/unverified',stageRef('validation')])},['validation']],
+  [{...fullTask(1),validation:{...taskAxis('passed',[stageRef('validation')]),reason:'missing-stage-evidence'}},['validation']]
+ ];
+ for(const [entry,axes] of cases){const r=taskModule.summarizeTaskDelivery([entry]);for(const key of axes)assert.equal(r.rows[0].statuses[key],'unknown',key);assert.equal(r.allPositive,0);}
+ const r=taskModule.summarizeTaskDelivery([fullTask(1)]);assert.equal(r.allPositive,1);
+});
+test('stage-specific pending states cannot be reassigned across axes',()=>{
+ const x={...fullTask(1),code:taskAxis('observing'),interface:taskAxis('not-deployed'),deployed:taskAxis('waiting'),observation:taskAxis('not-deployed')};
+ const r=taskModule.summarizeTaskDelivery([x]);for(const key of ['code','interface','deployed','observation'])assert.equal(r.rows[0].statuses[key],'unknown',key);
+});
+test('runtime coverage rejects malformed and duplicate days without erasing the original report',t=>{
+ const report={elapsedTradingDays:2,days:[null,{day:'2026-02-30',heldMonitorCoverage:held,accountReconciliation:account},{day,heldMonitorCoverage:held,accountReconciliation:account},{day,heldMonitorCoverage:held,accountReconciliation:account}]};
+ const before=JSON.stringify(report),text=render(t,report);
+ assert.match(text,/重复交易日，待核/);assert.match(text,/重复观察日待核\s+1/);assert.match(text,/无效观察日记录\s+2/);
+ assert.doesNotMatch(text,/99\.55%|本地一致 1|2026-02-30/);assert.equal(JSON.stringify(report),before);
+});
+test('runtime coverage requires original scopes and consistent attempted denominators',t=>{
+ for(const change of [{heldMonitorCoverage:{...held,fullMarketCertified:true}},{accountReconciliation:{...account,verifiedExternal:true}},{attemptSamples:4}]){
+  const text=render(t,{days:[{day,heldMonitorCoverage:held,accountReconciliation:account,...change}]});
+  if(change.heldMonitorCoverage||change.attemptSamples)assert.doesNotMatch(text,/99\.55%/);
+  if(change.accountReconciliation||change.attemptSamples)assert.doesNotMatch(text,/本地一致 1/);
+ }
+});
+test('calendar range confirmation cannot contradict missing or changed calendar evidence',t=>{
+ const calendar={runtimeEligible:true,omittedAttemptDays:[],versionMismatchDays:[],unverifiedVersionDays:[]};
+ for(const change of [{unverifiedVersionDays:[day]},{omittedAttemptDays:[day]},{versionMismatchDays:[day]},{runtimeEligible:false}]){
+  assert.match(render(t,{elapsedTradingDaysComplete:true,calendar:{...calendar,...change},days:[]}),/完整范围待核/);
+ }
+ assert.match(render(t,{elapsedTradingDaysComplete:true,calendar,days:[]}),/范围已核对/);
 });
