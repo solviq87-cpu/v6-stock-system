@@ -1,22 +1,22 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawnSync}=require('node:child_process');
-const {createRuntimeAcceptance,evaluateRuntimeQuality,RUNTIME_QUALITY_POPULATION}=require('../src/core/runtime-acceptance');
+const {createRuntimeAcceptance,evaluateRuntimeQuality,RUNTIME_QUALITY_POPULATION,observeOriginalAccountReconciliation}=require('../src/core/runtime-acceptance');
 const {evaluateProductQuality}=require('../src/core/product-quality-evaluation');
 const revision='a'.repeat(40),calendarHash='b'.repeat(64),day='2026-11-23';
 const at=(d,m)=>Date.parse(d+'T09:30:00+08:00')+m*60000;
 const iso=n=>new Date(n).toISOString();
 function fixture(t){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-runtime-quality-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
- let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live';
+ let now=at(day,0),reconciled=true,failing=false,sha=revision,hash=calendarHash,mode='live',accountObserver=null;
  const ops=createRuntimeAcceptance({root,clock:()=>now,canWrite:()=>true,liveCollector:true,env:{NODE_ENV:'production'},
   calendar:()=>({status:'available',tradeDates:[day,'2026-11-24'],metadata:{source:'quality-calendar',runtimeEligible:true,sha256:hash,from:day,to:'2026-11-24'}}),
   release:()=>({verifiedInstalled:true,sourceSha:sha}),collect:async()=>{if(failing)throw Error('collection failed');
-   return {mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]},execution:{reconciled}};}});
+   return {mode,market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]},execution:accountObserver?accountObserver(now):{reconciled}};}});
  const input=(end=3)=>({revision,asOf:iso(at(day,20)),window:{start:iso(at(day,0)),end:iso(at(day,end))},scope:{kind:'real-market-paper',population:RUNTIME_QUALITY_POPULATION},
   plan:{version:'runtime-quality-fixture-v1',registeredAt:iso(at(day,-60)),criteria:{'operation-failure':{operator:'lte',threshold:.4,minimumSamples:1},
   'ledger-reconciliation':{operator:'gte',threshold:1,minimumSamples:1}},runtimeSchedule:{calendarSource:'quality-calendar',calendarHash,tradeDates:[day]}}});
- return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v};
+ return {root,ops,input,review:x=>evaluateRuntimeQuality({root,input:x}),setNow:v=>now=v,setReconciled:v=>reconciled=v,setFailing:v=>failing=v,setSha:v=>sha=v,setHash:v=>hash=v,setMode:v=>mode=v,setAccountObserver:v=>accountObserver=v};
 }
 const row=(r,id)=>r.dimensions.flatMap(d=>d.metrics).find(m=>m.id===id);
 test('original journal feeds the existing 30-metric evaluator without losing missing minutes or failed account checks',async t=>{
@@ -60,4 +60,39 @@ test('no evaluated rate samples retain a null value even with a known positive d
  const scope={kind:'isolated-test',population:'no-observations'},window={start:'2026-11-01T00:00:00Z',end:'2026-11-02T00:00:00Z'},plan={version:'p',registeredAt:'2026-10-31T00:00:00Z',criteria:{'task-completion':{operator:'gte',threshold:1,minimumSamples:1}}};
  const r=evaluateProductQuality({revision,scope,window,plan,asOf:'2026-11-03T00:00:00Z',observations:[{metricId:'task-completion',revision,window,scopeKind:scope.kind,population:scope.population,unit:'ratio',evidenceRefs:[{id:'none',sha256:'b'.repeat(64)}],numerator:0,denominator:3,sampleCount:0}]});
  const x=row(r,'task-completion');assert.equal(x.status,'unknown');assert.equal(x.value,null);assert.equal(x.missingCount,3);
+});
+
+function originalBooks(t){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-joint-books-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const {createPaperApplicationService}=require('../src/core/paper-application-service');
+ const files=Object.fromEntries(['pool','pre'].map(key=>[key,path.join(dir,key+'.json')]));
+ const books=Object.fromEntries(Object.entries(files).map(([key,file])=>[key,createPaperApplicationService({file,clock:()=>at(day,0)})]));
+ for(const book of Object.values(books))book.initialize(100000);
+ return {books,files,observe:(now,readBook=key=>books[key].read())=>observeOriginalAccountReconciliation({now,readBook,clock:()=>now})};
+}
+test('both validated original paper books can contribute local positive reconciliation evidence without changing either file',async t=>{
+ const f=fixture(t),b=originalBooks(t),before=Object.values(b.files).map(file=>fs.readFileSync(file));
+ const calls=[];f.setAccountObserver(now=>b.observe(now,key=>{calls.push(key);return b.books[key].read();}));
+ assert.equal((await f.ops.tick()).recorded,true);f.setNow(at(day,1));assert.equal((await f.ops.tick()).recorded,true);
+ const report=f.review(f.input(2)),ledger=row(report,'ledger-reconciliation');
+ assert.deepEqual(calls,['pool','pre','pool','pre']);assert.equal(report.runtimeEvidence.verifiedLocalJointAccountChecks,2);
+ assert.deepEqual([ledger.numerator,ledger.denominator,ledger.sampleCount,ledger.value,ledger.status],[2,2,2,1,'pass']);
+ assert.equal(report.runtimeEvidence.verifiedExternal,false);assert.equal(report.canTrade,false);assert.equal(report.canDeploy,false);
+ assert.deepEqual(Object.values(b.files).map(file=>fs.readFileSync(file)),before);
+ const stored=JSON.parse(fs.readFileSync(path.join(f.root,day+'.jsonl'),'utf8').split('\n')[0]).metrics.execution.reconciliationReceipt;
+ assert.deepEqual(stored.accounts.map(a=>[a.account,a.revision,a.quantityFlowVerified]),[['pool',1,true],['pre',1,true]]);
+ assert.equal(stored.verifiedExternal,false);assert.doesNotMatch(JSON.stringify(stored),/100000|positions|initialCash|brokerConnected|fayo-joint-books/);
+});
+test('missing opening, unavailable second account, late and malformed receipts cannot manufacture success',async t=>{
+ const f=fixture(t),b=originalBooks(t),{createHash}=require('node:crypto');
+ const legacy=b.books.pre.read();delete legacy.reconciliationOpening;delete legacy.fingerprint;
+ legacy.fingerprint=createHash('sha256').update(JSON.stringify(legacy)).digest('hex');fs.writeFileSync(b.files.pre,JSON.stringify(legacy)+'\n');
+ f.setAccountObserver(now=>b.observe(now));await f.ops.tick();
+ const calls=[];f.setNow(at(day,1));f.setAccountObserver(now=>b.observe(now,key=>{calls.push(key);if(key==='pool')throw Error('private original location');return b.books[key].read();}));await f.ops.tick();
+ assert.deepEqual(calls,['pool','pre']);
+ f.setNow(at(day,2));f.setAccountObserver(now=>{const x=b.observe(now);x.reconciliationReceipt.accounts[1].account='pool';return x;});await f.ops.tick();
+ const r=f.review(f.input(3)),ledger=row(r,'ledger-reconciliation');assert.equal(r.runtimeEvidence.verifiedLocalJointAccountChecks,0);
+ assert.equal(r.runtimeEvidence.unsuccessfulJointAccountChecks,1);assert.equal(r.runtimeEvidence.unprovenJointAccountChecks,2);assert.equal(ledger.status,'fail');
+ assert.doesNotMatch(fs.readFileSync(path.join(f.root,day+'.jsonl'),'utf8'),/private original location/);
+ assert.equal(observeOriginalAccountReconciliation({now:at(day,0),readBook:key=>b.books[key].read(),clock:()=>at(day,0)+15001}).reconciliationReceipt,null);
 });

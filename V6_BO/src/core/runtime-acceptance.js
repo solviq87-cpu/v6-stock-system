@@ -121,6 +121,56 @@ function calendarView(value, now) {
   return unavailable;
 }
 
+// Original paper-account reads are already validated by the existing service.
+// Preserve proof of each exact book and the opening/quantity-flow scope; no
+// account contents, exceptions or external-broker assertions enter the journal.
+const JOINT_RECONCILIATION_SCOPE='original-paper-local-joint-reconciliation-v1';
+function observeOriginalAccountReconciliation({readBook,now,clock=Date.now}={}){
+  if(typeof readBook!=='function'||!Number.isSafeInteger(now)||now<=0||typeof clock!=='function')throw Error('acceptance-invalid-account-observer');
+  const {reconcileAccountSnapshot}=require('./account-safety-state');
+  let fills=0;
+  const accounts=['pool','pre'].map(account=>{
+    const unavailable={account,status:'unavailable',revision:null,snapshotFingerprint:null,quantityFlowVerified:null};
+    try{
+      const book=readBook(account);
+      if(!book||book.schemaVersion!==1||book.paperOnly!==true||book.brokerConnected!==false||!Number.isSafeInteger(book.revision)||book.revision<1) return unavailable;
+      const {fingerprint,...payload}=book,{cash,positions,events}=book.account;
+      if(!HASH.test(fingerprint||'')||digest(payload)!==fingerprint||digest({cash,positions,events})!==book.account.fingerprint||!Array.isArray(events))return unavailable;
+      const check=reconcileAccountSnapshot(book,{tradeDate:aShareCalendarDate(now)});
+      if(check.accountRevision!==book.revision||check.completeExternalReconciliation!==false)return unavailable;
+      const status=check.internallyConsistent===true&&check.status==='consistent'?'consistent':check.status==='restricted'?'restricted':'mismatch';
+      fills+=events.length;
+      return {account,status,revision:book.revision,snapshotFingerprint:fingerprint,quantityFlowVerified:check.quantityFlowVerified===true};
+    }catch{return unavailable;}
+  });
+  const checkedAt=clock(),reconciled=accounts.every(a=>a.status==='consistent');
+  return {paperFills:accounts.every(a=>a.status!=='unavailable')?fills:null,reconciled,
+    reconciliationReceipt:normalizeJointReconciliation({scope:JOINT_RECONCILIATION_SCOPE,observedAt:now,checkedAt,accounts,verifiedExternal:false},now)};
+}
+function normalizeJointReconciliation(receipt,now){
+  if(receipt?.scope!==JOINT_RECONCILIATION_SCOPE||receipt.observedAt!==now||receipt.verifiedExternal!==false||
+    !Number.isSafeInteger(receipt.checkedAt)||receipt.checkedAt<now||receipt.checkedAt-now>15000||aShareCalendarDate(receipt.checkedAt)!==aShareCalendarDate(now)||
+    !Array.isArray(receipt.accounts)||receipt.accounts.length!==2)return null;
+  const accounts=[];
+  for(const account of ['pool','pre']){
+    const rows=receipt.accounts.filter(a=>a?.account===account);
+    if(rows.length!==1)return null;
+    const a=rows[0];
+    if(a.status==='unavailable'){
+      if(a.revision!==null||a.snapshotFingerprint!==null||a.quantityFlowVerified!==null)return null;
+    }else if(!['consistent','restricted','mismatch'].includes(a.status)||!Number.isSafeInteger(a.revision)||a.revision<1||!HASH.test(a.snapshotFingerprint||'')||typeof a.quantityFlowVerified!=='boolean')return null;
+    accounts.push({account,status:a.status,revision:a.revision,snapshotFingerprint:a.snapshotFingerprint,quantityFlowVerified:a.quantityFlowVerified});
+  }
+  return {scope:JOINT_RECONCILIATION_SCOPE,observedAt:now,checkedAt:receipt.checkedAt,accounts,verifiedExternal:false};
+}
+function jointReconciliationOutcome(execution,observedAt,cutoff){
+  const receipt=normalizeJointReconciliation(execution?.reconciliationReceipt,observedAt);
+  if(receipt&&receipt.checkedAt>cutoff)return 'unknown';
+  if(execution?.reconciled===false||receipt?.accounts.some(a=>a.status!=='consistent'))return 'failed';
+  if(execution?.reconciled===true&&receipt?.accounts.every(a=>a.status==='consistent'&&a.quantityFlowVerified===true))return 'verified-local';
+  return 'unknown';
+}
+
 function normalizeMetrics(input, now, collectionMs) {
   const m = input?.market || {}, supplied=Array.isArray(m.quotes)?m.quotes:[],quotes=supplied.slice(0,10000),unique=new Map();
   const inputHash=crypto.createHash('sha256').update('fayo-runtime-quote-input-v1\n');
@@ -180,7 +230,8 @@ function normalizeMetrics(input, now, collectionMs) {
     risk:Object.fromEntries(['observed','queued','delivered','resolved','falsePositives','falseNegatives'].map(k => [k,count(r[k])]).concat([
       ['deliveryDelayMs',number(r.deliveryDelayMs) !== null && r.deliveryDelayMs >= 0 ? r.deliveryDelayMs : null]])),
     execution:{...Object.fromEntries(['intents','submittedOrders','confirmedFills','paperFills'].map(k => [k,count(e[k])])),
-      reconciled:truth(e.reconciled), recoveryVerified:truth(e.recoveryVerified)},
+      reconciled:truth(e.reconciled), recoveryVerified:truth(e.recoveryVerified),
+      ...(e.reconciliationReceipt==null?{}:{reconciliationReceipt:normalizeJointReconciliation(e.reconciliationReceipt,now)})},
     strategy:{matureSamples:count(s.matureSamples), netReturnPct:number(s.netReturnPct), maxDrawdownPct:number(s.maxDrawdownPct), calibrationError:number(s.calibrationError)},
     clients:{desktopVersion:version(c.desktopVersion),mobileVersion:version(c.mobileVersion),apiVersion:version(c.apiVersion),
       permissionsConsistent:truth(c.permissionsConsistent),featuresConsistent:truth(c.featuresConsistent)},
@@ -433,7 +484,7 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
   if(!expected.size)throw Error('acceptance-quality-schedule-empty');
   const directory=privateRoot(root),first=aShareCalendarDate(start),last=aShareCalendarDate(end-1),records=[];
   const days=listDays(directory).filter(day=>day>=first&&day<=last);
-  const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,operationSamples=0,operationFailures=0;
+  const seen=new Set();let incomparable=0,unknownAccountChecks=0,knownAccountFailures=0,verifiedLocalAccountChecks=0,operationSamples=0,operationFailures=0;
   for(const day of days)for(const row of readDay(directory,day)){
     if(row.observedAt>now)throw Error('acceptance-future-record');
     if(row.observedAt<start||row.observedAt>=end||row.observedAt>cutoff)continue;
@@ -446,10 +497,12 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
     records.push(row.fingerprint);
     const sameCalendar=row.calendar?.source===schedule.calendarSource&&row.calendar?.hash===schedule.calendarHash;
     if(!qualified||!sameVersion){incomparable++;continue;}
-    // A known unsuccessful original joint-account check is a safety failure,
-    // not a claim that balances actually mismatched. Older positive booleans
-    // do not prove opening/quantity-flow or external reconciliation.
-    if(row.metrics?.execution?.reconciled===false)knownAccountFailures++;
+    // Older positive booleans remain unknown. A local positive receipt needs
+    // both original books, verified opening/quantity flow and matching calendar.
+    // A known unsuccessful check is retained even if calendar scope differs.
+    const accountOutcome=jointReconciliationOutcome(row.metrics?.execution,row.observedAt,cutoff);
+    if(accountOutcome==='failed')knownAccountFailures++;
+    else if(accountOutcome==='verified-local'&&sameCalendar&&!row.exclusions.includes('collection-window-exceeded'))verifiedLocalAccountChecks++;
     else unknownAccountChecks++;
     if(!sameCalendar||row.metrics.market.quoteEvidence.conflictPolicy!=='explicit-and-duplicate-v1'){
       incomparable++;continue;
@@ -468,15 +521,15 @@ function evaluateRuntimeQuality({root,input,now=Date.now()}={}){
     unit:'ratio',denominator:expected.size,evidenceRefs:refs};
   const report=evaluateProductQuality({...input,observations:[
     {...common,metricId:'operation-failure',numerator:operationFailures,sampleCount:operationSamples},
-    {...common,metricId:'ledger-reconciliation',numerator:0,sampleCount:knownAccountFailures}
+    {...common,metricId:'ledger-reconciliation',numerator:verifiedLocalAccountChecks,sampleCount:knownAccountFailures+verifiedLocalAccountChecks}
   ]});
   return {...report,runtimeEvidence:{mode:'original-runtime-journal-readonly',population:RUNTIME_QUALITY_POPULATION,
     expectedMinutes:expected.size,recordedMinutes:records.length,comparableOperationMinutes:operationSamples,incomparableMinutes:incomparable,
-    unsuccessfulJointAccountChecks:knownAccountFailures,unprovenJointAccountChecks:unknownAccountChecks,
+    unsuccessfulJointAccountChecks:knownAccountFailures,verifiedLocalJointAccountChecks:verifiedLocalAccountChecks,unprovenJointAccountChecks:unknownAccountChecks,
     rowHashesFingerprint:refs[0].sha256,calendarSource:schedule.calendarSource,calendarHash:schedule.calendarHash,
     scheduleVerification:'input-declared-not-independently-certified',operationScope:'local-runtime-observation-tick-not-all-business-operations',
-    accountScope:'known-unsuccessful-original-joint-checks-only-positive-completeness-unverified',
+    accountScope:'original-paper-local-joint-reconciliation-only-no-external-broker-verification',
     sourceRecordsMutated:false,verifiedExternal:false}};
 }
 
-module.exports={createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot,DEFAULT_CRITERIA,TASK_TITLES,evaluateRuntimeQuality,RUNTIME_QUALITY_POPULATION};
+module.exports={createRuntimeAcceptance,buildUnifiedTaskStatus,marketSlot,DEFAULT_CRITERIA,TASK_TITLES,evaluateRuntimeQuality,RUNTIME_QUALITY_POPULATION,observeOriginalAccountReconciliation};

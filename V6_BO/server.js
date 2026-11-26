@@ -11610,22 +11610,15 @@ function runtimeAcceptance(){
     calendar:({asOf})=>configuredTradingCalendar
       ?{...configuredTradingCalendar,metadata:{...configuredTradingCalendar.metadata,runtimeEligible:true}}
       :require('./src/core/research-calendar-source').readResearchCalendar({asOf}),
-    canWrite:()=>!isReplica(),liveCollector:process.env.V6_ISOLATED_BOOT_SMOKE!=='1',collect:()=>{
-      const now=Date.now(),quotes=(S.stocks||[]).filter(row=>row&&/^\d{6}$/.test(row.code)).map(row=>({
+    canWrite:()=>!isReplica(),liveCollector:process.env.V6_ISOLATED_BOOT_SMOKE!=='1',collect:({now})=>{
+      const quotes=(S.stocks||[]).filter(row=>row&&/^\d{6}$/.test(row.code)).map(row=>({
         code:row.code,price:row.price??null,source:row.quoteSource||null,quoteSource:row.quoteSource||null,quoteAt:row.quoteAt??null,receivedAt:row.receivedAt??null,
         quoteMode:row.quoteMode,mode:row.mode,canTrade:row.canTrade,simulated:row.simulated,imported:row.imported,fixture:row.fixture,mock:row.mock,synthetic:row.synthetic,readOnlyBackup:row.readOnlyBackup,tradable:row.tradable,suspended:row.suspended,
         sourceConflict:row.sourceConflict,conflict:row.conflict,evidenceStatus:row.evidenceStatus,quoteStatus:row.quoteStatus,tradeDate:row.tradeDate}));
-      // Verify the original two account books, not merely successful reads.
-      let execution={};
-      if(!isReplica())try{
-        const records=['pool','pre'].map(key=>{
-          const book=_paperAuthority[key]?.read();
-          if(!book)throw Error('original-account-unavailable');
-          const check=require('./src/core/account-safety-state').reconcileAccountSnapshot(book,{tradeDate:aShareCalendarDate(now)});
-          return {fills:book.account.events.length,consistent:check.status==='consistent'&&check.internallyConsistent===true};
-        });
-        execution={paperFills:records.reduce((sum,row)=>sum+row.fills,0),reconciled:records.every(row=>row.consistent)};
-      }catch{execution={reconciled:false};}
+      // Read the existing two original account services; persist only bounded
+      // reconciliation receipts alongside this same runtime observation.
+      const execution=isReplica()?{}:require('./src/core/runtime-acceptance').observeOriginalAccountReconciliation({now,
+        readBook:key=>_paperAuthority[key]?.read()});
       return {mode:process.env.V6_ISOLATED_BOOT_SMOKE==='1'?'isolated':'live',
         market:{expectedSymbols:null,quotes},execution,
         clients:{apiVersion:APP_VER},resources:{rssBytes:process.memoryUsage().rss},
