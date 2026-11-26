@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const J=require('../src/core/news-evidence-journal');
 const baseDir=path.resolve(__dirname,'..'),source=fs.readFileSync(path.join(baseDir,'server.js'),'utf8');
 function section(begin,end){const a=source.indexOf(begin),b=source.indexOf(end,a);assert.ok(a>=0&&b>a,begin);return source.slice(a,b);}
-function fixture(t){
+function fixture(t,{revisionClock=Date.now}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-news-authority-')),root=path.join(dir,'news');
  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  let clock=Date.now(),writes=0,pushes=0;
@@ -26,8 +26,11 @@ function fixture(t){
  };
  const revise=(kind='retracted',patch={})=>{
   const original=J.readJournal(root).at(-1);
+  // One real receipt clock for the whole revision; two Date.now() reads can
+  // straddle a millisecond and fabricate a revision later than its receipt.
+  const now=revisionClock();
   J.appendBatch(root,[{...Object.fromEntries(Object.entries(original.evidence).filter(([key])=>!['bodyHash','uncertainty'].includes(key))),
-    sourceRevisionId:'fixture-'+kind,kind,supersedes:original.eventHash,receivedAt:Date.now(),revisedAt:Date.now(),...patch}]);
+    sourceRevisionId:'fixture-'+kind,kind,supersedes:original.eventHash,receivedAt:now,revisedAt:now,...patch}],{now});
   clock=Math.max(clock,Date.now());
  };
  const newsContext=()=>({...c.newsEvidenceVisibleState().news,evidenceStatus:c.newsRiskSnapshotView().status});
@@ -57,6 +60,17 @@ test('journal withdrawal reaches actual holding advice and system follow without
  assert.ok(current.acts.some(a=>a.type==='关注'),'original price warning survives the retraction');
  await x.follow();assert.deepEqual(x.calls,[{key:'pool',codes:['000001']}]);
  assert.deepEqual(x.counts(),{writes:0,pushes:0});
+});
+
+test('one receipt clock binds synthetic source revision, receipt and journal recording',t=>{
+ let reads=0;
+ const x=fixture(t,{revisionClock:()=>{reads++;return Date.now();}});
+ x.ingest();x.revise();
+ const event=J.readJournal(x.root).at(-1);
+ assert.equal(reads,1);
+ assert.equal(event.evidence.revisedAt,event.evidence.receivedAt);
+ assert.equal(event.recordedAt,event.evidence.receivedAt);
+ assert.equal(x.verdict().badNews,false);
 });
 
 test('revised company association and expiry cannot retain stale holding conclusions',async t=>{
