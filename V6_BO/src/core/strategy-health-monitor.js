@@ -3,10 +3,21 @@
  * Research-only signals and portfolio estimates; do not interpret small samples as alpha. */
 const {SYSTEMS}=require('./independent-strategy-attribution');
 const round=n=>Math.round(n*10000)/10000;
+const validVersion=v=>typeof v==='string'&&v.length>0&&v.length<=256&&v.trim()===v&&!/[\x00-\x1f\x7f]/.test(v);
+function evaluatedVersionEvidence(rows){
+ const versions=new Set();let unknownVersionRows=0,evaluatedRows=0;
+ for(const r of rows){
+  // Unknown verdicts may have a placeholder evaluator; they cast no version vote.
+  if(r.verdict!=='pass'&&r.verdict!=='fail')continue;
+  evaluatedRows++;
+  if(validVersion(r.evaluatorVersion))versions.add(r.evaluatorVersion);else unknownVersionRows++;
+ }
+ return {evaluatorVersions:[...versions].sort(),unknownVersionRows,evaluatedRows};
+}
 // Common session windows, purged by the two-session label horizon; descriptive only.
 function rollingPaperDiagnosis(rows, {sessionDates, splitDate, universeCount, marketQuality}={}) {
  const policy={windowSessions:20,purgeSessions:2,minTradeDays:10,minTrades:20,minEvaluatedCoverage:0.8,negativeChangePp:1};
- const empty={status:'unknown',reason:'insufficient-samples',evidenceScope:'offline-paper-estimate',verifiedDecay:false,canTrade:false,policy,previous:null,recent:null,changePp:null,causalEvidence:{factorDrift:null,marketRegime:null,executionDeviation:null,observedCost:null}};
+ const empty={status:'unknown',reason:'insufficient-samples',evidenceScope:'offline-paper-estimate',verifiedDecay:false,canTrade:false,policy,previous:null,recent:null,changePp:null,comparableEvaluatorVersion:null,causalEvidence:{factorDrift:null,marketRegime:null,executionDeviation:null,observedCost:null}};
  const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
  if(!Array.isArray(rows)||!Array.isArray(sessionDates)||!validDay(splitDate)||!Number.isSafeInteger(universeCount)||universeCount<1||
   !Number.isSafeInteger(universeCount*policy.windowSessions)||sessionDates.some((d,i)=>!validDay(d)||(i>0&&d<=sessionDates[i-1])))return empty;
@@ -44,6 +55,7 @@ function rollingPaperDiagnosis(rows, {sessionDates, splitDate, universeCount, ma
   const dailyMeans=[...byDate.values()].map(xs=>xs.reduce((a,b)=>a+b,0)/xs.length);
   const coverage=unique.filter(r=>r.verdict==='pass'||r.verdict==='fail').length/(ds.length*universeCount);
   return {startDate:ds[0],endDate:ds.at(-1),sessions:ds.length,expectedRows:ds.length*universeCount,evaluatedCoverage:coverage,
+   ...evaluatedVersionEvidence(unique),
    invalidRows,duplicateRows,invalidOutcomes,overfullSessions,passedSignals:unique.filter(r=>r.verdict==='pass').length,
    blockedSignals:unique.filter(r=>r.outcome?.status==='blocked').length,estimatedTrades:done.length,tradeDays:dailyMeans.length,
    meanDailySignalReturnPct:dailyMeans.length?dailyMeans.reduce((a,b)=>a+b,0)/dailyMeans.length:null};
@@ -53,8 +65,13 @@ function rollingPaperDiagnosis(rows, {sessionDates, splitDate, universeCount, ma
  if(marketQuality?.reviewReady!==true)return {...base,reason:'data-quality-unverified'};
  if([previous,recent].some(x=>x.invalidRows||x.duplicateRows||x.invalidOutcomes||x.overfullSessions))return {...base,reason:'inconsistent-window-evidence'};
  if([previous,recent].some(x=>x.evaluatedCoverage<policy.minEvaluatedCoverage||x.evaluatedCoverage>1||x.tradeDays<policy.minTradeDays||x.estimatedTrades<policy.minTrades))return base;
+ // A change of evaluator is not evidence that the same strategy deteriorated.
+ // Preserve the descriptive window figures, but do not compare unlike versions.
+ if(previous.unknownVersionRows||recent.unknownVersionRows)return {...base,reason:'evaluator-version-unverified'};
+ if(previous.evaluatorVersions.length!==1||recent.evaluatorVersions.length!==1||previous.evaluatorVersions[0]!==recent.evaluatorVersions[0])return {...base,reason:'evaluator-version-not-comparable'};
+ const comparableEvaluatorVersion=recent.evaluatorVersions[0];
  const changePp=recent.meanDailySignalReturnPct-previous.meanDailySignalReturnPct;
- return {...base,status:changePp<=-policy.negativeChangePp&&recent.meanDailySignalReturnPct<0?'paper-deterioration-review':'paper-observed-no-threshold-breach',reason:'factor-regime-cost-and-fill-evidence-not-linked',changePp};
+ return {...base,status:changePp<=-policy.negativeChangePp&&recent.meanDailySignalReturnPct<0?'paper-deterioration-review':'paper-observed-no-threshold-breach',reason:'factor-regime-cost-and-fill-evidence-not-linked',changePp,comparableEvaluatorVersion};
 }
 function strategyHealth(native,portfolios,{minClosedTrades=20,maxDrawdownAlertPct=15,sessionDates,universeCount,marketQuality}={}){
  if(!Number.isSafeInteger(minClosedTrades)||minClosedTrades<1||minClosedTrades>100000||typeof maxDrawdownAlertPct!=='number'||!Number.isFinite(maxDrawdownAlertPct)||maxDrawdownAlertPct<=0||maxDrawdownAlertPct>100)throw Error('策略健康门限无效');
@@ -63,7 +80,11 @@ function strategyHealth(native,portfolios,{minClosedTrades=20,maxDrawdownAlertPc
   const coverage=native.coverage[system],p=portfolios.systems[system],m=p.metrics;
   const windows=native.replay.windows;
   const out=windows.outOfSample.systems[system];
+  const holdoutRows=(windows.outOfSample.records||[]).filter(r=>r.system===system);
+  const holdoutVersionEvidence=evaluatedVersionEvidence(holdoutRows);
   const blockers=[];
+  if(out.paperTrades>0&&(holdoutVersionEvidence.unknownVersionRows||!holdoutVersionEvidence.evaluatorVersions.length))blockers.push('样本外评估器版本证据不足');
+  if(holdoutVersionEvidence.evaluatorVersions.length>1)blockers.push('样本外混合评估器版本，不能作为单一版本有效性证据');
   if(!coverage.evaluated)blockers.push('原生信号无可评估记录');
   if(!m.closedTrades||m.closedTrades<minClosedTrades)blockers.push(`已平仓纸面交易不足 ${minClosedTrades} 笔`);
   if(!out.paperTrades||out.paperTrades<minClosedTrades)blockers.push(`样本外有效纸面结果不足 ${minClosedTrades} 笔`);
@@ -76,7 +97,7 @@ function strategyHealth(native,portfolios,{minClosedTrades=20,maxDrawdownAlertPc
    evaluated:coverage.evaluated,unknown:coverage.unknown,holdoutTrades:out.paperTrades,
    holdoutMeanReturnPct:out.meanNetReturnPct,paperClosedTrades:m.closedTrades,
    paperReturnPct:m.returnPct,maxDrawdownPct:m.maxDrawdownPct,holdoutWinRatePct:out.winRatePct,
-   warnings:blockers,liveEligible:false,rollingDiagnosis:rollingPaperDiagnosis((windows.outOfSample.records||[]).filter(r=>r.system===system),{sessionDates,universeCount,marketQuality,splitDate:native.replay.splitDate})};
+   warnings:blockers,liveEligible:false,holdoutVersionEvidence,rollingDiagnosis:rollingPaperDiagnosis(holdoutRows,{sessionDates,universeCount,marketQuality,splitDate:native.replay.splitDate})};
  }
  return {schemaVersion:1,mode:'four-strategy-research-health',canTrade:false,verifiedLive:false,
   systems,summary:{systemsWithObservedEvidence:SYSTEMS.filter(s=>systems[s].evaluated>0).length,
