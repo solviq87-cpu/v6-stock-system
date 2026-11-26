@@ -1197,7 +1197,7 @@ async function fetchKlineEM(code, days = 95) {
   const u = `${EMH}/api/qt/stock/kline/get?secid=${secid}&klt=101&fqt=1` +
     `&lmt=${days}&end=20500101&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61`;
   const j = await get(u, 6000);
-  if (!j.data || !j.data.klines) return null;
+  if (!Array.isArray(j?.data?.klines) || j.data.code!=null&&String(j.data.code)!==secid.split('.').pop()) return null;
   const rows = j.data.klines.map(s => {
     const p = s.split(',');
     return {
@@ -1206,7 +1206,8 @@ async function fetchKlineEM(code, days = 95) {
       chg: +p[9], turnover: +p[10]
     };
   });
-  return { name: j.data.name, rows,src:'em',adjust:'qfq',receivedAt:Date.now() };
+  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows))return null;
+  return { name: j.data.name, rows,src:'em',adjust:'qfq',frequency:'1d',receivedAt:Date.now() };
 }
 
 // 集合竞价分时（东财 trends2 iscr=1）：取 09:15–09:25 每分钟的价/量，
@@ -1551,8 +1552,12 @@ async function fetchKlineTx(code, days = 95) {
   const m = txMarket(code);
   const raw = txRaw(code);
   const j = await txJSON(`https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${m}${raw},day,,,${days},qfq`);
-  const arr = (j.data[m + raw] || {}).qfqday || (j.data[m + raw] || {}).day;
-  if (!arr || !arr.length) return null;
+  const payload=j?.data?.[m+raw]||{};
+  const adjusted=Array.isArray(payload.qfqday)&&payload.qfqday.length>0;
+  // An index has no dividend adjustment. A stock's raw day series must not masquerade as qfq.
+  const isIndex=/^[01]\.\d{6}$/.test(code);
+  const arr=adjusted?payload.qfqday:isIndex?payload.day:null;
+  if(!Array.isArray(arr)||!arr.length)return null;
   // ⚠️ 2026-10-02 实测修：腾讯对【科创板】(688xxx / 689xxx) 返回的成交量单位是「股」，
   //    其它板块一律是「手」，差整整 100 倍。原来这里无差别按「手」处理并 ×100 算成交额，
   //    结果科创板票的量能被放大 100 倍、成交额算成几千亿（688008 实为 54 亿，算出 5434 亿）。
@@ -1569,7 +1574,8 @@ async function fetchKlineTx(code, days = 95) {
     rows[i].pct = +(((rows[i].close - rows[i - 1].close) / rows[i - 1].close) * 100).toFixed(2);
     rows[i].amount = rows[i].volume * rows[i].close * 100;
   }
-  return { name: '', rows, src: 'tx', adjust: 'qfq',receivedAt:Date.now() };
+  if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(rows))return null;
+  return { name: '', rows, src: 'tx', adjust: adjusted?'qfq':'unadjusted',frequency:'1d',receivedAt:Date.now() };
 }
 
 // ---------------- 同花顺日K（数据源第二梯队，腾讯之外再兜一层）----------------
@@ -1595,7 +1601,7 @@ async function fetchKlineThs(code, days = 95) {
     if (!m) return null;
     const o = JSON.parse(m[1]);
     const raw = String(o.data || '').split(';').filter(Boolean);
-    if (!raw.length) return null;
+    if (!raw.length||raw.some(s=>!/^\d{8},/.test(s))) return null;
     let arr = raw.map(s => s.split(',')).map(f => ({
       date: `${f[0].slice(0, 4)}-${f[0].slice(4, 6)}-${f[0].slice(6, 8)}`,
       open: +f[1] || 0, high: +f[2] || 0, low: +f[3] || 0, close: +f[4] || 0,
@@ -1615,8 +1621,9 @@ async function fetchKlineThs(code, days = 95) {
       arr[i].pct = prev > 0 ? +(((arr[i].close - prev) / prev) * 100).toFixed(2) : 0;
       arr[i].amp = arr[i].low > 0 ? +(((arr[i].high - arr[i].low) / arr[i].low) * 100).toFixed(2) : 0;
     }
+    if(!require('./src/core/kline-source-continuity').dailyProviderRowsValid(arr))return null;
     _thsKFail = 0;
-    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',receivedAt:Date.now() };
+    return { name: o.name || '', rows: arr, src: 'ths', adjust: 'qfq',frequency:'1d',receivedAt:Date.now() };
   } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
     if (++_thsKFail >= THS_K_FAIL_MAX) {
       _thsKDownUntil = Date.now() + THS_K_DOWN_MS;
