@@ -7,13 +7,14 @@
 const MAX_TRIALS=6,WINDOW_DAYS=90;
 const INSPECTED=new Set(['shadow-updated','shadow-retained','paused-market-shock']);
 const MONITOR_ONLY=new Set(['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered']);
+const validFingerprint=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
 const finiteDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  if(!Array.isArray(reports)||reports.length>500||
     !Array.isArray(signalDays)||signalDays.length<36||signalDays.length>400||
-    !/^[0-9a-f]{64}$/.test(packFingerprint||''))
+    !validFingerprint(packFingerprint))
   throw Error('全局研究试验预算协议无效');
  const days=[...new Set(signalDays)];
  if(days.length!==signalDays.length||days.some(x=>!finiteDate(x)))
@@ -21,14 +22,21 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  days.sort();
  const windowStart=days[Math.max(0,days.length-WINDOW_DAYS)];
  const asOfDay=days.at(-1);
- const counted=[];
+ const counted=[],fingerprints=new Set();
+ const knownDays=new Set(days),firstKnownDay=days[0];
+ // Only dates inside the supplied manifest span can be reconciled locally.
+ // Older archived trials still count in all-time history.
+ const absentFromManifest=date=>date>=firstKnownDay&&date<=asOfDay&&!knownDays.has(date);
  for(const report of reports){
   if(!report||report.mode!=='v6-factor-shadow-evolution-v1')
    throw Error('全局试验历史档案模式无效，不能跳过');
   // Budget is GLOBAL, not per pack revision. Replacing factor definitions
   // must not reset prior candidate inspections or hide malformed archives.
-  if(!/^[0-9a-f]{64}$/.test(report.packFingerprint||''))
+  if(!validFingerprint(report.packFingerprint))
    throw Error('全局试验历史因子包指纹无效');
+  if(!validFingerprint(report.fingerprint)||fingerprints.has(report.fingerprint))
+   throw Error('全局研究报告指纹缺失、无效或重复');
+  fingerprints.add(report.fingerprint);
   // Never silently discard an inspected candidate because an audit status
   // is unknown, missing on a new report, or mislabeled as monitor-only.
   const inspected=INSPECTED.has(report.status),monitorOnly=MONITOR_ONLY.has(report.status);
@@ -43,12 +51,17 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   // inspected-holdout treatment rather than rewriting those archives.
   const legacy=!hasAudit&&inspected;
   if(!inspected){
+   if(hasAudit&&(audit.firstHoldoutDay!=null||audit.lastHoldoutDay!=null||
+      (Object.hasOwn(audit,'holdoutDays')&&audit.holdoutDays!==0)))
+    throw Error('全局监控档案含已查看保留集证据，拒绝少计试验');
    // Monitoring-only reports do not spend trial slots, but they ARE sealed
    // research history. Reject a future cooldown/recovery before budget skip.
    if(!finiteDate(report.lastObservationDay))
     throw Error('全局研究档案最后观察日期无效');
    if(report.lastObservationDay>asOfDay)
     throw Error('全局监控档案晚于当前研究清单，历史交易日倒退');
+   if(absentFromManifest(report.lastObservationDay))
+    throw Error('全局监控档案日期不在当前研究清单');
    continue;
   }
   const end=legacy?report.lastObservationDay:audit.lastHoldoutDay,
@@ -57,13 +70,24 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
      !finiteDate(report.lastObservationDay)||end>report.lastObservationDay||
      (!legacy&&(audit.schemaVersion!==1||
       !Number.isSafeInteger(audit.holdoutDays)||audit.holdoutDays<5||
-      !/^[a-f0-9]{64}$/.test(audit.candidateFingerprint||''))))
+      !validFingerprint(audit.candidateFingerprint))))
    throw Error('试验预算归档时间或候选血缘无效');
   // A later sealed inspection cannot belong to an earlier restored manifest.
   // Reject BEFORE returning budget-exhausted: a harmless skip would hide a
   // research-calendar rollback and let operators miss the broken lineage.
   if(end>asOfDay||report.lastObservationDay>asOfDay)
    throw Error('全局试验档案晚于当前研究清单，历史交易日倒退');
+  if([start,end,report.lastObservationDay].some(absentFromManifest))
+   throw Error('全局试验档案日期不在当前研究清单');
+  if(!legacy){
+   // Sparse trading manifests can contain fewer days than calendar dates.
+   // A declared count may not exceed either verified bound. Do not require
+   // equality: eligible cross-sections legitimately skip some signal days.
+   const calendarBound=1+(Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000;
+   if(audit.holdoutDays>calendarBound||
+      (start>=firstKnownDay&&audit.holdoutDays>days.filter(d=>d>=start&&d<=end).length))
+    throw Error('全局试验保留集天数与原日期范围不一致');
+  }
   counted.push({firstDay:start,lastDay:end,fingerprint:report.fingerprint,
    parentFingerprint:report.previousFingerprint||null,legacy});
  }
