@@ -1,6 +1,7 @@
 'use strict';
 // Read-only fourteen-rule input projection. The existing next-plan universe,
 // candidate ordering, thresholds and account/transaction paths remain unchanged.
+const {quoteObservationView}=require('./quote-observation-view');
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const stamp=v=>Number.isSafeInteger(v)&&v>0&&v<8e15;
 function day(value){
@@ -10,20 +11,29 @@ function day(value){
 }
 const chinaDay=at=>stamp(at)?new Date(at+28800000).toISOString().slice(0,10):null;
 function bounds(date,now){return day(date)===date&&stamp(now)&&date<=chinaDay(now);}
+// Observation-only output does not excuse artificial or conflicting inputs.
+const rejected=row=>!!row&&(
+ ['simulated','synthetic','fixture','mock','imported','readOnlyBackup','sourceConflict','conflict'].some(k=>row[k]===true)||
+ row.evidenceStatus==='conflict'||row.quoteStatus==='conflict'||
+ [row.quoteSource,row.source,row.quoteMode,row.mode].some(v=>typeof v==='string'&&/simulat|synthetic|fixture|mock|replay|backtest|demo|import|readOnlyBackup|(?:^|[-_.:/\s])test(?:$|[-_.:/\s])/i.test(v))
+);
+const closeTime=date=>Date.parse(date+'T15:00:00+08:00');
 function originalPoolRow(row,date,now){
  const f=row?.factEvidence;
- return bounds(date,now)&&row?.src==='em'&&row.sourceDateStatus==='matched'&&day(row.sourceTradeDate)===date&&
+ return bounds(date,now)&&!rejected(row)&&!rejected(f)&&row?.src==='em'&&row.sourceDateStatus==='matched'&&day(row.sourceTradeDate)===date&&
   day(row.tradeDate)===date&&f?.kind==='provider-limit-up-pool-record'&&f.source==='em'&&day(f.tradeDate)===date&&
-  stamp(row.receivedAt)&&row.receivedAt<=now&&chinaDay(row.receivedAt)>=date&&f.observedAt===row.receivedAt;
+  stamp(row.receivedAt)&&row.receivedAt<=now&&chinaDay(row.receivedAt)>=date&&f.observedAt===row.receivedAt&&
+  (now<closeTime(date)||row.receivedAt>=closeTime(date));
 }
 function originalQuote(row,date,now){
- return bounds(date,now)&&typeof row?.quoteSource==='string'&&!!row.quoteSource.trim()&&
+ return bounds(date,now)&&!rejected(row)&&typeof row?.quoteSource==='string'&&
+  /^(eastmoney|tencent|sina|ths)(?:$|[-_:])/i.test(row.quoteSource.trim())&&
   stamp(row.quoteAt)&&chinaDay(row.quoteAt)===date&&stamp(row.receivedAt)&&row.receivedAt>=row.quoteAt&&row.receivedAt<=now&&
-  ![row.quoteMode,row.mode,row.source].some(x=>typeof x==='string'&&/simulation|simulated|fixture|synthetic|replay|backtest|mock|demo/i.test(x))&&row.simulated!==true&&row.synthetic!==true;
+  quoteObservationView(row,now).missingReason!=='conflicting-quote-evidence';
 }
 function projectStock(candidate,date,now){
  const r=candidate?.fourteenRaw;
- const bound=!!r&&r.code===candidate.code&&(originalPoolRow(r,date,now)||originalQuote(r,date,now));
+ const bound=!!r&&r.code===candidate.code&&(originalPoolRow(r,date,now)||originalQuote(r,date,now)&&(now<closeTime(date)||r.quoteAt>=closeTime(date)));
  const pool=bound&&originalPoolRow(r,date,now);
  const amount=k=>bound&&finite(r[k])&&r[k]>=0?r[k]:null;
  const count=k=>pool&&Number.isSafeInteger(r[k])&&r[k]>=0?r[k]:null;
@@ -35,15 +45,16 @@ function projectStock(candidate,date,now){
 }
 function projectSector(name,rows,groups,poolDate,meta,date,now,minCount){
  if(!name||name==='未知')return null;
- const same=(Array.isArray(rows)?rows:[]).filter(x=>x?.name===name&&day(x.tradeDate)===date&&
+ const same=(Array.isArray(rows)?rows:[]).filter(x=>x?.name===name&&!rejected(x)&&day(x.tradeDate)===date&&
   stamp(x.sourceTimestamp)&&chinaDay(x.sourceTimestamp)===date&&stamp(x.retrievedAt)&&x.sourceTimestamp<=x.retrievedAt&&x.retrievedAt<=now);
  const sec=same.length===1?same[0]:null;
  const members=day(poolDate)===date&&Array.isArray(groups?.[name])?groups[name]:[];
  const codes=new Set(members.filter(x=>originalPoolRow(x,date,now)&&x.sector===name&&/^\d{6}$/.test(x.code)).map(x=>x.code));
  // A partial provider group can support the existing positive threshold, not
  // certify an absence or a below-threshold count. Never treat a missing group as 0.
- const complete=meta?.providerComplete===true&&day(meta.tradeDate)===date&&members.length>0&&members.length===codes.size;
- const ztCount=complete||Number.isSafeInteger(minCount)&&codes.size>=minCount?codes.size:null;
+ // The review union's completeness is not certification of this mapped
+ // sector's membership or of all excluded/retained records.
+ const ztCount=Number.isSafeInteger(minCount)&&codes.size>=minCount?codes.size:null;
  return {name,ztCount,observedZtCount:codes.size,pct:sec&&finite(sec.pct)?sec.pct:null,mainInflow:sec&&finite(sec.mainInflow)?sec.mainInflow:null};
 }
 function projectAuction(snapshot,code,date,now){
@@ -65,7 +76,7 @@ function usableKline(rows,meta,date,now){
  return true;
 }
 function projectTicks(ticks,code,date,now){
- return ticks?.code===code&&day(ticks.tradeDate)===date&&stamp(ticks.receivedAt)&&ticks.receivedAt<=now&&
+ return !rejected(ticks)&&ticks?.code===code&&day(ticks.tradeDate)===date&&stamp(ticks.receivedAt)&&ticks.receivedAt<=now&&
   chinaDay(ticks.receivedAt)>=date?ticks:null;
 }
 module.exports={projectStock,projectSector,projectAuction,usableKline,projectTicks};

@@ -5768,7 +5768,7 @@ async function captureAuction(force) {
       auctionPct: +(((pxo.px - s.preClose) / s.preClose) * 100).toFixed(2),
       auctionAmount: s.amount || 0,
       // Preserve original receipt and monetary value separately from the legacy display.
-      fourteenAuctionEvidence: { code:s.code, quoteAt:s.quoteAt, receivedAt:s.receivedAt,
+      fourteenAuctionEvidence: { ...reviewSnapshotFields(s), code:s.code, quoteAt:s.quoteAt, receivedAt:s.receivedAt,
         quoteSource:s.quoteSource, quoteMode:s.quoteMode, amount:s.amount,
         pct:+(((pxo.px - s.preClose) / s.preClose) * 100).toFixed(2) },
       floatCap: s.floatCap || 0, turnover: s.turnover || 0,

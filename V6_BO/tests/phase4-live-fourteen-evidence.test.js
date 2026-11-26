@@ -76,3 +76,38 @@ test('real server projection preserves legacy next-plan fields while using raw e
  deps._klineReadMeta.set(code,meta({cacheLayer:'held-after-source-failure'}));
  await f.computeMyRules(120);assert.equal(S.myrules,previous);assert.equal(marks.at(-1),'held');
 });
+
+test('explicit imported, artificial or conflicting pool receipts never restore the exclusion gate',()=>{
+ for(const patch of [{imported:true},{fixture:true},{sourceConflict:true},{mode:'replay'},{factEvidence:{...raw().factEvidence,mode:'simulation'}}]){
+  const stock=project(raw(patch));
+  assert.equal(stock.limitUpCount,null);
+  assert.equal(rule(stock,11).unknown,true);
+ }
+});
+test('same-day but preclose receipts cannot be promoted to the closing stock observation',()=>{
+ const before=at('14:59:59');
+ const pool=raw({receivedAt:before,factEvidence:{...raw().factEvidence,observedAt:before}});
+ assert.equal(project(pool).limitUpCount,null);
+ assert.equal(gate.projectStock({code,name:pool.name,fourteenRaw:pool},date,before).limitUpCount,1);
+ const q={code,name:'报价',price:10,quoteSource:'eastmoney',quoteAt:before,receivedAt:before,amount:1e8};
+ assert.equal(project(q).price,null);
+ assert.equal(gate.projectStock({code,name:q.name,fourteenRaw:q},date,before).price,10);
+ assert.equal(project({...q,quoteAt:at('15:00:00'),receivedAt:at('15:00:01')}).price,10);
+});
+test('auction and stock reject explicit quote identity conflict, import markers and unsupported providers',()=>{
+ for(const patch of [{quoteSource:'synthetic-fixture'},{quoteSource:'unknown-provider'},{sourceConflict:true},{imported:true},
+ {quoteProvider:'tencent'},{tradeDate:'2026-11-25'},{mode:'readOnlyBackup'}]){
+  assert.equal(gate.projectAuction(auction({},patch),code,date,now),null,JSON.stringify(patch));
+  const q={code,name:'报价',price:10,quoteSource:'eastmoney',quoteAt:at('15:00:00'),receivedAt:at('15:00:01'),...patch};
+  assert.equal(project(q).price,null,JSON.stringify(patch));
+ }
+ assert.equal(gate.projectAuction(auction({}, {canTrade:false}),code,date,now).auctionAmount,3e7);
+});
+test('a complete market review union does not establish a complete sector below the positive threshold',()=>{
+ const one=raw({sector:'银行'}),m={providerComplete:true,tradeDate:date};
+ assert.equal(gate.projectSector('银行',[],{银行:[one]},date,m,date,now,2).ztCount,null);
+ assert.equal(gate.projectSector('银行',[{name:'银行',pct:9,tradeDate:date,sourceTimestamp:at('15:00:00'),retrievedAt:at('15:01:00'),imported:true}],{},date,m,date,now,2).pct,null);
+});
+test('auction capture carries original provenance flags into its dedicated receipt',()=>{
+ assert.ok(/fourteenAuctionEvidence:\s*\{\s*\.\.\.reviewSnapshotFields\(s\)/.test(source));
+});
