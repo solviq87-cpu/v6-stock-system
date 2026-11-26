@@ -36,6 +36,9 @@ const METRICS=Object.freeze([
  define('issue-recurrence','growth','已关闭问题复发率'),
  define('rollback-verification','growth','约定恢复演练通过率')
 ]);
+// The metric definition, not a caller-selected comparator, establishes whether
+// higher or lower values are desirable. Critical gates retain their exact threshold.
+const LOWER_IS_BETTER=new Set(["oos-drawdown","alert-false-positive","alert-missed-event","probability-brier","operation-duration","misoperation-rate","operation-failure","pipeline-latency","recovery-duration","issue-recurrence"]);
 const byId=new Map(METRICS.map(x=>[x.id,x])),plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const count=x=>Number.isSafeInteger(x)&&x>=0;
@@ -66,20 +69,21 @@ function evaluateProductQuality({revision,asOf,window=null,scope,plan=null,obser
   if(!metric||!plain(c))throw Error('未知评价定义');
   if(c.notApplicable!==undefined){
    if(metric.critical||!plain(c.notApplicable)||!text(c.notApplicable.reason)||!text(c.notApplicable.reviewedBy,80))throw Error('不适用必须预登记理由和复核人，关键安全项不可排除');
-  }else if(!['gte','lte'].includes(c.operator)||!finite(c.threshold)||!count(c.minimumSamples)||c.minimumSamples<1||c.minimumSamples>10000000||metric.kind==='rate'&&(c.threshold<0||c.threshold>1)||metric.critical&&(c.operator!=='gte'||c.threshold!==1))throw Error('评价阈值无效或试图放宽关键安全标准');
+  }else if(c.operator!==(LOWER_IS_BETTER.has(id)?'lte':'gte')||!finite(c.threshold)||!count(c.minimumSamples)||c.minimumSamples<1||c.minimumSamples>10000000||metric.unit==='ratio'&&(c.threshold<0||c.threshold>1)||metric.unit==='ms'&&c.threshold<0||metric.critical&&(c.operator!=='gte'||c.threshold!==1))throw Error('评价方向或阈值无效，或试图放宽关键安全标准');
  }
  for(const o of observations){
   if(!plain(o)||!byId.has(o.metricId)||seen.has(o.metricId))throw Error('未知或重复评价记录');
   seen.add(o.metricId);
  }
- const registered=!!(window&&plan&&Date.parse(plan.registeredAt)<=Date.parse(window.start));
+ const registered=!!(window&&plan&&Date.parse(plan.registeredAt)<=Date.parse(window.start)&&Date.parse(plan.registeredAt)<=Date.parse(asOf));
  const closed=!!(window&&Date.parse(window.end)<=Date.parse(asOf));
  const observationMap=new Map(observations.map(o=>[o.metricId,o]));
  const rows=METRICS.map(metric=>{
   const c=criteria[metric.id],o=observationMap.get(metric.id);
-  const row={...metric,status:'unknown',reason:null,value:null,numerator:null,denominator:null,sampleCount:null,missingCount:null,distribution:null,evidenceRefs:[],evidenceVerification:'not-independently-certified'};
+  const row={...metric,status:'unknown',reason:null,value:null,numerator:null,denominator:null,sampleCount:null,missingCount:null,distribution:null,rateBounds:null,valueBasis:null,evidenceRefs:[],evidenceVerification:'not-independently-certified'};
   const unknown=reason=>({...row,reason});
   if(!window)return unknown('未登记评价窗口');
+  if(Date.parse(asOf)<Date.parse(window.start))return unknown('观察窗口尚未开始，不能计入未来证据');
   if(!metric.critical){
    if(!c)return unknown('未预登记本项阈值或不适用条件');
    if(!registered)return unknown('计划未在观察窗口开始前登记');
@@ -88,17 +92,27 @@ function evaluateProductQuality({revision,asOf,window=null,scope,plan=null,obser
   if(!o)return unknown('没有该项证据；仍保留在评价分母');
   if(o.revision!==revision||!plain(o.window)||o.window.start!==window.start||o.window.end!==window.end||o.scopeKind!==scope.kind||o.population!==scope.population)return unknown('版本、窗口、环境或统计范围不一致，不能混算');
   if(o.unit!==metric.unit||!Array.isArray(o.evidenceRefs)||!o.evidenceRefs.length||o.evidenceRefs.length>20||o.evidenceRefs.some(r=>!plain(r)||!text(r.id,120)||!/^[a-f0-9]{64}$/.test(r.sha256||'')))return unknown('缺少同口径单位或有哈希的证据引用');
-  row.evidenceRefs=o.evidenceRefs.map(({id,sha256})=>({id,sha256}));
+  const refs=new Map();
+  for(const {id,sha256} of o.evidenceRefs){
+   if(refs.has(id)&&refs.get(id)!==sha256)return unknown('同一证据标识对应不同哈希，不能判定');
+   refs.set(id,sha256);
+  }
+  row.evidenceRefs=[...refs].map(([id,sha256])=>({id,sha256}));
   if(metric.kind==='rate'){
    if(!count(o.numerator)||!count(o.denominator)||!count(o.sampleCount)||o.numerator>o.sampleCount||o.sampleCount>o.denominator)return unknown('分子、全量分母或有效样本数量无效；未知不能填零');
    Object.assign(row,{numerator:o.numerator,denominator:o.denominator,sampleCount:o.sampleCount,missingCount:o.denominator-o.sampleCount});
    if(!o.denominator)return unknown('分母为零，未产生可评价样本');
    if(!o.sampleCount)return unknown('尚无有效样本；未知不填零');
    row.value=o.numerator/o.denominator;
+   // Preserve the original full-denominator projection, but a partial failure
+   // rate of zero is only a lower bound, not proof of zero actual failures.
+   row.rateBounds={min:row.value,max:(o.numerator+(o.denominator-o.sampleCount))/o.denominator};
+   row.valueBasis=row.missingCount?'observed-numerator-over-expected-denominator-lower-bound':'complete-rate';
   }else{
-   if(!Array.isArray(o.samples)||o.samples.length>10000||o.samples.some(x=>!finite(x)||metric.unit==='ms'&&x<0||metric.unit==='ratio'&&(x<0||x>1))||!count(o.expectedCount)||o.expectedCount<o.samples.length)return unknown('分布样本或应取得样本分母无效');
+   if(!Array.isArray(o.samples)||o.samples.length>10000||Array.from(o.samples).some(x=>!finite(x)||metric.unit==='ms'&&x<0||metric.unit==='ratio'&&(x<0||x>1))||!count(o.expectedCount)||o.expectedCount<o.samples.length)return unknown('分布样本或应取得样本分母无效');
    Object.assign(row,{denominator:o.expectedCount,sampleCount:o.samples.length,missingCount:o.expectedCount-o.samples.length,distribution:summarize(o.samples)});
    row.value=row.distribution?.[metric.statistic]??null;
+   if(row.value!==null)row.valueBasis=row.missingCount?'partial-sample-statistic':'complete-sample-statistic';
   }
   // A known safety failure already blocks review, even if more samples are
   // missing or the observation window has not yet ended.
