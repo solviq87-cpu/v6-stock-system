@@ -241,10 +241,12 @@ function readProbabilityResearch(root, {scope = 'formal', asOf = Date.now()} = {
     coverage:{frozenPredictions:s.predictions.length, recordedOutcomes:s.outcomes.length,
       fraction:s.predictions.length ? s.outcomes.length / s.predictions.length : null},
     status:s.evaluation?.status || (asOf < s.plan.validationEndAt ? 'collecting-preregistered-evidence' : 'awaiting-one-time-evaluation'),
-    reason:s.evaluation ? s.evaluation.comparisonOnIdenticalRows ? '原源码版本下的描述性独立窗口结果；缺冻结运行参数及训练血缘，未认证模型校准' : '成熟样本或完整覆盖不足；本次试验仍计入预算' :
+    reason:s.evaluation ? s.evaluation.comparisonOnIdenticalRows&&s.evaluation.completeCalibrationEvidence===true ? '原源码版本下的描述性独立窗口结果；缺冻结运行参数及训练血缘，未认证模型校准' : '成熟样本或校准分母完整覆盖不足或待核验；本次试验仍计入预算' :
       '按预登记窗口收集原冻结预测及成熟标签，窗口结束前不展示保留集指标',
     metrics:s.evaluation ? {calibration:s.evaluation.calibration, validationRaw:s.evaluation.validationRaw,
       validationCalibrated:s.evaluation.validationCalibrated, calibratedCoverage:s.evaluation.calibratedCoverage,
+      expectedCalibration:s.evaluation.expectedCalibration??null,scheduledPurgedCalibration:s.evaluation.scheduledPurgedCalibration??null,
+      calibrationCoverage:s.evaluation.calibrationCoverage??null,completeCalibrationEvidence:s.evaluation.completeCalibrationEvidence??null,
       comparisonOnIdenticalRows:s.evaluation.comparisonOnIdenticalRows, exclusions:s.evaluation.exclusions,
       sourceRecheck:s.evaluation.sourceRecheck,uncertaintyMethod:s.evaluation.uncertaintyMethod} : null, ...FLAGS}));
   return {schemaVersion:1, mode:PROTOCOL, scope, asOf, status:states.length ? 'observed-private-research-history' : 'missing-evidence',

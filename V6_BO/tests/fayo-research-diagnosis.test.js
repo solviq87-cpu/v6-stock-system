@@ -25,3 +25,23 @@ test('actual settled cost and estimated pressure do not become portfolio attribu
  assert.equal(r.estimatedStress.netPnlCny,91.8);assert.equal(r.portfolioEquity,null);
  assert.equal(r.unattributed.marketCny,null);assert.equal(settledPnlAttribution([]).actual.netPnlCny,null);
 });
+
+test('duplicate symbol-day records cannot fill missing universe coverage or certify a strategy diagnosis',()=>{
+ const incomplete=rows.filter(r=>r.symbol==='a');
+ const duplicated=incomplete.flatMap(r=>[r,{...r,outcome:{...r.outcome,netReturnPct:50}}]);
+ const report=rollingPaperDiagnosis(duplicated,input);
+ assert.equal(report.status,'unknown');assert.equal(report.reason,'inconsistent-window-evidence');
+ assert.equal(report.recent.evaluatedCoverage,0);assert.equal(report.recent.estimatedTrades,0);
+ assert.equal(report.recent.duplicateRows,40);
+ const overflow=rows.concat(rows.filter(r=>r.symbol==='a').map(r=>({...r,symbol:'third'})));
+ assert.equal(rollingPaperDiagnosis(overflow,input).reason,'inconsistent-window-evidence');
+});
+test('outcomes attached to rejected signals or wrong holding windows cannot certify decay',()=>{
+ const malformed=rows.map((r,i)=>({...r,verdict:i%2===0?'fail':r.verdict,
+  outcome:{...r.outcome,exitDate:r.signalDate}}));
+ const report=rollingPaperDiagnosis(malformed,input);
+ assert.equal(report.status,'unknown');assert.equal(report.reason,'inconsistent-window-evidence');
+ assert.equal(report.recent.invalidOutcomes,40);
+ assert.equal(report.recent.estimatedTrades,0);
+ assert.equal(rollingPaperDiagnosis(rows,{...input,marketQuality:{reviewReady:'true'}}).reason,'data-quality-unverified');
+});
