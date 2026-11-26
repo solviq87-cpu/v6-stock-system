@@ -33,7 +33,12 @@ test('fourteen condition 8 cannot use partial ratios or traded shares as turnove
  const x=input({auction:{auctionAmount:2e8},stock:{...stock,amount:1e8,sealAmount:2e8},
   rows:[{volume:1e6},{volume:1e6}]});
  const native=raw.evaluateOne(x);
- assert.equal(native.items.find(r=>r.i===8).ok,true);
+ // The comparison must remain conservative on both the legacy and corrected native evaluator.
+ // Do not require the legacy false positive to survive the native repair.
+ if(native.evaluatorVersion==='v6-fourteen-native-2'){
+  assert.equal(native.items.find(r=>r.i===8).unknown,true);
+  assert.equal(native.items.find(r=>r.i===8).ok,false);
+ }
  const out=cmp(x);assert.equal(rule(out,8).status,'unknown');assert.equal(rule(out,8).observed,null);
  x.rows[0].amount=1e8;
  assert.equal(rule(cmp(x),8).status,'pass');
@@ -59,6 +64,17 @@ test('first board rule requires original count, break count and positive turnove
  assert.equal(rule(out,9).status,'pass');
  assert.equal(out.hits,out.coverage.passed);
  assert.equal(out.nativeHits,raw.evaluateOne(input({stock:{...stock,limitUpCount:1,breakCount:0,amount:1e8,sealAmount:4e7}})).hits);
+});
+test('known zero or multiple consecutive boards are never first-board support',()=>{
+ for(const limitUpCount of [0,2,3]){
+  const x=input({stock:{...stock,limitUpCount,breakCount:0,amount:1e8,sealAmount:4e7}});
+  const out=cmp(x);
+  assert.equal(rule(out,9).status,'fail');
+  assert.equal(out.hits,out.coverage.passed);
+  assert.equal(out.nativeHits,raw.evaluateOne(x).hits);
+ }
+ const good=cmp(input({stock:{...stock,limitUpCount:1,breakCount:0,amount:1e8,sealAmount:4e7}}));
+ assert.equal(rule(good,9).status,'pass');
 });
 test('partial eight-word dimensions preserve raw score but never count as complete evidence',()=>{
  const rows=Array.from({length:70},(_,i)=>({open:10,high:11,low:9,close:10+i*.001,volume:10000}));

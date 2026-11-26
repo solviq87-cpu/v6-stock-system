@@ -72,9 +72,10 @@ function myrulesComparison(input,config){
   };
   const rules=result.items.map(x=>{
     const missing=!!missingNativeFields[x.i]||x.unknown;
-    return {id:x.i,label:x.name,status:missing?'unknown':x.ok?'pass':'fail',
+    const notFirstBoard=x.i===9&&!missing&&stock.limitUpCount!==1;
+    return {id:x.i,label:x.name,status:missing?'unknown':notFirstBoard?'fail':x.ok?'pass':'fail',
       observed:missing?null:x.val??null,op:[2,11].includes(x.i)?'<':'native-rule',
-      threshold:thresholds[x.i]??null,reason:missingNativeFields[x.i]?
+      threshold:thresholds[x.i]??null,reason:notFirstBoard?'原始连板数不为1，不能认定首板':missingNativeFields[x.i]?
         '原始金额或连板/封板证据不足；不采用缺失比率、默认零或成交量替代金额':x.note,
       exclusion:x.i===11};
   });
