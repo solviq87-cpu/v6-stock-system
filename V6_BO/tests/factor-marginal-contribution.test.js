@@ -106,3 +106,44 @@ test('new untouched holdout must contain five comparable days; short windows fai
  assert.equal(r.factors[0].holdout.status,'insufficient');
  assert.equal(r.blocksPromotion,true);
 });
+
+test('training, validation and holdout cannot reuse the same dates or reverse chronological order',()=>{
+ let calls=0;
+ const counted=(...args)=>{calls++;return score(...args);};
+ for(const overrides of [
+  {validation:days('2026-01-25',8)},
+  {holdout:days('2026-02-08',10)},
+  {holdout:days('2025-12-01',10)},
+  {validation:[],holdout:days('2026-01-20',10)}
+ ])assert.throws(()=>run({...overrides,score:counted}),/阶段日期重叠或顺序无效/);
+ assert.equal(calls,0);
+});
+const withTargets=(date,n)=>days(date,n).map(r=>({...r,targetDate:new Date(Date.parse(r.day+'T00:00:00Z')+5*86400000).toISOString().slice(0,10)}));
+const timed=()=>({training:withTargets('2026-01-01',25),validation:withTargets('2026-02-01',8),holdout:withTargets('2026-03-01',10)});
+test('a previous stage label must mature strictly before the next stage begins',()=>{
+ for(const [phase,targetDate] of [['training','2026-02-01'],['training','2026-02-02'],['validation','2026-03-01']]){
+  const inputs=timed();inputs[phase].at(-1).targetDate=targetDate;
+  assert.throws(()=>run(inputs),/收益标签跨越研究阶段/);
+ }
+});
+test('explicit target-date evidence must be complete and strictly later than its signal',()=>{
+ for(const value of [undefined,null,'','2026-02-30','2026-01-01','2025-12-31']){
+  const inputs=timed();inputs.training[0].targetDate=value;
+  assert.throws(()=>run(inputs),/收益标签日期无效或缺失/);
+ }
+ const inputs=timed();delete inputs.holdout[0].targetDate;
+ assert.throws(()=>run(inputs),/收益标签日期无效或缺失/);
+});
+test('strictly separated mature label dates retain the original paired score and leave inputs immutable',()=>{
+ const inputs=timed();inputs.training.at(-1).targetDate='2026-01-31';
+ const before=JSON.stringify(inputs),r=run(inputs);
+ assert.equal(r.status,'paired-evaluated');assert.equal(r.blocksPromotion,false);
+ assert.equal(r.labelTimeEvidence,'provided-and-checked');
+ assert.deepEqual(r.supportedFactorIds,['a','b']);
+ assert.equal(JSON.stringify(inputs),before);assert.equal(r.canTrade,false);
+});
+test('date-only legacy diagnostics remain descriptive, with missing label dates explicitly disclosed',()=>{
+ const r=run();assert.equal(r.labelTimeEvidence,'not-provided');
+ assert.equal(r.status,'paired-evaluated');assert.equal(r.canTrade,false);
+ assert.equal(r.productionWeightsChanged,false);
+});
