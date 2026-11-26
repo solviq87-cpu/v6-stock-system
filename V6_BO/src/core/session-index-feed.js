@@ -31,59 +31,117 @@ async function fetchSinaIndices(){
 // Readers and the background clock share each supplier request. Publish each
 // provider independently so a slow or failed request cannot hold up its peer.
 function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,onUpdate=()=>{}}){
-  let day=null,quotes=new Map(),channels=new Map(),nextCloseCheck=0;
-  function valid(row,now){
-    return codes.has(row?.code)&&Number.isFinite(row.price)&&row.price>0&&
-      Number.isSafeInteger(row.quoteAt)&&row.quoteAt>0&&row.quoteAt<=row.receivedAt&&
-      Number.isSafeInteger(row.receivedAt)&&row.receivedAt<=now&&dayOf(row.quoteAt)===day;
+  let day=null,epoch=0,lastClock=null,quotes=new Map(),books=new Map(),channels=new Map(),nextCloseCheck=0;
+  const providers=['tencent-index','sina-index'];
+  const validTime=at=>Number.isSafeInteger(at)&&at>0&&at<=8e15;
+  function reset(nextDay){
+    day=nextDay;epoch++;quotes=new Map();books=new Map();channels=new Map();nextCloseCheck=0;
   }
-  function pull(source,fetchRows,interval){
-    const now=clock(),slot=channels.get(source);
-    if(slot&&(slot.pending||now<slot.nextAt))return;
+  function sampleClock(){
+    const now=clock();
+    if(!validTime(now)){reset(day);lastClock=null;return null;}
+    if(lastClock!==null&&now<lastClock){reset(day);lastClock=now;return null;}
+    lastClock=now;return now;
+  }
+  function timed(row,now,startedAt){
+    return codes.has(row?.code)&&validTime(row.quoteAt)&&validTime(row.receivedAt)&&
+      row.quoteAt<=row.receivedAt&&row.receivedAt>=startedAt&&row.receivedAt<=now&&dayOf(row.quoteAt)===day;
+  }
+  function valid(row,source,now){
+    if(row.quoteSource!==source||!Number.isFinite(row.price)||row.price<=0||
+      row.pct!=null&&(typeof row.pct!=='number'||!Number.isFinite(row.pct)))return false;
+    const view=quoteObservationView(row,now);
+    return view.quoteStatus==='recent-unverified'||view.quoteStatus==='stale';
+  }
+  const differs=(a,b)=>a.price!==b.price||(a.pct!=null&&b.pct!=null&&a.pct!==b.pct);
+  // Across independent providers allow one display rounding unit. Intra-source
+  // corrections at the same original timestamp are ambiguous, not a new tick.
+  const crossDiffers=(a,b)=>Math.abs(a.price-b.price)>0.01000001||
+    a.pct!=null&&b.pct!=null&&Math.abs(a.pct-b.pct)>0.01000001;
+  function reconcile(asOf){
+    const next=new Map();
+    for(const code of codes){
+      const records=providers.map(source=>books.get(source)?.get(code)).filter(Boolean);
+      if(!records.length)continue;
+      const newest=Math.max(...records.map(record=>record.at));
+      const candidates=records.filter(record=>record.at===newest&&!record.blocked).map(record=>record.row);
+      // Contradictory same-source observations suppress that route/time. A
+      // separately valid peer at that time can still support an observation.
+      if(!candidates.length||candidates.length===2&&crossDiffers(candidates[0],candidates[1]))continue;
+      const best=candidates.find(row=>row.quoteSource==='tencent-index')||candidates[0];
+      if(best)next.set(code,best);
+    }
+    const comparable=r=>[r?.quoteAt,r?.quoteSource,r?.price,r?.pct??null,r?.receivedAt];
+    const changed=next.size!==quotes.size||[...next].some(([code,row])=>JSON.stringify(comparable(row))!==JSON.stringify(comparable(quotes.get(code))));
+    quotes=next;
+    if(changed)onUpdate({at:asOf,items:[...quotes.values()].map(row=>({...row}))});
+  }
+  function pull(source,fetchRows,interval,startedAt){
+    const slot=channels.get(source);
+    if(slot&&(slot.pending||startedAt<slot.nextAt))return;
     const state=slot||{status:'reading',checkedAt:null,quoteAt:null,count:0};
     channels.set(source,state);
-    const forDay=day;
-    state.nextAt=now+interval;
+    const forEpoch=epoch,forDay=day;
+    state.nextAt=startedAt+interval;
     state.pending=Promise.resolve().then(fetchRows).then(rows=>{
-      if(day!==forDay)return;
-      const asOf=clock(),unique=new Map();
-      for(const row of rows||[])if(row.quoteSource===source&&valid(row,asOf)&&(!unique.has(row.code)||row.quoteAt>unique.get(row.code).quoteAt))unique.set(row.code,row);
-      const received=[...unique.values()];
+      if(epoch!==forEpoch||day!==forDay)return;
+      const asOf=sampleClock();
+      if(asOf===null||epoch!==forEpoch||dayOf(asOf)!==forDay)return;
+      if(!Array.isArray(rows))throw Error('invalid index response');
+      const unique=new Map(),book=books.get(source)||new Map();
+      books.set(source,book);
+      for(const row of rows){
+        if(!timed(row,asOf,startedAt))continue;
+        const previous=unique.get(row.code),at=row.quoteAt;
+        const good=valid(row,source,asOf);
+        if(previous&&previous.at>at)continue;
+        if(previous?.at===at){
+          if(previous.blocked||!good||differs(previous.row,row))unique.set(row.code,{at,blocked:true});
+          else if(previous.row.pct==null&&row.pct!=null)unique.set(row.code,{at,blocked:false,row:{...row,canTrade:false,canNotify:false,verifiedLive:false}});
+          continue;
+        }
+        unique.set(row.code,good?{at,blocked:false,row:{...row,canTrade:false,canNotify:false,verifiedLive:false}}:{at,blocked:true});
+      }
+      for(const [code,next] of unique){
+        const old=book.get(code);
+        if(old&&old.at>next.at)continue;
+        if(old?.at===next.at){
+          if(old.blocked||next.blocked||differs(old.row,next.row)){book.set(code,{at:next.at,blocked:true});continue;}
+          // The original observation remains; repeated retrieval does not renew it.
+          continue;
+        }
+        book.set(code,next);
+      }
+      const received=[...unique].filter(([code,r])=>!r.blocked&&book.get(code)?.at===r.at&&!book.get(code)?.blocked).map(([,r])=>r.row);
+      const conflicts=[...unique].filter(([code,r])=>book.get(code)?.at===r.at&&book.get(code)?.blocked).length;
       state.checkedAt=asOf;state.count=received.length;
       state.quoteAt=received.length?Math.max(...received.map(r=>r.quoteAt)):null;
-      state.status=received.length?'observed':'no-session-quote';
-      let changed=false;
-      for(const row of received){
-        const old=quotes.get(row.code);
-        if(!old||old.quoteAt<row.quoteAt||old.quoteAt===row.quoteAt&&source==='tencent-index'&&old.quoteSource!==source){
-          quotes.set(row.code,{...row,canTrade:false,canNotify:false});changed=true;
-        }
-      }
-      if(changed)onUpdate({at:asOf,items:[...quotes.values()]});
+      state.status=conflicts?'conflicting-observation':received.length?'observed':'no-session-quote';
+      reconcile(asOf);
     }).catch(()=>{
-      if(day===forDay)Object.assign(state,{checkedAt:clock(),status:'unavailable',count:0,quoteAt:null});
+      if(epoch!==forEpoch||day!==forDay)return;
+      const asOf=sampleClock();
+      if(asOf!==null&&epoch===forEpoch)Object.assign(state,{checkedAt:asOf,status:'unavailable',count:0,quoteAt:null});
     }).finally(()=>{state.pending=null;});
   }
   function read(session){
-    if(day!==session.day){day=session.day;quotes=new Map();channels=new Map();nextCloseCheck=0;}
-    const now=clock();
+    if(day!==session.day)reset(session.day);
+    const now=sampleClock();
+    if(now===null||dayOf(now)!==day)return {day:session.day,indices:[],channels:[]};
     if(session.trading){
-      pull('tencent-index',primary,5000);
-      const primaryHealthy=channels.get('tencent-index')?.count===codes.size&&
-        [...quotes.values()].filter(r=>now-r.quoteAt<=15000).length===codes.size;
+      pull('tencent-index',primary,5000,now);
+      const primaryRows=books.get('tencent-index'),primaryState=channels.get('tencent-index');
+      const primaryHealthy=primaryState?.status==='observed'&&primaryState.count===codes.size&&
+        [...codes].every(code=>{const record=primaryRows?.get(code);return record&&!record.blocked&&now-record.at<=15000;});
       const secondary=channels.get('sina-index');
-      // Healthy primary: check the fallback once a minute. On degradation it
-      // may be retried at the normal quote cadence, subject to supplier limits.
-      if(!secondary||!primaryHealthy||now-(secondary.checkedAt||0)>=60000)pull('sina-index',backup,5000);
+      if(!secondary||!primaryHealthy||now-(secondary.checkedAt||0)>=60000)pull('sina-index',backup,5000,now);
     }else if(session.openDay&&session.minute>=900&&session.minute<905&&now>=nextCloseCheck){
-      // The 15:00 closing print may arrive just after the live window has ended.
       const cutoff=Date.parse(day.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')+'T15:00:00+08:00');
       if([...quotes.values()].filter(row=>row.quoteAt>=cutoff).length<codes.size){
-        nextCloseCheck=now+60000;
-        pull('tencent-index',primary,5000);pull('sina-index',backup,5000);
+        nextCloseCheck=now+60000;pull('tencent-index',primary,5000,now);pull('sina-index',backup,5000,now);
       }
     }
-    return {day:session.day,indices:[...quotes.values()].map(r=>({...r,...quoteObservationView(r,now)})),
+    return {day:session.day,indices:[...quotes.values()].filter(r=>r.quoteAt<=now&&r.receivedAt<=now).map(r=>({...r,...quoteObservationView(r,now)})),
       channels:[...channels].map(([source,{status,checkedAt,quoteAt,count}])=>({source,status,checkedAt,quoteAt,count}))};
   }
   return {read};
