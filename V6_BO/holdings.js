@@ -565,7 +565,9 @@ module.exports = function createHoldings(dep) {
     const floatPct = +(((price - cost) / cost) * 100).toFixed(2);
     const profitAmt = Math.round((price - cost) * shares);
     const r = Array.isArray(rows) ? rows : [];
-    const ma5 = r.length >= 5 ? +(r.slice(-5).reduce((s, x) => s + x.close, 0) / 5).toFixed(2) : null;
+    const recent = r.slice(-5);
+    const ma5 = recent.length === 5 && recent.every(x => typeof x?.close === 'number' && Number.isFinite(x.close) && x.close > 0)
+      ? +(recent.reduce((s, x) => s + x.close, 0) / 5).toFixed(2) : null;
     const aboveMa5 = ma5 ? price > ma5 : null; // 严格站上（超过）才算站稳
     const mainIn = num(snap && snap.mainInflow);
     const mainPct = num(snap && snap.mainPct);
@@ -682,17 +684,37 @@ module.exports = function createHoldings(dep) {
     //    现在给 once:true —— 让 watch 的「加仓」分支可以一次性提醒：条件消失后允许再提醒，
     //    条件一直成立则不会反复刷屏（避免回到"推送太多像菜市场"的老毛病）。
     if (floatPct > 0 && aboveMa5 === true && pct > 0 && pct < 5 && mainIn > 0) {
-      if (posPct != null && posPct > maxPos)
-        acts.push({
-          type: '加仓', urgent: false, once: true, color: 'info',
-          text: `个股条件满足加仓，但总仓位 ${posPct}% 已超过上限 ${maxPos}%，建议先减其它仓位再考虑`,
-          why: `个股条件：浮盈 ${floatPct}% + 站上5日线${ma5} + 当日温和涨 ${pct}% + 主力净流入${Math.round(mainIn / 1e4)}万；被总仓位上限 ${maxPos}% 拦截`
-        });
+      const at = ctx?.observedAt ?? _nowDate().getTime();
+      const quality = quoteUseEligibility(snap, at);
+      const funds = fundsObservationView(snap, at);
+      const number = x => typeof x === 'number' && Number.isFinite(x);
+      const validBudget = number(posPct) && posPct >= 0 && number(maxPos) && maxPos > 0 && maxPos <= 100 &&
+        number(HOLD.capital) && HOLD.capital > 0 && number(it.shares) && it.shares > 0 &&
+        number(snap?.price) && snap.price > 0;
+      const headroom = validBudget ? Math.max(0, maxPos - posPct) : null;
+      // Manual holdings and declared capital are research observations, not
+      // authoritative available cash. Never use partial valuation as room.
+      const maxAddPct = headroom === null ? null :
+        Math.min(headroom, (snap.price * it.shares / HOLD.capital) * 100 / 3);
+      const reasons = [];
+      if (!quality.canNotify || !number(snap?.pct)) reasons.push('原量价或时点未核实');
+      if (!funds.analysisEligible || !(funds.analysisValue > 0)) reasons.push('当前资金流入证据未核实');
+      if (news.evidenceStatus !== 'available' || badNews) reasons.push('新闻风险尚未排除');
+      if (acts.some(a => ['止损','减仓','清仓','止盈','回撤止盈','回撤提醒','风险'].includes(a.type)))
+        reasons.push('已有退出或风险提示');
+      if (!validBudget || !number(maxAddPct)) reasons.push('申报资金或组合仓位证据不足');
+      else if (Math.floor(maxAddPct * 100) <= 0) reasons.push('已达总仓位上限或剩余额度不足');
+      if (reasons.length)
+        acts.push({type:'持有观察',urgent:false,quiet:true,canNotify:false,color:'info',
+          text:'个股出现原加仓观察条件，但暂不建议增加仓位。',
+          why:reasons.join('；')});
       else
         acts.push({
           type: '加仓', urgent: false, once: true, color: 'good',
-          text: `趋势完好且主力仍净流入${Math.round(mainIn / 1e4)}万，可小幅加仓（建议单次不超过原仓位1/3）`,
-          why: `触发条件：浮盈为正 ${floatPct}% + 站上5日线${ma5} + 当日温和涨 ${pct}%（未超5%）+ 主力净流入${Math.round(mainIn / 1e4)}万`
+          text: `趋势及资金流入观察条件满足；研究增仓上限为组合申报资金的 ${Math.floor(maxAddPct * 100) / 100}%（同时不超过原仓位1/3）。`,
+          why: `原观察条件：浮盈为正 ${floatPct}% + 站上5日线${ma5} + 当日温和涨 ${pct}% + 原时点资金净流入；已核对申报总仓位额度，不代表实际可用现金或交易许可`,
+          researchMaxAddPct:Math.floor(maxAddPct * 100) / 100,
+          researchOnly:true,canTrade:false
         });
     }
     // ⑤ 涨停持有
@@ -848,21 +870,33 @@ module.exports = function createHoldings(dep) {
     // 先按市值粗算总仓位，用于加仓建议的仓位约束
     let preMarket = 0;
     for (const h of items) preMarket += num((q.get(h.code) || {}).price) * num(h.shares);
-    const positionPct = HOLD.capital ? +((preMarket / HOLD.capital) * 100).toFixed(1) : null;
 
     // 逐股取 K 线（5日线是减仓/加仓判断的关键依据），优先走缓存
     const rowMap = new Map();
     for (const h of items) rowMap.set(h.code, await klineOf(h.code));
     const currentNews = readNewsContext();
+    // Recheck the complete set after asynchronous K-line reads. Missing/stale
+    // marks must not silently reduce the portfolio valuation for add advice.
+    const observedAt = _nowDate().getTime();
+    const number = x => typeof x === 'number' && Number.isFinite(x);
+    const complete = number(HOLD.capital) && HOLD.capital > 0 && items.every(h => {
+      const snap = q.get(h.code);
+      return number(h.shares) && h.shares > 0 && snap?.code === h.code &&
+        number(snap.price) && snap.price > 0 && quoteUseEligibility(snap, observedAt).canNotify;
+    });
+    const exactMarket = complete ? items.reduce((sum,h)=>sum+q.get(h.code).price*h.shares,0) : null;
+    const calculatedPositionPct = number(exactMarket) ? exactMarket / HOLD.capital * 100 : null;
+    const rawPositionPct = number(calculatedPositionPct) ? calculatedPositionPct : null;
+    const positionPct = rawPositionPct === null ? null : +rawPositionPct.toFixed(1);
     let _nameDirty = false;   // 是否补到了真实名称（补到就回写，避免下次再查）
     const list = items.map(h => {
       const snap = q.get(h.code) || {};
-      const quoteQuality=quoteUseEligibility(snap,_nowDate().getTime());
+      const quoteQuality=quoteUseEligibility(snap,observedAt);
       const rows = rowMap.get(h.code) || [];
-      const v = verdict(h.code, snap, rows, { positionPct, newsContext:currentNews });
+      const v = verdict(h.code, snap, rows, { positionPct:rawPositionPct, observedAt, newsContext:currentNews });
       const researchRisk=holdingEvidence({code:h.code,bars:rows,quote:snap,
         announcements:[...currentNews.badAll,...currentNews.goodAll],
-        now:_nowDate().getTime()});
+        now:observedAt});
       const patternAct=asHoldingsAct(researchRisk,{locked:!!h.locked});
       // Unlike the established price-based rules, invalid/stale pattern signals
       // remain visible ONLY, never enter the notification stream.
@@ -892,7 +926,7 @@ module.exports = function createHoldings(dep) {
       return {
         code: h.code, name: nm || snap.name || '',
         cost, shares, note: h.note || '', tags: h.tags || [], locked: !!h.locked, muted: !!h.mute,
-        price, pct: num(snap.pct), proxy: !!snap.proxy,quoteQuality,fundsQuality:fundsObservationView(snap,_nowDate().getTime()),
+        price, pct: num(snap.pct), proxy: !!snap.proxy,quoteQuality,fundsQuality:fundsObservationView(snap,observedAt),
         valuationOnly:!quoteQuality.canNotify,observedActs:quoteQuality.canNotify?undefined:observedActs,
         market, costAmt: +(cost * shares).toFixed(0),
         weight: preMarket ? +((market / preMarket) * 100).toFixed(1) : 0,
