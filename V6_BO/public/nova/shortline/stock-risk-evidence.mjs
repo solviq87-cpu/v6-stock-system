@@ -150,6 +150,68 @@ function positionMetrics(sequence){
     canTrade:false};
 }
 
+// Equal endpoint gains can conceal very different paths. Measure daily-close
+// volatility, peak-to-trough losses and gain concentration independently of
+// return; do not infer an intraday sequence, calibrated score or permission.
+function closePathQuality(sequence){
+  const clean=n=>finite(n)?n:null;
+  const logStep=(a,b)=>{
+    const change=(b-a)/a;
+    return finite(change)&&change>-1?Math.log1p(change):Math.log(b)-Math.log(a);
+  };
+  function measure(offset,sessions){
+    if(sequence.length<offset+sessions+1)return null;
+    const rows=sequence.slice(offset,offset+sessions+1).reverse();
+    const start=rows[0],end=rows.at(-1);
+    const steps=rows.slice(1).map((r,i)=>({date:r.date,log:logStep(rows[i].close,r.close),direction:Math.sign(r.close-rows[i].close)}));
+    if(!steps.every(r=>finite(r.log)))return null;
+    const logs=steps.map(r=>r.log),mean=logs.reduce((s,v)=>s+v,0)/sessions;
+    const gains=steps.filter(r=>r.direction>0),losses=steps.filter(r=>r.direction<0);
+    const positiveLog=gains.reduce((s,r)=>s+Math.max(0,r.log),0);
+    const negativeLog=losses.reduce((s,r)=>s+Math.max(0,-r.log),0);
+    const pathLength=positiveLog+negativeLog;
+    const netLog=logStep(start.close,end.close);
+    let peak=start,drawdown=0,peakDate=null,troughDate=null,up=0,down=0,maxUp=0,maxDown=0;
+    for(const r of rows.slice(1)){
+      if(r.close>peak.close)peak=r;
+      const d=100*(1-r.close/peak.close);
+      if(d>drawdown){drawdown=d;peakDate=peak.date;troughDate=r.date;}
+    }
+    for(const r of steps){
+      up=r.direction>0?up+1:0;down=r.direction<0?down+1:0;
+      maxUp=Math.max(maxUp,up);maxDown=Math.max(maxDown,down);
+    }
+    const largestGain=gains.reduce((m,r)=>Math.max(m,r.log),0);
+    return {from:start.date,to:end.date,startClose:start.close,endClose:end.close,
+      netReturnPct:clean(100*(end.close/start.close-1)),netLogReturnPct:clean(100*netLog),
+      dailyLogVolatilityPct:clean(100*Math.sqrt(logs.reduce((s,v)=>s+(v-mean)**2,0)/sessions)),
+      maxCloseDrawdownPct:clean(drawdown),drawdownPeakDate:peakDate,drawdownTroughDate:troughDate,
+      positiveLogMovementPct:clean(100*positiveLog),negativeLogMovementPct:clean(100*negativeLog),
+      directionEfficiency:pathLength>0?clean(Math.min(1,Math.abs(netLog)/pathLength)):null,
+      largestGainSharePct:positiveLog>0?clean(100*largestGain/positiveLog):null,
+      risingSessions:gains.length,fallingSessions:losses.length,flatSessions:sessions-gains.length-losses.length,
+      longestRisingRun:maxUp,longestFallingRun:maxDown};
+  }
+  const windows=[5,10,20].map(sessions=>{
+    const recent=measure(0,sessions),preceding=measure(sessions,sessions);
+    const comparable=recent&&preceding;
+    return {sessions,status:recent?'observed-research':'insufficient-contiguous-history',recent,preceding,
+      acceleration:comparable?{netLogReturnDeltaPctPoints:clean(recent.netLogReturnPct-preceding.netLogReturnPct),
+        dailyLogVolatilityDeltaPctPoints:clean(recent.dailyLogVolatilityPct-preceding.dailyLogVolatilityPct),
+        maxCloseDrawdownDeltaPctPoints:clean(recent.maxCloseDrawdownPct-preceding.maxCloseDrawdownPct),
+        fasterPositiveGain:recent.netLogReturnPct>0&&preceding.netLogReturnPct>0&&recent.netLogReturnPct>preceding.netLogReturnPct,
+        greaterVolatility:recent.dailyLogVolatilityPct>preceding.dailyLogVolatilityPct}:null};
+  });
+  return {source:sequence[0].source,priceBasis:'unadjusted',day:sequence[0].date,windows,
+    basis:'same-declared-source-and-sample-family-daily-close-path-not-intraday-or-calibrated-risk',
+    volatilityBasis:'population-standard-deviation-of-daily-log-returns-not-annualized',
+    gainConcentrationBasis:'largest-positive-log-step-share-of-total-positive-log-movement',
+    directionEfficiencyBasis:'absolute-net-log-movement-divided-by-total-absolute-log-movement',
+    accelerationBasis:'adjacent-equal-length-close-windows-share-only-boundary-close',
+    continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified',
+    actualChaseRiskLevel:null,canTrade:false};
+}
+
 // Descriptive close-based structure review. Reconstruct a fixed preceding
 // 20-bar range at a visible endpoint; never reinterpret it using later highs.
 function structureReview(sequence,cutoff,volumeByDay){
@@ -238,7 +300,7 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
   const out={basis:'historical-research-only',canTrade:false,priceRange:null,
     relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
     themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null,positionRisk:null,
-    sectorPositionRisk:null,multiWindowRelativeStrength:null,themePersistence:null,structureReview:null};
+    sectorPositionRisk:null,multiWindowRelativeStrength:null,themePersistence:null,structureReview:null,pathQuality:null};
   const cutoff=time(asOf??b?.date);
   const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
   const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
@@ -297,6 +359,7 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
       }
       positionSequence=sequence;
       out.positionRisk=positionMetrics(sequence);
+      out.pathQuality=closePathQuality(sequence);
       // A price-identical duplicate may disagree on volume. Suppress only
       // the volume comparison instead of losing otherwise valid price facts.
       const originals=currentRows===undefined?[b]:currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff));
