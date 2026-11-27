@@ -3,6 +3,7 @@ const {analyzeMarketBreadth}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
 const {marketRequests,createMarketRequestGovernor}=require('./market-request-governor');
+const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
 // Each row is one provider quote. f5 is provider-native lots (手), NOT shares.
 const FIELDS='f12,f14,f3,f6,f13,f2,f124,f5,f8,f20,f62,f184';
@@ -17,14 +18,17 @@ const textValue=value=>typeof value==='string'&&value.length>0&&
  value.length<=64&&!/[\u0000-\u001f<>]/.test(value)?value:undefined;
 function parsePage(payload){
  const d=payload?.data;
- if(!d||!Number.isInteger(d.total)||d.total<1||!Array.isArray(d.diff))throw Error('东方财富响应缺少有效总数或行情列表');
+ if(!d||payload.rc!==undefined&&payload.rc!==0||!Number.isSafeInteger(d.total)||d.total<1||!Array.isArray(d.diff)||
+    d.diff.length>1000)
+  throw Error('东方财富响应缺少有效总数或行情列表');
+ for(let i=0;i<d.diff.length;i++)if(!Object.hasOwn(d.diff,i))throw Error('东方财富响应行情列表存在缺位');
  return {total:d.total,items:d.diff};
 }
+const rawCode=item=>typeof item?.f12==='string'&&/^\d{6}$/.test(item.f12)?item.f12:null;
 function toStock(item){
- const code=String(item?.f12??'');const market=Number(item?.f13);
+ const code=rawCode(item);
  const pct=sourceNumber(item?.f3,{min:-100,max:100});
- if(!/^\d{6}$/.test(code)||item?.f13===null||item?.f13===undefined||
-    String(item.f13).trim()===''||![0,1].includes(market)||pct===undefined)
+ if(!code||![0,1,'0','1'].includes(item?.f13)||pct===undefined)
   return null;
  // Optional fields are never silently filled with 0 when the remote
  // service returns '-', null or a malformed numeric value.
@@ -79,22 +83,33 @@ async function fetchEastmoneySnapshot(options={}){
    verifyClock();
    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
    try{
-    const response=await fetchImpl(target,{signal:controller.signal,headers:{'Accept':'application/json'}});
+    const response=await fetchImpl(target,{signal:controller.signal,redirect:'manual',headers:{'Accept':'application/json'}});
+    if(hasQuoteRedirect(response,target))throw Error('行情网关重定向，拒绝非原始来源响应');
     governor.checkResponse(target,response?.status,response?.headers);
-    if(!response?.ok)throw Error('行情网关HTTP '+(response?.status??'未知'));
+    // Only the legacy injected transport may omit its HTTP status.
+    if(response?.ok!==true||(physicalFetch||response.status!==undefined)&&response.status!==200)
+     throw Error('行情网关HTTP '+(response?.status??'未知'));
     return parsePage(await response.json());
    }finally{clearTimeout(timer);controller.abort();}
   };
   const data=await (physicalFetch||options.requestGovernor?governor.run(target,request):request());
-  if(total===null)total=data.total;
+  if(total===null){
+   total=data.total;
+   if(total>pageSize*maxPages)throw Error('行情分页未完整抓取：股票总数超出分页上限');
+  }
   if(data.total!==total)throw Error('行情分页期间股票总数变化，拒绝混合快照');
   const expected=Math.min(pageSize,total-(pn-1)*pageSize);
   if(data.items.length!==expected)throw Error('行情分页记录数异常，拒绝不完整或重叠分页');
   for(const item of data.items){
+   // Count raw identities before filtering bad prices or market fields.
+   // A malformed duplicate is still evidence of ambiguous pagination.
+   const code=rawCode(item);
+   if(code){
+    if(seen.has(code))throw Error('行情跨页股票代码重复，拒绝可能错位的快照');
+    seen.add(code);
+   }
    const stock=toStock(item);
-   if(!stock)continue;
-   if(seen.has(stock.code))throw Error('行情跨页股票代码重复，拒绝可能错位的快照');
-   seen.add(stock.code);stocks.push(stock);
+   if(stock)stocks.push(stock);
   }
   pages++;
   verifyClock();
