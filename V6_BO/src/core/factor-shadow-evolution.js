@@ -550,7 +550,10 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
    baselineTest=dailyIC(postRecoveryTest,ids,oldWeights),
    evolvedTest=dailyIC(postRecoveryTest,ids,proposal);
  const validStability=pairedStability(valid,ids,oldWeights,proposal,dailyIC),
-   testStability=pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC);
+   testStability=postRecoveryTest.length>=5?
+    pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC):
+    {comparableDays:baselineTest.days,earlyDeltaIC:null,recentDeltaIC:null,
+     positiveDayFractionPct:null,halfPeriodsConsistent:false};
  const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
    testDelta=finite(evolvedTest.meanIC)&&finite(baselineTest.meanIC)?evolvedTest.meanIC-baselineTest.meanIC:null;
  // Compare the already-accepted research weights against the immutable
