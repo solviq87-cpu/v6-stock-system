@@ -166,6 +166,47 @@ function cycleReceipt(value){
   return {status:value.status,stages:[{stage:shadow.stage,status:shadow.status,nextAction:shadow.nextAction,modelName:shadow.modelName,modelDigest:shadow.modelDigest}],shadowModelVersion:value.shadowModelVersion};
  }catch{return {status:'failed-stop-and-audit-before-retry'};}
 }
+const PENDING='.factor-agent-pending.json';
+function pendingEntry(dir,events){
+ const file=privatePath(path.join(dir,PENDING));
+ try{fs.lstatSync(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}
+ const entry=readJournalEntry(file),{fingerprint,...body}=entry;
+ const seq=entry.sequence,prior=events[seq-2];
+ if(!Number.isSafeInteger(seq)||seq<1||seq<events.length||seq>events.length+1||
+    entry.schemaVersion!==1||entry.mode!=='v6-factor-research-agent-event'||
+    !sealed(fingerprint)||hash(body)!==fingerprint||entry.parentMemory!==(prior?.fingerprint??null)||
+    entry.outcome!=='failed'||!['capture','observe'].includes(entry.action)||
+    !sealed(entry.inputFingerprint)||entry.settledFingerprint!==entry.inputFingerprint||
+    (entry.acknowledgedFailure??null)!==(prior?.outcome==='failed'?prior.fingerprint:null)||
+    !validEventSemantics(entry,prior)||hash(summary(entry.summary))!==hash(entry.summary)||entry.summary.eventFingerprint!==null)
+  throw Error('agent-pending-integrity-rejected');
+ const committed=events[seq-1];
+ if(committed&&(!['completed','failed'].includes(committed.outcome)||
+    ['parentMemory','inputFingerprint','acknowledgedFailure','decisionFingerprint','action'].some(k=>committed[k]!==entry[k])||
+    committed.summary.checkTime!==entry.summary.checkTime))throw Error('agent-pending-conflicting-event');
+ return {entry,committed};
+}
+function requirePrefix(dir,expected){
+ const actual=readEvents(dir);
+ if(actual.length!==expected.length||actual.some((e,i)=>e.fingerprint!==expected[i].fingerprint))
+  throw Error('agent-journal-changed-during-run');
+ return actual;
+}
+function appendEvent(dir,events,event,checkLock){
+ checkLock();requirePrefix(dir,events);
+ writeNew(path.join(dir,'event-'+String(event.sequence).padStart(8,'0')+'-'+event.fingerprint.slice(0,12)+'.json'),event);
+ checkLock();requirePrefix(dir,[...events,event]);
+}
+function clearPending(dir,events,entry,checkLock){
+ checkLock();requirePrefix(dir,events);
+ const pending=pendingEntry(dir,events);
+ if(!pending?.committed||pending.entry.fingerprint!==entry.fingerprint)throw Error('agent-pending-changed-during-run');
+ fs.unlinkSync(privatePath(path.join(dir,PENDING)));
+ const fd=fs.openSync(dir,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+}
+function pendingStatus(pending){
+ return summary({...pending.entry.summary,eventFingerprint:null});
+}
 function readEvents(dir){
  if(fs.existsSync(dir)&&(!fs.statSync(dir).isDirectory()||(fs.statSync(dir).mode&0o077)!==0))
   throw Error('agent-journal-directory-not-private');
@@ -193,7 +234,9 @@ function readAgentStatus(dir){
  if(!dir)return summary({stage:'unconfigured',status:'unconfigured',nextAction:'configure-private-research-agent'});
  try{
   privatePath(dir);
-  const event=readEvents(dir).at(-1);
+  const events=readEvents(dir),pending=pendingEntry(dir,events);
+  if(pending)return pendingStatus(pending);
+  const event=events.at(-1);
   return event?summary({...event.summary,eventFingerprint:event.fingerprint}):
    summary({stage:'unconfigured',status:'unconfigured',nextAction:'configure-private-research-agent'});
  }catch{return summary({stage:'reflection',status:'blocked-invalid-agent-journal',nextAction:'audit-private-research-artifacts-before-retry'});}
@@ -210,19 +253,33 @@ function run(config,{apply,now,ackFailure}){
  const dir=config.outputDir,lock=privatePath(path.join(dir,'.factor-agent.lock'));
  if(fs.existsSync(lock))throw Error('agent-lock-rejected');
  // Preview reads all seals, but creates neither output directories nor locks.
- if(!apply){const events=readEvents(dir);requireClock(events,now);return plan(perceive(config,now),events,now).output;}
+ if(!apply){const events=readEvents(dir);requireClock(events,now);const pending=pendingEntry(dir,events);
+  if(pending){if(now<pending.entry.summary.checkTime)throw Error('agent-clock-rollback');return pendingStatus(pending);}
+  return plan(perceive(config,now),events,now).output;}
  fs.mkdirSync(dir,{recursive:true,mode:0o700});privatePath(lock);
  const fd=fs.openSync(lock,'wx',0o600);
+ const checkLock=()=>{const held=fs.fstatSync(fd),current=fs.lstatSync(lock);
+  if(!current.isFile()||current.nlink!==1||held.ino!==current.ino||held.dev!==current.dev)throw Error('agent-lock-identity-changed');};
  let released=false;
  const release=()=>{if(released)return;released=true;const held=fs.fstatSync(fd);fs.closeSync(fd);const current=fs.lstatSync(lock);if(held.ino!==current.ino||held.dev!==current.dev)throw Error('agent-lock-identity-changed');fs.unlinkSync(lock);};
  try{
   fs.writeFileSync(fd,String(process.pid));fs.fsyncSync(fd);
   const events=readEvents(dir),last=events.at(-1);requireClock(events,now);
+  const pending=pendingEntry(dir,events);
+  // After an interrupted run, recovery only reconciles its original intent.
+  // The current invocation must not both reconcile and dispatch more work.
+  if(pending){
+   if(ackFailure!==undefined||now<pending.entry.summary.checkTime)throw Error('agent-pending-recovery-required');
+   const event=pending.committed??pending.entry;
+   if(!pending.committed)appendEvent(dir,events,event,checkLock);
+   clearPending(dir,pending.committed?events:[...events,event],pending.entry,checkLock);
+   const result=summary({...event.summary,eventFingerprint:event.fingerprint});release();return result;
+  }
   if(ackFailure!==undefined&&(last?.outcome!=='failed'||last.fingerprint!==ackFailure))throw Error('agent-failure-ack-rejected');
   const before=perceive(config,now),planned=plan(before,events,now,{acknowledged:ackFailure!==undefined});
   if(planned.repeated){release();return planned.output;}
   let after=before;
-  const finish=outcome=>{
+  const makeEvent=outcome=>{
   const shadow=outcome?.stages?.find(s=>s.stage==='independent-shadow-model');
   const status=!before.ready?'needs-data':outcome.status==='research-cycle-completed-not-certified'?
    outcome.status:'failed-stop-and-audit-before-retry';
@@ -236,11 +293,25 @@ function run(config,{apply,now,ackFailure}){
    settledFingerprint:after.fingerprint,decisionFingerprint:hash({action:before.mode,ready:before.ready,nextAction:before.nextAction}),
    action:before.mode,outcome:!before.ready?'needs-data':status==='research-cycle-completed-not-certified'?'completed':'failed',
    summary:output};
-  const fingerprint=hash(body);
-  writeNew(path.join(dir,`event-${String(body.sequence).padStart(8,'0')}-${fingerprint.slice(0,12)}.json`),{...body,fingerprint});
-  return summary({...output,eventFingerprint:fingerprint});
+  return {...body,fingerprint:hash(body)};
+  };
+  let intent=null;
+  const finish=outcome=>{
+   const event=makeEvent(outcome);
+   if(intent){const active=pendingEntry(dir,events);if(!active||active.committed||active.entry.fingerprint!==intent.fingerprint)throw Error('agent-pending-changed-during-run');}
+   appendEvent(dir,events,event,checkLock);
+   if(intent)clearPending(dir,[...events,event],intent,checkLock);
+   return summary({...event.summary,eventFingerprint:event.fingerprint});
   };
   if(before.ready){
+   // Persist a failure-shaped intent before executing any worker. A crash or
+   // uncertain journal write cannot be converted into permission to retry.
+   intent=makeEvent({status:'failed-stop-and-audit-before-retry'});
+   checkLock();requirePrefix(dir,events);
+   writeNew(privatePath(path.join(dir,PENDING)),intent);
+   checkLock();requirePrefix(dir,events);
+   const active=pendingEntry(dir,events);
+   if(!active||active.committed||active.entry.fingerprint!==intent.fingerprint)throw Error('agent-pending-changed-before-run');
    let outcome;
    try{outcome=runDailyCycle(config.cycle,{mode:before.mode,apply:true,now});}
    catch{outcome={status:'failed-stop-and-audit-before-retry'};}
@@ -249,7 +320,9 @@ function run(config,{apply,now,ackFailure}){
     if(receipt.status==='research-cycle-completed-not-certified')try{after=perceive(config,now);}catch{receipt={status:'failed-stop-and-audit-before-retry'};}
     return finish(receipt);
    };
-   if(outcome&&typeof outcome.then==='function')return Promise.resolve(outcome).then(settle,()=>settle(null)).finally(release);
+   let asyncResult;
+   try{asyncResult=!!outcome&&typeof outcome.then==='function';}catch{outcome=null;asyncResult=false;}
+   if(asyncResult)return Promise.resolve(outcome).then(settle,()=>settle(null)).finally(release);
    const value=settle(outcome);release();return value;
   }
   const value=finish(null);release();return value;
@@ -263,6 +336,11 @@ function plan(perception,events,now,{acknowledged=false}={}){
   stage:'idle',status:'failed-stop-and-audit-before-retry',
   nextAction:'audit-private-research-artifacts-before-retry',eventFingerprint:last.fingerprint,checkTime:now})};
  const repeated=!acknowledged&&!!last&&[last.inputFingerprint,last.settledFingerprint].includes(perception.fingerprint);
+ // A non-adjacent previously completed perception is a replay, not new evidence.
+ // Acknowledging a failure does not authorize replaying an older completed run.
+ if(!repeated&&events.some(e=>e.outcome==='completed'&&
+    [e.inputFingerprint,e.settledFingerprint].includes(perception.fingerprint)))
+  throw Error('agent-historical-evidence-replay');
  if(repeated)return {repeated:true,output:summary({...last.summary,stage:'idle',
   status:last.summary.status==='failed-stop-and-audit-before-retry'?last.summary.status:'unchanged',
   eventFingerprint:last.fingerprint,checkTime:now})};
