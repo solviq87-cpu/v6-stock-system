@@ -71,32 +71,37 @@ function buildThemeLifecycle({reports=[],themeId,source,now=Date.now()}={}){
   if(r.asOf>now)continue;
   const rows=groups.get(r.asOf)||[];rows.push(r);groups.set(r.asOf,rows);
  }
- let previous=null,declines=0,improvements=0,hadCrowding=false,phase='unknown';
+ let previous=null,declines=0,improvements=0,hadCrowding=false,phase='unknown',adverseChainIntact=false;
+ const originalIdentities=new Map();
  for(const [at,group] of [...groups].sort(([a],[b])=>a-b)){
   const rows=group.map(r=>themeRow(r,themeId,source));
   const row=rows[0];
-  if(!row||rows.some(r=>!r||signature(r)!==signature(row))){
-   previous=null;declines=improvements=0;hadCrowding=false;phase='unknown';
+  const original=row?signature({...row,asOf:null}):null;
+  const identities=row?['at:'+row.at,'revision:'+row.revision,'ref:'+row.evidenceRef]:[];
+  const originalConflict=identities.some(key=>originalIdentities.has(key)&&originalIdentities.get(key)!==original);
+  if(!row||rows.some(r=>!r||signature(r)!==signature(row))||originalConflict){
+   previous=null;declines=improvements=0;hadCrowding=false;phase='unknown';adverseChainIntact=false;
    result.latest=null;result.reason='THEME_OBSERVATION_GAP_OR_CONFLICT';continue;
   }
+  for(const key of identities)originalIdentities.set(key,original);
   const repeated=previous&&row.at===previous.at&&row.revision===previous.revision&&row.evidenceRef===previous.evidenceRef&&
     signature(row.quotes)===signature(previous.quotes)&&signature(row.metrics)===signature(previous.metrics)&&signature(row.members)===signature(previous.members);
   if(repeated)continue;
   const linked=comparable(previous,row);
-  if(!linked){declines=improvements=0;hadCrowding=false;}
+  if(!linked){declines=improvements=0;hadCrowding=false;adverseChainIntact=false;}
   const declining=linked&&falls(previous,row),improving=linked&&rises(previous,row);
-  declines=declining?declines+1:0;improvements=improving?improvements+1:0;
+  declines=declining?declines+1:0;improvements=improving&&!row.crowded?improvements+1:0;
   hadCrowding=hadCrowding||row.crowded;
   // These are descriptive shadow candidates, not calibrated stage thresholds.
   if(declines>=2&&hadCrowding&&row.metrics.meanChangePct<0)phase='collapse-candidate';
   else if(declining&&hadCrowding)phase='divergence-candidate';
-  else if(improvements>=2&&result.lastAdverseAt!==null&&!row.crowded)phase='repair-candidate';
+  else if(improvements>=2&&result.lastAdverseAt!==null&&adverseChainIntact&&!row.crowded)phase='repair-candidate';
   else if(row.crowded&&linked&&previous.crowded&&!declining&&row.metrics.meanChangePct>0)phase='climax-candidate';
   else if(improving)phase='strengthening-candidate';
   else if(row.metrics.meanChangePct>0)phase='formation-watch';
   else phase='unknown';
   if(row.crowded||['divergence-candidate','collapse-candidate'].includes(phase)){
-   result.lastAdverseAt=row.at;result.lastAdverseReason=phase==='collapse-candidate'?'SUSTAINED_THEME_DETERIORATION':row.crowded?'ORIGINAL_DESCRIPTIVE_CROWDING':'THEME_DIVERGENCE';
+   adverseChainIntact=true;result.lastAdverseAt=row.at;result.lastAdverseReason=phase==='collapse-candidate'?'SUSTAINED_THEME_DETERIORATION':row.crowded?'ORIGINAL_DESCRIPTIVE_CROWDING':'THEME_DIVERGENCE';
   }
   result.transitions.push({asOf:at,sourceAt:row.at,phase,comparableToPrevious:!!linked,evidenceRef:row.evidenceRef,
    revision:row.revision,coveragePct:100,metrics:row.metrics});
@@ -110,13 +115,13 @@ function buildThemeLifecycle({reports=[],themeId,source,now=Date.now()}={}){
  result.phase=phase;result.current=true;
  result.assumptions={comparisonMaxGapMs:60000,source:'research-only comparison window; original theme-descriptive-v1 thresholds unchanged',
   collapseRule:'two successive comparable breadth and mean-change declines after observed crowding, latest mean change negative',
-  repairRule:'two successive comparable rises without current descriptive crowding; original risk clearance still required',validated:false};
+  repairRule:'two successive comparable non-crowded rises in the uninterrupted original adverse chain; original risk clearance still required',validated:false};
  return result;
 }
 function boundAccount(report,accountId,now){
  try{
   if(!['pool','pre'].includes(accountId)||!report||report.protocol!=='fayo-risk-workbench-v1'||report.schemaVersion!==1||
-     report.account?.id!==accountId||report.generatedAt!==now||report.instance?.role!=='primary'||report.readOnly!==true||
+     report.account?.id!==accountId||report.generatedAt!==now||report.selectedCode!=null||report.instance?.role!=='primary'||report.readOnly!==true||
      report.canTrade!==false||report.writesAccount!==false)return null;
   const e=validateEquityEvidence(report.equity),r=report.rules;
   if(e.accountId!==accountId||e.observedAt!==now||e.accountEpoch!==report.accountEpoch||e.source.accountRevision!==report.accountRevision||
@@ -236,18 +241,28 @@ function buildShadowReview({symbol,accountId,report,themeReports=[],themeId,them
   add(1,'account/evidence',null,'原账户、资金或持仓证据不完整，不能确认新增风险');
  if(scope.hasActiveOrder!==false)add(1,'account/active-order-evidence',null,'在途委托存在或未知，不能重复使用风险预算');
  if(bound){
-  if(!Array.isArray(bound.r.rules))add(1,'account/policy-evidence',null,'原生效规则证据缺失');
-  for(const r of arr(bound.r.rules)){
+  const rules=arr(bound.r.rules);
+  if(!Array.isArray(bound.r.rules)||!text(bound.r.policyVersion)||rules.some(r=>!text(r?.id))||!uniq(rules.map(r=>r?.id)))
+   add(1,'account/policy-evidence',null,'原生效规则、版本或编号完整性尚未核验');
+  for(const r of rules){
    if(!text(r?.id))continue;
    if(r.enabled===true&&r.configurationStatus==='active'&&r.evidenceStatus==='available'&&r.exceeded===true)
     add(2,'rule/'+r.id,bound.r.policyVersion??null,'原已生效规则超限；保持原限制');
    else if(r.configurationStatus==='invalid'||r.configurationStatus==='unknown'||r.enabled===true&&r.configurationStatus==='active'&&(r.evidenceStatus!=='available'||typeof r.exceeded!=='boolean'))
     add(1,'rule/'+r.id,bound.r.policyVersion??null,'原生效规则尚无完整核验');
   }
+  if(!Array.isArray(report.risks)||report.risks.some(r=>!text(r?.rootCauseId)||!text(r?.object?.type)||!text(r?.object?.id)))
+   add(1,'account/risk-evidence',null,'原风险工作台记录缺失或范围未核验');
+  const applies=r=>r?.object?.type==='security'?r.object.id===symbol||r.object.id==='all':
+   r?.object?.type==='account'?r.object.id===accountId:r?.object?.type!=='manual-security';
   for(const r of arr(report.risks)){
-   if(!text(r?.rootCauseId)||r.status==='resolved'||r.object?.type==='security'&&r.object.id!==symbol)continue;
-   if(['manual-security'].includes(r.object?.type))continue;
-   if(r.riskLevel>=3&&r.assessmentState==='risk-detected'||r.lastValidRisk?.riskLevel>=3&&r.status==='unknown')
+   if(!text(r?.rootCauseId))continue;
+   const resolved=r.status==='resolved'&&r.assessmentState==='not-triggered'&&r.evidenceState==='complete'&&r.dataState==='valid'&&r.riskLevel==null;
+   if(resolved)continue;
+   const retained=r.lastValidRisk,priorRows=arr(retained?.risks);
+   const severeRetained=retained?.riskLevel>=3&&(priorRows.length?
+    priorRows.some(old=>old?.riskLevel>=3&&applies(old)):applies(r));
+   if(applies(r)&&r.riskLevel>=3&&r.assessmentState==='risk-detected'||severeRetained)
     add(2,r.rootCauseId,r.id??null,'原严重风险或尚未解除的原严重风险，不能由研究结论覆盖');
   }
  }
