@@ -89,3 +89,44 @@ test('H05.2 rejected clearance cannot create a new false incident or block a gen
  }
  const good=group(f.observe([clear(f.now)]));assert.equal(good.status,'resolved');assert.equal(good.pendingRecovery.length,0);
 });
+
+test('H06.1 late publication of a failed original account observer check permits its own later successful check at the same report clock',t=>{
+ const f=space(t),health=(id,error,checkedAt)=>({accountId:id,error,checkedAt});
+ const report=(now,observations,alerts=null)=>buildRiskWorkbench({accountId:'pool',now,alerts,system:{observationHealth:observations}});
+ const find=(r,id)=>r.risks.find(x=>x.rootCauseId==='system/risk-observer/'+id);
+ f.advance(60000);
+ const failedAt=f.now,failed=[health('pre','原观察失败',failedAt)];
+ f.advance(60000);
+ const first=find(report(f.now,failed),'pre'),g=group(f.observe([first]));
+ assert.equal(g.status,'unknown');assert.equal(g.resolutionBaselineAt,failedAt);
+ // The delayed failure projection occurs during the same successful tick;
+ // its actual earlier failed check must not acquire the wrapper's timestamp.
+ const recovered=find(report(f.now,[health('pre',null,f.now)],f.read()),'pre');
+ assert.equal(recovered.status,'resolved');assert.equal(recovered.sourceAt,f.now);
+ const end=group(f.observe([recovered]));assert.equal(end.status,'resolved');assert.equal(end.pendingRecovery.length,0);
+});
+test('H06.2 observer recovery is bound to the original account and actual check receipt, not another account or a stale success',t=>{
+ const f=space(t),health=(id,error,checkedAt)=>({accountId:id,error,checkedAt});
+ const find=(r,id)=>r.risks.find(x=>x.rootCauseId==='system/risk-observer/'+id);
+ const report=(obs,alerts=null)=>buildRiskWorkbench({accountId:'pool',now:f.now,alerts,system:{observationHealth:obs}});
+ const failedAt=f.now;f.advance(2000);const first=find(report([health('pre','原观察失败',failedAt)]),'pre');
+ f.observe([first]);f.advance(1000);
+ const same=find(report([health('pre',null,failedAt)],f.read()),'pre');
+ assert.equal(same.status,'unknown');
+ const wrong=find(report([health('pool',null,f.now)]),'pool');
+ assert.equal(resolutionCheck({risks:[wrong]},{risks:[first],sourceAt:failedAt},f.now).allowed,false);
+ const good=find(report([health('pre',null,f.now)],f.read()),'pre');
+ assert.equal(good.status,'resolved');
+ for(const a of [null,{...good.authorityEvidence,accountId:'pool'},{...good.authorityEvidence,observedAt:failedAt}]){
+  const malformed={...good,authorityEvidence:a};
+  assert.equal(resolutionCheck({risks:[malformed]},{risks:[first],sourceAt:failedAt},f.now).allowed,false);
+ }
+ assert.equal(group(f.observe([good])).status,'resolved');
+});
+test('H06.3 missing market data cannot use a forged unrelated observer timestamp as its discovery baseline',t=>{
+ const f=space(t),old=BASE-10000;
+ const risk=raw(old,{status:'unknown',evidenceStatus:'missing',authorityEvidence:{kind:'risk-observer-health',
+  source:'original-risk-observation-runtime',accountId:'pre',observedAt:old,detected:true}});
+ const x=group(f.observe([risk]));assert.equal(x.resolutionBaselineAt,BASE);
+ f.advance(1000);assert.equal(group(f.observe([raw(old+1,{status:'resolved'})])).status,'unknown');
+});
