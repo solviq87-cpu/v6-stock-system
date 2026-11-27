@@ -8,7 +8,8 @@
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {readResearchCalendar}=require('./research-calendar-source');
-const {aShareCalendarDate}=require('./a-share-calendar');
+const {aShareCalendarDate,assessDailyBarFinality}=require('./a-share-calendar');
+const validClock=n=>Number.isSafeInteger(n)&&n>0&&n<=8e15;
 const day=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -29,24 +30,28 @@ function expectedCode(symbol){
 function partitionBaoStockRows({code,rows,collectorObservedAt,now=Date.now()}={}){
  const expected=expectedCode(code);
  if(!Array.isArray(rows)||rows.length<1||rows.length>2000||
-    !Number.isSafeInteger(now)||now<=0||
-    (collectorObservedAt!==undefined&&(!Number.isSafeInteger(collectorObservedAt)||
-      collectorObservedAt<=0||collectorObservedAt>now)))
+    !validClock(now)||
+    (collectorObservedAt!==undefined&&(!validClock(collectorObservedAt)||collectorObservedAt>now)))
   throw Error('BaoStock停牌状态原始证据、采集时钟或大小无效');
  const seen=new Set(),tradingRows=[],suspensions=[];
+ const observedDay=aShareCalendarDate(now);
  const capturedDay=collectorObservedAt===undefined?null:aShareCalendarDate(collectorObservedAt);
+ let lastDate=null;
  for(const row of rows){
   if(!row||row.code!==expected||!day(row.date)||seen.has(row.date)||
      (row.adjustflag!==undefined&&row.adjustflag!=='3')||
      !['0','1'].includes(row.tradestatus)||
-     (capturedDay!==null&&row.date>capturedDay))
+     (capturedDay!==null&&row.date>capturedDay)||row.date>observedDay||
+     (lastDate!==null&&row.date<=lastDate))
    throw Error('BaoStock停牌源代码、状态、复权、日期或来源顺序无效');
-  seen.add(row.date);
+  seen.add(row.date);lastDate=row.date;
+  if(row.tradestatus==='0'&&collectorObservedAt===undefined)
+   throw Error('BaoStock停牌记录缺少原始采集时间，不能当作已验证停牌证据');
+  const finality=assessDailyBarFinality(row.date,{observedAt:collectorObservedAt,now});
+  if(!finality.usable)throw Error('BaoStock逐日状态完成度: '+finality.reason);
   if(row.tradestatus==='1'){
    tradingRows.push(row);continue;
   }
-  if(collectorObservedAt===undefined)
-   throw Error('BaoStock停牌记录缺少原始采集时间，不能当作已验证停牌证据');
   if(!zeroOrBlank(row.volume)||!zeroOrBlank(row.amount))
    throw Error('BaoStock声明停牌但成交股数或成交金额不为零');
   suspensions.push({
@@ -78,7 +83,7 @@ function auditDailySessionCoverage(history,{
  now=Date.now(),calendarFile,suspensions=[]
 }={}){
  validateDataset(history);
- if(history.source!=='imported'||!Number.isSafeInteger(now)||now<=0||
+ if(history.source!=='imported'||!validClock(now)||
     !Array.isArray(suspensions)||suspensions.length>2000)
   throw Error('交易日覆盖审计仅接受合法的导入历史与明确的停牌证据');
  const observedDay=aShareCalendarDate(now);
@@ -89,9 +94,13 @@ function auditDailySessionCoverage(history,{
   if(!day(d)||typeof sym!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(sym)||
      !history.stocks.some(s=>(s.code||s.symbol)===sym)||
      entry.source!=='baostock'||entry.providerStatus!=='suspended'||
-     !Number.isSafeInteger(entry.observedAt)||entry.observedAt<=0||entry.observedAt>now||
+     !validClock(entry.observedAt)||entry.observedAt>now||
      d>aShareCalendarDate(entry.observedAt)||used.has(sym+':'+d))
    throw Error('停牌原始证据日期、股票、身份、时点、重复项无效');
+  // Imported halt claims must themselves have full-day observation evidence;
+  // an audit conducted days later cannot upgrade an intraday status to a daily halt.
+  const finality=assessDailyBarFinality(d,{observedAt:entry.observedAt,now});
+  if(!finality.usable)throw Error('停牌逐日状态完成度: '+finality.reason);
   used.add(sym+':'+d);
   if(!suspensionsBySymbol.has(sym))suspensionsBySymbol.set(sym,new Map());
   suspensionsBySymbol.get(sym).set(d,entry);
