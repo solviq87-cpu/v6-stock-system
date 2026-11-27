@@ -554,7 +554,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
     pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC):
     {comparableDays:baselineTest.days,earlyDeltaIC:null,recentDeltaIC:null,
      positiveDayFractionPct:null,halfPeriodsConsistent:false};
- const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
+ const validationDelta=finite(evolvedValidation.meanIC)&&finite(baselineValidation.meanIC)?evolvedValidation.meanIC-baselineValidation.meanIC:null,
    testDelta=finite(evolvedTest.meanIC)&&finite(baselineTest.meanIC)?evolvedTest.meanIC-baselineTest.meanIC:null;
  // Compare the already-accepted research weights against the immutable
  // original factor-pack baseline on NEW observations only. A persistent loss
