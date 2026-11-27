@@ -390,7 +390,10 @@ function depthRouteAllowsResearch(row) {
     if (!route) return false;
     if (!route.known) return true; // legacy operator-imported evidence; still unverified
     return !route.upstreamAmbiguous&&['CN','GLOBAL'].includes(route.market)&&
-      !['a-share-quote','a-share-bars','a-share-minute','a-share-daily','global-quote'].includes(route.dataClass)&&
+      // Only catalogue classes that can describe authorized securities depth or
+      // execution/tick data are eligible for a declared research entitlement.
+      // A macro, news or reference-data route cannot impersonate an order book.
+      ['cn-multi-asset','cn-quote-execution','global-tick'].includes(route.dataClass)&&
       !['public-quote-probe','itick-stock-quote.js','six-photo-sources.py','optional-research-sources.py'].includes(route.adapter);
   } catch { return false; }
 }
@@ -500,7 +503,11 @@ function buildDepthResearch(input={}, options={}) {
       if (auction.status==='insufficient_data') missing.push(auction.reason);
     } else missing.push('缺少与证券、供应商、授权及原接收时点一致的原始竞价序列');
     const usable=!!metrics||!!auction&&auction.status!=='insufficient_data';
-    const current=usable&&freshness.quoteStatus==='recent-unverified'&&freshness.missingReason===null&&
+    // Original receipt entitlement proves historical context only. Once that
+    // grant expires or is revoked, no current risk signal may reuse the book.
+    const entitlementCurrent=withinAuthorization(r,asOf);
+    if(usable&&!entitlementCurrent)missing.push('当前授权已到期或撤销；保留原历史证据，不生成当前盘口预警');
+    const current=usable&&entitlementCurrent&&freshness.quoteStatus==='recent-unverified'&&freshness.missingReason===null&&
       aShareCalendarDate(r.quoteAt)===aShareCalendarDate(asOf)&&
       (r.granularity!=='trade-ticks'||asOf-metrics.lastTradeAt<=15000);
     rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing});
