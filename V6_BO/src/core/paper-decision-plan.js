@@ -56,9 +56,21 @@ function bindAuthoritativePlan(plan,card) {
 }
 
 function currentDecisionAllows(plan,card) {
+  const p=card?.plan;
+  // A current authority card cannot silently revise frozen protection.
+  // Legacy internal receipts without optional completeness metadata remain
+  // readable; explicit negative or inconsistent evidence cannot open risk.
   return card?.authority==='fayo-decision-center'&&/^[a-f0-9]{64}$/.test(card.decisionId||'')&&
     card.code===plan.code&&card.day===plan.intendedDate&&card.strategyAt===plan.decisionEvidence.strategyAt&&
-    card.quoteBasis?.source===plan.decisionEvidence.quoteBasis?.source&&finite(card.plan?.positionPct)&&card.plan.positionPct>0;
+    card.quoteBasis?.source===plan.decisionEvidence.quoteBasis?.source&&
+    p&&typeof p==='object'&&!Array.isArray(p)&&
+    (!Object.hasOwn(p,'complete')||p.complete===true)&&
+    (!Object.hasOwn(p,'missing')||Array.isArray(p.missing)&&p.missing.length===0)&&
+    [p.buyLow,p.buyHigh,p.stop,p.target,p.positionPct].every(finite)&&
+    p.stop>0&&p.stop<p.buyLow&&p.buyLow<=p.buyHigh&&p.buyHigh<p.target&&
+    p.positionPct>0&&p.positionPct<=100&&p.stop===plan.stop&&p.target===plan.target&&
+    Math.max(p.buyLow,plan.entryMin)<=Math.min(p.buyHigh,plan.entryMax)&&
+    (!Object.hasOwn(p,'riskReward')||p.riskReward?.status==='meets-gross-discipline');
 }
 
 // A direct user confirmation may reuse the exact original observation that
@@ -128,8 +140,9 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
       systemPickDay(candidate,poolDay,now) !== day || newsBlocked) throw Error('该股当前已不符合原候选条件');
   if (!account || account.enabled !== true) throw Error('原模拟跟踪账户尚未启用');
   if (account.positions?.[plan.code]) throw Error('原账户已有该股持仓，本次未追加买入');
-  if (!quote || !finite(quote.price) || quote.price < plan.entryMin || quote.price > plan.entryMax)
-    throw Error('最新原始报价未进入计划买入区间；没有成交或后台挂单');
+  if (!quote || !finite(quote.price) || quote.price < plan.entryMin || quote.price > plan.entryMax ||
+      quote.price < authoritative.plan.buyLow || quote.price > authoritative.plan.buyHigh)
+    throw Error('最新原始报价未进入计划买入区间或当前权威区间；没有成交或后台挂单');
   const quoteAt = quote.quoteAt ?? quote.timestamp;
   if (!Number.isSafeInteger(quoteAt) || quoteAt <= 0 || quoteAt > now || now-quoteAt > 15000 ||
       aShareCalendarDate(quoteAt) !== day || quoteAt < window[0] ||
@@ -139,7 +152,7 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   // Apply the original receipt view to the exact post-freeze row as well.
   // A fresh timestamp alone must not admit another security or source.
   if (quote.symbol!==plan.code || quote.quoteSource!==authoritative.quoteBasis?.source ||
-      !quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView({...quote,quoteAt},now).missingReason!==null ||
+      quoteView.quoteUseEligibility({...quote,quoteAt},now).canTrade!==true ||
       quote.provider!=null&&quote.quoteSource!=null&&quote.provider!==quote.quoteSource ||
       quote.timestamp!=null&&quote.timestamp!==quoteAt)
     throw Error('原始报价只读、来源冲突或时点不一致');

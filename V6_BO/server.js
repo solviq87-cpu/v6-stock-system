@@ -14526,7 +14526,7 @@ function paperAuthorityQuotes(){
     marks[code]=Number(row.price);
     const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:row,observation:row,stockOrigin:origin,priceOrigin:origin,limitPct:limit});
     quotes[code]={symbol:code,price:Number(row.price),quoteSource:row.quoteSource,provider:row.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(row.receivedAt)?row.receivedAt:null,mode:row.quoteMode||row.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:row.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
-      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,inputProvenance};
+      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,canTrade:row.canTrade===true,inputProvenance};
   }
   return quotes;
 }

@@ -13,7 +13,7 @@ function fixture(){
   receivedAt:now-500,quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true};
  const quote={symbol:plan.code,price:10,quoteAt:wire.quoteAt,timestamp:wire.quoteAt,receivedAt:wire.receivedAt,
   quoteSource:'tencent',provider:'tencent',mode:'public-live-unverified',tradeDate:day,volume:wire.volume*100,
-  volumeUnit:'shares',upperLimit:11,lowerLimit:9,suspended:false,tradable:true,
+  volumeUnit:'shares',upperLimit:11,lowerLimit:9,suspended:false,tradable:true,canTrade:wire.canTrade===true,
   inputProvenance:createAutomaticInputProvenance({stock:wire,observation:wire,stockOrigin:'S.lastPx.wireQuote',priceOrigin:'S.lastPx.wireQuote',limitPct:.1})};
  return {input:{input:{action:'executePlan',account:'pool',planId:plan.id},plan,now,day,replica:false,continuous:true,
   candidate:wire,eligiblePick:()=>true,systemPickDay:()=>day,poolDay:day,newsBlocked:false,authoritative:card,
