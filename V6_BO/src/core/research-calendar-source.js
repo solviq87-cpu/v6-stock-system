@@ -8,19 +8,28 @@ const BUNDLED_CALENDAR=path.resolve(__dirname,'../../config/research-calendar-20
 const MAX_BYTES=1024*1024;
 const FLAGS={sourceAuthenticated:false,verifiedExternal:false,tradeEligible:false,runtimeEligible:false,realTime:false};
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
-const observedTime=x=>typeof x==='number'&&Number.isSafeInteger(x)&&x>0?x:typeof x==='string'&&/T.*(?:Z|[+-]\d\d:\d\d)$/.test(x)?Date.parse(x):NaN;
+function observedTime(x){
+ if(typeof x==='number')return Number.isSafeInteger(x)&&x>0&&Number.isFinite(new Date(x+28800000).getTime())?x:NaN;
+ if(typeof x!=='string')return NaN;
+ const m=/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|([+-])(\d{2}):(\d{2}))$/.exec(x);
+ if(!m||!validDate(m[1])||Number(m[2])>23||Number(m[3])>59||Number(m[4])>59||
+    m[5]&&(Number(m[6])>23||Number(m[7])>59))return NaN;
+ return observedTime(Date.parse(x));
+}
 function symbolExchange(symbol){
  if(symbol===undefined||symbol===null||symbol==='')return null;
  if(typeof symbol!=='string')throw Error('股票代码无效');
  const s=symbol.trim().toUpperCase();
- if(/^(BJ|BSE)[.:-]?\d{6}$/.test(s)||/^\d{6}[.:-](BJ|BSE)$/.test(s))return 'BSE';
- if(/^(SH|SSE)[.:-]?\d{6}$/.test(s)||/^\d{6}[.:-](SH|SSE)$/.test(s))return 'SSE';
- if(/^(SZ|SZSE)[.:-]?\d{6}$/.test(s)||/^\d{6}[.:-](SZ|SZSE)$/.test(s))return 'SZSE';
- if(/^\d{6}$/.test(s)){
-  if(/^(4|8|92)/.test(s))return 'BSE';
-  if(/^[569]/.test(s))return 'SSE';
-  if(/^[023]/.test(s))return 'SZSE';
+ const infer=code=>/^(4|8|92)/.test(code)?'BSE':/^[569]/.test(code)?'SSE':/^[023]/.test(code)?'SZSE':null;
+ const aliases={BJ:'BSE',BSE:'BSE',SH:'SSE',SSE:'SSE',SZ:'SZSE',SZSE:'SZSE'};
+ const prefix=/^(BJ|BSE|SH|SSE|SZ|SZSE)[.:-]?(\d{6})$/.exec(s),
+  suffix=/^(\d{6})[.:-](BJ|BSE|SH|SSE|SZ|SZSE)$/.exec(s);
+ if(prefix||suffix){
+  const code=prefix?prefix[2]:suffix[1],declared=aliases[prefix?prefix[1]:suffix[2]],actual=infer(code);
+  if(actual&&actual!==declared)throw Error('股票代码与声明交易所冲突');
+  return declared;
  }
+ if(/^\d{6}$/.test(s)&&infer(s))return infer(s);
  throw Error('股票所属交易所未知');
 }
 // This is an operator-only file option. HTTP callers must never forward a client
@@ -49,7 +58,7 @@ function readResearchCalendar({asOf=Date.now(),symbol,calendarFile}={}){
  let metadata={...FLAGS};
  const unavailable=reason=>({status:'unavailable',tradeDates:[],calendar:null,metadata,nextTradeDate:null,reason});
  try{
-  const now=asOf instanceof Date?asOf.getTime():typeof asOf==='number'?asOf:Date.parse(asOf);
+  const now=observedTime(asOf instanceof Date?asOf.getTime():asOf);
   if(!Number.isFinite(now))throw Error('日历查询时间无效');
   const today=aShareCalendarDate(now);
   const privateFile=calendarFile!==undefined;
@@ -66,7 +75,10 @@ function readResearchCalendar({asOf=Date.now(),symbol,calendarFile}={}){
   const observed=data.firstObservedAt??data.observedAt??data.metadata?.observedAt;
   const observedMs=observedTime(observed);
   if(!Number.isFinite(observedMs))throw Error('日历缺少有效观察时间');
-  const evidence=Array.isArray(data.sourceEvidence)?data.sourceEvidence:[];
+  if(data.sourceEvidence!==undefined&&(!Array.isArray(data.sourceEvidence)||data.sourceEvidence.some(e=>!e||typeof e!=='object'||Array.isArray(e))))throw Error('日历来源证据结构无效');
+ const evidence=data.sourceEvidence||[],keys=new Set();
+ for(const item of evidence)if(item.key!==undefined){if(typeof item.key!=='string'||!item.key||keys.has(item.key))throw Error('日历来源证据身份重复或无效');keys.add(item.key);}
+ if(data.metadata?.observedAt!==undefined){const t=observedTime(data.metadata.observedAt);if(!Number.isFinite(t)||t>now||t<observedMs)throw Error('日历元数据观察时间矛盾');}
   metadata={...FLAGS,source:data.source,from:data.from,to:data.to,observedAt:new Date(observedMs).toISOString(),
    sha256:crypto.createHash('sha256').update(raw).digest('hex'),supportedExchanges:[...supported],exchange,
    sourceEvidence:evidence,ruleBasis:data.ruleBasis||[],holidayRanges:data.holidayRanges||[],
@@ -97,9 +109,7 @@ function readResearchCalendar({asOf=Date.now(),symbol,calendarFile}={}){
    }
    for(const field of ['sourcePublishedAt','publishedAt','originalPublishedAt']){
     if(item[field]===undefined)continue;
-    const published=typeof item[field]==='string'&&
-     /T.*(?:Z|[+-]\d{2}:\d{2})$/.test(item[field])?
-     Date.parse(item[field]):NaN;
+    const published=typeof item[field]==='string'?observedTime(item[field]):NaN;
     if(!Number.isFinite(published)||published>now)
      throw Error('日历来源发表时间位于未来或无效');
     if(published>firstKnown)
