@@ -295,3 +295,31 @@ test('execution checklist keeps unknown on shared-worker contention and retries 
   assert.equal(cache.read(query).items[0].state,'not-planned','only an actual successful original archive read supports the negative statement');
   assert.equal(fs.existsSync(x.root),false);
 });
+
+test('read-only checklist and score expose a paper fill only from its execution time', () => {
+  const p = plan(), ledger = book(true), original = JSON.stringify(ledger);
+  const fill = ledger.account.events[0];
+  const at = fill.timestamp;
+  const input = {day: entryDay, book: ledger, plans: [p]};
+  const {paperExecutionScore} = require('../src/core/paper-decision-plan');
+  const earlier = buildPaperExecutionChecklist({...input, now: at - 1}).items[0];
+  const noFill = {...input, book: book(), now: at - 1};
+  assert.deepEqual(earlier, buildPaperExecutionChecklist(noFill).items[0]);
+  assert.deepEqual(paperExecutionScore({...input, now: at - 1}).rows, paperExecutionScore(noFill).rows);
+  const observed = buildPaperExecutionChecklist({...input, now: at}).items[0];
+  assert.deepEqual([observed.state, observed.entry.eventId, observed.entry.price], ['executed', fill.eventId, fill.price]);
+
+  const second = {...fill, eventId: 'additional-later-fill', timestamp: at + 1000};
+  const newer = {...ledger, account: {...ledger.account, events: [fill, second]}};
+  assert.deepEqual(buildPaperExecutionChecklist({...input, book: newer, now: at}).items[0], observed);
+  assert.deepEqual(paperExecutionScore({...input, book: newer, now: at}).rows, paperExecutionScore({...input, now: at}).rows);
+  assert.equal(buildPaperExecutionChecklist({...input, book: newer, now: second.timestamp}).items[0].state, 'unknown');
+  const undated = {...ledger, account: {...ledger.account, events: [{...fill, timestamp: null}]}};
+  const unresolved = buildPaperExecutionChecklist({...input, book: undated, now: at}).items[0];
+  assert.equal(unresolved.state, 'unknown');
+  assert.equal(unresolved.entry, null);
+  const uncertainScore = paperExecutionScore({...input, book: undated, now: at}).rows[0];
+  assert.equal(uncertainScore.entryDay, null);
+  assert.ok(uncertainScore.facts.every(fact => fact.status === '资料不足'));
+  assert.equal(JSON.stringify(ledger), original);
+});

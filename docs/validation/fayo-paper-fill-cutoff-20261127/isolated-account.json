@@ -1,0 +1,186 @@
+{
+  "mode": "isolated original paper account with synthetic quotes and two declared open dates",
+  "source": "original paper-application-service",
+  "result": [
+    {
+      "stage": "initialized",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 1,
+      "cash": 10000,
+      "eventCount": 0,
+      "positionQuantity": 0,
+      "ledgerHash": "3238b8a5f65b41e04cb6417c011efa54801307fadcfbb8f6106f406177ea6da0",
+      "events": []
+    },
+    {
+      "stage": "submitted-no-fill",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 2,
+      "cash": 10000,
+      "eventCount": 0,
+      "positionQuantity": 0,
+      "ledgerHash": "e9dfdc97dce7dff1b3e0cd87b5bb11b62ba5a9529fd03d89f224a924d3a66750",
+      "events": []
+    },
+    {
+      "stage": "partial-fill",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 3,
+      "cash": 8999,
+      "eventCount": 1,
+      "positionQuantity": 100,
+      "ledgerHash": "6608012e07a61ab62410ee0488d7eb287288140c7eebf7a8f1e144211319c296",
+      "events": [
+        {
+          "eventId": "partial",
+          "orderId": "entry",
+          "side": "buy",
+          "quantity": 100,
+          "price": 9.96,
+          "fee": 5,
+          "gross": 996,
+          "realizedPnl": 0,
+          "cashAfter": 8999,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795658399000,
+          "executionAt": 1795658400000,
+          "decisionId": null
+        }
+      ]
+    },
+    {
+      "stage": "idempotent-retry",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 3,
+      "cash": 8999,
+      "eventCount": 1,
+      "positionQuantity": 100,
+      "ledgerHash": "6608012e07a61ab62410ee0488d7eb287288140c7eebf7a8f1e144211319c296",
+      "events": [
+        {
+          "eventId": "partial",
+          "orderId": "entry",
+          "side": "buy",
+          "quantity": 100,
+          "price": 9.96,
+          "fee": 5,
+          "gross": 996,
+          "realizedPnl": 0,
+          "cashAfter": 8999,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795658399000,
+          "executionAt": 1795658400000,
+          "decisionId": null
+        }
+      ]
+    },
+    {
+      "stage": "unfilled-remainder-cancelled",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 4,
+      "cash": 8999,
+      "eventCount": 1,
+      "positionQuantity": 100,
+      "ledgerHash": "ead959dafa89c98934d0fe4c2fc7ec4963355c692b89dd989b1f1ac55896c93c",
+      "events": [
+        {
+          "eventId": "partial",
+          "orderId": "entry",
+          "side": "buy",
+          "quantity": 100,
+          "price": 9.96,
+          "fee": 5,
+          "gross": 996,
+          "realizedPnl": 0,
+          "cashAfter": 8999,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795658399000,
+          "executionAt": 1795658400000,
+          "decisionId": null
+        }
+      ]
+    },
+    {
+      "stage": "same-day-exit-denied",
+      "day": "2026-11-26",
+      "now": 1795658400000,
+      "revision": 4,
+      "cash": 8999,
+      "eventCount": 1,
+      "positionQuantity": 100,
+      "ledgerHash": "ead959dafa89c98934d0fe4c2fc7ec4963355c692b89dd989b1f1ac55896c93c",
+      "events": [
+        {
+          "eventId": "partial",
+          "orderId": "entry",
+          "side": "buy",
+          "quantity": 100,
+          "price": 9.96,
+          "fee": 5,
+          "gross": 996,
+          "realizedPnl": 0,
+          "cashAfter": 8999,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795658399000,
+          "executionAt": 1795658400000,
+          "decisionId": null
+        }
+      ]
+    },
+    {
+      "stage": "next-day-sold",
+      "day": "2026-11-27",
+      "now": 1795744800000,
+      "revision": 6,
+      "cash": 9995.5,
+      "eventCount": 2,
+      "positionQuantity": 0,
+      "ledgerHash": "2271fc51511246d1a6eee3bed5a7e57855c2f31b1e4e7e7b262372d603ff1f82",
+      "events": [
+        {
+          "eventId": "partial",
+          "orderId": "entry",
+          "side": "buy",
+          "quantity": 100,
+          "price": 9.96,
+          "fee": 5,
+          "gross": 996,
+          "realizedPnl": 0,
+          "cashAfter": 8999,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795658399000,
+          "executionAt": 1795658400000,
+          "decisionId": null
+        },
+        {
+          "eventId": "next-day-exit",
+          "orderId": "exit",
+          "side": "sell",
+          "quantity": 100,
+          "price": 10.02,
+          "fee": 5.5,
+          "gross": 1002,
+          "realizedPnl": -4.5,
+          "cashAfter": 9995.5,
+          "sourceMode": "simulated",
+          "sourceQuoteAt": 1795744799000,
+          "executionAt": 1795744800000,
+          "decisionId": null
+        }
+      ]
+    }
+  ],
+  "reconciliation": {
+    "grossMoveCny": 6,
+    "bookedFeesCny": 10.5,
+    "netChangeCny": -4.5,
+    "decisionBenchmarkPrice": null,
+    "unfilledOpportunityCost": null,
+    "signalToFillAttribution": "pending frozen independent benchmark"
+  }
+}
