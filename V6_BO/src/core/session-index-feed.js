@@ -93,6 +93,7 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     const state=slot||{status:'reading',checkedAt:null,quoteAt:null,count:0};
     channels.set(source,state);
     const forEpoch=epoch,forDay=day;
+    let dispatchedAt=null;
     state.nextAt=startedAt+interval;
     requestNotBefore.set(source,state.nextAt);
     state.pending=Promise.resolve().then(()=>{
@@ -100,6 +101,10 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
       if(epoch!==forEpoch||day!==forDay)return null;
       const at=sampleClock();
       if(at===null||epoch!==forEpoch||dayOf(at)!==forDay)return null;
+      // Anchor the cooldown and receipt fence to invocation, not queue time.
+      dispatchedAt=at;
+      state.nextAt=at+interval;
+      requestNotBefore.set(source,state.nextAt);
       return fetchRows();
     }).then(rows=>{
       if(epoch!==forEpoch||day!==forDay)return;
@@ -109,7 +114,7 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
       const unique=new Map(),book=books.get(source)||new Map();
       books.set(source,book);
       for(const row of rows){
-        if(!timed(row,asOf,startedAt))continue;
+        if(dispatchedAt===null||!timed(row,asOf,dispatchedAt))continue;
         const previous=unique.get(row.code),at=row.quoteAt;
         const good=valid(row,source,asOf);
         if(previous&&previous.at>at)continue;
