@@ -1,10 +1,10 @@
 {
   "scope": "Synthetic history imported into the original authenticated complete-run worker and original desktop/mobile research workflow. No security status or price is externally certified.",
-  "baseline": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+  "baseline": "02848d765f8af2836b0ee948df90ee0bed7b9c8a",
   "sourceFiles": {
     "src/strategy/historical-session.js": "063e38dd440ca6cf50b278ecf4a9e4c30b25400c81dea9ec4a74431af92b4b21",
     "src/core/research-explanation-projection.js": "5a0600ec4d93037be7ca3c5a687c5312c137c5cb489f47e50e36d746ecc75d4f",
-    "public/nova/research.js": "da40078ee7a9c986eb5c269fc59e4387b3e507ece4ab4e25f7a1a73c06468f04"
+    "public/nova/research.js": "aee51c08ce9518fc8f688277e6806044a44468c32493852e87198530797b0e4a"
   },
   "rows": [
     {
