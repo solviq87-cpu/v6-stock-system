@@ -117,5 +117,179 @@
     "skipped": [
       "C29.integration existing recognition and historical replay consume original bounded sector and explicit index series"
     ]
+  },
+  "followup": {
+    "before": {
+      "total": 11,
+      "pass": 10,
+      "fail": 1,
+      "error": "Expected null, received a non-null 5-session relative-strength row for a price-identical duplicate with conflicting sector identity."
+    },
+    "after": {
+      "total": 11,
+      "pass": 11,
+      "fail": 0
+    },
+    "detail": "C29 candidate regression: per-benchmark identity conflict independently rejected, late revision ignored; one newly reproduced candidate defect (not a pre-existing production defect)."
+  },
+  "finalSourceTestHead": "c02f0c70e629c55a9200523fbaeaeec30dc586a6",
+  "finalSourceBlobs": {
+    "stock": "81ddbb1d056ca8a968faea8022b5f0a225653588",
+    "backtest": "d803ee695e14f3f2dc011011a5ea10bb2573aa9f"
+  },
+  "directRegression": {
+    "total": 99,
+    "pass": 99,
+    "fail": 0,
+    "newPass": 11,
+    "oldPass": 88,
+    "tests": [
+      {
+        "name": "c-stock-risk-five-boundaries.test.js",
+        "blob": "d7172a88732e3bb2f475f70726bc2b356e6e3169"
+      },
+      {
+        "name": "shortline-stock-risk-evidence.test.js",
+        "blob": "4306d018147ce7169db9d3be2fc780e281e6a00a"
+      },
+      {
+        "name": "c-stock-risk-source-integrity.test.js",
+        "blob": "2bbdae53eeed1a068c165e1bb672feb639b9a1f4"
+      },
+      {
+        "name": "c-stock-risk-precise-observation.test.js",
+        "blob": "1959c07b10a54e9ffcf54a4ec2fbf4305b308085"
+      },
+      {
+        "name": "c-chase-risk-research.test.js",
+        "blob": "39e6dde61a1513987953125f9350473f8675c399"
+      },
+      {
+        "name": "c-crowding-exit-research.test.js",
+        "blob": "ba1eec4c48255aa785405c92db855659c169ed1e"
+      },
+      {
+        "name": "c-closeout-position-risk.test.js",
+        "blob": "a707dcd67f21c9862d98bcfd72fbdb26387033e8"
+      },
+      {
+        "name": "c-closeout-theme-persistence.test.js",
+        "blob": "89acfb1ea8c78ab2261e89652687b7eeb66b04d6"
+      }
+    ]
+  },
+  "integration": {
+    "total": 5,
+    "pass": 5,
+    "fail": 0,
+    "environment": "16 exact original shortline dependency modules plus original catalog; V8 ESM namespace/live binding, UTF8, node:test/assert and catalog fs/path adapters. Executed the two bounded batches after first combined fetch hit connector call cap. No native Node/full CI/real market/real browser.",
+    "modules": [
+      {
+        "name": "backtest.mjs",
+        "blob": "d803ee695e14f3f2dc011011a5ea10bb2573aa9f"
+      },
+      {
+        "name": "market.mjs",
+        "blob": "2dfb17a936c9bce7e8e0e736e0dde74be5054a14"
+      },
+      {
+        "name": "settings.mjs",
+        "blob": "506e9c6f4f7a5ec6ecca9b9ea70b42b7caf86559"
+      },
+      {
+        "name": "signal-window.mjs",
+        "blob": "b71506d8cd9cbd5ad8251a6186f7431d9eea598b"
+      },
+      {
+        "name": "backtest-analytics.mjs",
+        "blob": "a6cd6342307f75b744c9bb37bba72f77a4cd282a"
+      },
+      {
+        "name": "sample-quality.mjs",
+        "blob": "cb6cb8f01a837064a4642bf69e9c53beb41a5924"
+      },
+      {
+        "name": "recognize.mjs",
+        "blob": "0d03c05a41e74e1f8dc290898b6a8cc5b3d2396c"
+      },
+      {
+        "name": "pattern-evidence.mjs",
+        "blob": "9d08dc2acfdbadfdab24d850ab97c72a2c91500a"
+      },
+      {
+        "name": "index-evidence.mjs",
+        "blob": "e2ace7bf00bbe157723eeec1ccd3e8e07102d3f3"
+      },
+      {
+        "name": "pressure.mjs",
+        "blob": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+      },
+      {
+        "name": "stock-risk-evidence.mjs",
+        "blob": "81ddbb1d056ca8a968faea8022b5f0a225653588"
+      },
+      {
+        "name": "factor-dictionary.mjs",
+        "blob": "672860884918abcad9dee6f1653d624277571f52"
+      },
+      {
+        "name": "numeric-factors.mjs",
+        "blob": "806f990cc3799aa50655ea5f901bd6ad6009d0e8"
+      },
+      {
+        "name": "learning.mjs",
+        "blob": "c03c623cf3b7d17f450c138d6d02e80aabb80447"
+      },
+      {
+        "name": "numeric-factors.js",
+        "blob": "79c3a91420a87c958d45cd613a2ec1d439446c09"
+      },
+      {
+        "name": "factor-performance.mjs",
+        "blob": "13ae7c026ed741a160551245e52faa94982b6563"
+      }
+    ],
+    "catalog": "3ab3c64a40fc0d5a89f4426b76647aafd4d27b59",
+    "results": [
+      {
+        "name": "C24.integration existing automatic recognition derives leader comparison from original daily bars",
+        "ok": true
+      },
+      {
+        "name": "C28.integration original recognition and historical observations retain identical position metrics",
+        "ok": true
+      },
+      {
+        "name": "C29.integration existing recognition and historical replay consume original bounded sector and explicit index series",
+        "ok": true
+      },
+      {
+        "name": "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+        "ok": true
+      },
+      {
+        "name": "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
+        "ok": true
+      }
+    ]
+  },
+  "final": {
+    "newPass": 12,
+    "newTotal": 12,
+    "oldPass": 92,
+    "oldTotal": 92,
+    "pass": 104,
+    "total": 104,
+    "fail": 0,
+    "skipped": 0,
+    "fullCI": false
+  },
+  "design": {
+    "sector": "Original sector daily series identity; own same-source price-position metrics, explicit unadjusted basis; no guessed name-to-code equivalence across conflicting current codes.",
+    "index": "Explicit stock indexCode only; original daily series and exact same intermediate session dates; each own source stable, same declared sample class.",
+    "relative": "1/5/10/20-day cumulative returns, percentage-point difference; shorter excess below longer is descriptive, not calibrated decay. Absolute negative return distinct from relative resilience.",
+    "persistence": "3/5 daily declared full breadth and seal assists independent validity; complete same-source denominator required for breadth, no frozen membership certification. Not a collapse classifier.",
+    "lookup": "Per traversal index/sector maps; binary bounded 60 dates / 240 inspected rows per series, return no evidence on overflow; no claim of large archive performance measurement.",
+    "limitations": "No real market, authorized data source, authoritative exchange calendar, independently frozen member universe, actual collapse/normal divergence labels, native Node/full CI/browser. No new formal gate, threshold, order or notification."
   }
 }
