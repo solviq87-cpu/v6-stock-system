@@ -8,7 +8,7 @@ import {inferEvidence} from './recognize.mjs';
 import {addPatternEvidence,parsePatternColumns} from './pattern-evidence.mjs';
 import {addIndexEvidence} from './index-evidence.mjs';
 import {addPressureRiskFacts} from './pressure.mjs';
-import {addStockRiskEvidence,riskNumericFields,riskTextFields} from './stock-risk-evidence.mjs';
+import {addStockRiskEvidence,riskNumericFields,riskTextFields,selectFrozenRiskPlan} from './stock-risk-evidence.mjs';
 import {dictionaryVersion} from './factor-dictionary.mjs';
 import {buildRulePanel} from './numeric-factors.mjs';
 
@@ -318,11 +318,7 @@ function decisionMarket(rows,day,point){
     series:recent.map(r=>r===prior?{...r,stage:previousStage}:r)};
 }
 function planAt(plans,code,day,decision){
-  const eligible=(plans||[]).filter(p=>p.code===code && typeof p.frozenAt==='string' && Number.isFinite(Date.parse(p.frozenAt))).map(p=>({p,at:new Date(Date.parse(p.frozenAt)+8*36e5).toISOString().slice(0,19).replace('T',' ')}))
-    .filter(({p,at})=>(p.intendedDate||at.slice(0,10))===day && at<=decision);
-  if(eligible.length!==1)return null;
-  const {p}=eligible[0];
-  return {code,strategy:p.strategy,holdUntil:p.holdUntil,entryPrice:p.entryMax,stopPrice:p.stop,targetPrice:p.target,expectedAuctionGap:p.expectedAuctionGap,frozenAt:p.frozenAt};
+  return selectFrozenRiskPlan(plans,code,day,knowledgeCutoff(decision));
 }
 function newsAt(row,at){
   if(!row.announcementType&&!row.newsStatus)return row;
