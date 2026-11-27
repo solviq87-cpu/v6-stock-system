@@ -20,7 +20,8 @@ function verifiedRows(input,{day,now,code}={}){
   const units=[value?.fundsUnit,value?.unit].filter(v=>v!=null);
   const aliases=[value?.mainInflow,value?.mainInflowYuan,value?.netInflowYuan].filter(v=>v!=null);
   if(!value||typeof value!=='object'||Array.isArray(value)||
-   code!==undefined&&['code','symbol'].some(k=>value[k]!=null&&value[k]!==code)||
+   ['code','symbol'].some(k=>value[k]!=null&&(typeof value[k]!=='string'||!/^\d{6}$/.test(value[k])||code!==undefined&&value[k]!==code))||
+   value.code!=null&&value.symbol!=null&&value.code!==value.symbol||
    ['super','big','mid','small'].some(k=>value[k]!=null&&!finite(value[k]))||
    sources.some(v=>typeof v!=='string'||v!==source)||units.some(v=>v!=='CNY')||
    aliases.some(v=>!finite(v)||v!==value?.main)||
@@ -32,7 +33,7 @@ function verifiedRows(input,{day,now,code}={}){
    ['mock','fixture','synthetic','simulated','imported'].some(key=>value[key]===true)||
    value.fundsMethod!=='vendor-order-size-estimate'||(value.fundsUnit||value.unit)!=='CNY'||
    !validTime(receivedAt)||receivedAt>now||receivedAt<Date.parse(date+'T00:00:00+08:00')||
-   value.main!==null&&!finite(value.main)||value.tradeDate&&dayOf(value.tradeDate)!==date||
+   value.main!==null&&!finite(value.main)||value.tradeDate!=null&&dayOf(value.tradeDate)!==date||
    value.sourceTimestamp!=null&&(!validTime(value.sourceTimestamp)||value.sourceTimestamp>receivedAt||
     new Date(value.sourceTimestamp+28800000).toISOString().slice(0,10)!==date))return null;
   seen.add(date);rows.push({...value});
@@ -50,7 +51,10 @@ function newerReceipt(rows,previous){
  return rows.every(row=>{
   const old=prior.get(dayOf(row.date));if(!old)return true;
   if(row.retrievedAt<old.retrievedAt)return false;
-  if(row.retrievedAt!==old.retrievedAt)return true;
+  const sameSource=(row.source||row.upstream)===(old.source||old.upstream);
+  if(sameSource&&old.sourceTimestamp!=null&&
+     (row.sourceTimestamp==null||row.sourceTimestamp<old.sourceTimestamp))return false;
+  if(row.retrievedAt!==old.retrievedAt&&!(sameSource&&row.sourceTimestamp!=null&&row.sourceTimestamp===old.sourceTimestamp))return true;
   return ['main','super','big','mid','small','sourceTimestamp','fundsMethod'].every(key=>(row[key]??null)===(old[key]??null))&&
    (row.source||row.upstream)===(old.source||old.upstream);
  });
@@ -59,16 +63,22 @@ function newerReceipt(rows,previous){
 // Never derive exchange sessions from the very history being audited. The
 // original research calendar is available only after its recorded observation.
 function defaultCalendarReader(options){return require('./research-calendar-source').readResearchCalendar(options);}
+function validCalendar(calendar){
+ const from=calendar?.calendar?.from,to=calendar?.calendar?.to,dates=calendar?.tradeDates;
+ return calendar?.status==='available'&&dayOf(from)===from&&dayOf(to)===to&&typeof from==='string'&&typeof to==='string'&&from<=to&&
+  Array.isArray(dates)&&dates.length<=4000&&dates.every((d,i)=>dayOf(d)===d&&typeof d==='string'&&d>=from&&d<=to&&(!i||d>dates[i-1]));
+}
 function coverageOf(rows,{day,days,calendar}){
- const expected=calendar?.status==='available'&&calendar.calendar?.from<=day&&calendar.calendar?.to>=day&&
-  Array.isArray(calendar.tradeDates)?calendar.tradeDates.filter(d=>d<=day).slice(-days):null;
- if(!expected||expected.length!==days||expected.at(-1)!==day||
-    expected.some((d,i)=>!dayOf(d)||d!==dayOf(d)||i>0&&d<=expected[i-1]))
-  return {complete:false,calendarCoverage:'unknown',expectedSessions:null,missingSessions:null};
- const observed=new Map((rows||[]).map(r=>[dayOf(r.date),r]));
+ const unknown={complete:false,calendarCoverage:'unknown',coverageStatus:'calendar-unavailable',expectedSessions:null,missingSessions:null,closedDayRows:null};
+ if(!validCalendar(calendar)||day<calendar.calendar.from||day>calendar.calendar.to)return unknown;
+ const expected=calendar.tradeDates.filter(d=>d<=day).slice(-days);
+ if(expected.length!==days||expected.at(-1)!==day)return {...unknown,coverageStatus:'calendar-window-unavailable'};
+ const observed=new Map((rows||[]).map(r=>[dayOf(r.date),r])),open=new Set(calendar.tradeDates);
  const missing=expected.filter(d=>!finite(observed.get(d)?.main));
- return {complete:missing.length===0,calendarCoverage:'explicit-research-calendar-unverified',
-  expectedSessions:expected,missingSessions:missing};
+ const closed=[...observed.keys()].filter(d=>d>=calendar.calendar.from&&d<=calendar.calendar.to&&!open.has(d));
+ return {complete:missing.length===0&&closed.length===0,calendarCoverage:'explicit-research-calendar-unverified',
+  coverageStatus:closed.length?'calendar-conflict':missing.length?'gaps':'complete-by-declared-calendar',
+  expectedSessions:expected,missingSessions:missing,closedDayRows:closed};
 }
 
 function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REFRESH_MS,calendarReader=defaultCalendarReader}={}){
@@ -82,7 +92,7 @@ function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REF
   if(!trusted)epoch++;else highWater=at;
   return {at:valid?at:null,trusted,epoch};
  }
- function calendarFor(code,now){try{return calendarReader({symbol:code,asOf:now});}catch{return null;}}
+ function calendarFor(code,now){try{const cal=calendarReader({symbol:code,asOf:now});return validCalendar(cal)&&currentDay(now)>=cal.calendar.from&&currentDay(now)<=cal.calendar.to?cal:null;}catch{return null;}}
  function verified(code,day,now,input){return verifiedRows(input,{code,day,now});}
  function retained(code,day,now){
   const value=cache.get(code),rows=verified(code,day,now,value);
@@ -129,13 +139,19 @@ function createFundHistoryCache({cache,fetchHistory,clock=Date.now,refreshMs=REF
   attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'loading',missing:[]});
   const request=(async()=>{
    try{
+    let dispatchedAt=null;
     const result=await Promise.resolve().then(()=>{
      const dispatch=sample();
      if(!dispatch.trusted||dispatch.epoch!==first.epoch||currentDay(dispatch.at)!==currentDay(now))throw Error('资金采集会话已失效');
-     return fetchHistory(code,WINDOW);
+     dispatchedAt=dispatch.at;return fetchHistory(code,WINDOW);
     }),receipt=sample(),receivedNow=receipt.at;
     const rows=receipt.trusted&&receipt.epoch===first.epoch&&currentDay(receivedNow)===currentDay(now)?
      verified(code,day,receivedNow,result):null;
+    // A newly fetched batch must carry actual receipt times from this request.
+    if(rows?.some(row=>row.retrievedAt<dispatchedAt)){
+     attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['旧接收回执不能冒充本次恢复取数']});
+     return retained(code,day,receivedNow);
+    }
     if(!rows){attempts.set(code,{at:now,day,requestedDays:WINDOW,status:'unavailable',missing:['供应商逐日资金回执缺失或日期、来源、单位未通过核验']});return retained(code,day,receivedNow);}
     // Keep the provider's complete receipt as a group. Never fill missing days
     // by mixing values from an older snapshot or by substituting zero.
