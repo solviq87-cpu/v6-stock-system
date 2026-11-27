@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path');
 const {withAccountLock} = require('./account-process-lock');
 const {privateRoot, canonical, digest} = require('./research-workspace-store');
 const {atomicWrite} = require('./market-data-center');
-const {riskState,copyStateEvidence,lastValidRisk,resolutionCheck,reductionCheck}=require('./risk-state-contract');
+const {riskState,copyStateEvidence,lastValidRisk,resolutionCheck,reductionCheck,recoveryScopeKey:riskScopeKey,pendingRecoveryScopes,recoveryBaseline,updatePendingRecovery}=require('./risk-state-contract');
 const MAX_GROUPS = 2000, MAX_EVENTS = 20000, MAX_BYTES = 32 * 1024 * 1024;
 const COOLDOWN_MS = 120000, QUEUE_CONFIRMATION_MS = 30000, MAX_DAILY_SENDS = 12;
 const LEVEL = {unknown: 0, info: 1, warning: 2, critical: 3};
@@ -179,11 +179,6 @@ function groupRows(rows) {
 
 // Preserve the original complete evidence of an unresolved scope. A new row
 // for a different object, authority or policy version cannot overwrite it.
-function riskScopeKey(row){
-  const a=row.authorityEvidence||{};
-  return JSON.stringify([row.id,row.rootCauseId,row.object?.type,row.object?.id,
-    a.kind??null,a.source??null,a.ruleId??null,a.ruleVersion??null]);
-}
 function mergeLastValidRisk(previous,incoming,current,now,replace){
   if(replace||!previous)return current;
   if(!current)return previous;
@@ -296,6 +291,13 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         const at=group.lastSeenAt;
         group.lastValidRisk=lastValidRisk(group.risks.map(row=>normalizeRisk(row,at)),at);
       }
+      if(!Object.hasOwn(group,'pendingRecovery'))group.pendingRecovery=pendingRecoveryScopes(group);
+      if(!Array.isArray(group.pendingRecovery)||group.pendingRecovery.length>5000||
+        group.pendingRecovery.some(item=>!item||!timeOk(item.at)||item.at>state.updatedAt||!item.row||item.row.status==='resolved'||item.row.rootCauseId!==group.rootCauseId)||
+        new Set(group.pendingRecovery.map(item=>riskScopeKey(item.row))).size!==group.pendingRecovery.length||
+        (group.status==='resolved'&&group.pendingRecovery.length))
+        throw Error('风险待解除范围记录损坏');
+      for(const item of group.pendingRecovery)normalizeRisk(item.row,state.updatedAt);
     }
     if (eventCount > MAX_EVENTS) throw Error('风险提醒事件数量超限');
     for (const delivery of state.deliveries) {
@@ -369,6 +371,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
     if (!timeOk(now) || now > nowOf() || nowOf() - now > 15000 || !Array.isArray(input.risks) || input.risks.length > 5000 ||
         input.complete !== undefined && typeof input.complete !== 'boolean') throw Error('风险观察时点或批次无效');
     const next = groupRows(input.risks.map(row => normalizeRisk(row, now)));
+    const clearanceAttempts=input.risks.filter(row=>row.status==='resolved').map(row=>row.id);
     return locked(key, state => {
       if (state.updatedAt !== null && now < state.updatedAt) throw Error('风险观察时点倒序');
       let changed = false; const present = new Set();
@@ -382,22 +385,25 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
             maxSeverity: incoming.severity, revision: 1, occurrence: 1, observationGap: false, resolvedAt: null,
             maxRiskLevel:incoming.riskLevel,lastValidRisk:lastValidRisk(incoming.risks,now),resolutionBlockedReason:null,
             resolutionBaselineAt:originalBaseline(incoming.risks,now),
+            pendingRecovery:updatePendingRecovery(null,incoming.risks,now),
             mutedUntil: null, viewedBy: {}, events: [],levelChanges:[]};
+          group.resolutionBaselineAt=recoveryBaseline(group).sourceAt||now;
           eventFor(state, group, 'first-seen', now); state.groups.push(group); changed = true; continue;
         }
         if(olderThanResolved(incoming,group,now))continue;
         const oldStatus = group.status, oldMax = group.maxSeverity,oldRiskLevel=group.riskLevel||group.lastValidRisk?.riskLevel||null;
         const oldMaxRiskLevel=group.maxRiskLevel||group.lastValidRisk?.riskLevel||0;
+        const observed=incoming.risks,previousRecovery=group.pendingRecovery;
+        const baseline=recoveryBaseline(group);
         let resolutionBlockedReason=null,verifiedDowngrade=false;
         if(oldStatus!=='resolved'&&incoming.status==='resolved'){
-          const checked=resolutionCheck(incoming,group.lastValidRisk||{risks:group.risks,
-            sourceAt:group.resolutionBaselineAt||Math.max(0,...group.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||group.firstSeenAt},now);
+          const checked=resolutionCheck(incoming,baseline,now);
           if(!checked.allowed){resolutionBlockedReason=checked.reason;
             incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
         }
         if(oldStatus!=='resolved'&&incoming.status==='active'&&group.lastValidRisk&&incoming.riskLevel!==null&&
           incoming.riskLevel<group.lastValidRisk.riskLevel){
-          const checked=reductionCheck(incoming,group.lastValidRisk,now);
+          const checked=reductionCheck(incoming,baseline,now);
           if(!checked.allowed){resolutionBlockedReason='不能确认风险降级：'+checked.reason;
             incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
           else verifiedDowngrade=true;
@@ -418,7 +424,9 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         const currentValid=lastValidRisk(incoming.risks,now);
         const reopened=oldStatus==='resolved'&&incoming.status!=='resolved';
         group.lastValidRisk=mergeLastValidRisk(group.lastValidRisk,incoming,currentValid,now,reopened||verifiedDowngrade);
-        if(reopened)group.resolutionBaselineAt=currentValid?originalBaseline(incoming.risks,now):now;
+        group.pendingRecovery=updatePendingRecovery({pendingRecovery:previousRecovery},observed,now,{
+          closed:incoming.status==='resolved',replace:reopened||verifiedDowngrade,clearanceAttempts});
+        if(group.pendingRecovery.length)group.resolutionBaselineAt=recoveryBaseline(group).sourceAt;
         if (meaningfulChange) group.revision++;
         if (oldStatus === 'resolved' && incoming.status !== 'resolved') {
           group.occurrence++; group.maxSeverity = incoming.severity;group.maxRiskLevel=incoming.riskLevel; group.resolvedAt = null;
