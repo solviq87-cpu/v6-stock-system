@@ -542,14 +542,17 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   preregistration={status:'cooldown-monitoring-no-candidate-promoted',
    canTrade:false,productionWeightsChanged:false};
  }
+ // Recovery observations are monitoring evidence, never candidate holdout evidence.
+ const postRecoveryTest=previousCooldown?.cooldown?.phase==='recovered'?
+  freshTest.filter(d=>d.day>previousCooldown.cooldown.recoveryDay):freshTest;
  const baselineValidation=dailyIC(valid,ids,oldWeights),
    evolvedValidation=dailyIC(valid,ids,proposal),
-   baselineTest=dailyIC(freshTest,ids,oldWeights),
-   evolvedTest=dailyIC(freshTest,ids,proposal);
+   baselineTest=dailyIC(postRecoveryTest,ids,oldWeights),
+   evolvedTest=dailyIC(postRecoveryTest,ids,proposal);
  const validStability=pairedStability(valid,ids,oldWeights,proposal,dailyIC),
-   testStability=pairedStability(freshTest,ids,oldWeights,proposal,dailyIC);
+   testStability=pairedStability(postRecoveryTest,ids,oldWeights,proposal,dailyIC);
  const validationDelta=evolvedValidation.meanIC-baselineValidation.meanIC,
-   testDelta=evolvedTest.meanIC-baselineTest.meanIC;
+   testDelta=finite(evolvedTest.meanIC)&&finite(baselineTest.meanIC)?evolvedTest.meanIC-baselineTest.meanIC:null;
  // Compare the already-accepted research weights against the immutable
  // original factor-pack baseline on NEW observations only. A persistent loss
  // pauses further research promotion and emits a rollback-review alert.
@@ -596,8 +599,6 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  const candidateChanged=ids.some(id=>proposal[id]!==oldWeights[id]);
  // Neither the recovery decision day nor a previous accepted model's holdout
  // can become "new" evidence for the next promotion.
- const postRecoveryTest=existingGate?.phase==='recovered'?
-  freshTest.filter(d=>d.day>existingGate.recoveryDay):freshTest;
  // Each immutable report retains the paired fixed-baseline / accepted /
  // proposed scores on truly fresh days. Previously consumed cooldown
  // recovery days are not eligible for renewed baseline certification.
@@ -675,7 +676,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   packFingerprint:PACK_HASH,factorIds:ids,feed,trainingEnd,
   lastObservationDay:sorted.at(-1).day,previousFingerprint:accepted?previousFingerprint:
    previous?.fingerprint||null,
-  trainDays:train.length,validationDays:valid.length,testDays:freshTest.length,
+  trainDays:train.length,validationDays:valid.length,testDays:postRecoveryTest.length,
   freshHoldoutOnly:previous!==null,
   marketRegimeDays:Object.fromEntries(['systemic-selloff','not-systemic-selloff','unknown']
    .map(label=>[label,train.filter(x=>x.regime===label).length])),
@@ -689,7 +690,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   validation:{baseline:baselineValidation,evolved:evolvedValidation,
    deltaIC:validationDelta,stability:validStability},
   holdout:{baseline:baselineTest,evolved:evolvedTest,deltaIC:testDelta,
-   stability:testStability,firstFreshDay:freshTest[0].day},
+   stability:testStability,firstFreshDay:postRecoveryTest[0]?.day??null},
   shadowWeights:weights,proposedShadowWeights:proposal,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
