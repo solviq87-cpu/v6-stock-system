@@ -9,6 +9,7 @@ const {buildPortfolioStressEvidence}=require('../src/core/portfolio-stress-evide
 const {buildAdversePathEvidence,buildPlanOddsEvidence}=require('../src/core/portfolio-adverse-path-evidence');
 const {buildRiskWorkbench}=require('../src/core/risk-workbench');
 const {createAutomaticInputProvenance}=require('../src/core/paper-input-provenance');
+const {bindAuthoritativePlan,decisionPlanPayload}=require('../src/core/paper-decision-plan');
 const ui=import('../public/nova/risk-workbench-read-scope.mjs');
 const day='2026-11-27',priorDay='2026-11-26',now=Date.parse(day+'T10:00:00+08:00');
 const hash=v=>crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
@@ -51,10 +52,10 @@ function fixture(){
 function run(f){
  const before=JSON.stringify(f.book),accountId='pool',equity=buildAccountEquityEvidence({book:f.book,accountId,quotes:f.quotes,now}),
   rules=buildEffectiveRiskEvidence({book:f.book,accountId,quotes:f.quotes,now,calendar:f.calendar}),
-  actions=buildRiskActionEvidence({book:f.book,accountId,quotes:f.quotes,now,calendar:f.calendar,continuous:true}),
+  actions=buildRiskActionEvidence({book:f.book,accountId,quotes:f.quotes,now,calendar:f.calendar,continuous:true,plans:f.plans||[],originalExitChecks:f.originalExitChecks||{}}),
   stress=buildPortfolioStressEvidence({equity,classifications:f.classifications,now});
  stress.adversePaths=buildAdversePathEvidence({equity,rules,stress,now});
- stress.planOdds=buildPlanOddsEvidence({equity,actions,plans:[],now});
+ stress.planOdds=buildPlanOddsEvidence({equity,actions,plans:f.plans||[],now});
  const report=buildRiskWorkbench({accountId,now,equity,rules,actions,stress});
  assert.equal(JSON.stringify(f.book),before);assert.equal(report.canTrade,false);assert.equal(report.writesAccount,false);
  return {equity,rules,actions,stress,report,p:stress.adversePaths};
@@ -136,4 +137,36 @@ test('C26 browser cannot reuse optional pressure evidence from another revision,
  }
  const receipt=createRiskViewReceipt({report:r.report,accountId:'pool',startedAt:0,receivedAt:100});
  assert.ok(receipt);assert.equal(remainingRiskViewMs(receipt,14000),0);
+});
+
+test('C31 original account cost and locked-lot protection survive the original risk workbench read scope',async()=>{
+ const f=fixture(),r=run(f),{boundRiskResearch}=await ui;
+ const a=boundRiskResearch(r.report,'adversePaths').heldProtection.rows.find(x=>x.symbol==='600000');
+ assert.equal(a.originalRemainingCostBasis,3010);assert.equal(a.currentUnrealizedPnl,-10);
+ assert.equal(a.currentSellableQuantity,100);assert.equal(a.currentlyRestrictedQuantity,200);
+ assert.equal(a.scenarios[0].markLoss,300);assert.equal(a.scenarios[0].unrealizedPnlAfter,-310);
+ assert.equal(a.scenarios[0].realizedLoss,null);assert.equal(a.peakToCurrentDrawdownPct,null);
+ assert.equal(a.canTrade,false);assert.equal(r.report.canTrade,false);
+});
+test('C31 original held action producer and exact same account mark support only hypothetical staged exposure',async()=>{
+ const f=fixture(),code='600001',id='plan-00000000-0000-4000-8000-000000000031',at=Date.parse(priorDay+'T09:29:50+08:00');
+ const card={authority:'fayo-decision-center',decisionId:'f'.repeat(64),code,day:priorDay,name:'隔离保护样本',
+  calculatedAt:at-1000,strategyAt:at-2000,quoteBasis:{source:'tencent',quoteAt:at-1000},
+  plan:{buyLow:9.5,buyHigh:10.2,stop:9,target:12,positionPct:20}};
+ const plan=bindAuthoritativePlan({id,sampleSet:'real',frozenAt:new Date(at).toISOString(),...decisionPlanPayload(card)},card);
+ f.plans=[plan];f.book.account.events.find(e=>e.eventId==='entry-second').reason='作战台计划['+id+'] 原账户风控';
+ seal(f.book);
+ f.originalExitChecks={[id]:{allowed:true,reason:'原隔离巡检回执',checkedAt:now,quoteAt:f.quotes[code].quoteAt}};
+ const r=run(f),a=action(r,code),{boundRiskResearch}=await ui;
+ assert.equal(a.execution.allowed,true);assert.equal(a.constraints.remainingQuantity,200);
+ const o=boundRiskResearch(r.report,'planOdds').rows[0];assert.equal(o.scope,'held-position');
+ assert.equal(o.status,'price-geometry-only');assert.equal(o.priceReview.signedDistanceToStopPct,10);
+ assert.equal(o.stagedDefense.status,'estimated-unverified');
+ assert.deepEqual(o.stagedDefense.scenarios.map(x=>x.hypotheticalRemovedQuantity),[0,100,200]);
+ assert.deepEqual(o.stagedDefense.scenarios.map(x=>x.residualMarketValue),[2000,1000,0]);
+ assert.equal(o.stagedDefense.canExecuteExit,false);
+ f.originalExitChecks[id].allowed=false;
+ const blocked=run(f),p=blocked.report.stress.planOdds.rows[0].stagedDefense;
+ assert.equal(action(blocked,code).execution.allowed,false);assert.equal(p.status,'original-full-exit-blocked');
+ assert.equal(p.scenarios.length,1);assert.equal(p.scenarios[0].residualMarketValue,2000);
 });
