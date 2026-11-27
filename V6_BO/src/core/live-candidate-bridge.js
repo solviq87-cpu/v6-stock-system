@@ -1,5 +1,5 @@
 'use strict';
-const {classifyQuoteTime}=require('./market-snapshot-quote-time');
+const {classifyQuoteTime,snapshotCaptureWindow}=require('./market-snapshot-quote-time');
 const dayOk=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(Date.parse(d)).toISOString().slice(0,10)===d;
 const codeOf=row=>String(row?.code??row?.symbol??'');
 const artificial=/simulat|synthetic|fixture|mock|demo/i;
@@ -24,12 +24,12 @@ function joinObservedCandidates(snapshot, breadth, candidates=[], {limit=50,asOf
     artificial.test(snapshot.source)||breadth.date!==undefined&&breadth.date!==snapshot.date||
     breadth.source!==undefined&&breadth.source!==snapshot.source)
     return {usable:false,reason:'行情快照与市场覆盖回执来源或日期不一致',items:[]};
-  const receiptAt=Date.parse(snapshot.retrievedAt||''),clock=asOf??receiptAt;
-  if(snapshot.retrievedAt!=null&&(!Number.isSafeInteger(receiptAt)||receiptAt<=0||
-    Number.isSafeInteger(clock)&&receiptAt>clock))
+  const {originalRetrievedAt,invalidStart}=snapshotCaptureWindow(snapshot),clock=asOf??originalRetrievedAt;
+  if(snapshot.retrievedAt!=null&&(originalRetrievedAt===null||
+    Number.isSafeInteger(clock)&&originalRetrievedAt>clock))
     return {usable:false,reason:'行情回执时点无效或尚未可得',items:[]};
-  // If there is no trustworthy retrieval clock, all per-stock quote times remain unknown.
-  const clockValid=Number.isSafeInteger(clock)&&clock>0;
+  // Query time is not the original receipt, and an invalid query clock cannot qualify evidence.
+  const clockValid=Number.isSafeInteger(clock)&&clock>0&&clock<=8e15;
   const byCode=new Map(),rejectedCodes=new Set();
   for(const stock of snapshot.stocks){
     const code=codeOf(stock);
@@ -49,7 +49,7 @@ function joinObservedCandidates(snapshot, breadth, candidates=[], {limit=50,asOf
     seen.add(code);
     const observed=byCode.get(code);
     if (!observed) {missing++;continue;}
-    const timing=clockValid?classifyQuoteTime(observed,{requestDate:snapshot.date,retrievedAt:clock}):
+    const timing=clockValid?classifyQuoteTime(observed,{requestDate:snapshot.date,retrievedAt:clock,originalRetrievedAt,invalidStart}):
       {quoteAt:null,quoteDate:null,quoteTimeStatus:'unknown',quoteAgeMs:null};
     const observedMetric=(field,{min=-Infinity,max=Infinity}={})=>{
       const value=observed[field];

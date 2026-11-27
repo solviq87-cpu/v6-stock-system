@@ -46,7 +46,14 @@ function sourceQuoteTimeSeconds(raw){
  if(!Number.isSafeInteger(n)||n<946684800||n>=4102444800)return null;
  return n*1000;
 }
-function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=retrievedAt,maxAgeMs=90000}={}){
+function snapshotCaptureWindow(snapshot){
+ const originalRetrievedAt=captureTime(snapshot?.retrievedAt),startedAt=captureTime(snapshot?.startedAt);
+ // An absent legacy start is distinct from explicitly invalid or reversed acquisition evidence.
+ const invalidStart=snapshot?.startedAt!==undefined&&(startedAt===null||
+   originalRetrievedAt!==null&&startedAt>originalRetrievedAt);
+ return {originalRetrievedAt,invalidStart};
+}
+function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=retrievedAt,maxAgeMs=90000,invalidStart=false}={}){
  if(!validClock(retrievedAt)||
     !validAge(maxAgeMs))
   throw Error('报价时效评价时钟或阈值无效');
@@ -65,15 +72,11 @@ function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=re
  // A short age cannot renew yesterday's quote after the China-local date changes.
  if(quotedDate!==requestDate||chinaDay(originalRetrievedAt)!==requestDate||chinaDay(retrievedAt)!==requestDate)return {...result,quoteTimeStatus:'historical-snapshot'};
  if(age>maxAgeMs)return {...result,quoteTimeStatus:'stale-source-time'};
+ if(invalidStart)return {...result,quoteTimeStatus:'invalid-capture-window'};
  return {...result,quoteTimeStatus:'recent-source-unverified'};
 }
 function auditSnapshotQuoteTimes(snapshot,{asOf,maxAgeMs=90000}={}){
- const originalRetrievedAt=captureTime(snapshot?.retrievedAt),t=asOf??originalRetrievedAt;
- const startedAt=captureTime(snapshot?.startedAt);
- // An absent start in a legacy capture is distinct from explicitly invalid
- // or reversed acquisition evidence; never renew the latter as recent.
- const invalidStart=snapshot?.startedAt!==undefined&&(startedAt===null||
-   originalRetrievedAt!==null&&startedAt>originalRetrievedAt);
+ const {originalRetrievedAt,invalidStart}=snapshotCaptureWindow(snapshot),t=asOf??originalRetrievedAt;
  if(!validClock(t)||!validAge(maxAgeMs))throw Error('行情采样完成时钟或阈值无效');
  const rows=Array.isArray(snapshot?.stocks)?snapshot.stocks:[];
  const marketWindow=chinaMarketWindowHint(t);
@@ -82,8 +85,7 @@ function auditSnapshotQuoteTimes(snapshot,{asOf,maxAgeMs=90000}={}){
  for(const stock of rows)if(typeof stock?.code==='string'&&/^\d{6}$/.test(stock.code))
   symbolCounts.set(stock.code,(symbolCounts.get(stock.code)||0)+1);
  for(const stock of rows){
-  const classified=symbolCounts.get(stock?.code)>1?'duplicate-symbol':classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,originalRetrievedAt,maxAgeMs}).quoteTimeStatus;
-  const state=invalidStart&&classified==='recent-source-unverified'?'invalid-capture-window':classified;
+  const state=symbolCounts.get(stock?.code)>1?'duplicate-symbol':classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,originalRetrievedAt,maxAgeMs,invalidStart}).quoteTimeStatus;
   states[state]=(states[state]||0)+1;
  }
  return {mode:'market-quote-time-audit',asOf:new Date(t).toISOString(),
@@ -98,4 +100,4 @@ function auditSnapshotQuoteTimes(snapshot,{asOf,maxAgeMs=90000}={}){
   quoteTimeVerified:false,exchangeVerified:false,canTrade:false,
   warning:'f124是供应商自报的报价时点，未经交易所认证；请求日期不等于逐股报价日期。交易时段仅为北京时间工作日时间窗提示，不识别法定休市日。'};
 }
-module.exports={sourceQuoteTimeSeconds,classifyQuoteTime,auditSnapshotQuoteTimes,chinaMarketWindowHint};
+module.exports={sourceQuoteTimeSeconds,classifyQuoteTime,auditSnapshotQuoteTimes,chinaMarketWindowHint,snapshotCaptureWindow};
