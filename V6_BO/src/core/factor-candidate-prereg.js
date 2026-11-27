@@ -255,7 +255,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  return structuredClone({...payload,fingerprint:hash(payload)});
 }
 function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
- oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={},pending=false){
+ oldWeights,previousFingerprint,previousTrialFingerprint,freshTest,definitions}={},pending=false){
  if(!reg||typeof reg!=='object'||!Array.isArray(sorted)||
     !validIds(ids)||!Array.isArray(freshTest))
   throw Error('缺少不可变候选预注册，拒绝事后试验');
@@ -287,6 +287,12 @@ function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
     !weightMap(oldWeights,ids)||
     Object.hasOwn(reg,'modelProvenance')!==Object.hasOwn(reg,'factorDefinitionsFingerprint'))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
+ if(definitions!==undefined){
+  if(!declaredDefinitions(definitions,ids)||
+     (sealedDefinitions!==null&&hash(definitions.map(d=>({id:d.id,baseWeight:d.baseWeight})))!==hash(sealedDefinitions))||
+     (Object.hasOwn(reg,'modelProvenance')&&hash(definitions)!==reg.factorDefinitionsFingerprint))
+   throw Error('候选预注册与实际冻结因子定义不一致');
+ }
  if(Object.hasOwn(reg,'modelProvenance'))verifyModelCandidateProvenance(reg);
  if(pending)return {status:'candidate-waiting-verified',registrationFingerprint:reg.fingerprint,
   registeredAt:reg.registeredAt,frozenPrefixDays:prefix.length,canTrade:false,productionWeightsChanged:false};
