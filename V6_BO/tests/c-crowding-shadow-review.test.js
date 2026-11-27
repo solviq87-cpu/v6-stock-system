@@ -148,3 +148,68 @@ test('C9.5 different model names cannot multiply one copied output reference',()
  const p=opinions();p[1].evidenceRef=p[0].evidenceRef;
  assert.equal(models({opinions:p,symbol,now}).status,'unknown');
 });
+
+test('C36.1 original theme revision, evidence reference or snapshot identity cannot certify conflicting observations',()=>{
+ const base=report(now-1000,metric(100,6));
+ for(const edit of [r=>r.evidence.revision=base.modules[72].rows[0].evidence.revision,
+  r=>r.evidence.evidenceId=base.modules[72].rows[0].evidence.evidenceId,
+  r=>r.snapshotAt=now-1000]){
+  const next=report(now,metric(20,-2));edit(next.modules[72].rows[0]);
+  if(next.modules[72].rows[0].snapshotAt!==now)next.modules[72].rows[0].memberEvidence.forEach(q=>q.quoteAt=now-1000);
+  const x=build([base,next]);assert.equal(x.current,false);assert.equal(x.phase,'unknown');assert.equal(x.recoveryRequired,true);
+ }
+});
+test('C36.2 disconnected membership or observation gap cannot create a repair of the original adverse chain',()=>{
+ const low={turnoverConcentrationTop3Pct:10,meanTurnoverPct:2,limitUpFractionPct:0};
+ const tail=[report(now-60000,metric(20,-2,low)),report(now-30000,metric(40,-1,low)),report(now,metric(60,1,low))];
+ for(const before of [report(now-150000,metric(100,6)),report(now-90000,metric(100,6),{members:['600009',...codes.slice(1)],memberEvidence:['600009',...codes.slice(1)].map(symbol=>({symbol,source:'provider-quotes',quoteAt:now-90000}))})]){
+  const x=build([before,...tail]);assert.notEqual(x.phase,'repair-candidate');assert.equal(x.recoveryRequired,true);assert.equal(x.canOpenRisk,false);
+ }
+ const gap={...report(now-80000,metric(0,0)),modules:{72:{rows:[]}}};
+ assert.notEqual(build([report(now-90000,metric(100,6)),gap,...tail]).phase,'repair-candidate');
+});
+test('C36.3 improving but still crowded observation does not count toward the two noncrowded repair rises',()=>{
+ const low={turnoverConcentrationTop3Pct:10,meanTurnoverPct:2,limitUpFractionPct:0};
+ const x=build([report(now-60000,metric(20,-2)),report(now-30000,metric(40,-1)),report(now,metric(60,1,low))]);
+ assert.notEqual(x.phase,'repair-candidate');assert.equal(x.lastAdverseAt,now-30000);assert.equal(x.recoveryRequired,true);
+});
+const clearInputs=()=>({report:fixture({shares:0}),themeReports:[report(now,metric(60,1,{turnoverConcentrationTop3Pct:10,meanTurnoverPct:2,limitUpFractionPct:0}))],
+ observations:DIMENSIONS.filter(x=>x!=='crowding').map(d=>obs(d)),opinions:opinions()});
+test('C36.4 a selected-security projection cannot replace the complete account review',()=>{
+ for(const selectedCode of [symbol,other]){
+  const f=clearInputs();f.report.selectedCode=selectedCode;
+  const x=run(f);assert.equal(x.scope.scope,'account-unknown');assert.equal(x.accountEpoch,null);assert.equal(x.disposition,'withhold-original-risk-or-unknown');
+ }
+ assert.equal(run(clearInputs()).disposition,'research-review-only');
+});
+test('C36.5 missing or malformed original risk collection cannot look like an empty risk collection',()=>{
+ for(const risks of [null,undefined,{},[{rootCauseId:'original',object:{type:'security'}}]]){
+  const f=clearInputs();f.report.risks=risks;const x=run(f);
+  assert.equal(x.disposition,'withhold-original-risk-or-unknown');assert.ok(x.reasons.some(r=>r.rootCauseId==='account/risk-evidence'&&r.priority===1));
+ }
+});
+test('C36.6 missing original policy version, malformed identifier or duplicated rule is a review blocker',()=>{
+ for(const edit of [r=>r.policyVersion=null,r=>r.rules=[{}],r=>r.rules=[{id:'r'},{id:'r'}]]){
+  const f=clearInputs();edit(f.report.rules);const x=run(f);
+  assert.equal(x.disposition,'withhold-original-risk-or-unknown');assert.ok(x.reasons.some(r=>r.rootCauseId==='account/policy-evidence'&&r.priority===1));
+ }
+});
+test('C36.7 retained severe risk is relevant even if the current active row has a lower grade or another scope',()=>{
+ for(const currentSymbol of [symbol,other]){
+  const f=clearInputs();f.report.risks=[{id:'old',rootCauseId:'retained',status:'active',riskLevel:1,assessmentState:'risk-detected',
+   object:{type:'security',id:currentSymbol},lastValidRisk:{riskLevel:3,risks:[{riskLevel:3,object:{type:'security',id:symbol}}]}}];
+  const x=run(f);assert.equal(x.originalRestrictionRetained,true);assert.equal(x.disposition,'withhold-original-risk-or-unknown');
+  f.report.risks[0].lastValidRisk.risks[0].object.id=other;
+  assert.equal(run(f).originalRestrictionRetained,false);
+ }
+});
+test('C36.8 only coherent current clearance can retire a historical severe grade in the shadow view',()=>{
+ const valid={id:'old',rootCauseId:'retained',status:'resolved',assessmentState:'not-triggered',evidenceState:'complete',dataState:'valid',riskLevel:null,
+  object:{type:'account',id:'pool'},lastValidRisk:{riskLevel:4}};
+ for(const patch of [{assessmentState:'unable-to-assess'},{evidenceState:'conflict'},{dataState:'stale'},{riskLevel:3}]){
+  const f=clearInputs();f.report.risks=[{...valid,...patch}];const x=run(f);
+  assert.equal(x.originalRestrictionRetained,true);assert.equal(x.clearanceGranted,false);assert.equal(x.canAuthorize,false);
+ }
+ const f=clearInputs();f.report.risks=[valid];const x=run(f);
+ assert.equal(x.originalRestrictionRetained,false);assert.equal(x.disposition,'research-review-only');assert.equal(x.clearanceGranted,false);
+});
