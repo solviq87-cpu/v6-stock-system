@@ -132,15 +132,17 @@ function outcomeReason(b,d,e){
  return null;
 }
 function observations(events,asOf){
- const first=new Map(),latest=new Map();
+ const first=new Map(),latest=new Map(),conflicts=new Set();
  for(const e of events.filter(e=>e?.kind==='analysis'&&stamp(e.recordedAt)&&e.recordedAt<=asOf&&stamp(e.data?.asOf)&&e.data.asOf<=e.recordedAt).sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence)){
   const d=e.data;if(!sha(e.hash)||typeof d.symbol!=='string'||!/^\d{6}$/.test(d.symbol)||!['tencent','eastmoney'].includes(d.provider)||d.priceBasis!=='unadjusted'||!date(d.tradeDate))continue;
   const bars=array(d.bars),counts=new Map();for(const b of bars)if(record(b)&&date(b.date))counts.set(b.date,(counts.get(b.date)||0)+1);
   for(const b of bars)if(record(b)&&date(b.date)&&b.date<=d.tradeDate&&close(b.date)<=d.asOf){
    const key=[d.symbol,d.provider,d.priceBasis,b.date].join('|'),row={bar:b,runId:e.hash,recordedAt:e.recordedAt,reason:counts.get(b.date)!==1?'duplicate-outcome-date':outcomeReason(b,d,e)};
-   if(!first.has(key))first.set(key,row);latest.set(key,row);
+   if(!first.has(key))first.set(key,row);
+   else{const original=first.get(key);if(row.reason||row.bar.close!==original.bar.close||corporateActionState(row)!==corporateActionState(original))conflicts.add(key);}
+   latest.set(key,row);
   }
- }return {first,latest};
+ }return {first,latest,conflicts};
 }
 function validateArchive(event){
  const d=event.data;
@@ -184,6 +186,35 @@ function pairedComparisons(rows){
   maeA:round(p.sumA/p.n),maeB:round(p.sumB/p.n),deltaMaeAminusB:round((p.sumA-p.sumB)/p.n),lowerErrorCountA:p.winsA,ties:p.ties,
   status:'paired-descriptive-only',profitComparison:null,independenceCertified:false})),limitedGroups:limited,meaning:'仅在完全相同输入指纹、来源、目标日和周期的交集中比较价格误差；不作收益排名'};
 }
+// Descriptive price statistics are not training labels. Compare both model and
+// baseline on the exact same observed rows, using unrounded errors for decisions.
+function feedbackComparison(rows,baselineKey){
+ const paired=rows.filter(r=>finite(r.absoluteError)&&finite(r[baselineKey]));
+ const modelMae=mean(paired.map(r=>r.absoluteError)),baselineMae=mean(paired.map(r=>r[baselineKey]));
+ const delta=paired.length?modelMae-baselineMae:null;
+ const tolerance=paired.length?1e-8*Math.max(1,modelMae,baselineMae):null;
+ return {samples:paired.length,modelMae:round(modelMae),baselineMae:round(baselineMae),deltaMae:round(delta),
+  result:delta===null?'unknown':Math.abs(delta)<=tolerance?'tie':delta<0?'better':'worse'};
+}
+function feedbackReview(group,windows,restricted){
+ const n=group.values.length,blockers=[];
+ const naiveComparison=feedbackComparison(group.values,'naiveError'),driftComparison=feedbackComparison(group.values,'driftError');
+ const revisedOrConflictingOutcomes=group.values.filter(r=>r.outcomeConflictSeen||r.revisedOutcome||r.latestCorporateActionEvidence!==r.corporateActionEvidence).length;
+ const targetCorporateActionUnclear=group.values.filter(r=>r.corporateActionEvidence!=='declared-no-action'||r.latestCorporateActionEvidence!=='declared-no-action').length;
+ if(restricted)blockers.push('restricted-query-scope');
+ if(n<30||windows<10||group.symbols.size<5)blockers.push('insufficient-sample-coverage');
+ if(!group.dueUnique||n!==group.dueUnique||group.invalid)blockers.push('incomplete-due-outcomes');
+ if(revisedOrConflictingOutcomes)blockers.push('revised-or-conflicting-outcomes');
+ if(targetCorporateActionUnclear)blockers.push('target-corporate-action-not-clear');
+ if(!group.model.weightsHash||!group.model.trainingCutoff)blockers.push('missing-model-declarations');
+ if(naiveComparison.samples!==n||naiveComparison.result!=='better')blockers.push('naive-baseline-not-beaten');
+ if(!n||driftComparison.samples!==n)blockers.push('incomplete-drift-comparison');
+ if(driftComparison.result!=='better')blockers.push('drift-baseline-not-beaten');
+ return {status:blockers.length?'blocked':'manual-review-only',blockers,naiveComparison,driftComparison,
+  revisedOrConflictingOutcomes,targetCorporateActionUnclear,trainingProvenanceVerified:false,corporateActionIntervalVerified:false,
+  trainingEligible:false,autoPromotion:false,productionWeightsChanged:false};
+}
+const corporateActionState=row=>row?.bar.corporateAction===false?'declared-no-action':row?.bar.corporateAction===true?'action-observed':'unknown';
 function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset=0,limit=20}={}){
  if(!stamp(asOf)||asOf>Date.now()||!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)fail('REQUEST');
  const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set();
@@ -220,7 +251,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    Object.assign(row,{status:'observed-unverified',actual:value,absoluteError:error,naiveError:naive,driftError:drift,pinballLoss:mean(losses),
     covered:bounds?value>=bounds[0].value&&value<=bounds[1].value:null,nominalCoveragePct:bounds?100*(bounds[1].level-bounds[0].level):null,
     intervalWidth:bounds?round(bounds[1].value-bounds[0].value):null,outcomeRunId:actual.runId,outcomeKnownAt:actual.bar.knownAt,
-    revisedOutcome:newer?.bar.close!==value||!!newer?.reason,latestOutcomeStatus:newer?.reason?'unusable':'observed-unverified',latestObservedClose:newer&&!newer.reason?newer.bar.close:null,corporateActionEvidence:actual.bar.corporateAction===false?'declared-no-action':actual.bar.corporateAction===true?'action-observed':'unknown'});
+    revisedOutcome:newer?.bar.close!==value||!!newer?.reason,latestOutcomeStatus:newer?.reason?'unusable':'observed-unverified',latestObservedClose:newer&&!newer.reason?newer.bar.close:null,corporateActionEvidence:corporateActionState(actual),latestCorporateActionEvidence:corporateActionState(newer),outcomeConflictSeen:observed.conflicts.has(observationKey)});
    group.values.push(row);group.days.add(d.originDate);group.symbols.add(d.symbol);group.windows.push({from:d.originDate,to:f.targetDate});rows.push(row);
   }
  }
@@ -234,7 +265,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    intervalCoveragePct:intervals.length?round(100*intervals.filter(r=>r.covered).length/intervals.length):null,nominalCoveragePct:intervals[0]?.nominalCoveragePct??null,
    meanIntervalWidth:round(mean(intervals.map(r=>r.intervalWidth))),
    revisedOutcomes:g.values.filter(r=>r.revisedOutcome).length,status:n>=30&&windows>=10&&g.symbols.size>=5?'descriptive-only':'insufficient-independent-samples',
-   trainingCoverage:g.model.trainingCutoff?'declared-not-verified':'unknown',costReportsVerified:false};});
+   trainingCoverage:g.model.trainingCutoff?'declared-not-verified':'unknown',costReportsVerified:false,feedbackReview:feedbackReview(g,windows,!!(symbol||runId))};});
  const selected=rows.filter(r=>(!symbol||r.symbol===symbol)&&(!runId||r.runId===runId));
  return {schemaVersion:1,mode:'frozen-model-forward-evaluation',evaluationVersion:VERSION,status:'available',groups:summaries.slice(offset,offset+limit),groupTotal:summaries.length,
   rows:selected.slice().reverse().slice(offset,offset+limit),total:selected.length,offset,limit,
