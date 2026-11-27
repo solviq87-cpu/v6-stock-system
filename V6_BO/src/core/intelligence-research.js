@@ -13,7 +13,7 @@ const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-te
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const numeric = require('../../public/nova/shortline/numeric-factors');
-const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
+const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -695,17 +695,17 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day, s
   // learning. An exact retry is not another matured trade; conflicting
   // identities must not select the last archived plan or settlement.
   const planEvidence=uniqueEvidenceRows((Array.isArray(archive?.plans)?archive.plans:[]).filter(row=>
-    real(row)&&!isTestSample(row)&&evidenceVisibleAt(row,now)&&instant(row.frozenAt)!==null&&instant(row.frozenAt)<=now),
-    {requireIdentity:true});
-  const plans=new Map(planEvidence.rows.map(row=>[row.id,row]));
+    real(row)&&!isLearningTestSample(row)&&learningIdentityVisibleAt(row,now,{frozen:true})),
+    {requireIdentity:true,testSample:isLearningTestSample});
+  const plans=new Map(planEvidence.rows.filter(row=>evidenceVisibleAt(row,now)&&instant(row.frozenAt)!==null&&instant(row.frozenAt)<=now).map(row=>[row.id,row]));
   const trades=[],excluded=[],visible=[];
   for(const trade of Array.isArray(archive?.trades)?archive.trades:[]){
-    const reason=!real(trade)||isTestSample(trade)||archive?.scope==='demo'?'non-real-sample':
-      !evidenceVisibleAt(trade,now)?'unmatured-or-unrecorded-trade':null;
+    const reason=!real(trade)||isLearningTestSample(trade)||archive?.scope==='demo'?'non-real-sample':
+      !learningIdentityVisibleAt(trade,now)?'unmatured-or-unrecorded-trade':null;
     if(reason){excluded.push({id:trade?.id||null,reason});continue;}
     visible.push(trade);
   }
-  const tradeEvidence=uniqueEvidenceRows(visible,{requireIdentity:true,settlements:true});
+  const tradeEvidence=uniqueEvidenceRows(visible,{requireIdentity:true,settlements:true,testSample:isLearningTestSample});
   // Retain the shared resolver's exact multiplicity, even if the same object
   // reference was repeated, and expose excluded rows without changing archive.
   const retained=new Map();

@@ -5,6 +5,15 @@ export function isTestSample(row={}){
   return row?.sampleSet==='test'||row?.scope==='demo'||yes(row?.testSample)||yes(row?.isTest)||
     row?.quality==='教学样本'||row?.sampleSource==='教学样本'||/^合成教学样本/.test(row?.name||'');
 }
+// Formal learning excludes explicit teaching/synthetic purpose markers.
+// The original fee-bearing source "V6 模拟成交" is not a teaching label.
+export function isLearningTestSample(row={}){
+ const teaching=/(?:^|[-_:/ .])(?:fixture|simulated|synthetic|mock|demo|test)(?:$|[-_:/ .])|教学样本|演示样本/i;
+ return isTestSample(row)||['test','demo','synthetic'].includes(row?.sampleSet)||
+  ['test','demo'].includes(row?.sampleScope)||['test','demo'].includes(row?.scope)||
+  ['simulated','synthetic','mock','fixture'].some(k=>yes(row?.[k]))||
+  row?.quality==='演示样本'||['source','sampleSource','provider','provenance'].some(k=>teaching.test(String(row?.[k]||'')));
+}
 export function sampleMatches(row={},selection='all'){
   if(!row)return false;
   const quality=row.quality;
@@ -43,6 +52,15 @@ export function evidenceVisibleAt(row,cutoff){
   const t=sampleEvidenceTime(row[k],{dateAtClose:k==='asOf'});return t!==null&&t<=cutoff;
  });
 }
+// Only an explicit valid later archive/revision proves that a row is
+// outside the earlier identity population. Broken outcomes or receipt clocks
+// are NOT proof of lateness; keep them for collision detection.
+export function learningIdentityVisibleAt(row,cutoff,{frozen=false}={}){
+ const end=sampleEvidenceTime(cutoff);
+ if(!row||typeof row!=='object'||Array.isArray(row)||end===null)return false;
+ const keys=['createdAt','recordedAt','receivedAt','updatedAt','revisedAt',...(frozen?['frozenAt']:[])];
+ return !keys.some(k=>{const at=sampleEvidenceTime(row[k]);return at!==null&&at>end;});
+}
 export function settlementObservation(row,cutoff,{requireReceipt=false}={}){
  if(!evidenceVisibleAt(row,cutoff)||typeof row.pnl!=='number'||!Number.isFinite(row.pnl))return null;
  const exit=sampleEvidenceTime(row.exitTimestamp??row.exitTime??row.sellTime??row.exitDate,{dateAtClose:true});
@@ -78,18 +96,18 @@ export function verifiedLearningObservation(row,cutoff){
 }
 // Resolve only already-visible, same-purpose records. Exact retries collapse;
 // conflicting records sharing either identity are quarantined together.
-export function uniqueEvidenceRows(rows,{requireIdentity=false,settlements=false}={}){
+export function uniqueEvidenceRows(rows,{requireIdentity=false,settlements=false,testSample=isTestSample}={}){
  const groups=new Map(),rejected=new Set(),duplicates=new Set(),input=Array.isArray(rows)?rows:[];
  for(let i=0;i<input.length;i++){
   const row=input[i];if(!row||typeof row!=='object'||Array.isArray(row)){rejected.add(i);continue;}
-  const scope=isTestSample(row)?'test':'research',keys=[];
+  const scope=testSample(row)?'test':'research',keys=[];
   if(typeof row.id==='string'&&row.id.trim())keys.push(JSON.stringify([scope,'id',row.id]));
   if(settlements&&row.paperSettlement!=null){
    const p=row.paperSettlement;
    if(typeof p.accountId!=='string'||!p.accountId.trim()||typeof p.exitEventId!=='string'||!p.exitEventId.trim()){
-    rejected.add(i);continue;
-   }
-   keys.push(JSON.stringify([scope,'settlement',p.accountId,p.exitEventId]));
+    // A malformed secondary identity cannot hide a usable local ID collision.
+    rejected.add(i);
+   }else keys.push(JSON.stringify([scope,'settlement',p.accountId,p.exitEventId]));
   }
   if(!keys.length&&requireIdentity){rejected.add(i);continue;}
   for(const key of keys){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);}
@@ -113,9 +131,19 @@ export function uniqueEvidenceRows(rows,{requireIdentity=false,settlements=false
 function reviewSourceIds(state,sourceIds,frozenAt,asOf){
  const ids=new Set(Array.isArray(sourceIds)?sourceIds.filter(id=>typeof id==='string'&&id):[]);
  const at=sampleEvidenceTime(asOf),created=sampleEvidenceTime(frozenAt),affected=new Set();
+ if(!ids.size)return {ids,affected};
+ const visible=(Array.isArray(state?.trades)?state.trades:[]).filter(row=>learningIdentityVisibleAt(row,at));
+ const scoped=visible.filter(row=>state?.scope==='demo'||!isLearningTestSample(row));
+ const resolved=uniqueEvidenceRows(scoped,{requireIdentity:true,settlements:true,testSample:isLearningTestSample});
+ const retained=new Set(resolved.rows.map(row=>row.id)),scopedIds=new Set(scoped.map(row=>row.id));
+ // Source IDs may also refer to historical K-line labels. Absence alone is
+ // not revocation, but known conflicting/teaching-only trade IDs are.
+ for(const row of scoped)if(ids.has(row.id)&&!retained.has(row.id))affected.add(row.id);
+ if(state?.scope!=='demo')for(const row of visible)
+  if(ids.has(row.id)&&isLearningTestSample(row)&&!scopedIds.has(row.id))affected.add(row.id);
  for(const row of state?.trades||[]){
   const review=row?.planEvidenceReview;
-  if(!review||!ids.has(row.id)||state?.scope!=='demo'&&isTestSample(row))continue;
+  if(!review||!ids.has(row.id)||state?.scope!=='demo'&&isLearningTestSample(row))continue;
   const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt);
   if(first!==null&&last!==null&&first<=last&&at!==null&&first>at)continue;
   const restored=sampleEvidenceTime(review.revalidatedAt);

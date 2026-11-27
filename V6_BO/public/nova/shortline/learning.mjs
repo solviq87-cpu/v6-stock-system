@@ -2,7 +2,7 @@ import { kLearningRows } from './backtest.mjs';
 import { emotion,marketAsOf } from './market.mjs';
 import { settingsAt } from './settings.mjs';
 import { pressureLearningTags } from './pressure.mjs';
-import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,verifiedLearningObservation,uniqueEvidenceRows,candidateEvidenceReview,approvedModelEvidenceReview } from './sample-quality.mjs';
+import { isTestSample,isLearningTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,learningIdentityVisibleAt,settlementObservation,verifiedLearningObservation,uniqueEvidenceRows,candidateEvidenceReview,approvedModelEvidenceReview } from './sample-quality.mjs';
 import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
 import {dictionaryVersion,factorDictionary} from './factor-dictionary.mjs';
 import {MODEL,readNumericCheck,fitNumericModel,numericScore,projectNumeric,validModel,fingerprint,stable} from './numeric-factors.mjs';
@@ -65,9 +65,11 @@ function policyAt(state,asOf){
 }
 function settlementNumeric(state,row,check){
   const entry=instant(row.entryTimestamp??row.entryTime),exit=instant(row.exitTimestamp??row.exitTime),recorded=instant(row.createdAt);
-  const plan=(state.plans||[]).find(item=>item.id===row.planId),frozen=instant(plan?.frozenAt);
-  const synthetic=item=>!item||isTestSample(item)||item.synthetic===true||item.mock===true||
-    /(?:^|[-_: /])(fixture|simulated|synthetic|mock|demo)(?:$|[-_: /])/i.test(String(item.source||''));
+  const plans=uniqueEvidenceRows((state.plans||[]).filter(item=>item?.id===row.planId&&
+    isLearningTestSample(item)===isLearningTestSample(row)&&learningIdentityVisibleAt(item,entry,{frozen:true})),
+    {requireIdentity:true,testSample:isLearningTestSample}).rows;
+  const plan=plans.length===1&&evidenceVisibleAt(plans[0],entry)?plans[0]:null,frozen=instant(plan?.frozenAt);
+  const synthetic=item=>!item||isLearningTestSample(item);
   if(synthetic(row)||synthetic(plan)||synthetic(check)||!row.snapshotVerified||!plan||plan.code!==row.code||!check||check.code!==row.code||
       !Number.isFinite(entry)||!Number.isFinite(exit)||!Number.isFinite(recorded)||!Number.isFinite(frozen)||
       frozen>entry||exit<=entry||exit>recorded||asDate(localTime(exit))<=asDate(localTime(entry))||
@@ -124,22 +126,25 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
   const cut=cutAt(asOf),end=instant(asOf);
   if(!cut||!Number.isFinite(end))return [];
   const allowTests=state.scope==='demo'||includeTest===true;
-  const accept=r=>sampleMatches(r,selection)&&(allowTests||!isTestSample(r));
+  const accept=r=>sampleMatches(r,selection)&&(allowTests||!isLearningTestSample(r));
   const manual=[],checks=new Map(),numericSignals=new Set();
   for(const c of state.checks||[]){
     if(!c||typeof c.id!=='string')continue;
     if(!checks.has(c.id))checks.set(c.id,[]);
     checks.get(c.id).push(c);
   }
-  const visibleTrades=(state.trades||[]).filter(r=>accept(r)&&settlementObservation(r,end,{requireReceipt:true})!==null);
-  const settled=uniqueEvidenceRows(visibleTrades,{requireIdentity:true,settlements:true});
+  // Resolve identity BEFORE filtering by outcome maturity or quality.
+  const visibleTrades=(state.trades||[]).filter(r=>learningIdentityVisibleAt(r,end)&&(allowTests||!isLearningTestSample(r)));
+  const settled=uniqueEvidenceRows(visibleTrades,{requireIdentity:true,settlements:true,testSample:isLearningTestSample});
   for(const r of settled.rows){
+    if(!accept(r)||strict&&(typeof r.id!=='string'||!r.id.trim()))continue;
     const observation=strict?verifiedLearningObservation(r,end):settlementObservation(r,end,{requireReceipt:true});
     if(!observation)continue;
     const knownMinute=localTime(Math.ceil(observation.knownAt/60000)*60000);
     const matching=observation.entry===null?[]:uniqueEvidenceRows((checks.get(r.checkId)||[]).filter(c=>
-      c.code===r.code&&isTestSample(c)===isTestSample(r)&&evidenceVisibleAt(c,observation.entry)),{requireIdentity:true}).rows;
-    const check=matching.length===1?matching[0]:null;
+      isLearningTestSample(c)===isLearningTestSample(r)&&learningIdentityVisibleAt(c,observation.entry)),
+      {requireIdentity:true,testSample:isLearningTestSample}).rows;
+    const check=matching.length===1&&matching[0].code===r.code&&evidenceVisibleAt(matching[0],observation.entry)?matching[0]:null;
     const codes=check?evidenceCodes(check,observation.entry):[];
     const signalKey=check?.code+'/'+check?.id;
     const numericFactors=numericSignals.has(signalKey)?null:settlementNumeric(state,r,check);
@@ -492,7 +497,7 @@ export function learningAction(state,action,p={}){
     if((c.validationFingerprint||c.numericModel)&&c.validationFingerprint!==fingerprint(validationState(c)))throw Error('候选模型、定义、权重或验证记录已变化，必须重新验证');
     const reviewer=required(p.reviewer,'审批人',50),reason=required(p.reason,'审批意见',2000);
     if(!['approve','reject'].includes(p.decision))throw Error('请选择审批结论');
-    if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isTestSample(r)&&c.sourceIds?.includes(r.id))))throw Error('含测试样本的候选仅用于演示档案');
+    if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isLearningTestSample(r)&&(c.sourceIds?.includes(r.id)||c.numericModel?.sourceIds?.includes(r.id)))))throw Error('含测试样本的候选仅用于演示档案');
     if(p.decision==='approve'&&candidateEvidenceReview(state,c,Date.now()).status==='requires-revalidation')
       throw Error('候选来源样本已撤销或复核，必须重新独立验证');
     if(p.decision==='approve'&&(c.centerFeedback||c.numericModel?.adjustment)&&
