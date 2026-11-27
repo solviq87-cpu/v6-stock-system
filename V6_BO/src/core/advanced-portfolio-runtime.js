@@ -3,7 +3,8 @@
 // archive. No account, quote, history, order or permission is persisted here.
 const crypto=require('node:crypto');
 const {auditCenterInputs}=require('./intelligence-research');
-const {validatePlan}=require('./paper-decision-plan');
+const {validatePlan,planFill}=require('./paper-decision-plan');
+const {buildPortfolioDefense}=require('./portfolio-defense-evidence');
 const {tradingFees,paperBuyLotSize:lotOf}=require('./trading-fees');
 const {quoteUseEligibility}=require('./quote-observation-view');
 const {capacityScenarios,exitRisk,previewPosition,previewPlanBatch,tailRisk,cashFlowPerformance,compareOpportunity}=require('./advanced-portfolio-evidence');
@@ -95,6 +96,9 @@ function originalStrategy(book,position,eventMap){
 function originalReceipt(plan,receipt,{book,quote,quotes,diagnostic,now,day}){
  try{validatePlan(plan,now);}catch{return {status:'unknown',reason:'INVALID_OR_NONAUTHORITATIVE_PLAN'};}
  if(plan.intendedDate!==day)return {status:'blocked',reason:'PLAN_DAY_MISMATCH'};
+ // The original frozen plan is single-entry across retained account periods.
+ // A copied receipt must not revive it after even one persisted partial fill.
+ if(planFill(book,plan.id))return {status:'blocked',reason:'ORIGINAL_PLAN_ALREADY_HAS_PERSISTED_ENTRY'};
  if(!receipt||receipt.scope!=='original-paper-account-observation'||receipt.planId!==plan.id||receipt.decisionId!==plan.decisionId||!stamp(receipt.checkedAt)||receipt.checkedAt>now||now-receipt.checkedAt>5000||receipt.accountRevision!==book.revision||!quote||receipt.quoteAt!==quote.quoteAt||receipt.quotePrice!==quote.price||receipt.quoteSource!==quote.quoteSource||!quoteUseEligibility(quote,now).canTrade)return {status:'unknown',reason:'ORIGINAL_PLAN_RECEIPTS_UNAVAILABLE'};
  if(receipt.allowed===false)return {status:'blocked',reason:label(receipt.reason)?receipt.reason:'ORIGINAL_PLAN_GATE_BLOCKED'};
  if(receipt.allowed!==true||!hashOk(book.fingerprint)||receipt.accountFingerprint!==book.fingerprint||!Number.isSafeInteger(receipt.quantity)||receipt.quantity<=0||receipt.quantity%lotOf(plan.code)!==0||!finite(receipt.fee)||receipt.fee<0||!positive(receipt.maxPositionPct)||receipt.maxPositionPct>plan.maxPosition)return {status:'unknown',reason:'ORIGINAL_PLAN_SIZING_UNAVAILABLE'};
@@ -209,6 +213,7 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  const batchPreview=previewPlanBatch({snapshot,plans:previews,policy:book.riskPolicy??null,accountRevision:book.revision});
  const assets=snapshot?.positions.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/snapshot.equity,industry:p.industry,theme:p.theme}));
  const tail=assets?.length?tailRisk({assets,observations:history.observations(heldCodes),asOf:now,confidence:policy?.confidence||.95,returnBasis:'adjusted-price'}):unknown(heldCodes.length?'CURRENT_PORTFOLIO_VALUATION_UNAVAILABLE':'NO_OPEN_POSITION_RISK');
+ const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,previews,exits,tail,observations:history.observations(heldCodes)});
  const opportunityComparisons=[];
  for(const held of diagnostic.positions.slice(0,10))for(const candidate of checkedPlans.slice(0,5)){
   if(held.symbol===candidate.plan.code)continue;
@@ -228,6 +233,6 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  const equity=own(context.equityEvidence,account)||context.equityEvidence;
  const performance=performanceEvidence(equity,{book,diagnostic,account,now});
  if(performance.status==='unknown')missing.push(performance.reason);
- return {mode:'original-account-portfolio-evidence',status:'observed-unverified',account,accountRevision:book.revision,accountEvidenceRef:sourceRef,checkedAt:now,day,capacity,previews,batchPreview,exits,opportunityComparisons,performance,tail,coverage:{...history.coverage,contextStatus:portfolioContextStatus||'not-provided',planCount:plans.length,verifiedPlanReceipts,reportedSymbols:codes.slice(0,20),omittedSymbols:Math.max(0,codes.length-20),comparisonLimit:50,missing:[...new Set(missing)]},scenarioPolicy:policy,assumptions:['沿用原账户和原计划观察回执；本报告没有委托、冻结、调仓或审批功能','后复权场景不冒充账户净值或经认证总收益；供应商发布时间及修订时钟未知','历史容量、当前费率和冲击压力不保证未来成交'],...flags};
+ return {mode:'original-account-portfolio-evidence',status:'observed-unverified',account,accountRevision:book.revision,accountEvidenceRef:sourceRef,checkedAt:now,day,capacity,previews,batchPreview,exits,defense,opportunityComparisons,performance,tail,coverage:{...history.coverage,contextStatus:portfolioContextStatus||'not-provided',planCount:plans.length,verifiedPlanReceipts,reportedSymbols:codes.slice(0,20),omittedSymbols:Math.max(0,codes.length-20),comparisonLimit:50,missing:[...new Set(missing)]},scenarioPolicy:policy,assumptions:['沿用原账户和原计划观察回执；本报告没有委托、冻结、调仓或审批功能','后复权场景不冒充账户净值或经认证总收益；供应商发布时间及修订时钟未知','历史容量、当前费率和冲击压力不保证未来成交'],...flags};
 }
 module.exports={buildAdvancedPortfolioReport,portfolioHistory};
