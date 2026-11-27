@@ -1120,8 +1120,20 @@ test('strict watch auto-handoff registers one unseen future candidate without re
  finally{fs.unlinkSync(badFile);fs.writeFileSync(regFile,good,{mode:0o600});}
  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
  assert.deepEqual(fs.readdirSync(outputDir).sort(),filesBefore.sort());
+ // One to four mature post-registration dates do not constitute a complete
+ // holdout. Keep the unreadable old report missing in both modes.
+ append(61,65);
+ const shortClock=at(dates[70],'16:05:00');
+ for(const strict of [false,true]){
+  const short=runShadowWorker({manifestFile,outputDir,now:shortClock,requirePreRegistration:strict});
+  assert.equal(short.status,'skipped-awaiting-post-prereg-matured-days');
+  assert.equal(short.maturedPostRegistrationDays,4);
+  assert.equal(short.requiredPostRegistrationDays,5);
+  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+  assert.deepEqual(fs.readdirSync(outputDir).sort(),filesBefore.sort());
+ }
  fs.writeFileSync(invalidH5,oldReport);
- append(61,66);
+ append(65,66);
  const evaluated=runShadowWorker({...strictAuto,
   now:at(dates[70],'16:05:00')});
  assert.ok(['shadow-updated','shadow-retained','paused-shadow-decay']
