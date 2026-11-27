@@ -1,5 +1,5 @@
 import {h,button,format,money,dateTime,updateReadout} from './ui.js';
-import {validateRiskRead,createRiskReceiptTracker,remainingRiskViewMs,riskViewMatches,createRiskScope,boundRiskResearch,watchRiskVisibility,boundRiskAlerts,buildRiskAlertMutation,createRiskMutationGate} from './risk-workbench-read-scope.mjs';
+import {validateRiskRead,createRiskReceiptTracker,remainingRiskViewMs,riskViewMatches,createRiskScope,boundRiskResearch,watchRiskVisibility,boundRiskAlerts,buildRiskAlertMutation,createRiskMutationGate,projectRiskNotificationHistory} from './risk-workbench-read-scope.mjs';
 const monotonicNow=()=>globalThis.performance.now();
 const expiredMessage='本次风险证据展示窗口已过期，需重新读取；原风险未解除。';
 
@@ -290,6 +290,32 @@ function stressPanel(report){
           dateTime(ref.effectiveFrom),dateTime(ref.effectiveTo)]))))));
 }
 
+function notificationHistoryPanel(report){
+  const history=projectRiskNotificationHistory(report);
+  const kinds={'first-seen':'首次记录',escalated:'升级',resolved:'解除记录',reopened:'再次出现'};
+  const clock=value=>value===null?'未知':dateTime(value);
+  const delay=value=>finite(value)?format(value/1000,3)+' 秒':'未知';
+  return h('details',{class:'fy-details',id:'risk-notification-history'},
+    h('summary',{},'历史提醒时间链（只读）'),
+    note('这是原提醒档案中的历史证据，不是当前风险等级或处置许可。接收回执、站内查看、用户行动与实际成交是不同事实。'),
+    history.status==='unknown'?note('历史提醒证据尚未完成同账户、时点与版本核对。'):null,
+    history.totalGroups!==null?note('原提醒根因 '+history.totalGroups+' 组；本区显示 '+history.groups.length+' 组，另 '+history.omittedGroups+' 组未展开投影。'):null,
+    history.totalGroups===0?note('原提醒档案本次未返回事件；不代表没有风险。'):null,
+    ...history.groups.map(group=>h('details',{class:'fy-details',id:'risk-history-'+report.account.id+'-'+group.rootCauseId},
+      h('summary',{},group.rootCauseId+' · '+(group.status==='unknown'?'时间链未知':group.shownEvents+' 条历史事件')),
+      group.status==='unknown'?note('该组历史证据缺失或冲突，不能确认送达或效果；原风险及档案保留。'):null,
+      group.omittedEvents>0?note('另有 '+group.omittedEvents+' 条较早历史事件未展示，原档案不删。'):null,
+      ...group.rows.map(row=>h('article',{class:'fy-risk-item','data-risk-history-event':row.eventId},
+        h('div',{class:'fy-item-head'},h('strong',{},kinds[row.kind]),h('span',{class:'fy-tag'},notificationLabel(row))),
+        h('dl',{class:'fy-detail-grid'},detail('事件记档',clock(row.eventRecordedAt)),detail('原发送预留',clock(row.reservedAt)),
+          detail('预留延迟',delay(row.reservationDelayMs)),detail('首次回执记录',clock(row.firstReceiptRecordedAt)),
+          detail('最近回执记录',clock(row.lastReceiptRecordedAt)),detail('网关受理回执',clock(row.gatewayAcceptedReceiptAt)),
+          detail('接收端实际接收时点',clock(row.receiverReceivedAt)),detail('接收回执记录时点',clock(row.receiverReceiptRecordedAt)),
+          detail('相对事件记档的接收延迟',delay(row.receiverObservationDelayMs))),
+        row.conflictingGatewayReceipts?note('网关回执冲突，不能确认网关受理。'):null)))),
+    note('实际用户行动、可执行退出及减少损失：未知。记档至接收延迟不代表市场预警提前量，不据此训练或解除风险。'));
+}
+
 export function renderRiskWorkbench(ctx){
   const host=h('div',{class:'fy-stack','data-risk-workbench':true});
   if(!edit(ctx))return h('section',{class:'fy-empty'},h('h2',{},'这是你的私人工作区'),note('编辑身份可查看账户风险与提醒记录。'));
@@ -359,7 +385,8 @@ export function renderRiskWorkbench(ctx){
           dateTime(row.firstSeenAt),[...list(row.events),...list(row.levelChanges)].sort((a,b)=>a.at-b.at)
             .map(e=>({'first-seen':'首次',escalated:'升级',deescalated:'降级',resolved:'解除',reopened:'再次出现'})[e.kind]||e.kind).join(' → '),
           notificationLabel(row.notification),row.viewed?'已查看':'未查看'])),
-        note('网关受理仍未证明接收端收到；本页不提供伪造接收确认的入口。')),
+        note('网关受理仍未证明接收端收到；本页不提供伪造接收确认的入口。'),
+        notificationHistoryPanel(report)),
       report.manualHoldings?section('手工申报持仓观察',note(report.manualHoldings.label),
         note('状态 '+report.manualHoldings.status+' · 未认证为权威账户'),button('管理原申报持仓',()=>ctx.navigate('assets','holdings'),'quiet')):null);
     for(const node of content.querySelectorAll('details[id]'))if(open.has(node.id))node.open=true;

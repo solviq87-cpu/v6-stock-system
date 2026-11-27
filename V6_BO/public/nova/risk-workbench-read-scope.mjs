@@ -156,3 +156,77 @@ export function createRiskMutationGate(){
   if(current!==null)return null;current=Object.freeze({});return current;
  },end(token){if(!token||current!==token)return false;current=null;return true;}};
 }
+
+// Historical notification projection from the existing account archive.
+// Optional C18 fields are never current action/clearance evidence.
+const historyKinds=new Set(['first-seen','escalated','resolved','reopened']);
+const historyStatuses=new Set(['not-queued','queued','gateway-accepted','gateway-rejected','unconfirmed','receiver-confirmed']);
+const historyTime=(v,lo,hi)=>time(v)&&v>=lo&&v<=hi;
+function checkedHistoryRow(row,event,archiveAt){
+ if(!row||!hash(row.eventId)||row.eventId!==event.id||!historyKinds.has(row.kind)||row.kind!==event.kind||
+    row.eventRecordedAt!==event.at||!historyTime(event.at,1,archiveAt)||!historyStatuses.has(row.status)||
+    typeof row.conflictingGatewayReceipts!=='boolean'||row.actualUserActionAt!==null||row.actualExecutableExitAt!==null||row.actualAvoidedLoss!==null)return null;
+ const {reservedAt,deliveryId,firstReceiptRecordedAt:first,lastReceiptRecordedAt:last,gatewayAcceptedReceiptAt:accepted,
+  receiverReceivedAt:received,receiverReceiptRecordedAt:recorded}=row;
+ if(row.status==='not-queued'){
+  if([reservedAt,deliveryId,row.reservationDelayMs,first,last,accepted,received,recorded,row.receiverObservationDelayMs].some(x=>x!==null)||row.conflictingGatewayReceipts)return null;
+ }else{
+  if(!hash(deliveryId)||!historyTime(reservedAt,event.at,archiveAt)||row.reservationDelayMs!==reservedAt-event.at||
+     (first===null)!==(last===null)||first!==null&&(!historyTime(first,reservedAt,archiveAt)||!historyTime(last,first,archiveAt)))return null;
+  if(accepted!==null&&(first===null||!historyTime(accepted,first,last))||row.conflictingGatewayReceipts&&(accepted!==null||first===null))return null;
+  if(row.status==='queued'&&(first!==null||row.conflictingGatewayReceipts)||row.status==='unconfirmed'&&accepted!==null||row.status==='gateway-accepted'&&(accepted===null||row.conflictingGatewayReceipts)||
+     row.status==='gateway-rejected'&&(first===null||accepted!==null||row.conflictingGatewayReceipts))return null;
+  if(row.status==='receiver-confirmed'){
+   if(first===null||!historyTime(recorded,first,last)||!historyTime(received,reservedAt,recorded)||row.receiverObservationDelayMs!==received-event.at)return null;
+  }else if(received!==null||recorded!==null||row.receiverObservationDelayMs!==null)return null;
+ }
+ // Explicit allowlist: no arbitrary provider strings or executable flags.
+ return {eventId:row.eventId,kind:row.kind,eventRecordedAt:event.at,status:row.status,deliveryId,reservedAt,
+  reservationDelayMs:row.reservationDelayMs,firstReceiptRecordedAt:first,lastReceiptRecordedAt:last,
+  gatewayAcceptedReceiptAt:accepted,conflictingGatewayReceipts:row.conflictingGatewayReceipts,
+  receiverReceivedAt:received,receiverReceiptRecordedAt:recorded,receiverObservationDelayMs:row.receiverObservationDelayMs,
+  actualUserActionAt:null,actualExecutableExitAt:null,actualAvoidedLoss:null};
+}
+function checkedHistoryGroup(group,archiveAt){
+ const v=group.notificationReview,events=group.events;
+ if(!v||v.canTrade!==false||v.receiverConfirmationSupported!==false||v.actualWarningEffectCertified!==false||
+    !Array.isArray(events)||!events.length||events.length>20000||!Array.isArray(v.rows)||
+    v.totalEvents!==events.length||v.shownEvents!==Math.min(16,events.length)||v.rows.length!==v.shownEvents||v.omittedEvents!==events.length-v.rows.length)return null;
+ const ids=new Set();let prior=0;
+ for(const e of events){
+  if(!e||!hash(e.id)||ids.has(e.id)||!historyKinds.has(e.kind)||!historyTime(e.at,Math.max(1,prior),archiveAt))return null;
+  ids.add(e.id);prior=e.at;
+ }
+ const tail=events.slice(-16),rows=v.rows.map((row,i)=>checkedHistoryRow(row,tail[i],archiveAt));
+ if(rows.some(x=>!x)||group.notificationEventId!==tail.at(-1).id)return null;
+ const deliveries=rows.map(r=>r.deliveryId).filter(x=>x!==null);
+ if(new Set(deliveries).size!==deliveries.length)return null;
+ const n=group.notification,last=rows.at(-1);
+ if(n?.status!==last.status||n.deliveryId!==last.deliveryId||typeof n.receiverConfirmed!=='boolean'||
+    n.receiverConfirmed!==(last.status==='receiver-confirmed')||typeof n.gatewayAccepted!=='boolean'||
+    n.gatewayAccepted!==['gateway-accepted','receiver-confirmed'].includes(last.status)||
+    last.deliveryId!==null&&(n.eventId!==last.eventId||n.rootCauseId!==group.rootCauseId||n.queuedAt!==last.reservedAt))return null;
+ return {rootCauseId:group.rootCauseId,totalEvents:v.totalEvents,shownEvents:v.shownEvents,omittedEvents:v.omittedEvents,rows};
+}
+export function projectRiskNotificationHistory(report){
+ const unknown={status:'unknown',totalGroups:null,omittedGroups:null,groups:[],actualWarningEffectCertified:false,canTrade:false};
+ // The full account archive is not a security-specific history endpoint.
+ if(report?.protocol!=='fayo-risk-workbench-v1'||report.selectedCode!=null||!time(report.generatedAt))return unknown;
+ const archive=boundRiskAlerts(report);
+ if(!archive||archive.receiverConfirmationSupported!==false||archive.groups.length>2000||
+    archive.groups.length&&(!time(archive.updatedAt)||archive.updatedAt>report.generatedAt)||
+    !archive.groups.length&&archive.updatedAt!==null&&!historyTime(archive.updatedAt,1,report.generatedAt))return unknown;
+ const groups=archive.groups.slice(0,20).map(g=>checkedHistoryGroup(g,archive.updatedAt));
+ // A replay copied into two roots must not count as two deliveries. Retain
+ // independently valid roots, but hide every root involved in the collision.
+ const seenEvents=new Map(),seenDeliveries=new Map(),conflict=new Set();
+ groups.forEach((g,i)=>{if(!g)return;for(const row of g.rows){
+  for(const [map,id] of [[seenEvents,row.eventId],[seenDeliveries,row.deliveryId]]){
+   if(id===null)continue;
+   if(map.has(id)&&map.get(id)!==i){conflict.add(i);conflict.add(map.get(id));}else map.set(id,i);
+  }
+ }});
+ const result=groups.flatMap((g,i)=>g&&!conflict.has(i)?[g]:[{rootCauseId:archive.groups[i].rootCauseId,status:'unknown',rows:[]}]);
+ return {status:result.some(g=>g.status==='unknown')?'partial':'historical-only',totalGroups:archive.groups.length,
+  omittedGroups:archive.groups.length-result.length,groups:result,actualWarningEffectCertified:false,canTrade:false};
+}

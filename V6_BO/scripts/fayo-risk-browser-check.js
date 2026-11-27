@@ -394,7 +394,52 @@ async function main(){
           return {replayRejected,hiddenInvalidated,foregroundReread,wrongAlertsRejected,singleInFlight,oldCompletionIsolated,explicitUnknownRejected};
         });
         for(const [name,passed] of Object.entries(replayAndActions))assert.equal(passed,true,name+' must preserve original risk and alert identity');
-        views.push({...viewport,receiptIsolation,replayAndActions,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
+        // C19 consumer contract: a synthetic optional C18 projection in the
+        // existing read-only view. The older producer may omit this field.
+        // No receiver callback or real notification is created by this check.
+        const notificationHistory=await page.evaluate(async()=>{
+          const {renderRiskWorkbench}=await import('/nova/risk-workbench-view.mjs');
+          const get=q=>fetch('/api/risk-workbench?'+q,{headers:{'X-Fixture-Role':'edit'}}).then(r=>r.json());
+          const [pool,pre]=await Promise.all([get('account=pool'),get('account=pre')]);
+          const f=structuredClone(pool),r=f.result,a=r.alerts;
+          if(!a?.groups?.length)throw Error('原提醒fixture缺失');
+          a.receiverConfirmationSupported=false;
+          const g=a.groups[0],events=g.events.slice(-16);
+          const rows=events.map(e=>({eventId:e.id,kind:e.kind,eventRecordedAt:e.at,status:'not-queued',deliveryId:null,
+            reservedAt:null,reservationDelayMs:null,firstReceiptRecordedAt:null,lastReceiptRecordedAt:null,gatewayAcceptedReceiptAt:null,
+            conflictingGatewayReceipts:false,receiverReceivedAt:null,receiverReceiptRecordedAt:null,receiverObservationDelayMs:null,
+            actualUserActionAt:null,actualExecutableExitAt:null,actualAvoidedLoss:null}));
+          g.notification={status:'not-queued',deliveryId:null,receiverConfirmed:false,gatewayAccepted:false};
+          g.notificationEventId=events.at(-1).id;
+          g.notificationReview={totalEvents:g.events.length,shownEvents:rows.length,omittedEvents:g.events.length-rows.length,
+            rows,canTrade:false,receiverConfirmationSupported:false,actualWarningEffectCertified:false};
+          const flush=()=>new Promise(resolve=>setTimeout(resolve,0)),mount=document.getElementById('mount');
+          const check=node=>node.querySelector('#risk-notification-history');
+          let posts=0;
+          const valid=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async(url,options)=>{
+            if(options.method==='POST'){posts++;return {ok:false};}
+            return url.includes('account=pre')?pre:f;
+          }});
+          mount.replaceChildren(valid);await flush();
+          const p=check(valid),entry=p?.querySelector('[data-risk-history-event]');
+          const sameArchive=!!entry&&entry.getAttribute('data-risk-history-event')===events[0].id&&p.textContent.includes('未排队')&&
+            p.textContent.includes('实际用户行动、可执行退出及减少损失：未知')&&p.querySelectorAll('button').length===0;
+          const chooser=valid.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));await flush();
+          const switched=!check(valid)?.querySelector('[data-risk-history-event="'+events[0].id+'"]');
+          valid.dispose();
+          const bad=structuredClone(f);bad.result.alerts.groups[0].notificationReview.rows[0].eventId='f'.repeat(64);
+          const invalid=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>bad});
+          mount.replaceChildren(invalid);await flush();
+          const mismatchUnknown=!!check(invalid)&&!check(invalid).querySelector('[data-risk-history-event="'+events[0].id+'"]')&&
+            check(invalid).textContent.includes('时间链未知')&&invalid.textContent.includes('账户权益与观察回撤');
+          invalid.dispose();
+          const denied=renderRiskWorkbench({role:'view',navigate:()=>{},api:async()=>{throw Error('viewer must not read');}});
+          mount.replaceChildren(denied);await flush();
+          const viewerHidden=!check(denied)&&posts===0;
+          return {sameArchive,switched,mismatchUnknown,viewerHidden};
+        });
+        for(const [name,passed] of Object.entries(notificationHistory))assert.equal(passed,true,name+' must preserve historical receipt scope');
+        views.push({...viewport,receiptIsolation,replayAndActions,notificationHistory,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
           categoryMuteRestored:true,failedReadClearsReport:true,viewerPrivateReads:0,realNetworkOffline:true,requestIsolation,privacyAndAccounts,unknownConfiguration,connectivityIsolation,stateVersion,
           fourDimensions:true,lastValidLevel:3,staleNeverCleared:true,omittedUpstreamKeepsHomeRisk:true});
       }finally{await page.close();}
