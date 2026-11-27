@@ -98,7 +98,20 @@ function observations(events,asOf){
 }
 function pairedComparisons(rows){
  const matches=new Map(),pairs=new Map();let limited=0;
- for(const r of rows.filter(r=>r.status==='observed-unverified')){const k=[r.inputFingerprint,r.provider,r.horizon,r.targetDate].join('|');if(!matches.has(k))matches.set(k,[]);matches.get(k).push(r);}
+ const coverage=new Map();
+ const scopeKey=(modelKey,provider,horizon,pointKind)=>JSON.stringify([modelKey,provider,horizon,pointKind]);
+ for(const r of rows){
+  if(r.status==='repeated-origin')continue;
+  const scope=scopeKey(r.modelKey,r.provider,r.horizon,r.pointKind);
+  if(!coverage.has(scope))coverage.set(scope,{frozen:0,observed:0,pending:0,missing:0,invalid:0});
+  const counts=coverage.get(scope);
+  counts.frozen++;
+  if(r.status==='pending')counts.pending++;
+  else if(r.status==='missing-outcome')counts.missing++;
+  else if(r.status!=='observed-unverified')counts.invalid++;
+  if(r.status!=='observed-unverified')continue;
+  counts.observed++;
+ const k=[r.inputFingerprint,r.provider,r.horizon,r.targetDate].join('|');if(!matches.has(k))matches.set(k,[]);matches.get(k).push(r);}
  for(const same of matches.values()){
   const unique=[...new Map(same.map(r=>[r.modelKey,r])).values()].sort((a,b)=>a.modelKey.localeCompare(b.modelKey));
   if(unique.length>16){limited++;continue;}
@@ -109,6 +122,8 @@ function pairedComparisons(rows){
   }
  }
  return {rows:[...pairs.values()].map(p=>({modelA:p.modelA,modelB:p.modelB,provider:p.provider,horizon:p.horizon,samples:p.n,signalDays:p.days.size,symbols:p.symbols.size,
+  coverageA:coverage.get(scopeKey(p.modelA.modelKey,p.provider,p.horizon,p.modelA.pointKind)),
+  coverageB:coverage.get(scopeKey(p.modelB.modelKey,p.provider,p.horizon,p.modelB.pointKind)),
   maeA:round(p.sumA/p.n),maeB:round(p.sumB/p.n),deltaMaeAminusB:round((p.sumA-p.sumB)/p.n),lowerErrorCountA:p.winsA,ties:p.ties,
   status:'paired-descriptive-only',profitComparison:null,independenceCertified:false})),limitedGroups:limited,meaning:'仅在完全相同输入指纹、来源、目标日和周期的交集中比较价格误差；不作收益排名'};
 }

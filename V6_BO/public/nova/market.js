@@ -142,6 +142,10 @@ export function recoveryDisclosure(state){
    Number.isFinite(r?.nextRetryAt)&&r.nextRetryAt>0?'下次重试 '+dateTime(r.nextRetryAt):''];
  const sources=(Array.isArray(r?.sources)?r.sources:[]).filter(x=>x?.name);
  return h('details',{class:'fy-details fy-recovery-status'},h('summary',{},'行情来源与补采状态'),
+  state.indexWindowResearch?.events?.filter(event=>event.validUntil>Date.now()).map(event=>h('p',{},
+   event.code+' · '+event.windowMinutes+'分钟变动 '+format(event.returnPct)+'% · 超出此前 '+event.referenceDays+
+   ' 个可比日同时段的绝对变动范围 · 原因待核 · '+indexProvider(event.source)+' '+dateTime(event.quoteAt)+
+   (event.investigation?.status==='cached-window-checked'?' · 同窗已归档消息 '+event.investigation.evidenceHashes.length+' 条':' · 消息样本不足'))),
   state.indexChannels?.length?h('section',{'aria-label':'盘中渠道回执'},h('h3',{},'盘中渠道回执'),
    h('ul',{},state.indexChannels.map(x=>h('li',{},indexProvider(x.source)+' · '+(x.quoteAt?x.count+' 个指数 · 源端 '+dateTime(x.quoteAt):
     x.status==='reading'?'正在读取':x.status==='unavailable'?'本次请求未成功':'本次未返回当日有效报价')+(x.checkedAt?' · 检查 '+dateTime(x.checkedAt):'')))),

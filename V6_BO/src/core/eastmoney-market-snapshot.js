@@ -1,5 +1,5 @@
 'use strict';
-const {analyzeMarketBreadth}=require('./market-breadth');
+const {analyzeMarketBreadth,summarizeRecentStructure}=require('./market-breadth');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {sourceQuoteTimeSeconds}=require('./market-snapshot-quote-time');
 const {marketRequests,createMarketRequestGovernor}=require('./market-request-governor');
@@ -118,6 +118,7 @@ async function fetchEastmoneyBreadth(options={}){
  const snapshot=await fetchEastmoneySnapshot(options);
  return {snapshotMetadata:{date:snapshot.date,source:snapshot.source,universeSize:snapshot.universeSize,pages:snapshot.pages,
   verifiedLive:snapshot.verifiedLive,startedAt:snapshot.startedAt,retrievedAt:snapshot.retrievedAt,samplingDurationMs:snapshot.samplingDurationMs,sourceCoverage:snapshot.sourceCoverage,warning:snapshot.warning},
+  recentStructure:summarizeRecentStructure(snapshot,options.minCoverage??0.8),
   breadth:analyzeMarketBreadth(snapshot,{asOf:options.now??Date.now(),minCoverage:options.minCoverage??0.8})};
 }
 module.exports={parsePage,toStock,fetchEastmoneySnapshot,fetchEastmoneyBreadth};

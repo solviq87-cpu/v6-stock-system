@@ -69,7 +69,7 @@ function renderReport(result,ctx){
   if(!r||typeof r!=='object')return empty('尚无完整研究结果','本次服务未返回可核验的结果。');
   const overview=['status','tradeDate','date','source','provider','asOf','totalScanned','accepted','selected','note','reason','warning'].filter(key=>r[key]!==undefined&&r[key]!==null&&typeof r[key]!=='object').map(key=>[labels[key]||key,key==='asOf'?clock(r[key]):r[key]]);
   if(overview.length)el.append(facts(overview));
-  if(r.publicReview?.day===r.tradeDate){
+  if(r.tradeDate && r.publicReview?.day===r.tradeDate && r.publicReview.facts){
     const proof=r.publicReview,f=proof.facts,items=[f.tier,f.status,f.performance,f.history,...(f.patterns||[]),...(f.risks||[]),...(f.themes||[])].filter(Boolean);
     if(items.length)el.append(box('同日复盘依据',proof.day+' · '+proof.source+' · 取得 '+clock(proof.knownAt),n('p',[...new Set(items)].join(' · '))));
   }
@@ -84,6 +84,18 @@ function renderReport(result,ctx){
   }
   const breadth=r.breadth||r.market?.breadth;
   if(breadth)el.append(metrics([['市场覆盖率',finite(breadth.coverage)?number(breadth.coverage*100)+'%':'未知'],['上涨 / 下跌',val(breadth.up)+' / '+val(breadth.down)],['上涨占比',finite(breadth.breadthScore)?number(breadth.breadthScore)+'%':'未知'],['市场环境',typeof r.regime==='string'?r.regime:r.regime?.regime||r.market?.regime?.regime||'待证据']]));
+  const structure=r.recentStructure||r.market?.recentStructure;
+  if(structure){
+    const sample=val(structure.observed)+' / '+val(structure.universeSize)+' 只 · '+val(structure.source)+' · 采样截至 '+clock(structure.asOf);
+    if(structure.status==='observed-unverified'){
+      el.append(box('近期报价股票结构',sample,metrics([
+        ['涨跌幅中位数',number(structure.medianReturnPct)+'%'],
+        ['样本等权涨跌幅',number(structure.equalWeightReturnPct)+'%'],
+        ['近期样本上涨占比',number(structure.upShare*100)+'%'],
+        ['全池成交集中度（HHI）',finite(structure.turnoverHHI)?number(structure.turnoverHHI):'分母不足']
+      ])));
+    }else el.append(box('近期报价覆盖不足',sample));
+  }
   if(r.systems&&!Array.isArray(r.systems)&&typeof r.systems==='object')el.append(append(n('div',undefined,'fy-grid'),...Object.entries(r.systems).map(([key,system])=>box(system?.name||({fourteen:'十四条',bazi:'八字口诀',gpt:'GPT 五策略',python:'Python 三轮'}[key]||key),val(system?.status||system?.verdict),evidenceTree(system)))));
   const m=r.metrics||r.backtest?.metrics||r.report?.metrics;
   if(m)el.append(metrics([['期末研究资产',number(m.finalEquity)],['研究收益率',finite(m.returnPct)?number(m.returnPct)+'%':'未知'],['最大回撤',finite(m.maxDrawdownPct)?number(m.maxDrawdownPct)+'%':'未知'],['已平仓笔数',m.closedTrades??'未知']]));
@@ -100,7 +112,7 @@ function renderReport(result,ctx){
 function workbench(ctx,title,description,inputs=[]){
   const status=n('output','可查看已归档数据或运行本项研究。','fy-note');status.setAttribute('role','status');status.setAttribute('aria-live','polite');
   const actions=toolbar(),output=n('div',undefined,'fy-stack'),body=box(title,description,append(n('div',undefined,'fy-grid'),...inputs),actions,status,output);
-  let revision=0,edited=false;
+  let revision=0,edited=false,displayedAction=null;
   const current=turn=>!ctx.signal?.aborted&&turn===revision;
   function invalidate(){revision++;edited=true;status.textContent='已保留自定义输入，可运行本次研究。';}
   body.addEventListener('input',event=>{if(event.target.matches('input,select,textarea'))invalidate();});
@@ -111,7 +123,7 @@ function workbench(ctx,title,description,inputs=[]){
     const button=btn(label,async()=>{
       const turn=++revision;button.disabled=true;if(!output.firstChild)status.textContent='研究数据加载中…';
       try{const data=await handler({current:()=>current(turn)});if(!current(turn))return;const next=JSON.stringify(data);
-        if(!options.auto||next!==fingerprint||!output.firstChild){output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));fingerprint=next;}
+        if(displayedAction!==button||!options.auto||next!==fingerprint||!output.firstChild){output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));fingerprint=next;displayedAction=button;}
         const result=data?.result??data,rows=Array.isArray(result)?result:result?.items??result?.ranked??result?.rows;
         status.textContent=result==null||result?.status==='empty'||Array.isArray(rows)&&!rows.length?'已读取，本期没有符合条件的记录。':options.message||'已读取研究结果';}
       catch(error){if(current(turn))status.textContent=error?.name==='AbortError'?'请求已停止。':(error?.message||'请求未完成。');}
@@ -137,7 +149,7 @@ function request(ctx,path,body){return ctx.api(path,body===undefined?{signal:ctx
 function automaticMarket(ctx){
  const recovery=ctx.state?.marketRecovery,day=recovery?.referenceDay,points=recovery?.metrics||{};
  const values=[['adv','上涨家数','家'],['dec','下跌家数','家'],['upLimit','涨停','家'],['downLimit','跌停','家'],['breakRate','炸板率','%']];
- const observations=values.flatMap(([key,name,unit])=>points[key]?.date===day&&Number.isFinite(points[key].value)?[{name,value:points[key].value,unit}]:[]);
+ const observations=values.flatMap(([key,name,unit])=>day&&points[key]?.date===day&&Number.isFinite(points[key].value)?[{name,value:points[key].value,unit}]:[]);
  if(observations.length)return {result:{tradeDate:day,source:'V6 收盘盘面',observations}};
  return request(ctx,'/api/research/live-market',{});
 }

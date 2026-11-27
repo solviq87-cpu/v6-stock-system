@@ -64,6 +64,21 @@ test('model comparison uses the intersection of exact input/target/horizon, with
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),r=F.evaluationView(root,[e,later],{asOf:at(71)});assert.equal(r.pairs.rows.length,1);assert.equal(r.pairs.rows[0].samples,1);assert.equal(r.pairs.rows[0].profitComparison,null);assert.equal(r.pairs.rows[0].independenceCertified,false);
  const other=event(D.buildWorkspaceDecision(fixture({symbol:'600001'})),3),p=prediction(other);p.model.id='M02';save(root,other,p,'pair_forecast_003',e.recordedAt+4000);const different=F.evaluationView(root,[e,other,later,event(D.buildWorkspaceDecision(fixture({index:71,symbol:'600001'})),4)],{asOf:at(71)});assert.equal(different.pairs.rows.length,1);
 });
+test('paired errors disclose each side’s full frozen and observed denominators',t=>{
+ const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);
+ b.model.id='challenger';
+ save(root,e,a,'coverage_base_001');
+ save(root,e,b,'coverage_pair_002',e.recordedAt+3000);
+ const other=event(D.buildWorkspaceDecision(fixture({symbol:'600001'})),3);
+ save(root,other,prediction(other),'coverage_base_003',e.recordedAt+4000);
+ const later=event(D.buildWorkspaceDecision(fixture({index:71})),2);
+ const report=F.evaluationView(root,[e,other,later],{asOf:at(71)});
+ const [pair]=report.pairs.rows;
+ assert.equal(pair.samples,1);
+ const sides=new Map([[pair.modelA.id,pair.coverageA],[pair.modelB.id,pair.coverageB]]);
+ assert.deepEqual(sides.get(a.model.id),{frozen:2,observed:1,pending:0,missing:1,invalid:0});
+ assert.deepEqual(sides.get(b.model.id),{frozen:1,observed:1,pending:0,missing:0,invalid:0});
+});
 test('sampling parameters form distinct model configurations, while missing training metadata stays unknown',t=>{
  const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);delete a.model.trainingCutoff;b.model.sampleCount=10;
  save(root,e,a,'config_forecast_001');save(root,e,b,'config_forecast_002',e.recordedAt+3000);

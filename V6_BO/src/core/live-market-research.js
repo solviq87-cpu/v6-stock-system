@@ -1,7 +1,7 @@
 'use strict';
 /** One-fetch live-source research pipeline. Does not alter production candidate ranks. */
 const {fetchEastmoneySnapshot}=require('./eastmoney-market-snapshot');
-const {analyzeMarketBreadth}=require('./market-breadth');
+const {analyzeMarketBreadth,summarizeRecentStructure}=require('./market-breadth');
 const {classifyObservedMarket}=require('./observed-market-regime');
 const {joinObservedCandidates}=require('./live-candidate-bridge');
 const {assessCandidateEvidence}=require('./research-risk-gate');
@@ -25,6 +25,7 @@ async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date
    universeSize:snapshot.universeSize,pages:snapshot.pages,
    sourceCoverage:snapshot.sourceCoverage??null,warning:snapshot.warning},
   breadth,regime,candidateIntersection,quoteTimeAudit,
+  recentStructure:summarizeRecentStructure(snapshot,minCoverage),
   ...(sectorBreadth===undefined?{}:{sectorBreadth}),
   riskEvidence:assessCandidateEvidence(snapshot,breadth,regime,candidates,candidateIntersection,{requireOriginalQuoteTime:true}),
   note:'公开行情请求日期不等于逐股原始报价时点，缺f124原始时间不可判为近期可信行情；供应商自报时间也不是交易所认证'};

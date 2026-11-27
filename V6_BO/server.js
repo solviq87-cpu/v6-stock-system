@@ -11511,6 +11511,8 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
 const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
+const {createIndexWindowResearch, investigateKnownNews}=require('./src/core/index-window-research');
+const indexWindowResearch=createIndexWindowResearch({investigate:event=>investigateKnownNews(event,S.news)});
 const sessionIndices=require('./src/core/session-index-feed').createSessionIndexFeed({
   primary:()=>em.fetchIdxRt(),onUpdate:indices=>{S.idxRt=indices;}
 });
@@ -11600,6 +11602,7 @@ function sharedMarketRead(kind,edit) {
   if((!day||day===today)&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
     const feed=sessionIndices.read(session);
     state.indexChannels=feed.channels;
+    if(edit && session.trading)state.indexWindowResearch=indexWindowResearch.view(Date.now());
     if(feed.indices.length){
       const {latestIndexObservations}=require('./src/core/closing-card-snapshot');
       const rows=latestIndexObservations([], [...feed.indices,...(state.dashboard.indices||[])],Date.now()).filter(r=>r.tradeDate===today);
@@ -19864,7 +19867,11 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
-      const readSessionIndices=()=>sessionIndices.read(marketDisplaySession());
+      const readSessionIndices=()=>{
+        const session=marketDisplaySession();
+        const feed=sessionIndices.read(session);
+        indexWindowResearch.observe(feed,session,Date.now());
+      };
       readSessionIndices();
       setInterval(readSessionIndices,5000).unref();
       setInterval(()=>{void sampleDecisionCrossChecks().catch(()=>{});},30000).unref();
