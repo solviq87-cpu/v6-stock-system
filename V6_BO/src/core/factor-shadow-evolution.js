@@ -524,7 +524,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   if(preregFreshTest.length<5)
    throw Error('恢复后未达到5个事前注册的全新成熟保留日');
   preregistration=verifyPreregisteredCandidate(preRegistration,{
-   sorted,ids,packFingerprint:PACK_HASH,oldWeights,
+   sorted,ids,definitions:defs,packFingerprint:PACK_HASH,oldWeights,
    previousFingerprint:previous?.fingerprint||null,
    previousTrialFingerprint:previousTrial?.fingerprint||null,
    freshTest:preregFreshTest
