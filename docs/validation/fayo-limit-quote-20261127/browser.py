@@ -25,6 +25,10 @@ with sync_playwright() as p:
    sell=orders.locator('tbody tr').filter(has=page.get_by_role('cell',name='s',exact=True)).first
    assert sell.get_by_role('cell',name=cfg['sellStatus'],exact=True).count()==1,sell.inner_text()
    assert sell.locator('td').last.inner_text()==str(cfg['remaining']),sell.inner_text()
+  events=region.locator('table').filter(has=page.get_by_role('columnheader',name='成交价',exact=True)).first
+  times=events.locator('tbody tr td:first-child').all_inner_texts()
+  assert len(times)==(2 if cfg['stage']=='partial-exit' else 1 if cfg['shares'] else 0),times
+  assert all(t.endswith('10:00:00') for t in times),times
   assert not errors,errors
   assert all(w.get('action')=='read' for w in writes),writes
   region.scroll_into_view_if_needed();page.screenshot(path=str(out/(cfg['stage']+'-'+str(width)+'.png')),full_page=True)
@@ -32,7 +36,7 @@ with sync_playwright() as p:
    orders.evaluate('(table)=>{table.parentElement.scrollLeft=table.scrollWidth;}')
    orders.scroll_into_view_if_needed()
    page.screenshot(path=str(out/('partial-exit-order-'+str(width)+'.png')))
-  results.append({'viewport':[width,height],'stage':cfg['stage'],'shares':cfg['shares'],'sellStatus':cfg['sellStatus'],'remaining':cfg['remaining'],'readActions':len(writes),'otherAccountActions':0,'errors':errors})
+  results.append({'viewport':[width,height],'stage':cfg['stage'],'shares':cfg['shares'],'sellStatus':cfg['sellStatus'],'remaining':cfg['remaining'],'eventTimes':times,'readActions':len(writes),'otherAccountActions':0,'errors':errors})
   ctx.close()
  browser.close()
 (out/(cfg['stage']+'-browser.json')).write_text(json.dumps(results,ensure_ascii=False,indent=2)+'\n')

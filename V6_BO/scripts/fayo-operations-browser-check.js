@@ -29,7 +29,7 @@ const server=http.createServer((req,res)=>{
      window.calls.push({path:p,method:options.method||'GET',body:options.body});
      if(options.signal?.aborted)throw new DOMException('aborted','AbortError');
      if(options.method==='POST'){
-      if(p==='/api/research/order-account')return{ok:true,result:{revision:1,account:{cash:100000,positions:{},events:[]},riskPolicy:{}}};
+      if(p==='/api/research/order-account')return{ok:true,result:{revision:1,account:{cash:100000,positions:{},events:window.orderAccountEvents||[]},riskPolicy:{}}};
       return{ok:true,msg:'合成服务已确认'};
      }
      if(p==='/api/holdings')return holdings;
@@ -145,6 +145,20 @@ const server=http.createServer((req,res)=>{
     await page.evaluate(([view,sub])=>window.renderRoute(view,sub),[view,sub]);await page.waitForTimeout(15);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),width+' '+view+'/'+sub+' page overflow');
    }
+  }
+  await page.evaluate(()=>{window.orderAccountEvents=[
+   {symbol:'600000',side:'buy',quantity:100,price:10,fee:5,tradeDate:'2026-11-16',timestamp:Date.parse('2026-11-16T10:00:00+08:00'),quoteAt:Date.parse('2026-11-16T09:59:59+08:00')},
+   {symbol:'600001',side:'buy',quantity:100,price:10,fee:5,tradeDate:'2026-11-16'},
+   {symbol:'600002',side:'buy',quantity:100,price:10,fee:5}
+  ];});
+  for(const width of [1366,390]){
+   await page.setViewportSize({width,height:900});
+   await page.evaluate(()=>window.renderRoute('assets','authority'));
+   await page.getByRole('button',{name:'读取账户',exact:true}).click();
+   const events=page.locator('table').filter({has:page.getByRole('columnheader',{name:'成交时间',exact:true})});
+   await events.locator('tbody tr').nth(2).waitFor();
+   assert.deepEqual(await events.locator('tbody tr td:first-child').allTextContents(),
+    ['2026/11/16 10:00:00','2026-11-16','—'],'actual executions, historical date-only rows and unknown times keep their own precision');
   }
   assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
   console.log('FAYO operations: 19 native views, 6 live state projections, changed-only preference writes, viewer privacy, navigation zero-writes, 4 frozen confirmation plans, authority context invalidation, first-password setup, weekend news refresh, dirty-form retention, and 38 narrow-screen route layouts passed.');

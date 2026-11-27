@@ -8,6 +8,9 @@
     "shares": 300,
     "sellStatus": null,
     "remaining": null,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -21,6 +24,9 @@
     "shares": 300,
     "sellStatus": null,
     "remaining": null,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -34,6 +40,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -47,6 +56,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -60,6 +72,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -73,6 +88,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -86,6 +104,10 @@
     "shares": 200,
     "sellStatus": "partial",
     "remaining": 200,
+    "eventTimes": [
+      "2026/11/16 10:00:00",
+      "2026/11/20 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -99,6 +121,10 @@
     "shares": 200,
     "sellStatus": "partial",
     "remaining": 200,
+    "eventTimes": [
+      "2026/11/16 10:00:00",
+      "2026/11/20 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -112,6 +138,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -125,6 +154,9 @@
     "shares": 300,
     "sellStatus": "pending",
     "remaining": 300,
+    "eventTimes": [
+      "2026/11/16 10:00:00"
+    ],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -138,6 +170,7 @@
     "shares": 0,
     "sellStatus": null,
     "remaining": null,
+    "eventTimes": [],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []
@@ -151,6 +184,7 @@
     "shares": 0,
     "sellStatus": null,
     "remaining": null,
+    "eventTimes": [],
     "readActions": 1,
     "otherAccountActions": 0,
     "errors": []

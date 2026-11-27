@@ -1,7 +1,8 @@
 {
   "scope": "Original authority ledger, editor HTTP read and native page; synthetic quotes and an explicit research calendar. No external orders or alerts.",
-  "sourceBaseline": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+  "sourceBaseline": "7a855472b7a351d4435fbb4775fc71092219b4f9",
   "candidateCodeSha256": "a19cedc3aed74be4972ee35f52b1d06033e5a96445cb0d5e898cc670d57942be",
+  "presentationCodeSha256": "514717551f90faea051a59ad5149cc86f250c6ace786a665cbfff678ec0ba9df",
   "calendar": {
     "source": "sse-szse-official-2026-explicit-research-calendar",
     "firstObservedAt": "2026-11-12T20:05:22.551912Z",
@@ -57,7 +58,7 @@
           "tradeDate": "2026-11-16"
         }
       ],
-      "fingerprint": "082619b80af0e45da68ddd9e264b4d88056917a63758af16beab9e94380d0479"
+      "fingerprint": "288eef36b41dc59fa64177198c7618738f9925cf3ce5d6ad404705594c5e2cad"
     },
     {
       "stage": "same-day-sale",
@@ -91,7 +92,7 @@
           "tradeDate": "2026-11-16"
         }
       ],
-      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+      "fingerprint": "982dfaa7d61725c3285d0e4230aa037a590eb3e8b2377ce79fa84e3f56a4e831"
     },
     {
       "stage": "exit-lower-limit-2026-11-18",
@@ -118,7 +119,7 @@
           "tradeDate": "2026-11-16"
         }
       ],
-      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+      "fingerprint": "982dfaa7d61725c3285d0e4230aa037a590eb3e8b2377ce79fa84e3f56a4e831"
     },
     {
       "stage": "suspended",
@@ -145,7 +146,7 @@
           "tradeDate": "2026-11-16"
         }
       ],
-      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+      "fingerprint": "982dfaa7d61725c3285d0e4230aa037a590eb3e8b2377ce79fa84e3f56a4e831"
     },
     {
       "stage": "partial-exit",
@@ -172,7 +173,7 @@
           "tradeDate": "2026-11-20"
         }
       ],
-      "fingerprint": "61c20091fbd36e2436b92e27fea9a4d2b85402fd52347964205d7e341a8c6c84"
+      "fingerprint": "83e566b706e9c10522fc70e82d95914ccca94d0de2246ab35c5fc919be1a8155"
     }
   ],
   "viewerReturnedAccount": false,
