@@ -1,0 +1,654 @@
+{
+  "scope": "Three actual received public PDF excerpts through the existing local news CLI, authenticated journal API, original projection and native desktop/mobile evidence page. Source/types are unverified claims; no source timestamp, exchange, PIT or execution qualification.",
+  "baseline": "a4f4ed47048689ee02e47ecd40cafd26ec2ce80f",
+  "sourceFiles": {
+    "public/nova/event-research.mjs": "25d6ad41afc5049fd6408ebe7ec1aafa7bd17c8013b591e9a4345b54766070ff",
+    "public/nova/research.js": "3c2b633fefb6fffab9f8b2134a91fedaaa7edf1278897b3b7d1a7d724bb72cf8",
+    "src/core/news-evidence-journal.js": "35c9f4eb40e13c12af131639b3089850dc3ba14b5c4b730d57180bd872974c70"
+  },
+  "inputSha256": "12c171d6393350965a8080e558584be00156d2d039545eaafc6b5e7ffe9f0e3a",
+  "imported": {
+    "schemaVersion": 1,
+    "mode": "local-news-evidence-import",
+    "results": [
+      {
+        "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+        "sequence": 1,
+        "reused": false
+      },
+      {
+        "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+        "sequence": 2,
+        "reused": false
+      },
+      {
+        "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+        "sequence": 3,
+        "reused": false
+      }
+    ],
+    "canTrade": false,
+    "canTrain": false,
+    "canNotify": false,
+    "independentlyVerified": false,
+    "externallyTimestampCertified": false
+  },
+  "http": 200,
+  "asOf": 1795817681042,
+  "types": {
+    "spdb-preference-dividend": {
+      "360003": "preferred-share",
+      "360008": "preferred-share",
+      "600000": null
+    },
+    "510300-product-summary": {
+      "510300": "etf"
+    },
+    "spdb-2025-summary": {
+      "360003": null,
+      "360008": null,
+      "600000": "ordinary-a-share"
+    }
+  },
+  "archive": [
+    {
+      "file": "000001.json",
+      "sha256": "8045c77ddef60d962c8a158d39b5d0dd7cd8cc707875e8e4c5ce86fae17f566e"
+    },
+    {
+      "file": "000002.json",
+      "sha256": "d444799a0e82a464fc1dcde5ff9466717afb6c8464c825a7c1701a26967d3201"
+    },
+    {
+      "file": "000003.json",
+      "sha256": "f3ae23fec4cc2eb92cd881d9498ecc0fa70da96596b2b7a48909b57b86045125"
+    }
+  ],
+  "firstRecordedAt": 1795817680990,
+  "beforeArchiveRows": 0,
+  "viewerDenied": true,
+  "records": [
+    {
+      "schemaVersion": 1,
+      "sequence": 3,
+      "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+      "recordedAt": 1795817680990,
+      "evidence": {
+        "schemaVersion": 1,
+        "source": "spdb-preference-dividend",
+        "eventId": "security-type-page1",
+        "sourceRevisionId": "pdf-2f37bd20aeb20f002a9b837ce4bd97590d3c7acb0338cd00a8bf3a35763dcdd7",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://news.spdb.com.cn/investor_relation/company_report/202511/P020251125627943429601.pdf",
+        "title": "上海浦东发展银行股份有限公司 优先股一期股息发放实施公告",
+        "body": "公告编号：临2025-073\n证券代码：600000               证券简称：浦发银行\n优先股代码：360003 360008       优先股简称：浦发优1 浦发优2\n\n\n\n\n           上海浦东发展银行股份有限公司\n\n              优先股一期股息发放实施公告",
+        "bodyScope": "provider-summary",
+        "bodyHash": "d0f4ee36f2110f765b989dc3368c3f9a6a2404dfcdfc462564007cc194661e88",
+        "securities": [
+          "360003",
+          "360008",
+          "600000"
+        ],
+        "publishedAt": null,
+        "receivedAt": 1795817536361,
+        "revisedAt": null,
+        "uncertainty": [
+          "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+          "LOCAL_CLOCK_NOT_ATTESTED",
+          "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+          "SUMMARY_ONLY"
+        ]
+      },
+      "canTrade": false,
+      "canTrain": false,
+      "canNotify": false,
+      "independentlyVerified": false,
+      "externallyTimestampCertified": false,
+      "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+      "current": true,
+      "associated": true,
+      "eligibleForResearchSupport": false,
+      "usableAsResearchSupport": false,
+      "supportStatus": "unknown"
+    },
+    {
+      "schemaVersion": 1,
+      "sequence": 2,
+      "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+      "recordedAt": 1795817680990,
+      "evidence": {
+        "schemaVersion": 1,
+        "source": "510300-product-summary",
+        "eventId": "security-type-page1",
+        "sourceRevisionId": "pdf-75920ec2b7b297efa88962beec1e8f23ded5a9812c73e5a1fbe1d47c55b88bdf",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-24/510300_20261124_2XJH.pdf",
+        "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金 基金产品资料概要更新",
+        "body": "          华泰柏瑞沪深 300 交易型开放式指数证券投资基金\n\n                           基金产品资料概要更新\n                                               编制日期：2026 年 11 月 24 日\n                       送出日期：2026 年 11 月 24 日\n          本概要提供本基金的重要信息，是招募说明书的一部分。\n          作出投资决定前，请阅读完整的招募说明书等销售文件。\n\n一、产品概况\n基金简称      华泰柏瑞沪深 300ETF        基金代码              510300\n基金管理人     华泰柏瑞基金管理有限公司         基金托管人             中国工商银行股份有限公司\n                                                 上海证券交        2012 年 05\n基金合同生效日   2012 年 5 月 4 日       上市交易所及上市日期\n                                                 易所           月 28 日\n基金类型      股票型                  交易币种              人民币\n运作方式      普通开放式                开放频率              每个开放日\n                               开始担任本基金基金经\n                                                 2012 年 05 月 04 日",
+        "bodyScope": "provider-summary",
+        "bodyHash": "f5d9b47292b875de4af941f8837c59b02ca1a3335eeae380809426b1a1f198c8",
+        "securities": [
+          "510300"
+        ],
+        "publishedAt": null,
+        "receivedAt": 1795816826154,
+        "revisedAt": null,
+        "uncertainty": [
+          "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+          "LOCAL_CLOCK_NOT_ATTESTED",
+          "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+          "SUMMARY_ONLY"
+        ]
+      },
+      "canTrade": false,
+      "canTrain": false,
+      "canNotify": false,
+      "independentlyVerified": false,
+      "externallyTimestampCertified": false,
+      "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+      "current": true,
+      "associated": true,
+      "eligibleForResearchSupport": false,
+      "usableAsResearchSupport": false,
+      "supportStatus": "unknown"
+    },
+    {
+      "schemaVersion": 1,
+      "sequence": 1,
+      "previousHash": null,
+      "recordedAt": 1795817680990,
+      "evidence": {
+        "schemaVersion": 1,
+        "source": "spdb-2025-summary",
+        "eventId": "security-type-page1",
+        "sourceRevisionId": "pdf-811461c1bc1a050f10af0357c1c790c8137898c6709f35803f4d9d9a6328caab",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://news.spdb.com.cn/investor_relation/periodic_report/202603/P020260330690454285467.pdf",
+        "title": "上海浦东发展银行股份有限公司2025年年度报告摘要：证券资料节选",
+        "body": "股票种类         股票上市交易所               股票简称         股票代码            变更前股票简称\n普通股 A 股                            浦发银行           600000           -\n             上海证券交易所               浦发优 1          360003           -\n优先股\n                                   浦发优 2          360008           -",
+        "bodyScope": "provider-summary",
+        "bodyHash": "631e603aa85e28398b0df44464915cf661711f0a76638e6ce1e273cfd7281a76",
+        "securities": [
+          "360003",
+          "360008",
+          "600000"
+        ],
+        "publishedAt": null,
+        "receivedAt": 1795816827756,
+        "revisedAt": null,
+        "uncertainty": [
+          "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+          "LOCAL_CLOCK_NOT_ATTESTED",
+          "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+          "SUMMARY_ONLY"
+        ]
+      },
+      "canTrade": false,
+      "canTrain": false,
+      "canNotify": false,
+      "independentlyVerified": false,
+      "externallyTimestampCertified": false,
+      "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+      "current": true,
+      "associated": true,
+      "eligibleForResearchSupport": false,
+      "usableAsResearchSupport": false,
+      "supportStatus": "unknown"
+    }
+  ],
+  "projection": {
+    "status": "bounded-evidence",
+    "rows": [
+      {
+        "row": {
+          "schemaVersion": 1,
+          "sequence": 3,
+          "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+          "recordedAt": 1795817680990,
+          "evidence": {
+            "schemaVersion": 1,
+            "source": "spdb-preference-dividend",
+            "eventId": "security-type-page1",
+            "sourceRevisionId": "pdf-2f37bd20aeb20f002a9b837ce4bd97590d3c7acb0338cd00a8bf3a35763dcdd7",
+            "kind": "original",
+            "supersedes": null,
+            "url": "https://news.spdb.com.cn/investor_relation/company_report/202511/P020251125627943429601.pdf",
+            "title": "上海浦东发展银行股份有限公司 优先股一期股息发放实施公告",
+            "body": "公告编号：临2025-073\n证券代码：600000               证券简称：浦发银行\n优先股代码：360003 360008       优先股简称：浦发优1 浦发优2\n\n\n\n\n           上海浦东发展银行股份有限公司\n\n              优先股一期股息发放实施公告",
+            "bodyScope": "provider-summary",
+            "bodyHash": "d0f4ee36f2110f765b989dc3368c3f9a6a2404dfcdfc462564007cc194661e88",
+            "securities": [
+              "360003",
+              "360008",
+              "600000"
+            ],
+            "publishedAt": null,
+            "receivedAt": 1795817536361,
+            "revisedAt": null,
+            "uncertainty": [
+              "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+              "LOCAL_CLOCK_NOT_ATTESTED",
+              "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+              "SUMMARY_ONLY"
+            ]
+          },
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false,
+          "independentlyVerified": false,
+          "externallyTimestampCertified": false,
+          "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+          "current": true,
+          "associated": true,
+          "eligibleForResearchSupport": false,
+          "usableAsResearchSupport": false,
+          "supportStatus": "unknown"
+        },
+        "versions": [
+          {
+            "schemaVersion": 1,
+            "sequence": 3,
+            "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+            "recordedAt": 1795817680990,
+            "evidence": {
+              "schemaVersion": 1,
+              "source": "spdb-preference-dividend",
+              "eventId": "security-type-page1",
+              "sourceRevisionId": "pdf-2f37bd20aeb20f002a9b837ce4bd97590d3c7acb0338cd00a8bf3a35763dcdd7",
+              "kind": "original",
+              "supersedes": null,
+              "url": "https://news.spdb.com.cn/investor_relation/company_report/202511/P020251125627943429601.pdf",
+              "title": "上海浦东发展银行股份有限公司 优先股一期股息发放实施公告",
+              "body": "公告编号：临2025-073\n证券代码：600000               证券简称：浦发银行\n优先股代码：360003 360008       优先股简称：浦发优1 浦发优2\n\n\n\n\n           上海浦东发展银行股份有限公司\n\n              优先股一期股息发放实施公告",
+              "bodyScope": "provider-summary",
+              "bodyHash": "d0f4ee36f2110f765b989dc3368c3f9a6a2404dfcdfc462564007cc194661e88",
+              "securities": [
+                "360003",
+                "360008",
+                "600000"
+              ],
+              "publishedAt": null,
+              "receivedAt": 1795817536361,
+              "revisedAt": null,
+              "uncertainty": [
+                "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+                "LOCAL_CLOCK_NOT_ATTESTED",
+                "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+                "SUMMARY_ONLY"
+              ]
+            },
+            "canTrade": false,
+            "canTrain": false,
+            "canNotify": false,
+            "independentlyVerified": false,
+            "externallyTimestampCertified": false,
+            "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+            "current": true,
+            "associated": true,
+            "eligibleForResearchSupport": false,
+            "usableAsResearchSupport": false,
+            "supportStatus": "unknown"
+          }
+        ],
+        "knownAt": 1795817680990,
+        "subjects": [
+          "360003",
+          "360008",
+          "600000"
+        ],
+        "clues": [
+          {
+            "label": "披露字样（未核实）",
+            "quote": "公告"
+          }
+        ],
+        "amounts": [],
+        "securityIdentity": {
+          "status": "source-mentions",
+          "rows": [
+            {
+              "symbol": "360003",
+              "type": "preferred-share",
+              "label": "优先股",
+              "status": "source-claim",
+              "quotes": [
+                "优先股代码：360003 360008       优先股简称：浦发优1 浦发优2"
+              ]
+            },
+            {
+              "symbol": "360008",
+              "type": "preferred-share",
+              "label": "优先股",
+              "status": "source-claim",
+              "quotes": [
+                "优先股代码：360003 360008       优先股简称：浦发优1 浦发优2"
+              ]
+            },
+            {
+              "symbol": "600000",
+              "type": null,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            }
+          ],
+          "note": "仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "effectiveAt": null,
+        "effectiveDate": null,
+        "effectiveQuote": null,
+        "formalDisclosure": "未独立核实",
+        "chainComplete": true,
+        "missing": [
+          "独立正式披露核验、主体名称及行业归属待核对",
+          "金额与有效时间必须由原文语境核验，不能由关键词认定",
+          "持仓、冻结计划及交易状态未接入本新闻投影",
+          "原始发布时间未知",
+          "完整原文待核对"
+        ],
+        "revisionStatus": "原始记录",
+        "researchOnly": true,
+        "canTrade": false,
+        "canNotify": false
+      },
+      {
+        "row": {
+          "schemaVersion": 1,
+          "sequence": 2,
+          "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+          "recordedAt": 1795817680990,
+          "evidence": {
+            "schemaVersion": 1,
+            "source": "510300-product-summary",
+            "eventId": "security-type-page1",
+            "sourceRevisionId": "pdf-75920ec2b7b297efa88962beec1e8f23ded5a9812c73e5a1fbe1d47c55b88bdf",
+            "kind": "original",
+            "supersedes": null,
+            "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-24/510300_20261124_2XJH.pdf",
+            "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金 基金产品资料概要更新",
+            "body": "          华泰柏瑞沪深 300 交易型开放式指数证券投资基金\n\n                           基金产品资料概要更新\n                                               编制日期：2026 年 11 月 24 日\n                       送出日期：2026 年 11 月 24 日\n          本概要提供本基金的重要信息，是招募说明书的一部分。\n          作出投资决定前，请阅读完整的招募说明书等销售文件。\n\n一、产品概况\n基金简称      华泰柏瑞沪深 300ETF        基金代码              510300\n基金管理人     华泰柏瑞基金管理有限公司         基金托管人             中国工商银行股份有限公司\n                                                 上海证券交        2012 年 05\n基金合同生效日   2012 年 5 月 4 日       上市交易所及上市日期\n                                                 易所           月 28 日\n基金类型      股票型                  交易币种              人民币\n运作方式      普通开放式                开放频率              每个开放日\n                               开始担任本基金基金经\n                                                 2012 年 05 月 04 日",
+            "bodyScope": "provider-summary",
+            "bodyHash": "f5d9b47292b875de4af941f8837c59b02ca1a3335eeae380809426b1a1f198c8",
+            "securities": [
+              "510300"
+            ],
+            "publishedAt": null,
+            "receivedAt": 1795816826154,
+            "revisedAt": null,
+            "uncertainty": [
+              "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+              "LOCAL_CLOCK_NOT_ATTESTED",
+              "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+              "SUMMARY_ONLY"
+            ]
+          },
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false,
+          "independentlyVerified": false,
+          "externallyTimestampCertified": false,
+          "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+          "current": true,
+          "associated": true,
+          "eligibleForResearchSupport": false,
+          "usableAsResearchSupport": false,
+          "supportStatus": "unknown"
+        },
+        "versions": [
+          {
+            "schemaVersion": 1,
+            "sequence": 2,
+            "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+            "recordedAt": 1795817680990,
+            "evidence": {
+              "schemaVersion": 1,
+              "source": "510300-product-summary",
+              "eventId": "security-type-page1",
+              "sourceRevisionId": "pdf-75920ec2b7b297efa88962beec1e8f23ded5a9812c73e5a1fbe1d47c55b88bdf",
+              "kind": "original",
+              "supersedes": null,
+              "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-24/510300_20261124_2XJH.pdf",
+              "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金 基金产品资料概要更新",
+              "body": "          华泰柏瑞沪深 300 交易型开放式指数证券投资基金\n\n                           基金产品资料概要更新\n                                               编制日期：2026 年 11 月 24 日\n                       送出日期：2026 年 11 月 24 日\n          本概要提供本基金的重要信息，是招募说明书的一部分。\n          作出投资决定前，请阅读完整的招募说明书等销售文件。\n\n一、产品概况\n基金简称      华泰柏瑞沪深 300ETF        基金代码              510300\n基金管理人     华泰柏瑞基金管理有限公司         基金托管人             中国工商银行股份有限公司\n                                                 上海证券交        2012 年 05\n基金合同生效日   2012 年 5 月 4 日       上市交易所及上市日期\n                                                 易所           月 28 日\n基金类型      股票型                  交易币种              人民币\n运作方式      普通开放式                开放频率              每个开放日\n                               开始担任本基金基金经\n                                                 2012 年 05 月 04 日",
+              "bodyScope": "provider-summary",
+              "bodyHash": "f5d9b47292b875de4af941f8837c59b02ca1a3335eeae380809426b1a1f198c8",
+              "securities": [
+                "510300"
+              ],
+              "publishedAt": null,
+              "receivedAt": 1795816826154,
+              "revisedAt": null,
+              "uncertainty": [
+                "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+                "LOCAL_CLOCK_NOT_ATTESTED",
+                "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+                "SUMMARY_ONLY"
+              ]
+            },
+            "canTrade": false,
+            "canTrain": false,
+            "canNotify": false,
+            "independentlyVerified": false,
+            "externallyTimestampCertified": false,
+            "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+            "current": true,
+            "associated": true,
+            "eligibleForResearchSupport": false,
+            "usableAsResearchSupport": false,
+            "supportStatus": "unknown"
+          }
+        ],
+        "knownAt": 1795817680990,
+        "subjects": [
+          "510300"
+        ],
+        "clues": [],
+        "amounts": [],
+        "securityIdentity": {
+          "status": "source-mentions",
+          "rows": [
+            {
+              "symbol": "510300",
+              "type": "etf",
+              "label": "ETF基金",
+              "status": "source-claim",
+              "quotes": [
+                "华泰柏瑞沪深300交易型开放式指数证券投资基金 基金产品资料概要更新\n基金简称      华泰柏瑞沪深 300ETF        基金代码              510300"
+              ]
+            }
+          ],
+          "note": "仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "effectiveAt": null,
+        "effectiveDate": null,
+        "effectiveQuote": null,
+        "formalDisclosure": "未独立核实",
+        "chainComplete": true,
+        "missing": [
+          "独立正式披露核验、主体名称及行业归属待核对",
+          "金额与有效时间必须由原文语境核验，不能由关键词认定",
+          "持仓、冻结计划及交易状态未接入本新闻投影",
+          "原始发布时间未知",
+          "完整原文待核对"
+        ],
+        "revisionStatus": "原始记录",
+        "researchOnly": true,
+        "canTrade": false,
+        "canNotify": false
+      },
+      {
+        "row": {
+          "schemaVersion": 1,
+          "sequence": 1,
+          "previousHash": null,
+          "recordedAt": 1795817680990,
+          "evidence": {
+            "schemaVersion": 1,
+            "source": "spdb-2025-summary",
+            "eventId": "security-type-page1",
+            "sourceRevisionId": "pdf-811461c1bc1a050f10af0357c1c790c8137898c6709f35803f4d9d9a6328caab",
+            "kind": "original",
+            "supersedes": null,
+            "url": "https://news.spdb.com.cn/investor_relation/periodic_report/202603/P020260330690454285467.pdf",
+            "title": "上海浦东发展银行股份有限公司2025年年度报告摘要：证券资料节选",
+            "body": "股票种类         股票上市交易所               股票简称         股票代码            变更前股票简称\n普通股 A 股                            浦发银行           600000           -\n             上海证券交易所               浦发优 1          360003           -\n优先股\n                                   浦发优 2          360008           -",
+            "bodyScope": "provider-summary",
+            "bodyHash": "631e603aa85e28398b0df44464915cf661711f0a76638e6ce1e273cfd7281a76",
+            "securities": [
+              "360003",
+              "360008",
+              "600000"
+            ],
+            "publishedAt": null,
+            "receivedAt": 1795816827756,
+            "revisedAt": null,
+            "uncertainty": [
+              "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+              "LOCAL_CLOCK_NOT_ATTESTED",
+              "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+              "SUMMARY_ONLY"
+            ]
+          },
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false,
+          "independentlyVerified": false,
+          "externallyTimestampCertified": false,
+          "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+          "current": true,
+          "associated": true,
+          "eligibleForResearchSupport": false,
+          "usableAsResearchSupport": false,
+          "supportStatus": "unknown"
+        },
+        "versions": [
+          {
+            "schemaVersion": 1,
+            "sequence": 1,
+            "previousHash": null,
+            "recordedAt": 1795817680990,
+            "evidence": {
+              "schemaVersion": 1,
+              "source": "spdb-2025-summary",
+              "eventId": "security-type-page1",
+              "sourceRevisionId": "pdf-811461c1bc1a050f10af0357c1c790c8137898c6709f35803f4d9d9a6328caab",
+              "kind": "original",
+              "supersedes": null,
+              "url": "https://news.spdb.com.cn/investor_relation/periodic_report/202603/P020260330690454285467.pdf",
+              "title": "上海浦东发展银行股份有限公司2025年年度报告摘要：证券资料节选",
+              "body": "股票种类         股票上市交易所               股票简称         股票代码            变更前股票简称\n普通股 A 股                            浦发银行           600000           -\n             上海证券交易所               浦发优 1          360003           -\n优先股\n                                   浦发优 2          360008           -",
+              "bodyScope": "provider-summary",
+              "bodyHash": "631e603aa85e28398b0df44464915cf661711f0a76638e6ce1e273cfd7281a76",
+              "securities": [
+                "360003",
+                "360008",
+                "600000"
+              ],
+              "publishedAt": null,
+              "receivedAt": 1795816827756,
+              "revisedAt": null,
+              "uncertainty": [
+                "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+                "LOCAL_CLOCK_NOT_ATTESTED",
+                "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+                "SUMMARY_ONLY"
+              ]
+            },
+            "canTrade": false,
+            "canTrain": false,
+            "canNotify": false,
+            "independentlyVerified": false,
+            "externallyTimestampCertified": false,
+            "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+            "current": true,
+            "associated": true,
+            "eligibleForResearchSupport": false,
+            "usableAsResearchSupport": false,
+            "supportStatus": "unknown"
+          }
+        ],
+        "knownAt": 1795817680990,
+        "subjects": [
+          "360003",
+          "360008",
+          "600000"
+        ],
+        "clues": [
+          {
+            "label": "进展字样",
+            "quote": "变更"
+          }
+        ],
+        "amounts": [],
+        "securityIdentity": {
+          "status": "source-mentions",
+          "rows": [
+            {
+              "symbol": "360003",
+              "type": null,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "360008",
+              "type": null,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600000",
+              "type": "ordinary-a-share",
+              "label": "普通股A股",
+              "status": "source-claim",
+              "quotes": [
+                "普通股 A 股                            浦发银行           600000"
+              ]
+            }
+          ],
+          "note": "仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "effectiveAt": null,
+        "effectiveDate": null,
+        "effectiveQuote": null,
+        "formalDisclosure": "未独立核实",
+        "chainComplete": true,
+        "missing": [
+          "独立正式披露核验、主体名称及行业归属待核对",
+          "金额与有效时间必须由原文语境核验，不能由关键词认定",
+          "持仓、冻结计划及交易状态未接入本新闻投影",
+          "原始发布时间未知",
+          "完整原文待核对"
+        ],
+        "revisionStatus": "原始记录",
+        "researchOnly": true,
+        "canTrade": false,
+        "canNotify": false
+      }
+    ],
+    "excluded": 0,
+    "missing": [
+      "仅使用本次返回的档案版本；不代表全部新闻或完整历史"
+    ],
+    "canTrade": false
+  }
+}

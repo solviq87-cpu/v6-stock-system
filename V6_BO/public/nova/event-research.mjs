@@ -1,3 +1,48 @@
+// Bounded original-text clues only. No security-master or trading qualification.
+export function projectSecurityIdentity(e,{active=true}={}){
+  const flags={sourceVerified:false,canQualify:false,canTrade:false,canTrain:false,canNotify:false};
+  const labels={'ordinary-a-share':'普通股A股','preferred-share':'优先股',etf:'ETF基金','convertible-bond':'可转换债券'};
+  const unknown=()=>({status:'unknown',rows:[],note:'原文范围或证券关联无效',...flags});
+  if(!e||typeof e.body!=='string'||e.body.length>50000||!Array.isArray(e.securities)||e.securities.length>100||
+    Array.from(e.securities,(c,i)=>!Object.hasOwn(e.securities,i)||typeof c!=='string'||!/^\d{6}$/.test(c)).some(Boolean)||new Set(e.securities).size!==e.securities.length)return unknown();
+  if(e.title!=null&&(typeof e.title!=='string'||e.title.length>1000))return unknown();
+  const body=e.body,title=typeof e.title==='string'?e.title:'',claims=new Map();
+  const add=(symbol,type,quote)=>{
+    if(!e.securities.includes(symbol))return;
+    if(!claims.has(symbol))claims.set(symbol,[]);
+    claims.get(symbol).push({type,quote:quote.trim().slice(0,240)});
+  };
+  // A type on one row cannot be assigned to other codes in the same document.
+  if(/股票种类[ \t]+股票上市交易所[^\n]{0,200}股票代码/.test(body)){
+    for(const match of body.matchAll(/^(普通股[ \t]*A[ \t]*股|优先股)[ \t]{2,}[^\n]{0,180}?[ \t]{2,}(\d{6})(?:[ \t]{2,}|$)/gm)){
+      const codes=match[0].match(/(?<!\d)\d{6}(?!\d)/g)||[];
+      if(codes.length===1)add(match[2],match[1].startsWith('普通股')?'ordinary-a-share':'preferred-share',match[0]);
+    }
+  }
+  for(const match of body.matchAll(/^[ \t]*(优先股代码|转债代码|可转换公司债券代码)[：:][ \t]*([^\n]{1,100}(?:\n[ \t]*\d{6}[ \t]*){0,3})/gm)){
+    const value=match[2].split(/(?:优先股简称|转债简称|证券简称|公告编号)[：:]/,1)[0];
+    const tokens=value.trim().split(/[\s、,，;；]+/);
+    if(tokens.length&&tokens.length<=10&&tokens.every(c=>/^\d{6}$/.test(c)))
+      for(const code of tokens)add(code,match[1]==='优先股代码'?'preferred-share':'convertible-bond',match[0]);
+  }
+  const fundDocument=/交易型开放式指数证券投资基金/.test(title.replace(/\s/g,''))&&
+    /交易型开放式指数证券投资基金/.test(body.slice(0,2000).replace(/\s/g,''));
+  const funds=[...new Set([...body.matchAll(/基金(?:主)?代码[：:]?[ \t]*(\d{6})(?!\d)/g)].map(m=>m[1]))];
+  if(fundDocument&&funds.length===1)add(funds[0],'etf',title+'\n'+body.match(/[^\n]*基金(?:主)?代码[^\n]*/)?.[0]);
+  const ambiguousFund=fundDocument&&funds.length>1;
+  const review=/传闻|谣言|澄清|否认|撤回|更正/.test(title);
+  const rows=e.securities.map(symbol=>{
+    const found=claims.get(symbol)||[],types=[...new Set(found.map(x=>x.type))];
+    const conflict=types.length>1||ambiguousFund&&funds.includes(symbol);
+    const type=types.length===1&&!conflict?types[0]:null;
+    return {symbol,type,label:conflict?'类型冲突，待核对':type?labels[type]:'未从该文档绑定类型',
+      status:!active?'inactive':conflict?'conflict':review?'manual-review':type?'source-claim':'unknown',
+      quotes:[...new Set(found.map(x=>x.quote))].slice(0,3)};
+  });
+  return {status:!active?'inactive':rows.some(x=>x.type)?'source-mentions':'unknown',rows,
+    note:'仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。',...flags};
+}
+
 // Read-only, point-in-time view of existing news journal receipts. No trade or notification API.
 export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={}){
   const validTime=(v)=>Number.isSafeInteger(v)&&v>0&&v<=now;
@@ -51,6 +96,7 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
     if(!e.publishedAt)missing.push('原始发布时间未知');
     if(!body||e.bodyScope==='provider-summary')missing.push('完整原文待核对');
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,
+      securityIdentity:projectSecurityIdentity(e,{active:chainComplete&&row.current!==false&&row.associated!==false&&e.kind!=='retracted'}),
       effectiveAt:null,effectiveDate:effective?.date??null,effectiveQuote:effective?.quote??null,formalDisclosure:disclosure,chainComplete,missing,
       revisionStatus:row.current===false?'已被后续版本替代':row.associated===false?'证券关联已移除':e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
       researchOnly:true,canTrade:false,canNotify:false});

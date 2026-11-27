@@ -72,3 +72,26 @@ FAYO_STUDY_RECEIPTS=/tmp/fayo-membership FAYO_DATED_BROWSER=../docs/validation/f
 ```
 
 输入由脚本从原合成历史生成。主数据的ST、停牌、退市与可用时间边界还通过直接调用原解释验证，真实发行主体和历史资料仍待。回退以本续接前 `bf02b02b7ba87c5948e3caff7924b5aa65f097e9` 恢复代码，保留原账户及研究卷。源回执 `baseline` 为当时Git父提交，`sourceFiles` 是实际运行代码摘要；最终组合和工作流独立绑定精确提交。
+
+## 同一候选续接 · F42.1 证券类型原文线索
+
+复用原本地新闻导入CLI、追加式证据档案、鉴权查询接口及双端“原文证据室”。在原 `event-research.mjs` 中增加有界文本投影，按同一行或明确的证券类型代码字段绑定代码，原页面消费该结果。不增加数据源、注册中心、行情请求、模型或运行依赖。
+
+普通股行不会将类型传播到同表其他代码。明确的优先股/转债代码字段可以包含多个代码或代码续行。基金类型“股票型”不作为公司普通股依据；ETF需基金文档及唯一基金代码共同出现。重复冲突、多个基金代码、缺字段、畸形关联或仅有代码前缀时保留未知。旧版本、撤稿及被移除关联显示停用状态，按原归档截点回看。
+
+七组新增能力用例在实现前不支持，既有四项通过；实现后补充并列字段和畸形输入边界，共12项通过。原新闻档案、鉴权、隐私与事件投影相关专项共30项通过，静态检查通过。源工程完整回归8052项通过，零失败、零跳过。完整工程和当前提交CI分别按最终版本记录。
+
+真实公开文件节选已送入原CLI及原鉴权接口，并在电脑/手机原页面读取。年报表的600000得到普通股A股线索，表内360003/360008保持未知；另一份发行主体公告的明确优先股代码字段将360003/360008分别绑定为优先股，公告中的600000保持未知；基金概要中的510300得到ETF线索。没有通过证券简称或代码前缀猜类型。
+
+三份文件来自实际公开PDF字节；字节指纹、实际收件、文字节选范围及归档可知时间分别保存。全部原始发布时间时分为未知，CLI导入并未伪造。归档前一个毫秒的原截点查不到新档案，查看者无法读取。此前补取的上交所公告HTTP200返回HTML，按不可用记录；后续使用独立公开的发行主体公告，未绕过验证页面。
+
+本层始终 `sourceVerified=false`、`canQualify=false`、`canTrade=false`、`canTrain=false`、`canNotify=false`，用于研究阅读，不写证券主数据或股票池资格。交易所、板块、完整有效期及独立资料认证尚未完成。原文档可能是历史资料，不证明当前证券仍可交易。全部启用仍按原权限及总管集成。
+
+从 `V6_BO` 复验，先建立输出目录。
+
+```bash
+node --test --test-reporter=tap tests/fayo-event-research.test.mjs tests/news-evidence-journal.test.js tests/news-evidence-http.test.js tests/news-evidence-ui-privacy.test.js
+FAYO_STUDY_RECEIPTS=/tmp/fayo-types FAYO_DATED_BROWSER=../docs/validation/fayo-dated-rules-20261127/type-browser.py node ../docs/validation/fayo-dated-rules-20261127/type-native.cjs
+```
+
+输入 `type-news-input.json` 为原始页内字样节选，`bodyScope=provider-summary`，页面显示“摘要或节选”。`type-source-receipts.json` 指向PDF摘要及来源；原PDF在独立验收包保存。源运行`baseline`是当时Git父提交，实际源码摘要位于回执。回退可用本续接前 `a4f4ed47048689ee02e47ecd40cafd26ec2ce80f` 恢复代码，保留原新闻、账户及研究数据卷。

@@ -316,7 +316,11 @@ function evidence(ctx){
     if(projection.status==='unknown')return root;
     for(const event of projection.rows){
       const row=event.row;
-      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'供应商摘要':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'摘要或节选':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const identity=event.securityIdentity;
+      if(identity?.rows.some(x=>x.type||x.status==='conflict'))card.append(box('证券类型线索','原文声明，正式证券身份未核实',
+        facts(identity.rows.map(x=>[x.symbol,x.label+' · '+({inactive:'旧版本，当前停用',conflict:'冲突待核对','manual-review':'需人工复核','source-claim':'原文字样',unknown:'未知'}[x.status]||'未知')])),
+        n('p',identity.note,'fy-note'),detail('查看类型原文片段',...identity.rows.filter(x=>x.quotes.length).map(x=>n('p',x.symbol+' · '+x.quotes.join('；'))))));
       card.append(detail('分析线索与待核实事项',facts(event.clues.map(x=>[x.label,x.quote])),n('p',event.missing.join('；'),'fy-muted'),n('p','关键词仅供核对，不代表利好、利空或执行资格。','fy-note')));
       if(e.url)card.append(linked('查看原始来源',e.url));
       card.append(detail('正文与版本链',n('p',e.body||'正文缺失'),facts([['版本',row.sequence],['原文指纹',e.bodyHash],['前版',e.supersedes],['不确定性',arr(e.uncertainty).join('；')]]),
