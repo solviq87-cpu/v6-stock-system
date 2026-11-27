@@ -1,33 +1,37 @@
 'use strict';
-const {candidateRationale} = require('./candidate-rationale');
+const {candidateRationale,compareResearchPriority}=require('./candidate-rationale');
 function annotateScanReport(report, {stocks = [], now = report?.asOf} = {}) {
   if (!report || !Array.isArray(report.items) || !Array.isArray(stocks) ||
       typeof now !== 'number' || !Number.isFinite(now) || now <= 0) throw Error('候选解释输入或时点无效');
   const sources = new Map(), ambiguous = new Set();
   for (const stock of stocks) {
-    const code = String(stock?.symbol || stock?.code || '');
+    const code=stock?.symbol??stock?.code;
+    if(typeof code!=='string'||stock?.symbol!=null&&stock?.code!=null&&stock.symbol!==stock.code)continue;
     if (!/^\d{6}$/.test(code)) continue;
     if (sources.has(code)) {sources.delete(code); ambiguous.add(code);}
     else if (!ambiguous.has(code)) sources.set(code, stock);
   }
-  const items = report.items.map(item => ({...item,
-    rationale: candidateRationale(item, {stock: sources.get(item.symbol), asOf: now})}));
+  const counts=new Map();
+  for(const item of report.items)counts.set(item?.symbol,(counts.get(item?.symbol)||0)+1);
+  const items=report.items.map(item=>{
+    const sourceStatus=ambiguous.has(item.symbol)||counts.get(item.symbol)!==1?'ambiguous':
+      sources.has(item.symbol)?'unique':'unknown';
+    return {...item,rationale:candidateRationale(item,{stock:sources.get(item.symbol),asOf:now,sourceStatus})};
+  });
   const researchWatchlist = items.filter(item => item.rationale.selection.watchEligible)
-    .sort((a, b) => b.rationale.selection.independentFamilyCount - a.rationale.selection.independentFamilyCount ||
-      b.rationale.selection.ruleCount - a.rationale.selection.ruleCount ||
-      (b.score ?? -1) - (a.score ?? -1) || a.symbol.localeCompare(b.symbol))
+    .sort(compareResearchPriority)
     .map(item => ({symbol:item.symbol, name:item.name,
       officialCandidate:item.rationale.selection.officialCandidate,
       matchedRuleCount:item.rationale.selection.ruleCount,
       independentFamilyCount:item.rationale.selection.independentFamilyCount,
       matchedRules:item.rationale.selection.rules.map(rule => ({id:rule.id,name:rule.name})),
       explanation:item.rationale.selection.explanation,
-      riskCount:item.rationale.risks.length,
+      riskCount:item.rationale.risks.length,reviewPriority:item.rationale.reviewPriority,
       dataSource:item.quality?.source || null,
       asOf: item.rationale.asOf,
       note:'研究观察池，不承诺上涨或交易可执行'}));
   return {...report, items, researchWatchlist,
-    rationaleVersion: '20261108-research1',
+    rationaleVersion:'20261127-research2',
     rationaleNote:'按已提供的原策略、K线、板块、公告和风险证据解释；价格上涨原因未独立证实，不对外实盘下单'};
 }
 function scanUniverseWithRationale(input = {}) {

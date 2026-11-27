@@ -247,7 +247,8 @@ function readProbabilityResearch(root, {scope = 'formal', asOf = Date.now()} = {
       validationCalibrated:s.evaluation.validationCalibrated, calibratedCoverage:s.evaluation.calibratedCoverage,
       expectedCalibration:s.evaluation.expectedCalibration??null,scheduledPurgedCalibration:s.evaluation.scheduledPurgedCalibration??null,
       calibrationCoverage:s.evaluation.calibrationCoverage??null,completeCalibrationEvidence:s.evaluation.completeCalibrationEvidence??null,
-      comparisonOnIdenticalRows:s.evaluation.comparisonOnIdenticalRows, exclusions:s.evaluation.exclusions,
+      comparisonOnIdenticalRows:s.evaluation.comparisonOnIdenticalRows, validationWindowClosed:s.evaluation.validationWindowClosed??null,
+       pairedComparison:s.evaluation.pairedComparison??null, exclusions:s.evaluation.exclusions,
       sourceRecheck:s.evaluation.sourceRecheck,uncertaintyMethod:s.evaluation.uncertaintyMethod} : null, ...FLAGS}));
   return {schemaVersion:1, mode:PROTOCOL, scope, asOf, status:states.length ? 'observed-private-research-history' : 'missing-evidence',
     registeredPlans:states.length, predictions:states.reduce((sum,s) => sum + s.predictions.length, 0),

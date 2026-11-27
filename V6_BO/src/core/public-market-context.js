@@ -22,16 +22,23 @@ function empty(status='unknown'){return {status,source:'eastmoney',records:[],un
 function flowParams(secid,days,market=false){return {lmt:String(days),klt:'101',secid,...(market?{secid2:'0.399001'}:{}),fields1:'f1,f2,f3,f7',fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63,f64,f65',ut:'b2884a393a59ad64002292a3e90d46a5'};}
 function parseFlow(json,{date,historyDays,kind}){
  const rows=json?.data?.klines;if(json?.rc!==0||!Array.isArray(rows)||rows.length>2000)throw Error('资金流响应缺少有效klines或返回错误');
- const records=[],seen=new Set();let invalidCount=0;
+ const records=[],seen=new Set(),duplicateDays=new Set();let invalidCount=0;
  for(const row of rows){
-  const parts=typeof row==='string'?row.split(','):[];if(parts.length!==15||!dateOK(parts[0])||seen.has(parts[0])){invalidCount++;continue;}seen.add(parts[0]);if(parts[0]>date)continue;
+  const parts=typeof row==='string'?row.split(','):[];
+  if(!dateOK(parts[0])){invalidCount++;continue;}
+  if(seen.has(parts[0])){invalidCount++;duplicateDays.add(parts[0]);continue;}
+  seen.add(parts[0]);
+  if(parts.length!==15){invalidCount++;continue;}
+  if(parts[0]>date)continue;
   const values=parts.slice(1).map(number),record={tradeDate:parts[0],mainNetInflow:values[0],smallNetInflow:values[1],midNetInflow:values[2],bigNetInflow:values[3],superNetInflow:values[4],mainNetInflowPct:values[5],smallNetInflowPct:values[6],midNetInflowPct:values[7],bigNetInflowPct:values[8],superNetInflowPct:values[9]};
   if(kind==='market'){record.shanghaiClose=values[10];record.shanghaiChangePct=values[11];record.shenzhenClose=values[12];record.shenzhenChangePct=values[13];}
   if(kind==='stock'){record.close=values[10];record.changePct=values[11];}
   records.push(record);
  }
- records.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));const selected=records.slice(-historyDays);
- return {...empty(),status:selected.length?'observed-unverified':'unknown',records:selected,fetchedCount:rows.length,selectedCount:selected.length,totalCount:null,partial:invalidCount?true:null,invalidCount,lastTradeDate:selected.at(-1)?.tradeDate||null,matchesRequestedDate:selected.at(-1)?.tradeDate===date,completeness:'upstream-does-not-declare-total-history',fieldMappingSource:SOURCES.flow};
+ records.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
+ // Do not resolve ambiguous daily evidence by choosing an arbitrary first row.
+ const selected=records.filter(r=>!duplicateDays.has(r.tradeDate)).slice(-historyDays);
+ return {...empty(),status:selected.length?'observed-unverified':'unknown',records:selected,fetchedCount:rows.length,selectedCount:selected.length,totalCount:null,partial:invalidCount?true:null,invalidCount,duplicateTradeDates:[...duplicateDays].sort(),lastTradeDate:selected.at(-1)?.tradeDate||null,matchesRequestedDate:selected.at(-1)?.tradeDate===date,completeness:'upstream-does-not-declare-total-history',fieldMappingSource:SOURCES.flow};
 }
 function poolTime(value){const n=number(value);if(n===null||!Number.isInteger(n))return null;const s=String(n).padStart(6,'0');return s.length===6&&+s.slice(0,2)<24&&+s.slice(2,4)<60&&+s.slice(4,6)<60?s:null;}
 function parsePool(json,{date,kind}){

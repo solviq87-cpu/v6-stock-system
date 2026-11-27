@@ -27,7 +27,7 @@ function seedSource(){
     if(!S.decisionBrowserSeedRows){
       const day='${day}',at=Date.now();
       const rows=Array.from({length:3},(_,i)=>({code:String(600000+i),name:'隔离决策验证'+(i+1),price:10.4+i,pct:4,
-        preClose:10+i,open:10.3+i,high:10.6+i,low:10.2+i,volume:1000000,amount:(10.4+i)*1000000,
+        preClose:10+i,open:10.3+i,high:10.4+i,low:10.2+i,volume:1000000,amount:(10.4+i)*1000000,
         score:88-i,paths:['横盘放量'],pathWhy:{横盘放量:'隔离验证中的原策略量价依据'},poolDay:day,sector:i===1?'银行':'芯片',themes:i===1?['消费电子']:[],
         baziDims:{trend:82,fund:78},baziWhy:{trend:['原均线方向向上','原量价条件成立']},
         quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,quoteAt:at-1000,receivedAt:at-500}));
@@ -40,7 +40,7 @@ function seedSource(){
       S.sectorsDay=day.replaceAll('-','');S.sectorsAt=at-1000;
       for(const [i,row] of rows.entries()){
         const bars=Array.from({length:30},(_,n)=>({date:new Date(Date.parse(day)-(29-n)*86400000).toISOString().slice(0,10),
-          open:10.2+i,high:11+i,low:10+i,close:10.2+i,volume:100000,amount:(10.2+i)*100000}));
+          open:10.2+i,high:n===29?row.high:11.6+i,low:10+i,close:10.2+i,volume:100000,amount:(10.2+i)*100000}));
         klineSet(row.code,{rows:bars,src:'tencent',adjust:'qfq',receivedAt:at-2000});
       }
     }
@@ -70,6 +70,13 @@ async function run(){
   const ledgers=ledgerPaths.map(file=>fs.readFileSync(file));
   const authority=(await fixture.request('/api/decision-center')).body;
   assert.equal(authority.authority,'fayo-decision-center');assert.equal(authority.cards.length,3,JSON.stringify(authority.reasons));
+  // The successful browser fixtures must qualify through original levels, not
+  // merely through fabricated UI cards or a relaxed chase-risk gate.
+  for(const card of authority.cards){
+   assert.equal(card.plan.riskReward.status,'meets-gross-discipline');
+   assert.ok(card.plan.riskReward.ratio>=2);
+   assert.equal(card.plan.buyHigh,card.quoteBasis.price);
+  }
   const brief=(await fixture.request('/api/state')).body;
   assert.equal(brief.sectors.some(row=>row.name==='银行'),false,'selected bank is outside the original top-20 brief');
   const complete=(await fixture.request('/api/decision-sector-context?date='+day)).body;
@@ -300,7 +307,7 @@ async function run(){
     for(const rejected of ['tampered-plan','stale-package']){
      mode=rejected;await page.reload({waitUntil:'domcontentloaded'});
      await page.locator('.fy-decision-empty').waitFor({timeout:5000});
-     const reason=rejected==='tampered-plan'?'完整计划未通过复核':'日期或时点已失效';
+     const reason=rejected==='stale-package'?'日期或时点已失效':'完整计划未通过复核';
      await page.waitForFunction(message=>document.querySelector('.fy-decision-empty')?.textContent.includes(message),reason,{timeout:5000});
      assert.equal(await page.locator('.fy-decision-card').count(),0,rejected+' never produces cards');
      report.rejections.push({path:viewport.path,case:rejected,text:await page.locator('.fy-decision-empty').innerText()});

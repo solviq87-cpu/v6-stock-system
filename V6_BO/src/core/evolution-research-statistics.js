@@ -8,7 +8,8 @@ const { validateDataset, validateBacktestConfig } = require('./historical-valida
 const { ledgerBacktest } = require('../strategy/research-v2-position-ledger-backtest');
 const { universeObservation } = require('./historical-universe');
 const { assertUnadjustedExecutionPriceBasis } = require('./historical-execution-price-basis');
-const { isTestSample, sampleMatches } = require('../../public/nova/shortline/sample-quality.mjs');
+const { isTestSample, isLearningTestSample, sampleMatches } = require('../../public/nova/shortline/sample-quality.mjs');
+const { isDeepStrictEqual } = require('node:util');
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const date = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x)) && new Date(x).toISOString().slice(0, 10) === x;
 const stamp = x => Number.isSafeInteger(x) && x >= 0 && x <= 8640000000000000 - 86400000;
@@ -22,10 +23,19 @@ const unavailable = (reason, extra = {}) => report({ status: 'not-evaluated', re
 // settlement source "V6 模拟成交". Never discard legitimate paper receipts merely
 // because their display label contains the Chinese word for simulation.
 function testObservation(row) {
-  return !!row && (isTestSample(row) || row.simulated === true || row.synthetic === true || row.mock === true || row.sampleSet === 'demo' ||
+  return !!row && (isLearningTestSample(row) || row.simulated === true || row.synthetic === true || row.mock === true || row.sampleSet === 'demo' ||
     ['source', 'sampleSource', 'provider', 'provenance'].some(k => /synthetic|fixture|mock|demo|simulated|教学|测试|(?:^|[-_:/ .])test(?:$|[-_:/ .])/i.test(String(row[k] || ''))) ||
     /^合成验证股票/.test(row.name || ''));
 }
+// A non-levered long, unadjusted open-to-open paper estimate with nonnegative
+// modeled fees cannot lose more than 100% or improve on its gross return.
+// No upper-return threshold is invented: source prices still require external review.
+const validPaperReturn = x => finite(x) && x >= -100;
+const validPaperOutcome = row => row.status === 'paper-estimate' &&
+  validPaperReturn(row.netReturnPct) && validPaperReturn(row.priceReturnPct) &&
+  row.netReturnPct <= row.priceReturnPct + 1e-8;
+const validIdentityLabel = (v, max) => typeof v === 'string' && v.length > 0 && v.length <= max &&
+  v.trim() === v && !/[\x00-\x1f\x7f]/.test(v);
 const costs = ({ feeBps = 8, slippageBps = 10, sellTaxBps = 5 } = {}) => {
   if (![feeBps, slippageBps, sellTaxBps].every(x => finite(x) && x >= 0 && x <= 1000)) throw Error('费用/滑点必须为 0 至 1000 基点的有限数值');
   return { feeBps, slippageBps, sellTaxBps };
@@ -44,27 +54,42 @@ function distribution(values) {
  * A rejected signal contributes cash (zero exposure), while unknown never becomes a rejection. */
 function commonCohorts(rows, { asOf = Date.now(), horizon = 5 } = {}) {
   if (!Array.isArray(rows) || rows.length > 100000 || !stamp(asOf) || ![1, 5, 20, 60].includes(horizon)) throw Error('共同样本参数无效');
-  const candidates = new Map(), exclusions = {};
+  const candidates = new Map(), malformedMembers = new Set(), exclusions = {};
   const skip = reason => { exclusions[reason] = (exclusions[reason] || 0) + 1; };
+  // Resolve an identifiable candidate before validating its mutable contract.
+  // A known malformed version of the same candidate is not harmless absence.
+  const candidateKey = r => typeof r.symbol === 'string' && /^\d{6}$/.test(r.symbol) && date(r.signalDate) &&
+    ['eastmoney', 'tencent', 'native-replay'].includes(r.provider) && /^[a-f0-9]{64}$/.test(r.scopeFingerprint || '') ?
+    JSON.stringify([r.symbol, r.signalDate, r.provider, r.scopeFingerprint, r.horizon]) : null;
   for (const r of rows) {
     if (!r || !SYSTEMS.includes(r.system) || r.horizon !== horizon) { skip('other-system-or-horizon'); continue; }
-    if (!/^\d{6}$/.test(r.symbol || '') || !date(r.signalDate) || !date(r.entryDate) || !date(r.exitDate) || r.entryDate <= r.signalDate || r.exitDate <= r.entryDate ||
-        !['eastmoney', 'tencent', 'native-replay'].includes(r.provider) || r.priceBasis !== 'unadjusted' || typeof r.version !== 'string' || !r.version || r.version.length > 256 ||
-        typeof r.regime !== 'string' || !r.regime || r.regime.length > 80 || !/^[a-f0-9]{64}$/.test(r.costFingerprint || '') || !/^[a-f0-9]{64}$/.test(r.scopeFingerprint || '') ||
+    // Direct row inputs must obey the SAME purpose isolation as workspace
+    // projections. Legitimate modeled paper outcomes are not teaching data.
+    if (testObservation(r) || r.quality === '演示样本') { skip('test-or-demo-observation'); continue; }
+    // A genuinely later first receipt cannot contaminate an earlier review.
+    // Broken clocks, however, do not prove that a record was not yet visible.
+    if (stamp(r.recordedAt) && r.recordedAt > asOf) { skip('not-yet-known'); continue; }
+    const key = candidateKey(r);
+    if (typeof r.symbol !== 'string' || !/^\d{6}$/.test(r.symbol) || !date(r.signalDate) || !date(r.entryDate) || !date(r.exitDate) || r.entryDate <= r.signalDate || r.exitDate <= r.entryDate ||
+        !['eastmoney', 'tencent', 'native-replay'].includes(r.provider) || r.priceBasis !== 'unadjusted' || !validIdentityLabel(r.version, 256) ||
+        !validIdentityLabel(r.regime, 80) || !/^[a-f0-9]{64}$/.test(r.costFingerprint || '') || !/^[a-f0-9]{64}$/.test(r.scopeFingerprint || '') ||
         !stamp(r.signalAt) || !stamp(r.recordedAt) || !stamp(r.outcomeKnownAt) || r.signalAt > r.recordedAt ||
         new Date(r.signalAt + 28800000).toISOString().slice(0, 10) !== r.signalDate || r.signalAt < Date.parse(r.signalDate + 'T15:00:00+08:00') ||
-        r.recordedAt >= Date.parse(r.entryDate + 'T09:30:00+08:00') || r.outcomeKnownAt < Date.parse(r.exitDate + 'T15:10:00+08:00')) { skip('invalid-time-source-or-contract'); continue; }
+        r.recordedAt >= Date.parse(r.entryDate + 'T09:30:00+08:00') || r.outcomeKnownAt < Date.parse(r.exitDate + 'T15:10:00+08:00')) {
+      if (key !== null) malformedMembers.add(key);
+      skip('invalid-time-source-or-contract'); continue;
+    }
     if (Math.max(r.signalAt, r.recordedAt, r.outcomeKnownAt) > asOf) { skip('not-yet-known'); continue; }
-    const key = JSON.stringify([r.symbol, r.signalDate, r.provider, r.scopeFingerprint, r.horizon]);
     if (!candidates.has(key)) candidates.set(key, []);
     candidates.get(key).push(r);
   }
   const groups = new Map();
-  for (const candidate of candidates.values()) {
+  for (const [identity, candidate] of candidates) {
+    if (malformedMembers.has(identity)) { skip('invalid-member-of-common-candidate'); continue; }
     const bySystem = new Map(); let ambiguous = false;
     for (const r of candidate) {
       const prior = bySystem.get(r.system);
-      if (prior && hash(prior) !== hash(r)) ambiguous = true;
+      if (prior && !isDeepStrictEqual(prior, r)) ambiguous = true;
       else bySystem.set(r.system, r);
     }
     if (ambiguous) { skip('ambiguous-version-or-duplicate'); continue; }
@@ -72,6 +97,7 @@ function commonCohorts(rows, { asOf = Date.now(), horizon = 5 } = {}) {
     const ordered = SYSTEMS.map(s => bySystem.get(s)), r = ordered[0];
     if (ordered.some(x => !['pass', 'fail'].includes(x.verdict))) { skip('unknown-verdict'); continue; }
     if (ordered.some(x => x.status !== 'paper-estimate' || !finite(x.netReturnPct) || !finite(x.priceReturnPct))) { skip('unverified-execution-or-outcome'); continue; }
+    if (ordered.some(x => !validPaperOutcome(x))) { skip('impossible-paper-outcome'); continue; }
     const signature = x => JSON.stringify([x.signalAt, x.entryDate, x.exitDate, x.regime, x.costFingerprint, x.scopeFingerprint, x.priceBasis]);
     if (ordered.some(x => signature(x) !== signature(r) || Math.abs(x.netReturnPct - r.netReturnPct) > 1e-8 || Math.abs(x.priceReturnPct - r.priceReturnPct) > 1e-8)) { skip('different-window-cost-or-environment'); continue; }
     const versions = Object.fromEntries(ordered.map(x => [x.system, x.version]));
@@ -80,7 +106,7 @@ function commonCohorts(rows, { asOf = Date.now(), horizon = 5 } = {}) {
       costFingerprint: r.costFingerprint, scopeFingerprint: r.scopeFingerprint, rows: [] });
     groups.get(key).rows.push({ symbol: r.symbol, signalDate: r.signalDate, entryDate: r.entryDate, exitDate: r.exitDate,
       outcomeKnownAt: Math.max(...ordered.map(x => x.outcomeKnownAt)), netReturnPct: r.netReturnPct, priceReturnPct: r.priceReturnPct,
-      benchmarkReturnPct: ordered.every(x => finite(x.benchmarkReturnPct) && Math.abs(x.benchmarkReturnPct - r.benchmarkReturnPct) < 1e-8) ? r.benchmarkReturnPct : null,
+      benchmarkReturnPct: ordered.every(x => validPaperReturn(x.benchmarkReturnPct) && Math.abs(x.benchmarkReturnPct - r.benchmarkReturnPct) < 1e-8) ? r.benchmarkReturnPct : null,
       verdicts: Object.fromEntries(ordered.map(x => [x.system, x.verdict])), evidence: ordered.map(x => x.runId || x.evidenceId || null) });
   }
   for (const group of groups.values()) group.rows.sort((a, b) => a.signalDate.localeCompare(b.signalDate) || a.symbol.localeCompare(b.symbol));
@@ -188,10 +214,20 @@ function strategyCompetition(rows, options = {}) {
   const groups = common.groups.map(group => {
     const dates = new Set(group.rows.map(r => r.signalDate)), symbols = new Set(group.rows.map(r => r.symbol));
     const systems = SYSTEMS.map(system => {
-      const selected = group.rows.filter(r => r.verdicts[system] === 'pass'), series = seriesFor(group, r => r.verdicts[system] === 'pass');
-      return { system, commonSamples: group.rows.length, passed: selected.length, rejected: group.rows.length - selected.length,
+      const selected = group.rows.filter(r => r.verdicts[system] === 'pass'), rejected = group.rows.filter(r => r.verdicts[system] === 'fail');
+      const series = seriesFor(group, r => r.verdicts[system] === 'pass');
+      const selectedOutcome = distribution(selected.map(r => r.netReturnPct)), rejectedOutcome = distribution(rejected.map(r => r.netReturnPct));
+      // Preserve both sides of the original native verdict. A missed positive
+      // counterfactual and an avoided negative counterfactual are not executions.
+      const outcomeReview = { selectedPositive: selectedOutcome.n - selectedOutcome.lossCount - selectedOutcome.flatCount,
+        selectedNegative: selectedOutcome.lossCount, selectedFlat: selectedOutcome.flatCount,
+        rejectedPositive: rejectedOutcome.n - rejectedOutcome.lossCount - rejectedOutcome.flatCount,
+        rejectedNegative: rejectedOutcome.lossCount, rejectedFlat: rejectedOutcome.flatCount,
+        denominator: group.rows.length, attribution: 'descriptive-counterfactual-not-causal',
+        rejectedExposure: 'cash', canTrade: false };
+      return { system, commonSamples: group.rows.length, passed: selected.length, rejected: rejected.length,
         exposurePct: 100 * selected.length / group.rows.length, commonDateCount: series.length,
-        meanNetReturnPct: mean(series.map(x => x.value)), selectedOutcome: distribution(selected.map(r => r.netReturnPct)),
+        meanNetReturnPct: mean(series.map(x => x.value)), selectedOutcome, rejectedOutcome, outcomeReview,
         series, nonOverlappingPeriods: nonOverlapping(series).length, pathStatistics: pathStatistics(series),
         meanCostDragPct: mean(series.map(x => x.costDragPct)) };
     });
@@ -210,8 +246,17 @@ function strategyCompetition(rows, options = {}) {
 }
 
 function correlation(a, b) {
-  const ma = mean(a), mb = mean(b), va = a.reduce((n, x) => n + (x - ma) ** 2, 0), vb = b.reduce((n, x) => n + (x - mb) ** 2, 0);
-  return va > 0 && vb > 0 ? a.reduce((n, x, i) => n + (x - ma) * (b[i] - mb), 0) / Math.sqrt(va * vb) : null;
+  if (a.length !== b.length || a.length < 2 || !a.every(finite) || !b.every(finite) ||
+      a.every(x => x === a[0]) || b.every(x => x === b[0])) return null;
+  // Positive scaling preserves correlation and avoids squaring extreme but
+  // finite returns into Infinity. Undefined relationships stay unknown.
+  const scale = values => values.reduce((m, x) => Math.max(m, Math.abs(x)), 0);
+  const sa = scale(a), sb = scale(b);
+  const x = a.map(v => v / sa), y = b.map(v => v / sb);
+  const ma = mean(x), mb = mean(y), va = x.reduce((n, v) => n + (v - ma) ** 2, 0), vb = y.reduce((n, v) => n + (v - mb) ** 2, 0);
+  if (!(va > 0 && vb > 0)) return null;
+  const value = x.reduce((n, v, i) => n + (v - ma) * (y[i] - mb), 0) / Math.sqrt(va * vb);
+  return finite(value) ? Math.max(-1, Math.min(1, value)) : null;
 }
 function fusionStudy(rows, options = {}) {
   const common = commonCohorts(rows, options);
@@ -693,6 +738,12 @@ function diagnosticInputsFromEvents(events, history, { asOf = Date.now() } = {})
       return x && x.symbol === d.symbol && x.date === d.tradeDate && stamp(x.knownAt) && x.knownAt <= Math.min(asOf, e.recordedAt, d.asOf);
     };
     if (valid(input.fourteen)) {
+      // Preserve the original frozen child, not a reconstructed streak or
+      // a new receipt assigned to older evidence. The runner rechecks it.
+      const candidate = {...context, fourteenEvidence: input.fourteen};
+      if (require('./native-fourteen-evidence').projectFourteenEvidence(candidate, {
+        symbol:d.symbol,date:d.tradeDate,cutoff:Math.min(asOf,Date.parse(d.tradeDate+'T23:59:59.999+08:00'))
+      })) context.fourteenEvidence=structuredClone(input.fourteen);
       for (const field of ['sector', 'auction', 'profitRatio']) if (input.fourteen[field] !== undefined) context[field] = structuredClone(input.fourteen[field]);
       for (const field of ['name', 'floatCap']) if (input.fourteen.stock?.[field] !== undefined) context[field] = input.fourteen.stock[field];
     }

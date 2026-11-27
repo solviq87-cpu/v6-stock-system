@@ -195,6 +195,10 @@ test('新独立窗口的中心提案在同一获批正交基底上调权，完�
   t.mock.timers.enable({apis:['Date'],now:at('2023-12-20','16:00:00')});
   const [,,{learningAction}, {applyCenterFeedback}]=await modules;
   const past=addRulePanels(shiftFixture(await feedbackFixture(),-200));
+  // Independently archived windows must not recycle local settlement/check/plan IDs.
+  for(const check of past.state.checks)check.id='past-'+check.id;
+  for(const plan of past.state.plans)plan.id='past-'+plan.id;
+  for(const trade of past.state.trades){trade.id='past-'+trade.id;trade.checkId='past-'+trade.checkId;trade.planId='past-'+trade.planId;}
   const first=learningAction(past.state,'learn:candidate',{});
   const approved=learningAction(past.state,'learn:decision',{id:first.id,decision:'approve',reviewer:'单元测试',reason:'建立真实数值基线'});
   const x=addRulePanels(await feedbackFixture());x.state.versions=[approved];x.state.candidates=[first];
@@ -236,7 +240,9 @@ test('原权威模拟结算沿用含买入费用的收益分母，不能被普�
     row.exitPrice=Number(row.code)-600000>=3?11:9.8;row.cost=30;row.costBasis=1020;
     row.pnlAmount=Math.round(((row.exitPrice-row.entryPrice)*row.shares-row.cost)*100)/100;
     row.pnl=Math.round(row.pnlAmount/row.costBasis*10000)/100;
-    row.paperSettlement={accountId:'pool',symbol:row.code,costBasisCents:102000,realizedCents:Math.round(row.pnlAmount*100),
+    // This isolated fixture models one distinct original exit event per trade.
+    // Production uses the account ledger's original exitEventId, not a derived alias.
+    row.paperSettlement={accountId:'pool',exitEventId:'fixture-exit:'+row.id,symbol:row.code,costBasisCents:102000,realizedCents:Math.round(row.pnlAmount*100),
       exitGrossCents:Math.round(row.exitPrice*row.shares*100),exitFeeCents:1000,
       entryFills:[{quantity:100,costCents:102000,grossCents:100000,time:at(row.date,'09:32:00')}]};
   }
@@ -244,4 +250,125 @@ test('原权威模拟结算沿用含买入费用的收益分母，不能被普�
   assert.equal(candidate.numericModel.target,'verified-settlement-net-return-percent');
   assert.deepEqual(candidate.steps.map(row=>row.status),Array(5).fill('通过'));
   assert.equal(candidate.numericCoverage.scorableCounts.reduce((a,b)=>a+b,0),500);
+});
+
+
+test('共享撤销门禁覆盖原数值训练血缘及中心继承的历史验证来源',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const review={status:'revalidated',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8),revalidatedAt:time(9)};
+ const evidence={code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const training={...evidence,id:'training',planEvidenceReview:review},held={...evidence,id:'validation',planEvidenceReview:review};
+ const old={id:'old',createdAt:time(5),sourceIds:['validation'],numericModel:{sourceIds:['training'],trainCutoff:time(4)}};
+ const base={number:1,candidateId:'old',numericModel:old.numericModel};
+ const newCandidate={id:'new',createdAt:time(10),baseVersion:1,sourceIds:['different'],centerFeedback:{},numericModel:old.numericModel};
+ const next={number:2,candidateId:'new',numericModel:old.numericModel};
+ const state={scope:'live',trades:[training,held],candidates:[old,newCandidate],versions:[base,next]};
+ assert.equal(candidateEvidenceReview(state,newCandidate,point(11)).affectedSources,1);
+ assert.equal(approvedModelEvidenceReview(state,next,point(11)).affectedSources,2);
+ assert.equal(approvedModelEvidenceReview(state,base,point(7)).status,'no-known-revocation');
+ assert.equal(approvedModelEvidenceReview({...state,candidates:[]},base,point(11)).affectedSources,1);
+ assert.equal(candidateEvidenceReview(state,{sourceIds:['training'],createdAt:time(10)},point(11)).status,'no-known-revocation');
+ assert.equal(approvedModelEvidenceReview(state,null,point(11)).status,'unavailable');
+});
+
+test('原生智能中心、短线评分及自动调权共用已撤销模型来源门禁',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:at('2024-07-01','16:00:00')});
+ const [,,{learningAction,predict}]=await modules,x=addRulePanels(await feedbackFixture());
+ const c=learningAction(x.state,'learn:candidate',{});
+ const approved=learningAction(x.state,'learn:decision',{id:c.id,decision:'approve',reviewer:'隔离验收',reason:'保留原审批'});
+ const row=x.state.trades.find(r=>c.numericModel.sourceIds.includes(r.id));assert.ok(row);
+ const check=x.state.checks.at(-1),clock=at('2024-07-01','16:03:00');
+ const first=new Date(at('2024-07-01','16:02:00')).toISOString();
+ row.planEvidenceReview={status:'quarantined',firstQuarantinedAt:first,lastQuarantinedAt:first};
+ const before=JSON.stringify(x.state),report=research.buildIntelligenceResearch({archive:x.state,day:check.date,now:clock,calendar:x.calendar});
+ assert.equal(report.factors.approvedScoring.status,'requires-source-revalidation');
+ assert.equal(report.factors.approvedScoring.modelVersion,approved.number);
+ assert.equal(report.factors.approvedScoring.modelFingerprint,approved.numericModel.fingerprint);
+ assert.deepEqual(report.factors.approvedScoring.rows,[]);
+ assert.equal(report.feedback.modelEvidenceReview.status,'requires-revalidation');
+ assert.equal(report.feedback.proposal,null);assert.equal(report.feedback.validationBridge.ready,false);
+ assert.ok(report.feedback.excludedTrades.some(r=>r.id===row.id&&r.reason==='withdrawn-learning-source'));
+ assert.ok(report.feedback.validationBridge.missing.some(r=>r.includes('来源样本已撤销')));
+ assert.equal(predict(x.state,{asOf:clock}).score,null);assert.equal(JSON.stringify(x.state),before);
+ row.planEvidenceReview.status='revalidated';row.planEvidenceReview.revalidatedAt=new Date(clock).toISOString();
+ assert.equal(research.buildIntelligenceResearch({archive:x.state,day:check.date,now:clock,calendar:x.calendar}).factors.approvedScoring.status,'requires-source-revalidation');
+});
+
+test('恢复来源必须保持原结算质量，晚到归档不能反向改变历史审批',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview,verifiedLearningObservation,sampleMatches}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const original={id:'restored',code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const review={status:'revalidated',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8),revalidatedAt:time(9)};
+ const valid={...original,planEvidenceReview:review};
+ const c={id:'candidate',createdAt:time(10),sourceIds:[original.id]};
+ const v={number:1,candidateId:c.id,approvedAt:time(10)};
+ const cutoff=point(11);
+ const state=trades=>({scope:'live',trades,candidates:[c],versions:[v]});
+ const check=(trades,expected,asOf=cutoff)=>{
+  const s=state(trades),before=JSON.stringify(s);
+  assert.equal(candidateEvidenceReview(s,c,asOf).status,expected);
+  assert.equal(approvedModelEvidenceReview(s,v,asOf).status,expected);
+  assert.equal(JSON.stringify(s),before);
+ };
+ const good='no-known-revocation',bad='requires-revalidation';
+ check([valid],good);check([valid,{...valid}],good);
+ for(const patch of [{pnl:null},{snapshotVerified:false},{blackSwan:true},{createdAt:null},
+  {repeatable:false},{exitTime:'bad-clock'},{extreme:true}]){
+  const damaged={...valid,...patch};
+  assert.ok(!verifiedLearningObservation(damaged,cutoff)||!sampleMatches(damaged,'standard'));
+  check([damaged],bad);
+ }
+ check([{id:original.id,planEvidenceReview:review}],bad);
+ check([{...original,planEvidenceReview:false}],bad);
+ check([{...valid,planEvidenceReview:{...review,revalidatedAt:null}}],bad);
+ check([valid,{...valid,pnl:3}],bad);
+ check([valid,{...valid,sampleSet:'demo',pnl:99}],good);
+ const later={...original,createdAt:time(12),planEvidenceReview:{status:'quarantined',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8)}};
+ check([original,later],good);check([later],good);
+ check([original,later],bad,point(12));
+ check([{...original,snapshotVerified:false,planEvidenceReview:{status:'quarantined',firstQuarantinedAt:time(12),lastQuarantinedAt:time(12)}}],good);
+ assert.equal(candidateEvidenceReview(state([valid]),{...c,createdAt:time(7)},cutoff).status,bad);
+ assert.equal(candidateEvidenceReview(state([valid]),{...c,createdAt:time(8)},cutoff).status,bad);
+ check([],good); // the candidate may instead reference a historical K-line label
+});
+
+test('当前可用的结算不等于原训练与验证截止时已经可知',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview,verifiedLearningObservation}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const original={id:'settled',code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const c={id:'candidate',createdAt:time(10),sourceIds:[original.id]};
+ const model={sourceIds:[original.id],trainCutoff:time(5)};
+ const good='no-known-revocation',bad='requires-revalidation',asOf=point(12);
+ function check(trades,legacy,numeric,created=c.createdAt,trainCutoff=model.trainCutoff){
+  const plain={...c,createdAt:created},candidate={...plain,numericModel:{...model,trainCutoff}};
+  const version={number:1,candidateId:c.id,approvedAt:time(10),numericModel:candidate.numericModel};
+  const state={scope:'live',trades,candidates:[candidate],versions:[version]},before=JSON.stringify(state);
+  assert.equal(candidateEvidenceReview(state,plain,asOf).status,legacy);
+  assert.equal(candidateEvidenceReview(state,candidate,asOf).status,numeric);
+  assert.equal(approvedModelEvidenceReview(state,version,asOf).status,numeric);
+  assert.equal(JSON.stringify(state),before);
+ }
+ check([original],good,good);
+ check([{...original,knownAt:time(5)}],good,good);
+ for(const field of ['createdAt','recordedAt','receivedAt','availableAt','knownAt','observedAt','observedAtMs','asOf','updatedAt','revisedAt']){
+  const late={...original,[field]:field==='observedAtMs'?point(6):time(6)};
+  assert.ok(verifiedLearningObservation(late,asOf));
+  check([late],good,bad);
+ }
+ check([{...original,exitTime:'2024-07-06T11:00',createdAt:time(6)}],good,bad);
+ check([{...original,createdAt:time(11)}],bad,bad);
+ const recovered={...original,planEvidenceReview:{status:'revalidated',firstQuarantinedAt:time(3),lastQuarantinedAt:time(3),revalidatedAt:time(4)}};
+ check([recovered],good,good);
+ check([{...recovered,planEvidenceReview:{...recovered.planEvidenceReview,revalidatedAt:time(6)}}],good,bad);
+ check([{...recovered,knownAt:time(6)}],good,bad);
+ check([original,{...original,pnl:null,createdAt:time(13)}],good,good);
+ check([original,{...original,pnl:4,createdAt:time(6)}],bad,bad);
+ check([original,{...original,pnl:99,createdAt:time(6),sampleSet:'demo'}],good,good);
+ check([],good,good); // a historical K-line ID may be absent from the trade archive
+ check([original],bad,bad,'broken-clock','broken-clock');
+ check([original],bad,bad,time(13),time(13));
 });

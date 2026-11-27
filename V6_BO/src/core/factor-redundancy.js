@@ -11,6 +11,10 @@ const MIN_DAYS=15,MIN_COVERAGE=.75,MIN_CORRELATION=.92,MIN_STRONG_DAYS=.8;
 const MAX_DAYS=400,MIN_PAIR_ROWS=5,SHADOW_PENALTY=-.02;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=(x,n=6)=>x===null?null:+x.toFixed(n);
+const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
+ Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
+const validLabel=v=>typeof v==='string'&&v.length>0&&v.length<=128&&v.trim()===v&&!/[\x00-\x1f\x7f]/.test(v);
+const reliablePositive=r=>r?.reliable===true&&finite(r.meanIC)&&r.meanIC>=.03&&r.meanIC<=1;
 const mean=x=>x.reduce((s,v)=>s+v,0)/x.length;
 const median=x=>{
  const v=[...x].sort((a,b)=>a-b),m=Math.floor(v.length/2);
@@ -29,7 +33,8 @@ function ranks(values){
  return out;
 }
 function spearman(x,y){
- if(x.length!==y.length||x.length<MIN_PAIR_ROWS)return null;
+ if(!Array.isArray(x)||!Array.isArray(y)||x.length!==y.length||x.length<MIN_PAIR_ROWS||
+  !x.every(finite)||!y.every(finite))return null;
  const a=ranks(x),b=ranks(y),am=mean(a),bm=mean(b);
  let cov=0,aa=0,bb=0;
  for(let i=0;i<a.length;i++){
@@ -44,11 +49,27 @@ function assessFactorRedundancy(train,ids,reliability){
     !reliability||typeof reliability!=='object')
   throw Error('冻结因子冗余评估协议无效');
  const seenDays=new Set();
- for(const d of train){
-  if(!d||typeof d.day!=='string'||seenDays.has(d.day)||
+ for(const [i,d] of train.entries()){
+  if(!d||!validDay(d.day)||seenDays.has(d.day)||i>0&&train[i-1].day>=d.day||
      !Array.isArray(d.rows)||d.rows.length<MIN_PAIR_ROWS)
-   throw Error('冻结因子冗余训练日重复或横截面不足');
+   throw Error('冻结因子冗余训练日日期无效、重复、顺序异常或横截面不足');
   seenDays.add(d.day);
+  // Existing value-only diagnostic inputs remain compatible, but whenever
+  // identities are declared, a partial or repeated cross-section is not
+  // independent evidence. Market is part of a declared security identity.
+  const identified=d.rows.some(row=>row&&['symbol','code','market'].some(k=>Object.hasOwn(row,k)));
+  if(identified){
+   const securities=new Set();
+   for(const row of d.rows){
+    const symbol=row?.symbol??row?.code,market=row?.market;
+    if(!validLabel(symbol)||row.symbol!=null&&row.code!=null&&row.symbol!==row.code||
+       market!=null&&!validLabel(market))
+     throw Error('冻结因子冗余证券身份无效或缺失');
+    const key=JSON.stringify([market??null,symbol]);
+    if(securities.has(key))throw Error('冻结因子冗余横截面证券重复');
+    securities.add(key);
+   }
+  }
  }
  const requiredDays=Math.max(MIN_DAYS,Math.ceil(train.length*MIN_COVERAGE));
  const pairs=[];
@@ -77,8 +98,7 @@ function assessFactorRedundancy(train,ids,reliability){
   const stableNegative=count>=requiredDays&&med<=-MIN_CORRELATION&&
    early<=-.9&&recent<=-.9&&negativeStrong>=MIN_STRONG_DAYS;
   const eligiblePositive=stablePositive&&
-   reliability[a]?.reliable===true&&reliability[b]?.reliable===true&&
-   reliability[a].meanIC>=.03&&reliability[b].meanIC>=.03;
+   reliablePositive(reliability[a])&&reliablePositive(reliability[b]);
   pairs.push({factorA:a,factorB:b,trainingDays:train.length,
    comparableDays:count,requiredDays,medianRankCorrelation:round(med),
    earlyMeanRankCorrelation:round(early),recentMeanRankCorrelation:round(recent),
@@ -91,7 +111,8 @@ function assessFactorRedundancy(train,ids,reliability){
  // Keep the best previously reliable, positive IC factor in each observed
  // positive-collinearity cluster. This is deterministic under any id order.
  const ordered=[...ids].sort((a,b)=>{
-  const delta=(reliability[b]?.meanIC??-1)-(reliability[a]?.meanIC??-1);
+  const strength=id=>reliablePositive(reliability[id])?reliability[id].meanIC:-1;
+  const delta=strength(b)-strength(a);
   return Math.abs(delta)>1e-10?delta:a.localeCompare(b);
  });
  const retained=[],suppressed=[];

@@ -13,6 +13,7 @@ const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-te
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const numeric = require('../../public/nova/shortline/numeric-factors');
+const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -650,7 +651,10 @@ function buildApprovedScoring(archive, observations, {day, now, calendars}) {
   const approved = [...(archive?.versions || [])].filter(row => real(row) && row.sampleScope !== 'demo' &&
     instant(row.approvedAt) !== null && instant(row.approvedAt) <= now).sort((a,b) => instant(b.approvedAt)-instant(a.approvedAt))[0];
   const valid = validApprovedNumeric(approved, archive?.dictionaryVersion), rows = [];
-  const report = {status: !approved?.numericModel ? 'missing-approved-numeric-model' : valid ? 'missing-current-observations' : 'invalid-approved-numeric-model',
+  const modelEvidenceReview=approvedModelEvidenceReview(archive,approved,now);
+  const needsReview=modelEvidenceReview.status==='requires-revalidation';
+  const report = {status: needsReview ? 'requires-source-revalidation' : !approved?.numericModel ? 'missing-approved-numeric-model' : valid ? 'missing-current-observations' : 'invalid-approved-numeric-model',
+    modelEvidenceReview,
     factorSchema: numeric.MODEL, day, asOf: now, modelVersion: approved?.numericModel ? approved.number : null,
     approvedAt: approved?.numericModel ? approved.approvedAt : null, modelFingerprint: valid ? approved.numericModel.fingerprint : null,
     trainCutoff: valid ? approved.numericModel.trainCutoff : null,
@@ -659,7 +663,7 @@ function buildApprovedScoring(archive, observations, {day, now, calendars}) {
     trainingLabelKnownAtMax: valid ? approved.numericModel.trainingLabelKnownAtMax : null,
     rows, canTrade: false, changesOriginalGates: false,
     note: '仅使用人工批准且完整指纹匹配的数值模型；本次评分时刻与原观察时刻分开。缺定义或缺观测不补分。'};
-  if (!valid) return report;
+  if (!valid || needsReview) return report;
   const latest = new Map();
   for (const row of observations) if (row.day === day && row.signalAt <= now && (!latest.has(row.code) || latest.get(row.code).signalAt < row.signalAt)) latest.set(row.code,row);
   for (const row of latest.values()) {
@@ -687,21 +691,46 @@ function buildApprovedScoring(archive, observations, {day, now, calendars}) {
 }
 
 function feedbackReport(archive, walkforward, gate, now, config, quality, day, samples = []) {
-  const plans = new Map((archive?.plans || []).filter(row => real(row) && row.id).map(row => [row.id, row]));
-  const trades = [], excluded = [];
-  for (const trade of archive?.trades || []) {
-    const plan = plans.get(trade.planId), created = instant(trade.createdAt),
-      entry = instant(trade.entryTimestamp ?? trade.entryTime), exit = instant(trade.exitTimestamp ?? trade.exitTime), frozen = instant(plan?.frozenAt);
-    const reason = !real(trade) || archive?.scope === 'demo' ? 'non-real-sample' : !plan || frozen === null || entry === null || frozen > entry || plan.code !== trade.code ? 'missing-prior-frozen-plan' :
-      created === null || exit === null || exit <= entry || exit > created || created > now || !finite(trade.pnl) ? 'unmatured-or-unrecorded-trade' : null;
-    if (reason) { excluded.push({id: trade.id || null, reason}); continue; }
+  // Use the same point-in-time identity projection as strict shortline
+  // learning. An exact retry is not another matured trade; conflicting
+  // identities must not select the last archived plan or settlement.
+  const planEvidence=uniqueEvidenceRows((Array.isArray(archive?.plans)?archive.plans:[]).filter(row=>
+    real(row)&&!isLearningTestSample(row)&&learningIdentityVisibleAt(row,now,{frozen:true})),
+    {requireIdentity:true,testSample:isLearningTestSample});
+  const plans=new Map(planEvidence.rows.filter(row=>evidenceVisibleAt(row,now)&&instant(row.frozenAt)!==null&&instant(row.frozenAt)<=now).map(row=>[row.id,row]));
+  const trades=[],excluded=[],visible=[];
+  for(const trade of Array.isArray(archive?.trades)?archive.trades:[]){
+    const reason=!real(trade)||isLearningTestSample(trade)||archive?.scope==='demo'?'non-real-sample':
+      !learningIdentityVisibleAt(trade,now)?'unmatured-or-unrecorded-trade':null;
+    if(reason){excluded.push({id:trade?.id||null,reason});continue;}
+    visible.push(trade);
+  }
+  const tradeEvidence=uniqueEvidenceRows(visible,{requireIdentity:true,settlements:true,testSample:isLearningTestSample});
+  // Retain the shared resolver's exact multiplicity, even if the same object
+  // reference was repeated, and expose excluded rows without changing archive.
+  const retained=new Map();
+  for(const row of tradeEvidence.rows)retained.set(row,(retained.get(row)||0)+1);
+  for(const trade of visible){
+    const count=retained.get(trade)||0;
+    if(!count){excluded.push({id:trade.id||null,reason:'duplicate-or-conflicting-trade-evidence'});continue;}
+    retained.set(trade,count-1);
+    const plan=plans.get(trade.planId),created=instant(trade.createdAt),
+      entry=instant(trade.entryTimestamp??trade.entryTime),frozen=instant(plan?.frozenAt),
+      observation=verifiedLearningObservation(trade,now);
+    const reason=typeof trade.id!=='string'||!trade.id.trim()?'missing-trade-identity':
+      trade.planEvidenceReview!=null&&!observation?'withdrawn-learning-source':
+      !plan||frozen===null||entry===null||frozen>entry||plan.code!==trade.code?'missing-prior-frozen-plan':
+      !observation||created===null||observation.exit>created?'unmatured-or-unrecorded-trade':null;
+    if(reason){excluded.push({id:trade.id||null,reason});continue;}
     trades.push(trade);
   }
   const approved = [...(archive?.versions || [])].filter(row => real(row) && row.sampleScope !== 'demo' && instant(row.approvedAt) !== null &&
     instant(row.approvedAt) <= now && row.weights && typeof row.weights === 'object').sort((a, b) => instant(b.approvedAt) - instant(a.approvedAt))[0];
   const latest = walkforward.folds.filter(row => row.status === 'evaluated').at(-1), candidates = [];
-  const numericBaseline = validApprovedNumeric(approved,archive?.dictionaryVersion);
-  let metrics = approved?.numericModel && !numericBaseline ? null : latest?.raw;
+  const modelEvidenceReview=approvedModelEvidenceReview(archive,approved,now);
+  const needsReview=modelEvidenceReview.status==='requires-revalidation';
+  const numericBaseline = !needsReview&&validApprovedNumeric(approved,archive?.dictionaryVersion);
+  let metrics = needsReview || approved?.numericModel && !numericBaseline ? null : latest?.raw;
   if (latest && numericBaseline) {
     // A coefficient belongs to its approved basis. Re-fitting another basis and
     // retaining the same code would silently change the meaning of that weight.
@@ -769,12 +798,15 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day, s
   const missing = [!approved && '缺少原已审批权重基线', !latest && '缺少有效后复权 walk-forward 窗口',
     !compatible.length && '缺少与原获批因子同名且有实际调整的提案', !archive?.dictionaryVersion && '缺少因子词典版本',
     trades.length < 36 && '需至少 36 条有事前冻结计划的成熟成交',
-    approved?.numericModel && !numericBaseline && '获批数值模型、词典或评分指纹不一致'].filter(Boolean);
+    needsReview && '获批基线来源样本已撤销或复核，须重新独立验证',
+    approved?.numericModel && !numericBaseline && !needsReview && '获批数值模型、词典或评分指纹不一致'].filter(Boolean);
   const strata = {standard: 0, blackSwan: 0, extreme: 0};
   for (const row of trades) { const key = row.blackSwan === true || row.quality === '黑天鹅' ? 'blackSwan' :
     row.extreme === true || row.repeatable === false || row.quality === '不可复制极端行情' ? 'extreme' : 'standard'; strata[key]++; }
   return {status: candidates.length || qualityCandidates.length ? 'candidates-pending-validation' : trades.length ? 'observed-no-new-candidate' : 'missing-mature-review-evidence',
-    matureTrades: trades.length, excludedTrades: excluded, strata, candidates, qualityCandidates,
+    matureTrades: trades.length, excludedTrades: excluded, strata, candidates, qualityCandidates, modelEvidenceReview,
+    tradeEvidenceAudit:{duplicateTrades:tradeEvidence.duplicates,conflictingTrades:tradeEvidence.conflicts,
+      duplicatePlans:planEvidence.duplicates,conflictingPlans:planEvidence.conflicts},
     proposal, proposalFingerprint, archiveRevision: Number.isSafeInteger(archive?.revision) ? archive.revision : null,
     qualityFeedback: {mode: 'verified-source-evidence', score: quality.score, status: quality.status,
       components: quality.components, evidenceFingerprint: hash(quality.components), affectedRecords: qualityCandidates.reduce((n, row) => n + row.affectedRecords, 0),

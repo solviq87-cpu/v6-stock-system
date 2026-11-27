@@ -33,6 +33,11 @@ function riskReasons(row){
  if(!eligiblePick(row))reasons.push('已有策略或风控条件未通过');
  if(['riskWarning','halt','suspended','blocked','bad','riskBlocked','blacklisted'].some(k=>row?.[k]===1||typeof row?.[k]==='string'&&!/^(?:false|0|no|none|无|正常|否)$/i.test(row[k])))reasons.push('存在风险或停牌标记');
  if(row?.canTrade===false||row?.canNotify===false)reasons.push('原始报价明确禁止该用途');
+ if(['sourceConflict','quoteSourceConflict','conflict','retracted'].some(k=>row?.[k]===true)||
+  ['quoteStatus','quoteFreshness','evidenceStatus'].some(k=>['conflict','conflicting'].includes(row?.[k])))
+  reasons.push('原始报价或来源证据存在冲突');
+ if([row?.quoteMode,row?.mode].some(v=>v!=null&&(typeof v!=='string'||forbidden.test(v))))
+  reasons.push('原始报价存在禁止用途的模式声明');
  if(row?.canTrade!==true&&row?.canNotify!==true)reasons.push('原始报价未返回用途许可');
  if(row?.readOnlyBackup===true||row?.imported===true||row?.historicalClose===true||row?.pickSource==='收盘观察精选')reasons.push('该记录仅供历史或观察使用');
  return [...new Set(reasons)];
@@ -45,7 +50,7 @@ export function decisionQuoteGate(row,{day,now=Date.now(),poolDay}={}){
  if(!positive(row?.price))reasons.push('缺少有效原始价格');
  if(!source||!mode||forbidden.test(source)||forbidden.test(mode))reasons.push('原始报价来源或用途待核验');
  if(!time(at)||at>now||now-at>15000||time(at)&&chinaDay(at)!==target)reasons.push('原始报价超过15秒、跨日或时点缺失');
- if(row?.vendorQuoteAt!=null&&row.vendorQuoteAt!==at)reasons.push('供应商时点与报价时点不一致');
+ if([row?.vendorQuoteAt,row?.quoteTimestamp].some(v=>v!=null&&v!==at))reasons.push('供应商时点与报价时点不一致');
  if(!time(received)||received<at||received>now)reasons.push('原始报价接收顺序无效');
  if(systemPickDay(row||{},decisionDay(poolDay),now)!==target)reasons.push('候选交易日与当前日期不一致');
  if(!positive(row?.volume)&&!positive(row?.amount))reasons.push('缺少同一原始行的有效成交量额');
@@ -53,48 +58,131 @@ export function decisionQuoteGate(row,{day,now=Date.now(),poolDay}={}){
  return {ok:reasons.length===0,reasons:[...new Set(reasons)],day:target,quoteAt:time(at)?at:null,source:source||null};
 }
 
-function metric(row,day,now){
+// Match the existing public intraday distribution collector's 15-minute
+// source clock and observed-market breadth's 80% coverage floor. Receipt
+// refreshes and the morning session must not revive obsolete buy evidence.
+const WEATHER_MAX_AGE=15*60000;
+const weatherFields=['adv','dec','flat','observed','total','upLimit','downLimit'];
+const conflicted=row=>row?.sourceConflict===true||row?.conflict===true||
+ ['conflict','conflicting','unknown','stale','future','invalid'].includes(row?.evidenceStatus);
+function weatherClock(at,day,now){
+ if(!time(at)||at>now||now-at>WEATHER_MAX_AGE||chinaDay(at)!==day)return false;
+ const minute=new Date(now+28800000).getUTCHours()*60+new Date(now+28800000).getUTCMinutes();
+ const start=Date.parse(day+(minute>=780?'T13:00:00+08:00':'T09:30:00+08:00'));
+ return at>=start;
+}
+function weatherCoverage(observed,total){
+ return count(observed)&&count(total)&&total>=3000&&total<=20000&&observed<=total&&observed*5>=total*4;
+}
+function sampleTotal(row){
+ const values=[row?.total,row?.universeSize].filter(v=>v!=null);
+ return values.length&&values.every(v=>v===values[0])?values[0]:null;
+}
+const metricClock=row=>row?.quoteAt??row?.observedAt;
+function metric(row,day,now,intraday=false){
+ const at=metricClock(row);
  return row&&decisionDay(row.date)===day&&time(row.knownAt)&&row.knownAt<=now&&chinaDay(row.knownAt)>=day&&text(row.source)&&
-  !forbidden.test(row.source)&&finite(row.value)?row:null;
+  !forbidden.test(row.source)&&!conflicted(row)&&finite(row.value)&&
+  (!intraday||weatherClock(at,day,now)&&weatherClock(row.knownAt,day,now)&&at<=row.knownAt&&
+   (row.quoteAt==null||row.observedAt==null||row.quoteAt===row.observedAt))?row:null;
 }
 
-function distribution(row,day,now){
+// Keep sector evidence separate from the full-market distribution.
+const marketScope=value=>text(value).replace(/\s/g,'').replace(/[()]/g,m=>m==='('?'（':'）');
+const fullMarketScope=value=>/^沪深京A股(?:（含ST）)?$/.test(marketScope(value));
+const weatherSource=row=>/^打板客(?:盘中涨跌分布|收盘涨跌分布)?$/.test(text(row?.source))?'打板客':text(row?.source).toLowerCase();
+const observationOnly=row=>['simulated','synthetic','fixture','mock','imported','readOnlyBackup'].some(k=>row?.[k]===true)||
+ forbidden.test(text(row?.mode))||forbidden.test(text(row?.quoteMode));
+function distributionReceipt(row,day,now,intraday=false){
  return row&&['market-distribution-intraday','market-distribution'].includes(row.kind)&&decisionDay(row.day)===day&&
   text(row.source)&&text(row.scope)&&!forbidden.test(row.source)&&time(row.quoteAt)&&time(row.knownAt)&&
   row.quoteAt<=row.knownAt&&row.knownAt<=now&&chinaDay(row.quoteAt)===day&&
-  ['adv','dec','flat','observed','total','upLimit','downLimit'].every(k=>count(row[k]))&&
-  row.observed>0&&row.observed<=row.total&&row.adv+row.dec+row.flat===row.observed&&row.upLimit<=row.adv&&row.downLimit<=row.dec;
+  (!intraday||row.kind==='market-distribution-intraday'&&fullMarketScope(row.scope)&&
+   weatherClock(row.quoteAt,day,now)&&weatherClock(row.knownAt,day,now));
+}
+function distribution(row,day,now,intraday=false){
+ return distributionReceipt(row,day,now,intraday)&&!conflicted(row)&&(!intraday||!observationOnly(row))&&
+  weatherFields.every(k=>count(row[k]))&&
+  row.observed>0&&row.observed<=row.total&&row.adv+row.dec+row.flat===row.observed&&row.upLimit<=row.adv&&row.downLimit<=row.dec&&
+  (!intraday||weatherCoverage(row.observed,row.total));
+}
+function latestDistributionReceipts(rows,day,now){
+ // Establish the latest visible batch before quality filtering. Never revive
+ // an older batch from a provider whose newest comparable batch is incomplete.
+ const groups=new Map();
+ for(const row of rows){
+  if(!distributionReceipt(row,day,now,true))continue;
+  const key=JSON.stringify([weatherSource(row),marketScope(row.scope)]),previous=groups.get(key);
+  if(!previous||row.quoteAt>previous[0].quoteAt)groups.set(key,[row]);
+  else if(row.quoteAt===previous[0].quoteAt)previous.push(row);
+ }
+ return [...groups.values()].flat();
 }
 
 export function decisionWeather(state={}, {day,now=Date.now()}={}){
- const target=decisionDay(day)||chinaDay(now),missing=[],basis=[];
- const wide=[state.marketDistribution,...array(state.marketRecovery?.coverage)]
-  .filter(row=>distribution(row,target,now)).sort((a,b)=>b.quoteAt-a.quoteAt)[0];
+ const target=decisionDay(day)||chinaDay(now),missing=[],basis=[],intraday=currentSession(state,target,now);
+ const snapshots=[state.marketDistribution,...array(state.marketRecovery?.coverage)];
+ const currentReceipts=intraday?latestDistributionReceipts(snapshots,target,now):snapshots;
+ const latest=currentReceipts.filter(row=>distribution(row,target,now,intraday)).sort((a,b)=>b.quoteAt-a.quoteAt||
+  (intraday?b.observed/b.total-a.observed/a.total||Number(marketScope(b.scope).endsWith('（含ST）'))-Number(marketScope(a.scope).endsWith('（含ST）'))||
+   weatherSource(a).localeCompare(weatherSource(b)):0))[0];
+ const noQualifiedLatest=intraday&&currentReceipts.length>0&&!latest;
+ // Conflicts in the same provider/scope/batch cannot be resolved by array
+ // order, a newer receipt clock, or substituting a weaker sample.
+ const wideConflict=Boolean(latest&&snapshots.some(row=>row&&row!==latest&&
+   decisionDay(row.day)===target&&row.kind===latest.kind&&
+   (intraday?marketScope(row.scope)===marketScope(latest.scope):row.source===latest.source&&row.scope===latest.scope)&&
+   row.quoteAt===latest.quoteAt&&time(row.knownAt)&&row.knownAt<=now&&row.knownAt>=row.quoteAt&&
+   (conflicted(row)||intraday&&observationOnly(row)||weatherFields.some(k=>row[k]!==latest[k]))))||
+  Boolean(intraday&&snapshots.some(row=>decisionDay(row?.day)===target&&
+   row.kind==='market-distribution-intraday'&&weatherClock(row.quoteAt,target,now)&&
+   time(row.knownAt)&&row.knownAt<=now&&conflicted(row)));
+ const wide=wideConflict?null:latest;
  let breadth=null,upLimit=null,downLimit=null,sealRate=null;
+ if(wideConflict)missing.push('同批全市场涨跌分布冲突');
+ if(noQualifiedLatest&&!wideConflict)missing.push('最新全市场批次未通过覆盖率或来源核验');
  if(wide){
   breadth=wide.adv/wide.observed*100;upLimit=wide.upLimit;downLimit=wide.downLimit;
-  basis.push({kind:'breadth',source:wide.source,scope:wide.scope,day:target,quoteAt:wide.quoteAt,knownAt:wide.knownAt,observed:wide.observed,total:wide.total});
- }else{
+  basis.push({kind:'breadth',source:wide.source,scope:wide.scope,day:target,quoteAt:wide.quoteAt,knownAt:wide.knownAt,observed:wide.observed,total:wide.total,coverage:wide.observed/wide.total});
+ }else if(!wideConflict){
   const b=state.breadth,m=state.dashboard?.mood,at=m?.scope?.snapAt;
-  if(decisionDay(b?.day)===target&&time(b.at)&&b.at<=now&&chinaDay(b.at)===target&&count(b.up)&&count(b.down)&&count(b.n)&&b.n>0&&b.up+b.down<=b.n){
-   breadth=b.up/b.n*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+b.n+' 只',day:target,quoteAt:b.at,observed:b.n});
+  if(decisionDay(b?.day)===target&&time(b.at)&&b.at<=now&&chinaDay(b.at)===target&&count(b.up)&&count(b.down)&&count(b.n)&&b.n>0&&b.up+b.down<=b.n&&
+    !conflicted(b)&&(!intraday||weatherClock(b.at,target,now))){
+   const total=sampleTotal(b);
+   breadth=b.up/b.n*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+b.n+' 只',day:target,quoteAt:b.at,observed:b.n,total:total??null});
+   if(intraday&&!weatherCoverage(b.n,total))missing.push('当前全市场覆盖率');
   }else if(time(at)&&at<=now&&chinaDay(at)===target&&['upN','downN','flatN'].every(k=>count(m?.[k]))&&
-   count(m.scope.sample)&&m.scope.sample>0&&m.upN+m.downN+m.flatN===m.scope.sample){
-   breadth=m.upN/m.scope.sample*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+m.scope.sample+' 只',day:target,quoteAt:at,observed:m.scope.sample});
+   count(m.scope.sample)&&m.scope.sample>0&&m.upN+m.downN+m.flatN===m.scope.sample&&
+   !conflicted(m)&&(!intraday||weatherClock(at,target,now))){
+   const total=sampleTotal(m.scope);
+   breadth=m.upN/m.scope.sample*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+m.scope.sample+' 只',day:target,quoteAt:at,observed:m.scope.sample,total:total??null});
+   if(intraday&&!weatherCoverage(m.scope.sample,total))missing.push('当前全市场覆盖率');
   }
-  const up=metric(state.marketRecovery?.metrics?.upLimit,target,now),down=metric(state.marketRecovery?.metrics?.downLimit,target,now);
+  const up=metric(state.marketRecovery?.metrics?.upLimit,target,now,intraday),down=metric(state.marketRecovery?.metrics?.downLimit,target,now,intraday);
   // Never divide counts collected from different providers, scopes or batches.
-  if(up&&down&&count(up.value)&&count(down.value)&&up.source===down.source&&up.scope===down.scope&&up.knownAt===down.knownAt){
-   upLimit=up.value;downLimit=down.value;basis.push({kind:'limits',source:up.source,scope:up.scope||'同源专题池',day:target,knownAt:up.knownAt});
+  if(up&&down&&count(up.value)&&count(down.value)&&up.source===down.source&&up.scope===down.scope&&up.knownAt===down.knownAt&&
+    (!intraday||text(up.scope)&&metricClock(up)===metricClock(down))){
+   upLimit=up.value;downLimit=down.value;basis.push({kind:'limits',source:up.source,scope:up.scope||'同源专题池',day:target,knownAt:up.knownAt,
+    ...(intraday?{quoteAt:metricClock(up)}:{})});
   }
  }
- const db=state.dabanke,eco=array(db?.ecology).find(row=>row?.label==='当日封板');
- if(decisionDay(db?.day)===target&&time(db.knownAt)&&db.knownAt<=now&&count(eco?.success)&&count(eco?.total)&&eco.total>0&&eco.success<=eco.total){
+ const db=state.dabanke,ecos=array(db?.ecology).filter(row=>row?.label==='当日封板'),eco=ecos[0];
+ // The real collector returns the page's original market/distribution
+ // timestamps. Do not let a new page receipt hide explicit old source clocks.
+ const dbClocks=[db?.market,db?.distribution].filter(v=>v!=null).map(v=>v.quoteAt);
+ const dbCurrent=!intraday||db?.mode!=='收盘'&&weatherClock(db?.knownAt,target,now)&&
+  dbClocks.every(at=>weatherClock(at,target,now)&&at<=db.knownAt);
+ if(decisionDay(db?.day)===target&&time(db.knownAt)&&db.knownAt<=now&&dbCurrent&&!conflicted(db)&&
+  count(eco?.success)&&count(eco?.total)&&eco.total>0&&eco.success<=eco.total&&
+  ecos.every(row=>row.success===eco.success&&row.total===eco.total)){
   sealRate=eco.success/eco.total*100;
-  basis.push({kind:'sealing',source:'打板客',scope:'当日触板池（不含 ST）',day:target,knownAt:db.knownAt,sealed:eco.success,touched:eco.total});
+  basis.push({kind:'sealing',source:'打板客',scope:'当日触板池（不含 ST）',day:target,knownAt:db.knownAt,sealed:eco.success,touched:eco.total,
+   clockBasis:dbClocks.length?'provider-page-clock':'receipt-only',
+   ...(dbClocks.length&&dbClocks.every(time)?{quoteAt:Math.min(...dbClocks)}:{})});
  }else{
-  const broken=metric(state.marketRecovery?.metrics?.breakRate,target,now);
-  if(broken&&broken.value>=0&&broken.value<=100){sealRate=100-broken.value;basis.push({kind:'sealing',source:broken.source,scope:broken.scope||'同源触板专题池',day:target,knownAt:broken.knownAt});}
+  const broken=metric(state.marketRecovery?.metrics?.breakRate,target,now,intraday);
+  if(broken&&broken.value>=0&&broken.value<=100){sealRate=100-broken.value;basis.push({kind:'sealing',source:broken.source,scope:broken.scope||'同源触板专题池',day:target,knownAt:broken.knownAt,
+   ...(intraday?{quoteAt:metricClock(broken)}:{})});}
  }
  if(breadth===null)missing.push('同日市场宽度');
  if(upLimit===null||downLimit===null)missing.push('同日同口径涨跌停家数');
@@ -109,6 +197,31 @@ export function decisionWeather(state={}, {day,now=Date.now()}={}){
  return {day:target,status,label,summary,canConsider:!weak,metrics,missing,basis};
 }
 
+// Reuse analysis.js's existing 1:2 reward/risk discipline. This centre
+// uses the highest price in the original plan (the worst entry), never the
+// cheaper MA5 or the old rounded levels.rr. These are gross scenario
+// distances, not a return forecast or a guarantee of a fill at the stop.
+function chaseRisk(row){
+ const price=row?.price,stop=row?.levels?.stop,target=row?.levels?.t1,ma5=row?.levels?.ma5;
+ const base={status:'unknown',minimumGrossRewardRisk:2,ratio:null,riskPct:null,rewardPct:null,
+  maxEntryAtMinimumRatio:null,ma5DistancePct:null,canTrade:false,
+  costBasis:'gross-before-fees-slippage-and-T+1-gap-risk',
+  reason:'缺少可核验的现价、止损和第一目标，追高风险待核验'};
+ if(![price,stop,target].every(positive)||!(stop<price&&price<target))return base;
+ const risk=price-stop,reward=target-price,ratio=reward/risk;
+ const riskPct=risk/price*100,rewardPct=reward/price*100;
+ const maxEntryAtMinimumRatio=stop+(target-stop)/3;
+ const ma5DistancePct=positive(ma5)?(price-ma5)/ma5*100:null;
+ if(![risk,reward,ratio,riskPct,rewardPct,maxEntryAtMinimumRatio].every(finite))return base;
+ // Permit only floating-point roundoff at exact equality; do not turn
+ // a rounded 1.95 into a passing ratio of 2.0.
+ const qualifies=reward>=2*risk||Math.abs(reward-2*risk)<=Number.EPSILON*8*Math.max(price,stop,target);
+ return {...base,status:qualifies?'meets-gross-discipline':'insufficient-gross-reward',
+  ratio,riskPct:round(riskPct),rewardPct:round(rewardPct),maxEntryAtMinimumRatio,
+  ma5DistancePct:finite(ma5DistancePct)?round(ma5DistancePct):null,
+  reason:qualifies?'按原始第一目标与止损计算的毛收益风险比满足1:2；费用、滑点、跳空与T+1风险尚未扣除':
+   '现价追高后毛收益风险比低于原1:2纪律，等待价格或原计划证据重新核验；不自动缩小止损或抬高目标'};
+}
 export function decisionPlan(row,account){
  const levels=row?.levels||{},missing=[],policy=account?.executionPolicy||{};
  const buyLow=positive(levels.ma5)?levels.ma5:null,buyHigh=positive(row?.price)?row.price:null;
@@ -127,7 +240,7 @@ export function decisionPlan(row,account){
  if(account?.enabled===false)missing.push('模拟盘策略跟踪已暂停');
  const max=policy.maxPositions??account?.maxPos;
  if(Number.isSafeInteger(max)&&array(account?.positions).length>=max)missing.push('现有模拟盘持仓已满');
- return {buyLow,buyHigh,stop,target,positionPct,complete:missing.length===0,missing,
+ return {buyLow,buyHigh,stop,target,positionPct,riskReward:chaseRisk(row),complete:missing.length===0,missing,
   priceBasis:'现有 MA5 至本行原始报价；止损与目标取现有 levels.stop / levels.t1',
   positionBasis:positionPct===null?'原模拟盘仓位预算待核验':'取原模拟盘单票预算与可用资金比例较小值；费用、整手和最终仓位由原买入门禁核验'};
 }
@@ -147,9 +260,12 @@ export function stockConclusion(row={}, {day,now=Date.now()}={}){
   {kind:'volume',label:'量价',known:gate.ok,text:gate.ok?'原始价 '+row.price+'；'+(positive(row.amount)?'成交额 '+row.amount+' 元':'成交量 '+row.volume)+(finite(row.pct)?'；涨跌 '+round(row.pct)+'%':''):'报价或量额证据不足'},
   {kind:'position',label:'位置',known:sameDay&&positive(row.levels?.ma5)&&positive(row.price),text:sameDay&&positive(row.levels?.ma5)&&positive(row.price)?'MA5 '+row.levels.ma5+'，'+(row.price>=row.levels.ma5?'位于其上方或附近':'位于其下方')+(positive(row.levels?.r1)?'；第一压力 '+row.levels.r1:''):'位置依据待核验'}
  ];
- const label=!gate.ok||sealed?'回避':broken?'等待回封':'可关注';
- const reason=!gate.ok?gate.reasons.join('；'):sealed?'当前已封板，等待可成交的重新核验':broken?'已有开板证据，等待回封并重新核对量价':pickReasons(row)[0]||'报价与当前条件可核对，按计划继续观察';
- return {label,reason,evidence,day:target};
+ const riskReward=chaseRisk(gate.ok&&sameDay?row:null);
+ const insufficient=riskReward.status==='insufficient-gross-reward';
+ if(riskReward.status!=='unknown')evidence[3].text+='；毛收益风险比 '+riskReward.ratio.toFixed(2)+'（未扣成本）';
+ const label=!gate.ok||sealed||insufficient?'回避':broken?'等待回封':'可关注';
+ const reason=!gate.ok?gate.reasons.join('；'):sealed?'当前已封板，等待可成交的重新核验':insufficient?riskReward.reason:broken?'已有开板证据，等待回封并重新核对量价':pickReasons(row)[0]||'报价与当前条件可核对，按计划继续观察';
+ return {label,reason,evidence,day:target,riskReward};
 }
 
 function readyPool(pool){
@@ -238,6 +354,9 @@ export function buildDecisionBoard(state={}, {now=Date.now()}={}){
   if(sealed.has(row.code)||row.sealed===true||row.isSealed===true){block('当前已封板，原模拟盘不能成交');continue;}
   if(!finite(row.score)||row.score<0||row.score>100||!reasons.length){block('精选评分或入选依据不足');continue;}
   if(!plan.complete){plan.missing.forEach(block);continue;}
+  // A complete price order does not imply attractive remaining upside.
+  // Never automatically resize the original account or move its risk levels.
+  if(plan.riskReward.status!=='meets-gross-discipline'){block(plan.riskReward.reason);continue;}
   const conclusion=stockConclusion(row,{day,now});
   if(conclusion.label!=='可关注'){block(conclusion.reason);continue;}
   const strategies=resonance.get(row.code)||[];

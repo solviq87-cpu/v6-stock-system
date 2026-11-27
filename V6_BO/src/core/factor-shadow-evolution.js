@@ -313,6 +313,45 @@ function selectNonOverlappingMaturedCrossSections(sorted){
  * research report therefore consumes that holdout even without an accepted
  * new shadow version. A restarted worker supplies the last sealed trial.
  */
+// A sealed report must cover its complete declared observation prefix.
+// Merely checking every provided pair accepts an empty or truncated list.
+function sealedObservationPrefixMatches(report,sorted){
+ const prefix=report?.observedFingerprints,end=report?.lastObservationDay;
+ if(!day(end)||!Array.isArray(prefix)||!prefix.length||prefix.length>sorted.length||
+    sorted[prefix.length-1]?.day!==end)return false;
+ return prefix.every((pair,i)=>hash(pair)===hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]));
+}
+// Reconstruct the ORIGINAL test boundary at the claimed transition date,
+// not today's later rolling split. The non-overlapping observation prefix
+// has already been selected from the authenticated original episodes.
+function historicalMonitoringTest(sorted,observed,through,acceptedDay){
+ const n=sorted.findIndex(e=>e.day===through)+1;
+ if(!n)return [];
+ const testStart=Math.floor(n*.56)+5+Math.floor(n*.16)+5;
+ const days=new Set(sorted.slice(testStart,n).map(e=>e.day));
+ return observed.filter(e=>days.has(e.day)&&e.day>acceptedDay);
+}
+function cooldownEvidenceMatches(report,gate,previous,sorted,observed,ids,officialWeights,acceptedWeights){
+ if(!gate||!['active','recovered'].includes(gate.phase))return false;
+ if(report.status==='paused-shadow-decay'&&
+    (gate.phase!=='active'||gate.alertDay!==report.lastObservationDay))return false;
+ if(report.status==='shadow-recovered'&&
+    (gate.phase!=='recovered'||gate.recoveryDay!==report.lastObservationDay))return false;
+ if(gate.phase==='active'&&gate.recoveryDay!==null)return false;
+ const alert=assessShadowDecay(historicalMonitoringTest(sorted,observed,gate.alertDay,previous.lastObservationDay),
+  ids,officialWeights,acceptedWeights,dailyIC);
+ if(!alert.alert)return false;
+ if(gate.phase==='recovered'){
+  const evidence=historicalMonitoringTest(sorted,observed,gate.recoveryDay,previous.lastObservationDay)
+   .filter(row=>row.day>gate.alertDay);
+  const recovery=assessShadowRecovery(evidence,ids,officialWeights,acceptedWeights,dailyIC);
+  // An archive hash or a claimed boolean alone is not recovery evidence.
+  // Older reports need not carry today's additive diagnostics, but both
+  // complete five-day blocks must still pass the original arithmetic.
+  if(gate.recovery?.recovered!==true||!recovery.recovered)return false;
+ }
+ return true;
+}
 function verifyPreviousTrial(previousTrial,previous,sorted,ids,feed){
  if(previousTrial===null)return {cutoff:previous?.lastObservationDay||null,
   count:0,priorFingerprint:null};
@@ -321,10 +360,7 @@ function verifyPreviousTrial(previousTrial,previous,sorted,ids,feed){
  const legacy=!audit&&['shadow-retained','paused-market-shock'].includes(contents.status);
  const cutoff=legacy?contents.lastObservationDay:audit?.lastHoldoutDay;
  const expectedParent=previous?.fingerprint||null;
- const sameEvidence=Array.isArray(contents.observedFingerprints)&&
-  contents.observedFingerprints.length<=sorted.length&&
-  contents.observedFingerprints.every((pair,i)=>
-   hash(pair)===hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]));
+ const sameEvidence=sealedObservationPrefixMatches(contents,sorted);
  if(typeof fingerprint!=='string'||fingerprint!==hash(contents)||
     contents.mode!==MODEL||contents.previousFingerprint!==expectedParent||
     !['shadow-retained','shadow-updated','paused-market-shock'].includes(contents.status)||
@@ -411,10 +447,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   if(!contents.shadowWeights||ids.some(id=>!finite(contents.shadowWeights[id])))
    throw Error('历史研究权重无效');
   // Earlier data used to accept a shadow version must remain unchanged.
-  if(!Array.isArray(contents.observedFingerprints)||
-     contents.observedFingerprints.length>sorted.length||
-     contents.observedFingerprints.some((pair,i)=>
-      hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint])))
+  if(!sealedObservationPrefixMatches(contents,sorted))
    throw Error('已有因子模型的历史冻结证据被替换或回写');
   // Audit every sealed historical observation before a no-op same-day
   // skip; otherwise rewritten evidence could hide behind the skip path.
@@ -440,7 +473,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   const gate=previousCooldown?.cooldown||
    (previousCooldown?.status==='paused-shadow-decay'?
     {phase:'active',alertDay:previousCooldown.lastObservationDay,recoveryDay:null,
-     sourceAcceptedFingerprint:previous.fingerprint}:null);
+     sourceAcceptedFingerprint:previous?.fingerprint}:null);
   if(!previous||fingerprint!==hash(payload)||
      !['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered'].includes(previousCooldown.status)||
      previousCooldown.mode!==MODEL||
@@ -457,12 +490,9 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
      (gate.phase==='recovered'&&
       (!day(gate.recoveryDay)||gate.recoveryDay<=gate.alertDay||
        gate.recoveryDay>previousCooldown.lastObservationDay))||
-     !Array.isArray(previousCooldown.observedFingerprints)||
-     previousCooldown.observedFingerprints.length>sorted.length||
-     previousCooldown.observedFingerprints.some((pair,i)=>
-      hash(pair)!==hash([sorted[i].featureFingerprint,sorted[i].marketFingerprint]))||
-     !day(previousCooldown.lastObservationDay)||
-     previousCooldown.lastObservationDay>sorted.at(-1).day)
+     !sealedObservationPrefixMatches(previousCooldown,sorted)||
+     !cooldownEvidenceMatches(previousCooldown,gate,previous,sorted,observed,ids,
+      Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),oldWeights))
    throw Error('历史衰减冷却证据或血缘无效，拒绝恢复学习');
   // Identical evidence must never manufacture a new cooldown transition.
   if(previousCooldown.lastObservationDay===sorted.at(-1).day){

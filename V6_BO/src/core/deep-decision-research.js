@@ -98,11 +98,32 @@ function portfolioInput(input,asOf) {
   need(finite(a.equity)&&a.equity>0&&a.equity<=1e15&&nonnegative(a.cash),'缺少有效账户权益与现金');
   need(nonnegative(a.availableCash)&&a.availableCash<=a.cash,'原账户可用资金未知，不能把总现金当作可用现金');
   need(Number.isSafeInteger(a.pendingBuyOrders)&&a.pendingBuyOrders===0,'原账户存在未终结买单或挂单状态未知');
+  const countOk=n=>Number.isSafeInteger(n)&&n>=0;
+  const ordersKnown=countOk(a.pendingOrders)&&countOk(a.pendingSellOrders)&&countOk(a.pendingBuyOrders)&&
+    a.pendingOrders===a.pendingBuyOrders+a.pendingSellOrders;
+  need(ordersKnown,'原账户挂单数量与买卖分项不一致或未知');
   const positions=arr(a.positions),pmap=new Map();
   need(Array.isArray(a.positions)&&positions.length<=50,'缺少完整持仓');
-  for(const p of positions){need(symbol(p?.symbol)&&!pmap.has(p.symbol)&&Number.isSafeInteger(p.quantity)&&p.quantity>=0&&Number.isSafeInteger(p.availableQuantity)&&p.availableQuantity>=0&&p.availableQuantity<=p.quantity,'持仓、可卖数量或唯一身份无效');pmap.set(p?.symbol,p);}
+  let reservedSymbols=0;
+  for(const p of positions){
+    const valid=symbol(p?.symbol)&&!pmap.has(p.symbol)&&countOk(p.quantity)&&countOk(p.availableQuantity)&&p.availableQuantity<=p.quantity;
+    need(valid,'持仓、可卖数量或唯一身份无效');
+    if(!valid)continue;
+    pmap.set(p.symbol,p);
+    // Existing sell orders are accounted for by the original unavailable
+    // quantity, not assumed proceeds. When present, the reservation must
+    // reconcile with both the held shares and the account's order inventory.
+    const hasReservation=Object.hasOwn(p,'pendingSellQuantity');
+    if(hasReservation||ordersKnown&&a.pendingSellOrders>0){
+      const q=p.pendingSellQuantity;
+      need(countOk(q)&&q<=p.quantity-p.availableQuantity,'原持仓卖单冻结数量未知或不一致 '+p.symbol);
+      if(countOk(q)&&q>0)reservedSymbols++;
+    }
+  }
+  if(ordersKnown)need(reservedSymbols<=a.pendingSellOrders&&(a.pendingSellOrders===0||reservedSymbols>0),
+    '原卖单与持仓冻结清单不一致');
   const ids=rows.map(r=>r?.symbol);need(new Set(ids).size===rows.length&&ids.every(symbol),'候选股票身份无效或重复');
-  need(positions.every(p=>ids.includes(p.symbol)),'候选未包含全部持仓，不能遗漏风险敞口');
+  need(positions.every(p=>ids.includes(p?.symbol)),'候选未包含全部持仓，不能遗漏风险敞口');
   need(Number.isSafeInteger(input?.horizonDays)&&input.horizonDays>=1&&input.horizonDays<=60,'缺少明确研究持有周期');
   need(text(c.version),'缺少原约束版本');
   need(Number.isSafeInteger(c.maxPositions)&&c.maxPositions>=1&&c.maxPositions<=50,'缺少原后台有效持仓数量上限');
@@ -143,11 +164,11 @@ function portfolioInput(input,asOf) {
 
 function weightMetrics(weights,p) {
   const {rows,account:a,bounds:c,cost}=p;
-  let expected=0,lower=0,variance=0,fee=0,slippage=0,turnover=0;const sectors={},changes=[];
+  let expected=0,lower=0,variance=0,fee=0,slippage=0,turnover=0;const sectors=new Map(),changes=[];
   for(let i=0;i<rows.length;i++){
     const r=rows[i],w=weights[i],delta=w-r.currentWeight;
     expected+=w*r.estimate.expectedReturn;lower+=w*(r.estimate.expectedReturn-1.96*r.estimate.standardError);
-    sectors[r.sector]=(sectors[r.sector]||0)+w;
+    sectors.set(r.sector,(sectors.get(r.sector)||0)+w);
     for(let j=0;j<rows.length;j++)variance+=w*weights[j]*r.estimate.volatility*rows[j].estimate.volatility*p.correlation.matrix[i][j];
     if(Math.abs(delta)>1e-10){
       const quantity=Math.abs(delta)*a.equity/r.price;
@@ -165,7 +186,7 @@ function weightMetrics(weights,p) {
   fail(volatility>c.maxVolatility+1e-8,'risk-budget');
   weights.forEach((w,i)=>{const r=rows[i];fail(w<r.minimumWeight-1e-8,'t-plus-one:'+r.symbol);fail(w>c.maxSingleWeight+1e-8,'single-name:'+r.symbol);
     fail(Math.abs(w-r.currentWeight)*a.equity>r.liquidity.averageDailyAmount*c.maxParticipation+1e-8,'liquidity:'+r.symbol);});
-  for(const [sector,w] of Object.entries(sectors))fail(w>c.maxSectorWeight+1e-8,'sector:'+sector);
+  for(const [sector,w] of sectors)fail(w>c.maxSectorWeight+1e-8,'sector:'+sector);
   if(c.riskPolicy)for(let i=0;i<rows.length;i++)if(weights[i]>rows[i].currentWeight+1e-10){
     const delta=weights[i]-rows[i].currentWeight,r=rows[i];
     const risk=evaluateEntryRisk({policy:c.riskPolicy,symbol:r.symbol,strategyId:r.strategyId,quantity:delta*a.equity/r.price,price:r.price,

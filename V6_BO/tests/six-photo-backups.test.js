@@ -39,7 +39,7 @@ test('catalog identity, duplicate IDs, future clock and paid/trading claims reje
  for(const mutate of [r=>r.sources[0].upstream='other',r=>r.sources[0]=r.sources[1],r=>r.generatedAt=now+1,r=>r.canTrade=true,r=>r.paidServicesUsed=true]){const r=fixture();mutate(r);assert.throws(()=>build(r,now));}
 });
 test('bank expiry cannot reactivate frozen quotes',()=>{
- const r=fixture();returned(r,'easyquotation.realtime',[{now:10,date:'2026-11-06',time:'16:00:00'}]);assert.equal(select(build(r,now),{kind:'quote',code:'600519'}).records.length,1);
+ const r=fixture();returned(r,'easyquotation.realtime',[{now:10,date:'2026-11-06',time:'16:00:00'}]);assert.equal(select(build(r,now),{kind:'quote',code:'600519',now}).records.length,1);
  assert.equal(select(build(r,now+86400001),{kind:'quote',code:'600519'}),null);
 });
 test('fixed-file fallback validates symbols/time and does not expose raw fields or synthesize missing cashflow',t=>{
@@ -73,4 +73,76 @@ test('quote refresh atomically updates a separate active file, removes old succe
  const script=path.resolve(__dirname,'../scripts/six-photo-sources.py'),base=JSON.stringify(fixture());
  const code=`import runpy,json,tempfile,pathlib,copy\nn=runpy.run_path(${JSON.stringify(script)})\nbase=json.loads(${JSON.stringify(base)})\nq=next(x for x in base['sources'] if x['id']=='easyquotation.realtime');q['status']='returned';q['data']={'records':[{'now':10}]}\noriginal=copy.deepcopy(base)\ndef failed(*args):\n x=copy.deepcopy(q);x.pop('data');x['status']='unavailable';return x\nupdated=n['refresh_quote'](base,'600519','2026-11-02','2026-11-06','161725',failed)\nassert base==original\nassert next(x for x in updated['sources'] if x['id']=='easyquotation.realtime')['status']=='unavailable'\nassert 'data' not in next(x for x in updated['sources'] if x['id']=='easyquotation.realtime')\nassert updated['sources'][0]==base['sources'][0]\nwith tempfile.TemporaryDirectory() as d:\n p=pathlib.Path(d)/'active.json';n['activate'](p,base);n['activate'](p,updated)\n assert json.loads(p.read_text())==updated\n link=pathlib.Path(d)/'link';link.symlink_to(p)\n try:n['activate'](link,base);raise AssertionError()\n except ValueError:pass\n`;
  const r=spawnSync(process.env.V6_NATIVE_PYTHON||'python3',['-c',code],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);
+});
+
+test('cached bank is revalidated at selection, exact 15-second boundary and clock rollback are fail-closed',()=>{
+ const r=fixture();returned(r,'easyquotation.realtime',[{now:10,date:'2026-11-06',time:'16:00:00'}]);
+ const bank=build(r,now),pick=t=>select(bank,{kind:'quote',code:'600519',now:t});
+ assert.equal(pick(now+15000).records[0].timestamp,now);
+ assert.equal(pick(now+15001),null);assert.equal(pick(now-1),null);
+ assert.equal(pick(now+86400001),null);
+ assert.equal(pick(NaN),null);
+ assert.equal(bank.sources.find(s=>s.id==='easyquotation.realtime').records[0].freshness,'recent-unverified');
+});
+test('freshness string is not proof and prior China date cannot enter fallback',()=>{
+ const r=fixture(),midnight=Date.parse('2026-11-06T00:00:01+08:00');
+ r.generatedAt=midnight;r.sources.forEach(s=>s.observedAt=midnight);
+ returned(r,'easyquotation.realtime',[{now:10,date:'2026-11-05',time:'23:59:59'}]);
+ const bank=build(r,midnight),source=bank.sources.find(s=>s.id==='easyquotation.realtime');
+ assert.equal(source.records[0].freshness,'stale');
+ source.records[0].freshness='recent-unverified';
+ assert.equal(select(bank,{kind:'quote',code:'600519',now:midnight}),null);
+});
+test('equal-time conflicting quote records quarantine only that source and allow an independent backup',()=>{
+ const r=fixture(),q={now:10,close:9,date:'2026-11-06',time:'16:00:00'};
+ returned(r,'easyquotation.realtime',[q,{...q,now:11}]);
+ returned(r,'efinance.realtime',[{...q,now:12}]);
+ const b=build(r,now);
+ assert.equal(b.sources.find(s=>s.id==='easyquotation.realtime').status,'data-invalid');
+ assert.equal(select(b,{kind:'quote',code:'600519',now}).id,'efinance.realtime');
+ assert.equal(select(b,{kind:'quote',code:'600519',now,excludeUpstreams:['eastmoney']}),null);
+});
+test('latest original quote is selected once, exact duplicates do not multiply price rows',()=>{
+ const r=fixture(),q={now:10,close:9,date:'2026-11-06',time:'16:00:00'};
+ returned(r,'easyquotation.realtime',[q,{...q,now:9,time:'15:59:50'},q]);
+ const b=build(r,now),p=select(b,{kind:'quote',code:'600519',now});
+ assert.equal(p.records.length,1);assert.equal(p.records[0].price,10);
+ p.records[0].price=100;
+ assert.equal(select(b,{kind:'quote',code:'600519',now}).records[0].price,10);
+});
+test('contradictory quote aliases, source, security, explicit clocks and simulated markers cannot enter bank',()=>{
+ const q={now:10,close:9,date:'2026-11-06',time:'16:00:00'};
+ for(const patch of [{'最新价':12,'昨日收盘':9},{'昨日收盘':8},{symbol:'000001'},{provider:'other'},
+ {quoteAt:now+1},{sourceTimestamp:now-1},{tradeDate:'2026-11-05'},{simulated:true},{conflict:true},{canTrade:true}]){
+  const r=fixture();returned(r,'easyquotation.realtime',[{...q,...patch}]);
+  assert.equal(select(build(r,now),{kind:'quote',code:'600519',now}),null,JSON.stringify(patch));
+ }
+});
+test('missing or invalid previous close is unknown, not a made-up zero or negative return',()=>{
+ for(const close of [null,0,-1,'invalid']){
+  const r=fixture();returned(r,'easyquotation.realtime',[{now:10,close,date:'2026-11-06',time:'16:00:00'}]);
+  const p=select(build(r,now),{kind:'quote',code:'600519',now});
+  assert.equal(p.records[0].previousClose,null);
+ }
+});
+test('future source receipt and fractional or out-of-range bank clocks cannot authorize quotes',()=>{
+ const r=fixture(),q={now:10,date:'2026-11-06',time:'16:00:00'};
+ returned(r,'easyquotation.realtime',[q]);const b=build(r,now);
+ b.sources.find(s=>s.id==='easyquotation.realtime').observedAt=now+1;
+ assert.equal(select(b,{kind:'quote',code:'600519',now}),null);
+ for(const bad of [now+.5,Number.MAX_SAFE_INTEGER,NaN])assert.throws(()=>build(r,bad),/bank/);
+ const bad=fixture();bad.generatedAt=now-.5;assert.throws(()=>build(bad,now),/bank/);
+});
+test('file refresh invalidates prior active quotes and a later valid refresh preserves read-only flags',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'phase4-backup-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'bank.json'),r=fixture();
+ returned(r,'easyquotation.realtime',[{now:10,close:9,date:'2026-11-06',time:'16:00:00'}]);fs.writeFileSync(file,JSON.stringify(r));
+ let rows=fallback(['600519'],file,now);
+ assert.equal(rows.length,1);assert.equal(rows[0].canTrade,false);assert.equal(rows[0].canNotify,false);assert.equal(rows[0].quoteMode,'research-backup');
+ const source=r.sources.find(s=>s.id==='easyquotation.realtime');source.status='unavailable';delete source.data;
+ fs.writeFileSync(file,JSON.stringify(r));assert.equal(fallback(['600519'],file,now+1000).length,0);
+ returned(r,'easyquotation.realtime',[{now:11,close:0,date:'2026-11-06',time:'16:00:02'}]);r.generatedAt=now+2000;source.observedAt=now+2000;
+ fs.writeFileSync(file,JSON.stringify(r));rows=fallback(['600519'],file,now+2000);
+ assert.equal(rows.length,1);assert.equal(rows[0].quoteAt,now+2000);assert.equal(rows[0].price,11);
+ assert.equal(rows[0].pct,null);assert.equal(rows[0].canTrade,false);assert.equal(rows[0].canNotify,false);
 });

@@ -7,6 +7,52 @@ const {resolveUpstream}=require('./data-source-lineage');
 const {evaluateMarketEvidence}=require('./market-evidence-quality');
 const {assessDailyTurnoverBar,TOLERANCE_BPS}=require('./daily-turnover-sanity');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const {aShareCalendarDate}=require('./a-share-calendar');
+const validClock=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
+// Explicit nested metadata must agree with the containing dataset. Missing
+// legacy row metadata remains unknown; it cannot certify root declarations.
+function checkNestedMetadata(row,feed,upstream,symbol,location){
+ const own=k=>Object.prototype.hasOwnProperty.call(row,k);
+ const check=(field,expected)=>{if(own(field)&&row[field]!==undefined&&row[field]!==expected)
+  throw Error('多源逐层元数据冲突: '+location+' '+field);};
+ check('volumeUnit','shares');
+ check('amountUnit','CNY');
+ check('amountBasis','actual-unadjusted-turnover');
+ check('priceBasis',feed.priceAdjustment.mode);
+ check('adjustment',feed.priceAdjustment.mode);
+ if(row!==feed){
+  check('provider',feed.provider);
+  if(own('upstreamGroup')&&row.upstreamGroup!==undefined&&row.upstreamGroup!==(upstream.catalogGroup??upstream.group))
+   throw Error('多源逐层上游身份冲突: '+location);
+  if(own('priceAdjustment')&&row.priceAdjustment!==undefined&&
+    (!row.priceAdjustment||Array.isArray(row.priceAdjustment)||row.priceAdjustment.mode!==feed.priceAdjustment.mode))
+   throw Error('多源逐层复权元数据冲突: '+location);
+  for(const field of ['code','symbol']){
+   if(symbol!==null&&own(field)&&row[field]!==undefined&&
+    (!(typeof row[field]==='string'||Number.isSafeInteger(row[field]))||String(row[field])!==symbol))
+    throw Error('多源逐层证券身份冲突: '+location+' '+field);
+  }
+ }
+}
+function checkObservedAt(clock,day,parent,location){
+ if(clock===undefined||clock===null)return;
+ if(!validClock(clock)||aShareCalendarDate(clock)<day||parent!=null&&clock>parent)
+  throw Error('多源观察时点与数据日期或上层采集时点冲突: '+location);
+}
+function checkDatasetMetadata(feed,upstream,lastDate){
+ checkNestedMetadata(feed,feed,upstream,null,'dataset');
+ checkObservedAt(feed.observedAt,feed.asOf,null,'dataset');
+ for(const stock of feed.stocks){
+  const symbol=String(stock.code||stock.symbol);
+  checkNestedMetadata(stock,feed,upstream,symbol,symbol);
+  checkObservedAt(stock.observedAt,lastDate,feed.observedAt,symbol);
+  for(const bar of stock.bars){
+   const loc=symbol+'/'+bar.date;
+   checkNestedMetadata(bar,feed,upstream,symbol,loc);
+   checkObservedAt(bar.observedAt,bar.date,stock.observedAt??feed.observedAt,loc);
+  }
+ }
+}
 function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeTolerancePct=5,amountTolerancePct=5,maxDiscrepancies=100}={}){
  for(const [name,v,min,max] of [['priceToleranceBps',priceToleranceBps,0,1000],['volumeTolerancePct',volumeTolerancePct,0,100],['amountTolerancePct',amountTolerancePct,0,100],['maxDiscrepancies',maxDiscrepancies,1,1000]]){
   if((name==='maxDiscrepancies'&&!Number.isSafeInteger(v))||typeof v!=='number'||!Number.isFinite(v)||v<min||v>max)throw Error('多源核对参数无效: '+name);
@@ -32,8 +78,9 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  const volumeUnitVerified=primary.volumeUnit==='shares'&&secondary.volumeUnit==='shares';
  if((primary.volumeUnit!==undefined||secondary.volumeUnit!==undefined)&&!volumeUnitVerified)
   throw Error('多源成交量单位不一致或未归一为 shares，禁止核对通过');
- const hasAmounts=feed=>feed.stocks.some(stock=>stock.bars.some(bar=>bar.amount!==undefined));
- const amountRequested=[primary,secondary].some(feed=>hasAmounts(feed)||feed.amountUnit!==undefined||feed.amountBasis!==undefined);
+ const declaresAmount=row=>row.amountUnit!==undefined||row.amountBasis!==undefined;
+ const hasAmounts=feed=>feed.stocks.some(stock=>declaresAmount(stock)||stock.bars.some(bar=>bar.amount!==undefined||declaresAmount(bar)));
+ const amountRequested=[primary,secondary].some(feed=>hasAmounts(feed)||declaresAmount(feed));
  if(amountRequested&&(!volumeUnitVerified||
     primary.amountUnit!=='CNY'||secondary.amountUnit!=='CNY'||
     primary.amountBasis!=='actual-unadjusted-turnover'||
@@ -45,11 +92,15 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
  if((aClock===undefined)!==(bClock===undefined))throw Error('多源时间戳缺失：两份数据必须同时提供 observedAt');
  let observationSkewMs=null;
  if(aClock!==undefined){
-  if(!Number.isSafeInteger(aClock)||!Number.isSafeInteger(bClock)||aClock<=0||bClock<=0)
+  if(!validClock(aClock)||!validClock(bClock))
    throw Error('多源 observedAt 时间戳无效');
   observationSkewMs=Math.abs(aClock-bClock);
   if(observationSkewMs>300000)throw Error('多源行情观察时间相差超过五分钟，禁止一致性放行');
  }
+ // Verify each source on its own before comparing numeric rows. Matching
+ // values cannot launder a future daily observation or contradictory units.
+ checkDatasetMetadata(primary,upstreamA,a.lastDate);
+ checkDatasetMetadata(secondary,upstreamB,b.lastDate);
  const bs=new Map(secondary.stocks.map(s=>[String(s.code||s.symbol),s]));
  const differences=[];let total=0,comparedBars=0,amountComparedBars=0,amountCoverageGapBars=0;
  const symbolEvidence=new Map(primary.stocks.map(s=>[String(s.code||s.symbol),{symbol:String(s.code||s.symbol),comparedBars:0,discrepancies:0,fields:[]}]));
@@ -94,7 +145,7 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
    }
    const volume=Math.abs(x.volume-y.volume)/Math.max(x.volume,y.volume,1)*100;
    maximumVolumeDifferencePct=Math.max(maximumVolumeDifferencePct,volume);
-   if(volume>volumeTolerancePct)note(symbol,x.date,'volume',x.volume,y.volume,volume);
+   if(volume>volumeTolerancePct||(x.volume===0)!==(y.volume===0))note(symbol,x.date,'volume',x.volume,y.volume,volume);
    if(amountRequested){
     // Never silently ignore missing monetary fields or compare yuan to thousands.
     if(x.amount===undefined||y.amount===undefined){
@@ -104,7 +155,7 @@ function compareMarketFeeds(primary,secondary,{priceToleranceBps=5,volumeToleran
      amountComparedBars++;
      const amount=Math.abs(x.amount-y.amount)/Math.max(x.amount,y.amount,1)*100;
      maximumAmountDifferencePct=Math.max(maximumAmountDifferencePct,amount);
-     if(amount>amountTolerancePct)note(symbol,x.date,'amount',x.amount,y.amount,amount);
+     if(amount>amountTolerancePct||(x.amount===0)!==(y.amount===0))note(symbol,x.date,'amount',x.amount,y.amount,amount);
      // Matching nonsense still is not trustworthy: a traded share cannot
      // have zero actual cash turnover, and zero traded shares imply zero cash.
      if((x.volume===0)!==(x.amount===0)||

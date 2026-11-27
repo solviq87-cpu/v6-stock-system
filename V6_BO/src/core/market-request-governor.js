@@ -152,7 +152,21 @@ function createMarketRequestGovernor({
     if (!Number.isSafeInteger(value) || value < minimum) throw new TypeError('Invalid market request option: ' + name);
   }
   const buckets = new Map();
-  let stateUnavailable = false;
+  let stateUnavailable = false, lastClockAt = null;
+  const clockHorizon = Math.max(minIntervalMs, maxWaitMs, cooldown429Ms, cooldown403Ms);
+  // A queue uses one clock across all supplier families. A broken clock must
+  // not revive a cooldown, skip start spacing or create an endless timer.
+  // Keep the original fail-closed restriction until the operator restarts
+  // this instance after verifying the environment; no faster retry path.
+  function readClock() {
+    if (stateUnavailable) return null;
+    let at;
+    try { at = now(); } catch { failClosed(); return null; }
+    if (!Number.isSafeInteger(at) || at < 0 || at > Number.MAX_SAFE_INTEGER - clockHorizon ||
+        (lastClockAt !== null && at < lastClockAt)) { failClosed(); return null; }
+    lastClockAt = at;
+    return at;
+  }
   function bucketFor(provider) {
     if (!buckets.has(provider)) buckets.set(provider, {
       provider, active: 0, queue: [], lastStartAt: null,
@@ -234,7 +248,8 @@ function createMarketRequestGovernor({
   }
   function start(bucket, item, at) {
     if (!refreshState()) { item.reject(unavailableError(bucket.provider)); return; }
-    at = now();
+    at = readClock();
+    if (at === null) { item.reject(unavailableError(bucket.provider)); return; }
     if (at < bucket.cooldownUntil) {
       item.reject(restrictionError(bucket.provider, bucket.restrictionStatus, bucket.cooldownUntil));
       rejectRestrictedQueue(bucket); return;
@@ -255,7 +270,8 @@ function createMarketRequestGovernor({
   function pump(bucket) {
     cancelTimer(bucket);
     if (!refreshState()) return;
-    let at = now();
+    let at = readClock();
+    if (at === null) return;
     if (at < bucket.cooldownUntil) { rejectRestrictedQueue(bucket); return; }
     // Deadlines are checked at dispatch, including after an event-loop stall.
     // Expired work is discarded, never sent late to the supplier.
@@ -265,8 +281,8 @@ function createMarketRequestGovernor({
     }
     while (bucket.queue.length && bucket.active < maxActive && at >= startsAt(bucket)) {
       start(bucket, bucket.queue.shift(), at);
-      at = now();
-      if (stateUnavailable) return;
+      at = readClock();
+      if (at === null || stateUnavailable) return;
       // A task can synchronously discover a restriction in checkResponse().
       if (at < bucket.cooldownUntil) { rejectRestrictedQueue(bucket); return; }
     }
@@ -282,8 +298,8 @@ function createMarketRequestGovernor({
       provider = providerFor(target);
       if (typeof task !== 'function') throw new TypeError('Market request task must be a function');
     } catch (error) { return Promise.reject(error); }
-    const bucket = bucketFor(provider), at = now();
-    if (!refreshState()) return Promise.reject(unavailableError(provider));
+    const bucket = bucketFor(provider), at = readClock();
+    if (at === null || !refreshState()) return Promise.reject(unavailableError(provider));
     if (at < bucket.cooldownUntil) return Promise.reject(restrictionError(provider, bucket.restrictionStatus, bucket.cooldownUntil));
     return new Promise((resolve, reject) => {
       const item = {task, resolve, reject, deadline: at + maxWaitMs};
@@ -297,11 +313,14 @@ function createMarketRequestGovernor({
     const provider = providerFor(target);
     if (status !== 429 && status !== 403) return;
     if (!refreshState()) throw unavailableError(provider);
-    const bucket = bucketFor(provider), at = now();
+    const bucket = bucketFor(provider), at = readClock();
+    if (at === null) throw unavailableError(provider);
     if (status === 403) bucket.responses403++;
     else bucket.responses429++;
     const minimum = status === 429 ? cooldown429Ms : cooldown403Ms;
-    bucket.cooldownUntil = Math.max(bucket.cooldownUntil, at + Math.max(minimum, retryAfterMs(headers, at)));
+    const until = at + Math.max(minimum, retryAfterMs(headers, at));
+    if (!Number.isSafeInteger(until)) { failClosed(); throw unavailableError(provider); }
+    bucket.cooldownUntil = Math.max(bucket.cooldownUntil, until);
     bucket.restrictionStatus = status;
     rejectRestrictedQueue(bucket);
     persistRestriction();
@@ -309,12 +328,12 @@ function createMarketRequestGovernor({
     throw restrictionError(provider, status, bucket.cooldownUntil);
   }
   function state(target) {
-    const provider = providerFor(target), bucket = buckets.get(provider);
+    const provider = providerFor(target), bucket = buckets.get(provider), at = readClock();
     // A detached, frozen snapshot contains no URL, query, credentials or headers.
     return Object.freeze({
       provider, active: bucket ? bucket.active : 0, queued: bucket ? bucket.queue.length : 0,
       cooldownUntil: stateUnavailable ? Number.MAX_SAFE_INTEGER : bucket ? bucket.cooldownUntil : 0,
-      cooldownLeftMs: stateUnavailable ? Number.MAX_SAFE_INTEGER : bucket ? Math.max(0, bucket.cooldownUntil - now()) : 0,
+      cooldownLeftMs: stateUnavailable ? Number.MAX_SAFE_INTEGER : bucket ? Math.max(0, bucket.cooldownUntil - at) : 0,
       restrictionStatus: bucket?.restrictionStatus ?? null,
       responses403: bucket?.responses403 ?? 0, responses429: bucket?.responses429 ?? 0,
       lastStartAt: bucket ? bucket.lastStartAt : null, stateUnavailable

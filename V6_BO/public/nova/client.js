@@ -62,35 +62,49 @@ export function getSession(){try{return localStorage.getItem('qd_device')||local
 export function saveSession(token,role){try{localStorage.removeItem('qd_token');if(token)localStorage.setItem('qd_device',token);else localStorage.removeItem('qd_device');if(role)localStorage.setItem('qd_role',role);else localStorage.removeItem('qd_role');}catch{}}
 export function deviceId(){try{let id=localStorage.getItem('fayo.device');if(!id){id=crypto.randomUUID();localStorage.setItem('fayo.device',id);}return id;}catch{return 'fayo-'+Math.random().toString(36).slice(2);}}
 export function createClient({onUnauthorized=()=>{},getToken=getSession}={}) {
-  let generation=0;
+  let generation=0,identity;
   const pending=new Set();
   function invalidate(){generation++;for(const controller of pending)controller.abort();pending.clear();}
   async function api(path,options={}) {
     const url=new URL(path,location.origin);
     if(url.origin!==location.origin||!url.pathname.startsWith('/api/')&&!url.pathname.startsWith('/assets/'))throw new ApiError('只允许读取当前服务的接口');
     if([...url.searchParams.keys()].some(key=>/token|password|sharecode|secret/i.test(key)))throw new ApiError('凭据不能出现在链接中');
-    const token=getToken();
+    const token=getToken()||'';
     if(token&&(typeof token!=='string'||!/^[A-Za-z0-9._~-]{8,256}$/.test(token))){invalidate();onUnauthorized();throw new ApiError('访问授权格式无效，请重新登录',401);}
+    if(identity!==undefined&&identity!==token)invalidate();
+    identity=token;
     const headers={'Accept':'application/json',...options.headers};
     // A caller cannot retain another identity in either authentication header.
     for(const key of Object.keys(headers))if(/^(?:authorization|x-qd-token)$/i.test(key))delete headers[key];
     if(token){headers.Authorization='Bearer '+token;headers['X-QD-Token']=token;}
-    const controller=new AbortController(),turn=generation;
-    pending.add(controller);
-    const timeout=setTimeout(()=>controller.abort(new DOMException('请求超时','TimeoutError')),options.timeoutMs??(options.method&&options.method.toUpperCase()!=='GET'?60000:15000));
-    if(options.signal){if(options.signal.aborted)controller.abort();else options.signal.addEventListener('abort',()=>controller.abort(),{once:true});}
     const method=(options.method||'GET').toUpperCase();
-    if(options.body!==undefined)headers['Content-Type']='application/json';
+    const controller=new AbortController(),turn=generation,signal=options.signal;
+    const abort=()=>controller.abort(signal?.reason);
+    const assertCurrent=()=>{
+      if(turn!==generation||(getToken()||'')!==token)throw new DOMException('身份已更新','AbortError');
+      if(controller.signal.aborted)throw controller.signal.reason??new DOMException('请求已取消','AbortError');
+    };
+    pending.add(controller);
+    let timeout;
     try {
+      timeout=setTimeout(()=>controller.abort(new DOMException('请求超时','TimeoutError')),options.timeoutMs??(method!=='GET'?60000:15000));
+      if(signal){if(signal.aborted)abort();else signal.addEventListener('abort',abort,{once:true});}
+      assertCurrent();
+      if(options.body!==undefined)headers['Content-Type']='application/json';
       const response=await fetch(url,{method,headers,cache:'no-store',credentials:'same-origin',signal:controller.signal,...(options.body!==undefined?{body:JSON.stringify(options.body)}:{})});
-      let data;try{data=await response.json();}catch{throw new ApiError('服务暂未返回有效数据，请稍后重试',response.status);}
-      if(turn!==generation)throw new DOMException('身份已更新','AbortError');
+      assertCurrent();
+      let data,parseFailed=false;try{data=await response.json();}catch{parseFailed=true;}
+      assertCurrent();
+      // A 401 revokes this identity even if an intermediary returned HTML or
+      // an empty body. Late responses from a superseded identity cannot revoke
+      // the new session or repopulate private state.
       if(response.status===401||(data?.locked&&data?.readOnly!==true)||data?.needAuth||data?.needPassword||data?.invalid) {
-        invalidate();onUnauthorized();throw new ApiError(data.message||data.error||'访问授权已失效，请重新登录',response.status||401,data);
+        invalidate();onUnauthorized();throw new ApiError(data?.message||data?.error||'访问授权已失效，请重新登录',response.status||401,data??null);
       }
-      if(!response.ok||data?.ok===false)throw new ApiError(data.error||data.message||data.note||'操作未完成',response.status,data);
+      if(parseFailed)throw new ApiError('服务暂未返回有效数据，请稍后重试',response.status);
+      if(!response.ok||data?.ok===false)throw new ApiError(data?.error||data?.message||data?.note||'操作未完成',response.status,data);
       return data;
-    } finally {clearTimeout(timeout);pending.delete(controller);}
+    } finally {clearTimeout(timeout);signal?.removeEventListener('abort',abort);pending.delete(controller);}
   }
   return {api,invalidate};
 }

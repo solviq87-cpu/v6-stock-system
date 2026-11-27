@@ -9,10 +9,16 @@ const DAY=/^\d{4}-\d{2}-\d{2}$/;
 const isoDay=s=>typeof s==='string'&&DAY.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 const currencies=new Set(['USD','JPY','CNY','GBP','CHF','HKD','CAD','AUD','KRW','SGD','SEK','NOK','DKK','NZD','PLN','CZK','HUF','TRY','INR','BRL','MXN','ZAR']);
+const validClock=n=>Number.isSafeInteger(n)&&n>0&&n<8e15;
+function ecbObservationDay(n){
+ const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(n);
+ const date=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+ return date.year+'-'+date.month+'-'+date.day;
+}
 function validate({currency,start,end,now=Date.now(),timeoutMs=10000}={}){
  if(!currencies.has(currency)||!isoDay(start)||!isoDay(end)||start>end||
    (Date.parse(end)-Date.parse(start))/86400000>366||
-   !Number.isSafeInteger(now)||now<=0||
+   !validClock(now)||
    end>new Date(now+8*3600000).toISOString().slice(0,10)||
    !Number.isSafeInteger(timeoutMs)||timeoutMs<250||timeoutMs>20000)
   throw Error('ECB汇率查询币种、日期范围或超时设置无效');
@@ -41,7 +47,11 @@ function parseCsv(data){
  return result;
 }
 function projectEcbCsv(csv,{currency,start,end,observedAt}){
- if(!Number.isSafeInteger(observedAt)||observedAt<=0)throw Error('ECB接收时钟无效');
+ if(!validClock(observedAt))throw Error('ECB接收时钟无效');
+ validate({currency,start,end,now:observedAt});
+ // Query end is a bound, not evidence of publication. Preserve the existing
+ // query contract and projection shape; reject an actual future local date.
+ const latestObservationDate=ecbObservationDay(observedAt);
  const records=parseCsv(csv);
  if(records.length<2||records.length>370)throw Error('ECB返回的观测行数为空或越界');
  const keys=records.shift();
@@ -55,7 +65,7 @@ function projectEcbCsv(csv,{currency,start,end,observedAt}){
   if(record.length!==keys.length)throw Error('ECB CSV字段数量不一致');
   const get=k=>record[at[k]],date=get('TIME_PERIOD');
   if(get('KEY')!==expected||get('FREQ')!=='D'||get('CURRENCY')!==currency||
-    get('CURRENCY_DENOM')!=='EUR'||!isoDay(date)||date<start||date>end||
+    get('CURRENCY_DENOM')!=='EUR'||!isoDay(date)||date<start||date>end||date>latestObservationDate||
     seen.has(date)||(at.EXR_TYPE!==undefined&&get('EXR_TYPE')!=='SP00')||
     (at.EXR_SUFFIX!==undefined&&get('EXR_SUFFIX')!=='A'))
    throw Error('ECB序列标识、日期或币种口径不一致');

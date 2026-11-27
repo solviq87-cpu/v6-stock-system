@@ -36,3 +36,76 @@ test('missing eligible calibration labels cannot be hidden by a sufficient holdo
  assert.equal(partial.completeCalibrationEvidence,false);assert.equal(partial.calibrationCoverage,104/105);
  assert.equal(partial.status,'insufficient-or-incomplete-evidence');assert.equal(partial.canApprove,false);
 });
+
+test('a probability cannot be a declared score or a numeric security identifier',()=>{
+ for(const patch of [{kind:'ranking-score'},{valueKind:'score'},{probKind:'frequency'},{code:600001}])
+  assert.throws(()=>prediction(5,0,patch),/预测证据无效/);
+ assert.equal(prediction(5,0,{kind:'model-estimate',value:0}).value,0);
+ assert.equal(prediction(5,0,{value:1}).value,1);
+});
+test('direct core freeze rejects a target whose maturity crosses the registered end',()=>{
+ assert.throws(()=>prediction(60),/标签成熟窗口超出/);
+ assert.equal(prediction(59).targetDay,dates[60]);
+});
+test('mature partial validation labels stay hidden until the registered window closes',()=>{
+ const f=prediction(31),y=label(f,true);
+ const before=evaluate(plan,[f],[y],calendar,{now:time(33)});
+ assert.equal(before.validationWindowClosed,false);assert.equal(before.validationRaw.samples,0);
+ assert.equal(before.validationRaw.brier,null);assert.equal(before.validationCalibrated.brier,null);
+ assert.equal(before.pairedComparison.status,'withheld-until-window-close');
+ const after=evaluate(plan,[f],[y],calendar,{now:time(61)});
+ assert.equal(after.validationWindowClosed,true);assert.equal(after.validationRaw.samples,1);
+ assert.ok(after.validationRaw.brier>0);assert.equal(after.canApprove,false);
+});
+test('original label receipt cannot be invalid, immature or later than actual study availability',()=>{
+ const f=prediction(31),closeAt=time(32,'15:00');
+ for(const sourceAvailableAt of [null,0,NaN,closeAt-1,time(35)])
+  assert.equal(evaluate(plan,[f],[label(f,true,{sourceAvailableAt})],calendar,{now:time(70)}).exclusions['invalid-or-unmatured-label'],1);
+ assert.equal(evaluate(plan,[f],[label(f,true,{sourceAvailableAt:closeAt})],calendar,{now:time(70)}).validationRaw.samples,1);
+});
+test('explicit simulated or nonstandard declarations cannot enter the formal core API',()=>{
+ const formalSpec={...spec,scope:'formal',source:'unit-research-source'};
+ const markers=[{simulated:true},{sampleSet:'demo'},{sampleSet:'test'},{synthetic:'是'},{blackSwan:true},{extremeMarket:true},{repeatable:false},{quality:'教学样本'}];
+ for(const patch of markers)assert.throws(()=>register({...formalSpec,...patch},{now:time(0,'16:00')}),/登记/);
+ const formal=register(formalSpec,{now:time(0,'16:00')});
+ const t=time(31,'10:00'),input={scope:'formal',source:formalSpec.source,id:'31-0',code:'600001',sourceFingerprint,target:spec.target,
+ modelVersion:spec.modelVersion,modelFingerprint,value:.5,predictedAt:t,observedAt:t};
+ for(const patch of markers)assert.throws(()=>freezePrediction(formal,{...input,...patch},calendar,{now:t}),/预测证据/);
+ const f=freezePrediction(formal,input,calendar,{now:t});
+ for(const patch of markers){
+  const r=evaluate(formal,[f],[label(f,true,{scope:'formal',source:formalSpec.source,...patch})],calendar,{now:time(70)});
+  assert.equal(r.validationRaw.samples,0);
+ }
+});
+function pairedFixture({partial=false,missingCalibration=false}={}){
+ const fs=[];
+ for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++)
+  fs.push(prediction(i,j,{value:partial&&i>=32&&j===4?.95:.55}));
+ const ys=fs.map(f=>label(f,f.phase==='calibration'?f.code!=='000005':f.code==='000001'));
+ return {fs,ys:missingCalibration?ys.slice(1):ys};
+}
+test('unmapped bins use exactly the same comparison rows and a calibration-only baseline',()=>{
+ const {fs,ys}=pairedFixture({partial:true}),r=evaluate(plan,fs,ys,calendar,{now:time(70)}),p=r.pairedComparison;
+ assert.equal(r.validationRaw.samples,100);assert.equal(r.validationCalibrated.samples,80);
+ assert.equal(r.comparisonOnIdenticalRows,false);assert.equal(r.calibratedCoverage,.8);
+ assert.equal(p.status,'partial-descriptive');assert.equal(p.raw.samples,80);
+ assert.equal(p.calibrated.samples,80);assert.equal(p.baseline.samples,80);
+ assert.equal(p.calibrationBaseRate,.8);assert.equal(p.improvedBrierOnCompleteHoldout,null);
+ assert.equal(p.pairedBrierDelta,p.calibrated.brier-p.raw.brier);
+ assert.equal(p.pairedBaselineBrierDelta,p.calibrated.brier-p.baseline.brier);
+ assert.equal(p.calibrationCertified,false);
+});
+test('complete comparison distinguishes worsening calibration from a true improvement',()=>{
+ const {fs,ys}=pairedFixture(),r=evaluate(plan,fs,ys,calendar,{now:time(70)}),p=r.pairedComparison;
+ assert.equal(p.status,'complete-descriptive');assert.equal(p.samples,100);
+ assert.equal(p.raw.brier,r.validationRaw.brier);assert.equal(p.calibrated.brier,r.validationCalibrated.brier);
+ assert.equal(p.improvedBrierOnCompleteHoldout,false);
+ assert.equal(p.pairedBaselineBrierDelta,0);assert.equal(r.calibrationCertified,false);
+});
+test('incomplete calibration never becomes a complete improvement claim',()=>{
+ const {fs,ys}=pairedFixture({missingCalibration:true});
+ const r=evaluate(plan,fs,ys,calendar,{now:time(70)});
+ assert.equal(r.completeCalibrationEvidence,false);
+ assert.equal(r.pairedComparison.improvedBrierOnCompleteHoldout,null);
+ assert.equal(r.canTrade,false);assert.equal(r.canApprove,false);
+});

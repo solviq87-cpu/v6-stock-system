@@ -1,0 +1,1633 @@
+{
+  "schemaVersion": 1,
+  "scope": "historical combined candidate before the three later specialist PRs; exact changed-file receipt, not a claim of ownership or final release",
+  "original60TaskPlan": true,
+  "baseCommit": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "baseTree": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "candidateCommit": "91557d862b354337a06181bef66abf6e34fc29c2",
+  "candidateTree": "91557d862b354337a06181bef66abf6e34fc29c2",
+  "readOnlyTotalHead": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+  "changedFiles": 147,
+  "added": 49,
+  "modified": 98,
+  "deleted": 0,
+  "files": [
+    {
+      "path": "DEPLOYMENT.md",
+      "change": "modified",
+      "before": {
+        "sha": "41cde1810840417df8db98bc8b6a1b607b4243b9",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "02ed47d1a6eb5228b85335d8b218212829875b37",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "HANDOFF.md",
+      "change": "modified",
+      "before": {
+        "sha": "12bc169183585bf7ee0247b00e2a0649436db051",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "810fc825147b485c00d89b8350b4a1403c6d73d0",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "TASK_MASTER.md",
+      "change": "modified",
+      "before": {
+        "sha": "1f98ec119615584919ae38d14f2c83507973c25a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "ea1c0dcf1073997f3c8878e62877599836c52d29",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/em.js",
+      "change": "modified",
+      "before": {
+        "sha": "8c1993b5d3a976dbdc6587cce77b4473dd3ffd1e",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "12b122af41173302ab61eb8ce3d9df6c1b7920e0",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/holdings.js",
+      "change": "modified",
+      "before": {
+        "sha": "627c0660124de1c97318e48b6578effbcd59c1f3",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "9c6e1c1c93a4ee0148d6d80123fc436b188a165e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/myrules.js",
+      "change": "modified",
+      "before": {
+        "sha": "fbc04946cf6249e8471bd6a9fc5374e1246540ac",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "8957643b4d9cdce3084ecc2e41ebfe94b4432689",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/client.js",
+      "change": "modified",
+      "before": {
+        "sha": "6f97ed97a1d33391f9082d833c33baf993f9ff04",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "66d16eaaa11baa5fc4948b0240510577b522a950",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/decision-mini-kline.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "e29a6b74535cb8c4492bacf79a756a1831890373",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "d75a61ac2ecc12b11c978793391c30691d400d8d",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/decision-model.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "1b2da192bccd289f8706512881ebbca47c7d0595",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "494a432041d26f270ddd14694397673e14acd44b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/fayo.css",
+      "change": "modified",
+      "before": {
+        "sha": "5ec6d2bf7bddd35cab13fff9657138ec8d336a9a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a13e1ca253db5ef0f8d066ca7944bd4c2bb2ab44",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/learning.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "c03c623cf3b7d17f450c138d6d02e80aabb80447",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "d736723f427f3a9e9055ff01fa409f64f56e8a94",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/pattern-evidence.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "9d08dc2acfdbadfdab24d850ab97c72a2c91500a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "92ffba7d58c1becbdfe41bca125d34f0501fd208",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/review.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "7c80872ebd53d72ffc6262cb2fd0b4c48e8a0306",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "4e43001e6702957591e0db92c4463f4e72eba528",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/sample-quality.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "cb6cb8f01a837064a4642bf69e9c53beb41a5924",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "00f243b9f8b1f041033f2986deecdf43a97ec07f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/public/nova/ui.js",
+      "change": "modified",
+      "before": {
+        "sha": "486cd673ccdfcbeca92c9131592b458bc2470f8c",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "b857757839a48939829d3c02098c8061940634ea",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/scripts/disaster-recovery.js",
+      "change": "modified",
+      "before": {
+        "sha": "b1f110ca3a453175a82918c239d45b02d4209f16",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "2ce561672dcecf9eb5522ec4fd507b3e2bcae560",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/server.js",
+      "change": "modified",
+      "before": {
+        "sha": "f99dc3afbdcc19226611978b481b9a2b0fb110ad",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a42fddbe869d869ed8299a63ef16129a37808235",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "change": "modified",
+      "before": {
+        "sha": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "d58f39e685d145b313723a66e2459b468d01d56b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/decision-model.mjs",
+      "change": "modified",
+      "before": {
+        "sha": "448bb346b0332e3a4a4ea3b1f750b776190930a6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "88fd44c0437fbd41941e471b520fb47d438777d5",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/decision-plan-research.js",
+      "change": "modified",
+      "before": {
+        "sha": "4035cdb59fce0901f4f44387ac6125610a9b237c",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "64f2d44096a09c7f8ea33a6d04a306f31e00702b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/deep-decision-research.js",
+      "change": "modified",
+      "before": {
+        "sha": "53a5f3003d54f7a58c16b477cae4ef8234374d1a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "de0ea8d11f1330faf895239641ccd7bee02da565",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/ecb-fx-daily.js",
+      "change": "modified",
+      "before": {
+        "sha": "88c461e1ae9914e427980dfb263b93ca54cfb782",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "fc5bba99a8379e456726c90c57006e4f3180ae59",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/effective-risk-evidence.js",
+      "change": "modified",
+      "before": {
+        "sha": "b8042a88e70a56bc029a776cba0f3db856453477",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "182e2cf2b580fa67aa21d0e80718660837065c65",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/evolution-research-statistics.js",
+      "change": "modified",
+      "before": {
+        "sha": "b155d750ec60e18dd01340e320ff84aea4be1d43",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a98e700ab6874efaabd2189042d7fded4ff3f5ad",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/execution-risk.js",
+      "change": "modified",
+      "before": {
+        "sha": "9184aef08f7237e6592b7e0b864cb41e3e72d027",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a7027f8ae0d1c0b1481dc8e5cfae0c3bcb22aed2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/factor-candidate-prereg.js",
+      "change": "modified",
+      "before": {
+        "sha": "d7fdb4f22cad5a09ebfa1cc1634da88ceed063e1",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "0893e913339f7ee5655fc3db36203a326f7e4a39",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/factor-learning-reliability.js",
+      "change": "modified",
+      "before": {
+        "sha": "24333d173b0ba4a4ef4ccde4e0053076c3f645a6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "05ef31fcec5942eac9495e3cfbfecd640dae7286",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/fund-history-cache.js",
+      "change": "modified",
+      "before": {
+        "sha": "ce0c3bdbf82bba8cc752e94fd33e657571907fd0",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "9104e859c835b61b47c1a88ce2c82556b31e3ebf",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/intelligence-research.js",
+      "change": "modified",
+      "before": {
+        "sha": "a85341bf27747ddeda57a35d33635dd3a3819ec0",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "6b1d79b4e0225dc8fe8557ce1eaa733c0a493a89",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/kline-source-continuity.js",
+      "change": "modified",
+      "before": {
+        "sha": "5ef150f4bf7c612570d4d0a75b8fac634f668f0f",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "b4d8b5db2f74e1a6176d17e840e673f94da32ec7",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/linked-market-intelligence.js",
+      "change": "modified",
+      "before": {
+        "sha": "8e46f66e7052e95bfb1168b334435017ea7e78d6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "167ac3173e101eed69a9fe4d57059adb8712c674",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/live-candidate-bridge.js",
+      "change": "modified",
+      "before": {
+        "sha": "3ff2d1405f7803ba21aaa2cb12d031669aa7642d",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "361895d5485b46d5a0408272c45322fe2ae3d944",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/live-fourteen-evidence.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "8d2c7a7502d6bc4d0dc711de80f4e54ea7cdbd83",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/market-failover.js",
+      "change": "modified",
+      "before": {
+        "sha": "99aec5e332d1df8ad4ac7f460203849a65b4c9db",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "1f69dfe916e8ff409ff3dfbf6f70147d06eeb4de",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/market-feed-consensus.js",
+      "change": "modified",
+      "before": {
+        "sha": "ed97e34828b077db9108dfc2f15366d347678e8e",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a0f3808b938a54cecd6f28f27e5cc7ba64eb1bd9",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/market-request-governor.js",
+      "change": "modified",
+      "before": {
+        "sha": "9c5b72fc9a28781aa136141a5cf9f0b19759a363",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "228aba3c9dd469003896ed39540dd75c59689627",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/multi-strategy-engine.js",
+      "change": "modified",
+      "before": {
+        "sha": "ef5401d6bb58d3b1b1a8415c1a73b6563d553cd9",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a1f1095bf5965768475a5492bc399e1ccc904dd2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/native-adaptive-adapter.js",
+      "change": "modified",
+      "before": {
+        "sha": "d38d41bc51af675362d14dbbc6be39dc3908b3e9",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "51f7c9bab30c4b5b901a2c21cd18769553cc4241",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/native-fourteen-evidence.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "53a30849a05fef97dcc8e3d9cec71ec6eed9581b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/native-strategy-daily-runner.js",
+      "change": "modified",
+      "before": {
+        "sha": "5933dd771bc14ffec3176251287cfbfba46c4d3f",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "48e737e6f147b445665e5474eef2df45b07c1bf1",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/paper-application-service.js",
+      "change": "modified",
+      "before": {
+        "sha": "a154f09cede545ac2ff1fd41bf0134b0fcbbba05",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "fca8d557484c023436440391d85a908bbae03c04",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "change": "modified",
+      "before": {
+        "sha": "efb02315656248df13dee6136589182b54e20f45",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "9f86485246c43124188ba6ad18bf92a7c2390b58",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-entry-check.js",
+      "change": "modified",
+      "before": {
+        "sha": "d6d1aed249335095e0cf7a4d5721fef3ee4d3982",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "06c714c0c336686a754bd909f2fa89f029ebe2d7",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "change": "modified",
+      "before": {
+        "sha": "c06d4fb215f2037553d08a8b60344d39c155401b",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "bb9974b6e90961c0a3761ff1530c88c4f9e94702",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/paper-session.js",
+      "change": "modified",
+      "before": {
+        "sha": "21f2c0daad53d3f114e2d8fc0547be2e599fc9c0",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "1c3fc7ddc9896763fea5221dfd40aaa003b8913a",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/private-risk-feishu-delivery.js",
+      "change": "modified",
+      "before": {
+        "sha": "2b698202db3af7748a3f44ebeaf128691d096f7e",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "977a126d76680f82a6f1215f160210a1fe3a18ae",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/probability-reliability-store.js",
+      "change": "modified",
+      "before": {
+        "sha": "4feea1d8855de564b94473c66d848c8861dd56f6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "6388f7ccefd06f4299b08269522cddc4c3d4553e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/probability-reliability.js",
+      "change": "modified",
+      "before": {
+        "sha": "796a30921e5cf66a9ccf2b1abbb2b5cf9ab4567d",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "1b85d1d7bc807f9e2a979d755ba59d7506ccb765",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/public-market-context.js",
+      "change": "modified",
+      "before": {
+        "sha": "c0ae54e76ac0f8d3055e08ba07eb2d136e6c9c41",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "e4a08c38c4b620a1a3864ec7ef2a62e7b620e833",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-causal-diagnostics.js",
+      "change": "modified",
+      "before": {
+        "sha": "ce7f715f852e61508f7193eebc628318e3f13907",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "88e25f991724813dc4c13c5ad222129949f27cb8",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-decision-review.js",
+      "change": "modified",
+      "before": {
+        "sha": "6d9124c71157939c0138de3c4429687d3e02ee6b",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "5bc7665646d485ab45d104ce299741147ca21428",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-explanation-projection.js",
+      "change": "modified",
+      "before": {
+        "sha": "4e890b2087e540b6cbde77bfcc8519a64fcde320",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "84823212fa535e6d77102186cb1f4906fe7be069",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-validation-suite.js",
+      "change": "modified",
+      "before": {
+        "sha": "9cb5ba02490a16b43f4caab3f80765ea761f4ec8",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "b37c0a5d30e25d8e2c731ccde8cf555033eb0388",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-analytics.js",
+      "change": "modified",
+      "before": {
+        "sha": "bb12a6ef4932ee460532f83b5d9ddbb778c10906",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "87d6ed1f42d255966cfa940178fe91e66f968e0f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-decision.js",
+      "change": "modified",
+      "before": {
+        "sha": "5cc272d548bd389931faa62d96f2dd4d603b0f3a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "8938bb016b8f8c65d99562685e06cbb180154ba2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/risk-action-evidence.js",
+      "change": "modified",
+      "before": {
+        "sha": "002f3bf894efe62c13ef1e5c5f5a36cde8242199",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "b316452420b7233c2570c7f63833717f7a86a910",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/runtime-trace.js",
+      "change": "modified",
+      "before": {
+        "sha": "5d8cd82d215e966f6e2ffad5f7a409c902fb447e",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "6af5812f1abb0e6172ad8c456291f0c1585990e1",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/six-photo-backups.js",
+      "change": "modified",
+      "before": {
+        "sha": "b1df504c4180b3616d6cb723a853c73ac9a1ee0a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "e23721cc828ab57cd492c9d89693f1dd2239d641",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/strategy-engine.js",
+      "change": "modified",
+      "before": {
+        "sha": "ef5fd9ad31bdc9d7a0d66eb86c2bf820f763fc72",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "cae0fed9f5eaf174d5991ff23440df844d1f8dbe",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/core/strategy-portfolio-lab.js",
+      "change": "modified",
+      "before": {
+        "sha": "1ecbe19c567a084fcb8f31b87c3895ba78e17a1d",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "b85733a8dd6e87d7ea1125a97df942eb71f8af4f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/research/shortline-paper-import.js",
+      "change": "modified",
+      "before": {
+        "sha": "629d2711f133915ce6d20b8f36c2bde55c783d8f",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "abc2a66220da9e27eb57775176baa417b74519e4",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/server/request-security.js",
+      "change": "modified",
+      "before": {
+        "sha": "56bcf305bb214e5b3f165aa62014e802e6de7f6d",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "8950130ee013739d57f3c1bde07d9f1acd203eb4",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/cached-kline-adapter.js",
+      "change": "modified",
+      "before": {
+        "sha": "73bd9bbc05c5178d2c7163eb0df5a0d4cd5985bb",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "ca65f1cb14f136cb977e1b3f6d2b7173210caf55",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/candidate-rationale.js",
+      "change": "modified",
+      "before": {
+        "sha": "7232a9649136c430ca743cde74ab84dcc1f759b9",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "fd15b3f99b2f74e53bdb1331bc102d5ab1be9e4c",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/extended-factor-engine.js",
+      "change": "modified",
+      "before": {
+        "sha": "531e619194a3071738ea791ce88df79f92c4649c",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "2def23b34408b1f2e816c0d46057136e575397ae",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/feed-quality.js",
+      "change": "modified",
+      "before": {
+        "sha": "a6974431a5d08cd42a3e076bba25fb8468357d1a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "113dccb201da2451199b665e2b14895facb03c86",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/historical-session.js",
+      "change": "modified",
+      "before": {
+        "sha": "720b54557186887fc333d39a28f7a1cf583512fd",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/issuer-event-linkage.js",
+      "change": "modified",
+      "before": {
+        "sha": "8844a311270e8353e9e3ccaef8cd09c5a7a307d5",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "4f321178637cb6202da14b4c18a50af9abb6e936",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/model-experiment.js",
+      "change": "modified",
+      "before": {
+        "sha": "24007a71299ddad5aa702a187fe65dd389aaebfe",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "268c640ec3ae871e67dd019781430d33ad2b113c",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/research-v2-cached-kline-adapter.js",
+      "change": "modified",
+      "before": {
+        "sha": "98b90581a86f7b588a43811b6a3978a2e3e90234",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "fb6252a6212e9209d9ef79fb57042df2b644dae2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/research-v2-strategy-service.js",
+      "change": "modified",
+      "before": {
+        "sha": "23fdaeafb62b67fedcbc97a949ebce902ce3b2cb",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "0ebf3346a2f1bb2fe1ba8eb14fdfa98cda810604",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/research-v2-universe-scanner.js",
+      "change": "modified",
+      "before": {
+        "sha": "b42a8641ecc98fa176669ec161a69f66914e225f",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "6c73d07ab2be5aac324fc99efdf36fc038babdb9",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/research36-observation.js",
+      "change": "modified",
+      "before": {
+        "sha": "d423966bfd259433d424f644c5cc424992ab86c4",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "39906f79398a75aa3846409bea6a2a9ec2a84ce6",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/risk-filter.js",
+      "change": "modified",
+      "before": {
+        "sha": "76369b45330328720f9de02110bf94fab9a7c90c",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "cba85fcf1b2e271a6f0076571a118b1a954bc533",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/rule-comparison.js",
+      "change": "modified",
+      "before": {
+        "sha": "cedac90db64f898a595d50def992eb362453ca3b",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "c7562dd10642679e5ad78f96cd527d8db36b6128",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/scan-with-rationale.js",
+      "change": "modified",
+      "before": {
+        "sha": "38a46737aa457b2edfaeaf427ae6f8f230efe972",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "11b519a87da523dea4c3736df3f9ea3121f4037e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/sector-relations.js",
+      "change": "modified",
+      "before": {
+        "sha": "0a8b2649950066bc4c45e0c2923b5ab60ff67d60",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "e4b6c8e60499befc94fbaab94623985ecb7e7d38",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/snapshot-normalizer.js",
+      "change": "modified",
+      "before": {
+        "sha": "27dc8aa7eb3548012930893ed023ca7d4c74e074",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "1b79f0fee07881da2b5697d1d4901d35cdcd4975",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/strategy-input-provenance.js",
+      "change": "modified",
+      "before": {
+        "sha": "93c7804785f2c7ad4427d08bb1db9b1b783bdcd1",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "a460f61b68916c42fd99cbab9347c27ac5543614",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/strategy-service.js",
+      "change": "modified",
+      "before": {
+        "sha": "5dc5a408e21a68104dd766899287c44b30e230ae",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "5775613998a61a1766a4831b6d588ff666b1956d",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/src/strategy/universe-scanner.js",
+      "change": "modified",
+      "before": {
+        "sha": "1bc6a2aa622a3b6b96b1105f2686f01146f606fe",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "77b1daf06bb6c4697df815b8a29388b82bcec4b7",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/common-entry-risk-input-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "ac27904e9e8cab40602eca2710d2bf00f6d8eaa3",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/decision-plan-research.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "d6abdcf6e32fc14fc20acaab3745512fffc73394",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "71541f9a96b1e986be9710c60ae48d78cf3c0429",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/deep-decision-research.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "8665f45395af0dc4d79aba93f33cd34863acc725",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "fd1a49f930a0fc1c375095ec9068e58878366db2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/effective-risk-evidence.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "95b5c3a97959bd57f2b9350aba5e1e72c8a5509b",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "12acf027fe244278cf06d4893a55644df5ef4600",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/evolution-statistics.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "0fb293fb56c7457d4d0ef9bc67e3cc4226038d0b",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "e38a24284a6d4d26480fe507dcbc0ab32b2ac099",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/factor-evidence-gate.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "ff58c393faa0c3d65efef51b94be330b87507b57",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "0ddf1c9a40c7d4cb18df0341bdc72338186157ab",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/factor-learning-reliability.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "26e512ef827d68dff12051cb44aaf4160fbdddd2",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "3d918a9ca00b0b6ee05d4d7ee25a62f493e86257",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/factor-prereg-window-integrity.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "6325b6e972ee535f0abf5006f36d211b09ca1427",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "5de99bd0f3e50acac57c1f16ba1b23edc703262c",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/intelligence-feedback-bridge.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "127533004d2bb86a0071a97626c11cb114d3098a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "be06d97d97d361af5b2b095218371041289e88f5",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/market-feed-input-integrity.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "6f152dbf3b950a717cf20151f40da7628444d620",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "1c2ad7bc3ce1ddde96fb0209d444da8b434c3741",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/panel-collection-budget.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "0e48968960ee3b31b9100e70c7a3fa9157979291",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "7289fa68af76d0a04eed6aed4fa995b97d075e5a",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-backup-restore-byte-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "0596fa1558b7d34fe62448da9a684ad6f3c5efd6",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-candidate-liquidity-integration.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "9d2d9cd1ed54a516c67f10540f9694d04519049a",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-candidate-liquidity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "5b612523ad9085202ab59f5164c246255cbb32da",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-candidate-priority-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "186b8cfff0aaf5aa6fb915e11dc16ee664777fc4",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-center-learning-recovery-clock.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "7f67698be766cbd2006ba797b83fe307e7e07d5d",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-client-identity-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "5e540c1f1349fc269ba7ff84fc251746608c886e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-daily-experience-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "6c396b4d990f5034d5ae60bcfb6ada87ab000ff1",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-decision-chase-risk.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "bfef3113a17cc62b574e78f6ed2742a904e3d4cd",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-decision-display-integrity.test.mjs",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "4f23730f9648addf04a17c5058eede53336dff62",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-execution-limit-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "7fc6e03fd798de2eeea25b4a61da6e0f9a890ed3",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-external-market-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "0cf2127aab2dc48bfba93999464f20957e4b1649",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-fourteen-replay-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "1312510b4bafc15e42bb83b02e7f5fc0e0b5edb2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-frozen-confirmation-quote.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "5ac7f29928c62ebf1972206fc2f7eb63f2fadb14",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-fund-cache-request-coalescing.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "a9cf57f5518a7dc54f1de8f91a48f40a4e560c9f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-holdings-add-risk.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "29a9256accc1a7b6516e35db73be129bf346d6d6",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-independent-portfolio-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "0be65f16f7a2d28690713800b706f1c1f264b16e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-issuer-news-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "1d6fd29cea183243dc53281b7a2b00387e5ee4e9",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-kline-research-metadata.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "9a3a487784e90127607f4d10940961b4e76ab4b7",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-learning-cohort-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "d319a231376d2378849bc3e137732f90e69b66a1",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-learning-revocation-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "b1601aeada3d1f72da61e76805cd3d6df976b3cc",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-live-candidate-receipt-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "799b399102334ddef5cb2e1a3e4643ab28148d74",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-live-fourteen-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "da28fd98fac5bd8077ae656923eb81d3c689f04b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-consensus-metadata.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "ea1486cb18b4b17f04322d5ec3ad81141aefb2fc",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-failover-recovery.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "23b3ffac8c02c40515e50e1f3a2f84c835657d34",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-queue-clock.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "eeeca69b96196bf68a8e086101581153048d543c",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-weather-current-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "edb31bc6f467e066af2f3cd783c0b2b40c907858",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-weather-source-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "62c45e17f1224e104769c07eb9663e68d3201f35",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-mini-kline-receipt-integrity.test.mjs",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "407e168dcc38cb19a85f771f41f59e246c1b4fd1",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-model-input-causality.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "1f0bfad496b431de1c5c4dc6a7b985ff01a5d46a",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-native-daily-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "6e6edf56babcf2803cd0d2803e3f4d2adcccb230",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-native-fourteen-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "2d99f5701281a5a5bfdfe7b9aaf85f75782eaafe",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-execution-clock.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "fee8ed9db59bbec0643887a1afa30a77fb9e2f4f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-feedback-causality.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "b5111b82be305f8ec202e64bcc9a1832eadb7590",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-session-recovery-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "0d260f6f877318a43dc1a451a0b694de243e2a4f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-plan-execution-window.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "2652b0b2d3fa2a653aa1708a7a1df74a50405c19",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-private-notification-freshness.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "f67b9d893d772d33f3c75739302025bf3748dcf3",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-public-funds-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "56164ba6cfac8f750dd6f8eb7a682806fc23940f",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-readout-control-refresh.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "262c02e714795daf3f59ef05e5ce5a18cfcfe2ab",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-request-authority-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "798da06c4dadddd6bc41b9a1af600678ef7f61ac",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-rule-comparison-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "57020b890c43b5fc1d19a8d52f28e4519a261ce4",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-runtime-summary-resource.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "4836ddfe78fcd3bb6292b5db4efbad8addb737c2",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-sector-position-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "b11c8df1e4015774080a5d1df44ad4e86297303d",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-shared-pink-controls.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "8d59e3d2dc42218887dd7ba41313e8f493b3d276",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-strategy-input-integrity.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "fe118842b48f8a82cdb5fc35031f9597b665b24e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-workspace-decision-evidence.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "481e15536827ed108a31c14f7ba44ca2f1b3d864",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/phase4-workspace-fourteen-replay.test.js",
+      "change": "added",
+      "before": null,
+      "after": {
+        "sha": "3ef0be9f370f9ebf2ed1d56e94170c5b8e84dabd",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/probability-reliability.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "64b40653d1829f5ef751c12b75c66a6eb8ab9ae2",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "27d9e4949acd8c998614bd6bee20b72f8dfdc18e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/research-validation-suite.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "f43084fbd7ad07d4c8909ea849165a60af3fa899",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "6bf800b7d41cc6384712394eef6cd105ed32f37b",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/risk-action-evidence.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "c83cdfce711c6ee4d22d1fd6f946bcfd72360b6c",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "298380d74e7f7f55c37fa30dd90aa5e525e6ed27",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/shortline-numeric-factors.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "325e4f5e7f39bbc93d57345faae1a056702906c7",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "ed5b7398a1d6a09caa16eb837912d06bf7b04a74",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/shortline-paper-import.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "5c2d91abefe1ff17cd54bb46b2f422b129e0ef96",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "44aabd36b95ca33e4571050834086ab6c1f7e72e",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/shortline-pattern-evidence.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "d8cc69977dfad10fb621f68bd913e888c7789ff8",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "d7061065166e3cc458fdcbc879057f78934f55ce",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_BO/tests/six-photo-backups.test.js",
+      "change": "modified",
+      "before": {
+        "sha": "aedde0470b42ac9926b2007e9d7c26732d5eb0f6",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "20896bf1b255fae7e220311fe3e36d9de3458df4",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_WEB/dist/assets/analysis.bundle.js",
+      "change": "modified",
+      "before": {
+        "sha": "396086b0439992f5d3d2830f23704318e8a1b88a",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "797645ce0d1c128a97a8d6017cd0976feba57e3d",
+        "mode": "100644"
+      }
+    },
+    {
+      "path": "V6_WEB/src/vendor/historical-session.js",
+      "change": "modified",
+      "before": {
+        "sha": "720b54557186887fc333d39a28f7a1cf583512fd",
+        "mode": "100644"
+      },
+      "after": {
+        "sha": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab",
+        "mode": "100644"
+      }
+    }
+  ]
+}

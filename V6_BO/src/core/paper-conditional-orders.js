@@ -90,11 +90,33 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
   function fillRecord(event){return {eventId:event.eventId,price:event.price,shares:event.quantity,tradeDate:event.tradeDate,
     executionAt:executionTimeOf(event),source:'original-paper-ledger'};}
   function reconcile(order,book,now){
-    const event=planFill(book,order.planId);
-    if(!event)return false;
-    if(event.symbol!==order.code||event.tradeDate!==order.day||!executionTimeOf(event)||executionTimeOf(event)>now)throw Error('计划与原持久成交冲突，停止执行');
-    const fill=fillRecord(event),changed=digest(order.fill||null)!==digest(fill)||order.status!=='executed';
+    const event=planFill(book,order.planId,{plan:order.plan,now});
+    if(!event){
+      if(order.fill!=null||order.status==='executed')
+        throw Error('已有成交回执缺少原持久账本对应事件，停止执行');
+      return false;
+    }
+    const fill=fillRecord(event);
+    if(order.status==='executed'&&!order.fill||order.fill!=null&&digest(order.fill)!==digest(fill))
+      throw Error('已记录成交与原持久成交冲突，停止执行');
+    const changed=order.fill==null||order.status!=='executed';
     order.fill=fill;return update(order,'executed','已核对原持久成交，后续读取不会重复买入',now)||changed;
+  }
+  function assertIntentClock(state,now){
+    for(const order of state.orders){
+      const clocks=[order.createdAt,order.updatedAt,order.fill?.executionAt,
+        ...order.coverage.map(row=>row.lastObservedAt),...order.observations.map(row=>row.observedAt),
+        ...order.alerts.map(row=>row.recordedAt)].filter(v=>v!=null);
+      if(clocks.some(at=>!timestamp(at)||at>now))
+        throw Error('条件计划时钟倒退或原记录时点无效，停止执行');
+    }
+  }
+  function pendingAccountChanged(order,book,prior=null){
+    return order.accountEpoch!==accountEpoch(book)||
+      [order.accountRevision,prior?.revision].some(rev=>Number.isSafeInteger(rev)&&
+        (!Number.isSafeInteger(book.revision)||book.revision<rev))||
+      prior!=null&&Number.isSafeInteger(prior.revision)&&prior.revision===book.revision&&
+        typeof prior.fingerprint==='string'&&prior.fingerprint!==book.fingerprint;
   }
   function create({requestId,plan,authorization}={}, {readBook}={}){
     const now=currentTime();validatePlan(plan,now);
@@ -115,6 +137,7 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
       if(plan.intendedDate!==aShareCalendarDate(now)||aShareCalendarDate(Date.parse(plan.frozenAt))!==plan.intendedDate||now>=cutoff(plan.intendedDate))throw Error('只能创建尚未到期的当日条件计划');
       const prior=state.orders.find(order=>order.planId===plan.id&&['pending','executed'].includes(order.status));
       if(prior)return {...projection(state),order:publicOrder(prior,now),reused:true};
+      assertIntentClock(state,now);
       if(state.orders.length>=MAX_ORDERS)throw Error('条件计划记录达到容量，请先归档');
       const book=readBook();
       const order={id:'cond-'+crypto.randomUUID(),requestId,requestHash,planId:plan.id,plan:canonical(plan),planFingerprint:digest(plan),
@@ -132,7 +155,7 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
       const order=state.orders.find(row=>row.id===orderId);if(!order)throw Error('条件计划不存在');
       if(order.status==='cancelled')return {...projection(state),order:publicOrder(order,currentTime()),reused:true};
       if(state.revision!==expectedRevision)throw Error('条件计划版本已变化，请刷新后再撤销');
-      const now=currentTime();
+      const now=currentTime();assertIntentClock(state,now);
       if(typeof readBook!=='function')throw Error('撤销前必须核对原持久账本');
       if(reconcile(order,readBook(),now)){save(state);return {...projection(state),order:publicOrder(order,now),reused:false};}
       if(order.status!=='pending')throw Error('条件计划已结束，不能撤销既有成交');
@@ -162,14 +185,15 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
     if(!['plan-observer','conditional-order'].includes(notificationOwner))throw Error('条件计划预警归属无效');
     if(typeof authorized!=='function'||typeof planFor!=='function'||typeof quoteFor!=='function'||typeof readBook!=='function'||typeof execute!=='function')throw Error('条件执行必须接入原授权、计划、报价与账本门禁');
     return locked(state=>{
+      if(currentTime()<now)throw Error('条件计划时钟倒退，停止执行');
+      assertIntentClock(state,now);
       let dirty=false;const notifications=[];
       for(const order of state.orders){
         if(!['pending','executed'].includes(order.status))continue;
         if(order.status==='executed'&&monitoringEnded(order))continue;
         const book=readBook();dirty=reconcile(order,book,now)||dirty;
         if(order.status==='pending'&&(day!==order.day||now>=order.expiresAt)){dirty=update(order,'expired','当日连续竞价结束，未成交意图已到期',now)||dirty;continue;}
-        if(order.status==='pending'&&(order.accountEpoch!==accountEpoch(book)||
-          Number.isSafeInteger(order.accountRevision)&&Number.isSafeInteger(book.revision)&&book.revision<order.accountRevision)){
+        if(order.status==='pending'&&pendingAccountChanged(order,book)){
           dirty=update(order,'cancelled','原账户期次已重置或回退，旧条件意图停止，需重新确认计划',now)||dirty;continue;
         }
         if(authorized(order.authorization,order)!==true){dirty=update(order,'unauthorized','原设备授权已撤销、过期或实例已变化，后台执行停止',now)||dirty;continue;}
@@ -224,8 +248,16 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
         if(authorized(order.authorization,order)!==true){dirty=update(order,'unauthorized','成交前原授权已失效，未执行',now)||dirty;continue;}
         // The durable trigger is not permission to use a later/different quote.
         // Recheck after persistence and authorization, before the existing gate.
-        const latestQuote=quoteFor(plan,order),executeAt=currentTime();
+        const latestQuote=quoteFor(plan,order),executionBook=readBook();
+        const stillAuthorized=authorized(order.authorization,order)===true,executeAt=currentTime();
         if(executeAt<now){dirty=update(order,'pending','成交前时钟倒退，等待重新核验',now)||dirty;continue;}
+        // The durable trigger is NOT permission to enter a reset account.
+        // A matching fill discovered here is reconciled, never executed twice.
+        if(reconcile(order,executionBook,executeAt)){dirty=true;continue;}
+        if(pendingAccountChanged(order,executionBook,book)){
+          dirty=update(order,'cancelled','成交前原账户期次已重置、回退或同版本内容变化，需重新确认计划',executeAt)||dirty;continue;
+        }
+        if(!stillAuthorized){dirty=update(order,'unauthorized','成交前原授权已失效，未执行',executeAt)||dirty;continue;}
         if(executeAt>=order.expiresAt||aShareCalendarDate(executeAt)!==day){dirty=update(order,'expired','成交前原条件意图已到期',executeAt)||dirty;continue;}
         const latest=quoteEvidence(latestQuote,plan,executeAt,day);
         const identity=e=>digest({...e,observedAt:null});
@@ -237,10 +269,12 @@ function createConditionalOrderStore({root,clock=Date.now,faultInjector}={}){
           if(result&&typeof result.then==='function')throw Error('原执行适配必须在锁内同步完成');
           faultInjector?.('after-execute',order);
           const after=readBook(),finishedAt=currentTime();
+          if(finishedAt<executeAt)throw Error('原模拟成交确认时钟倒退，等待核对持久回执');
           if(!reconcile(order,after,finishedAt))update(order,'pending','原执行门禁未产生该计划的持久成交，继续等待',finishedAt);
         }catch(error){
           // The fill may already be durable even if a downstream reply failed.
           const after=readBook(),finishedAt=currentTime();
+          if(finishedAt<executeAt)throw Error('原模拟成交确认时钟倒退，等待核对持久回执');
           if(!reconcile(order,after,finishedAt))update(order,'pending','原执行门禁拒绝：'+safeReason(error.message),finishedAt);
         }
         dirty=true;
