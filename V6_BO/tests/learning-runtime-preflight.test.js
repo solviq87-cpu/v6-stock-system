@@ -53,10 +53,12 @@ test('historical completion cannot hide missing current inputs and a failed jour
  runAgent(config,{apply:true,now});
  const oldPath=path.join(config.outputDir,fs.readdirSync(config.outputDir)[0]);
  const old=JSON.parse(fs.readFileSync(oldPath));
- function replace(outcome,status){
+ function replace(outcome,status,{bindDecision=true}={}){
   const {fingerprint,...body}=old;body.outcome=outcome;body.summary.status=status;
   body.summary.nextAction=outcome==='failed'?'audit-private-research-artifacts-before-retry':'await-next-source-or-research-lineage';
   body.inputFingerprint='b'.repeat(64);body.settledFingerprint='c'.repeat(64);
+  // A synthetic historical event must bind the original ready decision too.
+  if(bindDecision)body.decisionFingerprint=crypto.createHash('sha256').update(JSON.stringify({action:body.action,ready:true,nextAction:`run-${body.action}-research-cycle`})).digest('hex');
   const id=crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex');
   for(const name of fs.readdirSync(config.outputDir))fs.unlinkSync(path.join(config.outputDir,name));
   fs.writeFileSync(path.join(config.outputDir,`event-00000001-${id.slice(0,12)}.json`),JSON.stringify({...body,fingerprint:id}),{mode:0o600});
@@ -64,6 +66,10 @@ test('historical completion cannot hide missing current inputs and a failed jour
  replace('completed','research-cycle-completed-not-certified');
  let report=await inspectLearningRuntime({env,now:now+1});
  assert.equal(report.lastRun.status,'research-cycle-completed-not-certified');assert.equal(report.current.status,'needs-data');assert.equal(report.overall,'needs-data');
+ // Re-sealing the outer hash alone must not make a contradictory decision valid.
+ replace('completed','research-cycle-completed-not-certified',{bindDecision:false});
+ report=await inspectLearningRuntime({env,now:now+1});
+ assert.equal(report.overall,'blocked');assert.equal(report.current.status,'blocked');assert.equal(report.lastRun,null);
  replace('failed','failed-stop-and-audit-before-retry');
  const archives=path.join(config.cycle.trackingDir,'2026-09-21','forward-tracking-history');fs.mkdirSync(archives,{recursive:true});
  const h5=path.join(archives,'00000002-2026-09-21.json');fs.writeFileSync(h5,'private future answer');
