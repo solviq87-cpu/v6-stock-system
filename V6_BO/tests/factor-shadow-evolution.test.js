@@ -1336,3 +1336,92 @@ test('unchanged local review is sealed once and reused without inference or a tr
  const first=await runRegisterAuto({manifestFile,outputDir,now});assert.equal(first.status,'skipped-model-no-change');assert.equal(first.reused,false);assert.equal(calls,3);const again=await runRegisterAuto({manifestFile,outputDir,now});assert.equal(again.status,first.status);assert.equal(again.reused,true);assert.equal(calls,3);delete process.env.V6_LOCAL_LEARNING_DIGEST;assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),/摘要/);assert.equal(calls,3);process.env.V6_LOCAL_LEARNING_DIGEST=tagDigest='b'.repeat(64);const changed=await runRegisterAuto({manifestFile,outputDir,now});assert.equal(changed.reused,false);assert.equal(changed.modelDigest,tagDigest);assert.equal(calls,6);process.env.V6_LOCAL_LEARNING_DIGEST=digest;assert.equal(latestAccepted(outputDir).fingerprint,baseline.fingerprint);assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')).length,0);
  const file=path.join(outputDir,fs.readdirSync(outputDir).filter(x=>x.startsWith('model-review-')).find(x=>JSON.parse(fs.readFileSync(path.join(outputDir,x))).modelProvenance.digest===digest));assert.equal(fs.statSync(file).mode&0o777,0o600);const body=JSON.parse(fs.readFileSync(file));body.status='modified';fs.writeFileSync(file,JSON.stringify(body));assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),/完整性/);assert.equal(calls,6);
 });
+
+
+// Deterministic archive-integrity counterexamples; no account, market or
+// external source is used. Re-sealing is not a substitute for full evidence.
+function resealCooldownTest(report,patch){
+ const {fingerprint,...body}=report,payload={...body,...patch};
+ return {...payload,fingerprint:crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex')};
+}
+test('accepted model must seal every declared historical observation, not an empty or shortened prefix',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i)),accepted=evolveShadowFactors(initial,{now:finalClock});
+ const later=[...initial,...Array.from({length:5},(_,i)=>episode(56+i))];
+ assert.equal(accepted.status,'shadow-updated');
+ for(const patch of [{observedFingerprints:[]},{observedFingerprints:accepted.observedFingerprints.slice(0,-1)},
+  {lastObservationDay:dates[54]}]){
+  const changed=resealCooldownTest(accepted,patch);
+  assert.throws(()=>evolveShadowFactors(later,{now:finalClock,previous:changed}),/历史冻结证据被替换或回写/);
+ }
+ const result=evolveShadowFactors(later,{now:finalClock,previous:accepted});
+ assert.equal(result.productionWeightsChanged,false);
+});
+test('spent trial cannot discard part of its historical observation prefix while keeping a valid-looking seal',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i,{duplicateFactor:true}));
+ const trial=evolveShadowFactors(initial,{now:finalClock}),later=[...initial,...Array.from({length:5},(_,i)=>episode(56+i,{duplicateFactor:true}))];
+ assert.equal(trial.status,'shadow-retained');
+ for(const patch of [{observedFingerprints:[]},{observedFingerprints:trial.observedFingerprints.slice(0,-1)},
+  {lastObservationDay:dates[56]}]){
+  assert.throws(()=>evolveShadowFactors(later,{now:finalClock,previousTrial:resealCooldownTest(trial,patch)}),
+   /历史试验账本完整性或样本血缘无效/);
+ }
+ assert.equal(evolveShadowFactors(later,{now:finalClock,previousTrial:trial}).trialAudit.trialNumber,2);
+});
+test('cooldown archive must retain the full alert prefix, even before a no-op or recovery',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i)),previous=evolveShadowFactors(initial,{now:finalClock});
+ const history=[...initial,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ for(const patch of [{observedFingerprints:[]},{observedFingerprints:alert.observedFingerprints.slice(0,-1)}]){
+  const changed=resealCooldownTest(alert,patch);
+  assert.throws(()=>evolveShadowFactors(history,{now:finalClock,previous,previousCooldown:changed}),/历史衰减冷却证据或血缘无效/);
+ }
+ assert.equal(evolveShadowFactors(history,{now:finalClock,previous,previousCooldown:alert}).fingerprint,alert.fingerprint);
+});
+test('a re-sealed contradictory alert or active recovery date cannot clear the original cooldown',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i)),previous=evolveShadowFactors(initial,{now:finalClock});
+ const history=[...initial,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ const later=[...history,episode(61)];
+ for(const patch of [
+  {status:'paused-shadow-cooldown',cooldown:{...alert.cooldown,alertDay:dates[59]}},
+  {cooldown:{...alert.cooldown,recoveryDay:dates[60]}},
+  {status:'shadow-recovered',cooldown:{...alert.cooldown}}
+ ]){
+  assert.throws(()=>evolveShadowFactors(later,{now:finalClock,previous,previousCooldown:resealCooldownTest(alert,patch)}),
+   /历史衰减冷却证据或血缘无效/);
+ }
+});
+test('recovery needs ten genuinely passing new observations, not a forged recovered boolean',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i)),previous=evolveShadowFactors(initial,{now:finalClock});
+ const alerted=[...initial,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(alerted,{now:finalClock,previous});
+ for(const [count,reverseReturns] of [[9,false],[10,true]]){
+  const history=[...alerted,...Array.from({length:count},(_,i)=>episode(61+i,{reverseReturns}))];
+  const cooling=evolveShadowFactors(history,{now:finalClock,previous,previousCooldown:alert});
+  assert.equal(cooling.cooldown.phase,'active');
+  const forged=resealCooldownTest(cooling,{status:'shadow-recovered',cooldown:{
+   ...cooling.cooldown,phase:'recovered',recoveryDay:history.at(-1).features.signalDay,
+   recovery:{...cooling.cooldown.recovery,recovered:true}
+  }});
+  assert.throws(()=>evolveShadowFactors(history,{now:finalClock,previous,previousCooldown:forged}),
+   /历史衰减冷却证据或血缘无效/);
+ }
+ const ten=[...alerted,...Array.from({length:10},(_,i)=>episode(61+i))];
+ const recovered=evolveShadowFactors(ten,{now:finalClock,previous,previousCooldown:alert});
+ assert.equal(recovered.status,'shadow-recovered');
+ assert.deepEqual(recovered.shadowWeights,previous.shadowWeights);
+ assert.equal(evolveShadowFactors(ten,{now:finalClock,previous,previousCooldown:recovered}).fingerprint,recovered.fingerprint);
+ const waiting=evolveShadowFactors([...ten,episode(71)],{now:finalClock,previous,previousCooldown:recovered});
+ assert.equal(waiting.status,'paused-shadow-cooldown');assert.equal(waiting.postRecoveryHoldoutDays,1);
+ assert.equal(waiting.shadowWeightsChanged,false);
+});
+test('original legacy sealed decay alert without the newer gate remains a restrictive active state',()=>{
+ const initial=Array.from({length:56},(_,i)=>episode(i)),previous=evolveShadowFactors(initial,{now:finalClock});
+ const history=[...initial,...Array.from({length:5},(_,i)=>episode(56+i,{reverseReturns:true}))];
+ const alert=evolveShadowFactors(history,{now:finalClock,previous});
+ const {fingerprint,cooldown,...payload}=alert;
+ const legacy=resealCooldownTest(payload,{});
+ const resumed=evolveShadowFactors([...history,episode(61)],{now:finalClock,previous,previousCooldown:legacy});
+ assert.equal(resumed.status,'paused-shadow-cooldown');assert.equal(resumed.cooldown.phase,'active');
+ assert.equal(resumed.shadowWeightsChanged,false);
+});
