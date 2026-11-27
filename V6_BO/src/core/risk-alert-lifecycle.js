@@ -208,10 +208,28 @@ function originalBaseline(rows,now){
   return Math.max(0,...rows.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now;
 }
 function olderThanResolved(incoming,group,now){
-  if(group.status!=='resolved'||incoming.status!=='active')return false;
-  const cutoff=originalBaseline(group.risks,now),active=incoming.risks.filter(row=>row.status==='active');
-  return active.length>0&&active.every(row=>timeOk(row.sourceAt)&&row.sourceAt<cutoff&&
-    (!timeOk(row.authorityEvidence?.observedAt)||row.authorityEvidence.observedAt<cutoff));
+  if(group.status!=='resolved'||incoming.status!=='active'||!incoming.risks.length)return false;
+  // An old last-quote timestamp is not proof that a newly observed outage,
+  // stale feed or other incomplete risk report is a historical replay.
+  // Only suppress an exact retained, complete, valid observation whose own
+  // scope has a later confirmed clearance. Changed/unknown rows reopen.
+  const retained=group.lastValidRisk?.risks||[];
+  return incoming.risks.every(row=>{
+    if(row.status!=='active'||row.assessmentState!=='risk-detected'||row.evidenceState!=='complete'||
+      row.evidenceStatus!=='available'||row.dataState!=='valid')return false;
+    const scope=riskScopeKey(row);
+    const earlier=retained.some(old=>riskScopeKey(old)===scope&&digest(old)===digest(row));
+    if(!earlier)return false;
+    const clearance=group.risks.filter(next=>riskScopeKey(next)===scope&&next.status==='resolved'&&
+      next.assessmentState==='not-triggered'&&next.evidenceState==='complete'&&next.dataState==='valid'&&
+      timeOk(next.sourceAt)&&timeOk(next.riskContract?.dataAt)&&next.sourceAt<=now&&next.riskContract.dataAt<=now);
+    if(clearance.length!==1)return false;
+    const cutoff=Math.min(clearance[0].sourceAt,clearance[0].riskContract.dataAt);
+    const clocks=[row.sourceAt,row.riskContract?.dataAt,row.firstKnowableAt,row.authorityEvidence?.observedAt,
+      row.actionEvidence?.checkedAt,row.recoveryEvidence?.checkedAt,row.accumulationEvidence?.windowEnd];
+    return timeOk(row.sourceAt)&&timeOk(row.riskContract?.dataAt)&&
+      clocks.every(at=>at==null||timeOk(at)&&at<cutoff);
+  });
 }
 function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => false} = {}) {
   const dir = privateRoot(root);
@@ -400,7 +418,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         const currentValid=lastValidRisk(incoming.risks,now);
         const reopened=oldStatus==='resolved'&&incoming.status!=='resolved';
         group.lastValidRisk=mergeLastValidRisk(group.lastValidRisk,incoming,currentValid,now,reopened||verifiedDowngrade);
-        if(reopened)group.resolutionBaselineAt=originalBaseline(incoming.risks,now);
+        if(reopened)group.resolutionBaselineAt=currentValid?originalBaseline(incoming.risks,now):now;
         if (meaningfulChange) group.revision++;
         if (oldStatus === 'resolved' && incoming.status !== 'resolved') {
           group.occurrence++; group.maxSeverity = incoming.severity;group.maxRiskLevel=incoming.riskLevel; group.resolvedAt = null;
