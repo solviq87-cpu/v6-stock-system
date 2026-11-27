@@ -4,7 +4,12 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const label=x=>typeof x==='string'&&x.length>0&&x.length<=80;
 const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const symbolKnown=x=>label(x)&&x.trim()===x||Number.isSafeInteger(x)&&x>=0;
-const own=(map,key)=>record(map)&&Object.hasOwn(map,key)?map[key]:undefined;
+// Read only own data fields. Inherited/accessor evidence is not an authority row.
+const own=(map,key)=>{
+ if(!record(map))return undefined;
+ const d=Object.getOwnPropertyDescriptor(map,key);
+ return d&&Object.hasOwn(d,'value')?d.value:undefined;
+};
 function validateEntryPolicy(p){
  if(p==null)return;if(!label(p.version))throw Error('风控版本无效');
  for(const k of ['maxPositionPct','maxGrossExposurePct','maxSectorPct','maxStrategyPct','maxDrawdownPausePct','maxDailyLossPausePct'])if(p[k]!=null&&(!finite(p[k])||p[k]<=0||p[k]>100))throw Error('风控参数无效');
@@ -38,15 +43,18 @@ function evaluateEntryRisk({policy=null,side='buy',symbol,strategyId,quantity,pr
   // exposure through JS coercion. Fractional research allocations remain valid.
   let gross=0,unknown=!Array.isArray(positions)||!Array.isArray(pending);const values=[];
   for(const p of Array.isArray(positions)?positions:[]){
-   if(!record(p)||!symbolKnown(p.symbol)||!finite(p.quantity)||p.quantity<0){unknown=true;continue;}
-   const mark=own(marks,p.symbol);
+   const symbol=own(p,'symbol'),quantity=own(p,'quantity'),strategyId=own(p,'strategyId');
+   if(!symbolKnown(symbol)||!finite(quantity)||quantity<0){unknown=true;continue;}
+   const mark=own(marks,symbol);
    if(!finite(mark)||mark<=0){unknown=true;continue;}
-   const value=p.quantity*mark;if(!finite(value)){unknown=true;continue;}
-   gross+=value;values.push({...p,value});
+   const value=quantity*mark;if(!finite(value)){unknown=true;continue;}
+   gross+=value;values.push({symbol,quantity,strategyId,value});
   }
   for(const p of Array.isArray(pending)?pending:[]){
-   if(!record(p)||!symbolKnown(p.symbol)||!finite(p.quantity)||p.quantity<0||!finite(p.price)||p.price<=0){unknown=true;continue;}
-   const value=p.quantity*p.price;if(!finite(value)){unknown=true;continue;}values.push({...p,value});
+   const symbol=own(p,'symbol'),quantity=own(p,'quantity'),price=own(p,'price'),strategyId=own(p,'strategyId');
+   if(!symbolKnown(symbol)||!finite(quantity)||quantity<0||!finite(price)||price<=0){unknown=true;continue;}
+   const value=quantity*price;if(!finite(value)){unknown=true;continue;}
+   values.push({symbol,quantity,price,strategyId,value});
   }
   const equity=cash+gross,addition=quantity*price;
   const sum=fn=>values.filter(fn).reduce((n,p)=>n+p.value,0);
