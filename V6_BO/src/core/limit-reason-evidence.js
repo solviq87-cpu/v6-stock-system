@@ -2,7 +2,7 @@
 // A query date selects a response; only supplier evidence can date its reason.
 const chinaDay=at=>new Date(at+28800000).toISOString().slice(0,10);
 function normalizeDay(value){
- const raw=String(value??''),iso=/^\d{8}$/.test(raw)?raw.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):raw;
+ const raw=typeof value==='string'?value:Number.isSafeInteger(value)&&value>=10000000&&value<=99999999?String(value):'',iso=/^\d{8}$/.test(raw)?raw.replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3'):raw;
  return /^\d{4}-\d{2}-\d{2}$/.test(iso)&&Number.isFinite(Date.parse(iso))&&new Date(iso).toISOString().slice(0,10)===iso?iso:null;
 }
 const text=value=>typeof value==='string'?value.trim():'';

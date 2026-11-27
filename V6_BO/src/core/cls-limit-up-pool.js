@@ -62,9 +62,12 @@ function normalizeClsLimitPool(json, { requestedDate, receivedAt } = {}) {
       if (sourceDate !== null && sourceDate !== tradeDate) fail('cls-mixed-trade-dates');
       sourceDate = tradeDate;
       if (row.plate != null && !Array.isArray(row.plate)) fail('cls-plate-invalid');
-      const plates = (row.plate || []).map(plate => {
-        if (!plate || !text(plate.secu_code) || !text(plate.secu_name)) fail('cls-plate-invalid');
-        return { code: text(plate.secu_code), name: text(plate.secu_name) };
+      const plateSeen=new Set();
+      const plates = Array.from(row.plate || [],(plate,index) => {
+        const code=text(plate?.secu_code),name=text(plate?.secu_name);
+        if(!Object.hasOwn(row.plate,index)||!plate||!code||!name||plateSeen.has(code))fail('cls-plate-invalid');
+        plateSeen.add(code);
+        return {code,name};
       });
       const price = number(row.last_px), change = number(row.change), count = row.limit_up_days;
       const matched = tradeDate === target, reason = text(row.up_reason);

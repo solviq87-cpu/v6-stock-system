@@ -1,17 +1,23 @@
 'use strict';
 const {normalizeDay}=require('./limit-reason-evidence');
+const validCode=row=>!!row&&typeof row==='object'&&!Array.isArray(row)&&typeof row.code==='string'&&/^\d{6}$/.test(row.code);
+function duplicateCodes(rows){
+ const seen=new Set(),duplicate=new Set();
+ for(const row of rows)if(validCode(row)){if(seen.has(row.code))duplicate.add(row.code);seen.add(row.code);}
+ return duplicate;
+}
 function auditLimitPoolRows(rows,{totalCount,source='eastmoney',tradeDate,receivedAt}={}){
  const input=Array.isArray(rows)?rows:[],seen=new Set();let invalidCount=0,duplicateCount=0;
- for(const row of input){if(!row||!/^\d{6}$/.test(row.code||'')){invalidCount++;continue;}if(seen.has(row.code))duplicateCount++;else seen.add(row.code);}
+ for(const row of input){if(!validCode(row)){invalidCount++;continue;}if(seen.has(row.code))duplicateCount++;else seen.add(row.code);}
  const declared=typeof totalCount==='number'?totalCount:typeof totalCount==='string'&&/^\d+$/.test(totalCount)?Number(totalCount):null;
  const total=Number.isSafeInteger(declared)&&declared>=0?declared:null;
  return {source,tradeDate:normalizeDay(tradeDate),receivedAt:receivedAt??null,totalCount:total,fetchedCount:input.length,
-  uniqueCount:seen.size,duplicateCount,invalidCount,providerComplete:total!==null&&total===input.length&&invalidCount===0&&duplicateCount===0,
+  uniqueCount:seen.size,duplicateCount,invalidCount,providerComplete:Array.isArray(rows)&&total!==null&&total===input.length&&invalidCount===0&&duplicateCount===0,
   completenessScope:'provider-response-only',wholeMarketCertified:false};
 }
 function buildLimitReviewPool(input,{providerMeta,tradeDate,isStrategyExcluded=()=>false,isRecommendationExcluded=()=>false}={}){
  const all=Array.isArray(input)?input:[],providerRows=all.filter(row=>row?.src==='em'),seen=new Set(),rows=[];
- for(const row of all){if(!row||!/^\d{6}$/.test(row.code||'')||seen.has(row.code))continue;seen.add(row.code);
+ for(const row of all){if(!validCode(row)||seen.has(row.code))continue;seen.add(row.code);
   const strategyExcluded=!!isStrategyExcluded(row),recommendationExcluded=!!isRecommendationExcluded(row);
   rows.push({...row,canTrade:false,canNotify:false,strategyExcluded,recommendationExcluded,
    strategyExclusionReason:strategyExcluded?'existing-limit-tally-policy':null,
@@ -27,15 +33,27 @@ module.exports={auditLimitPoolRows,buildLimitReviewPool};
 function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=[],previousMeta,tradeDate,
  isStrategyExcluded,isRecommendationExcluded}={}){
  const day=normalizeDay(tradeDate);
- let emRows=day?eastmoneyRows.filter(row=>row&&normalizeDay(row.tradeDate)===day&&
+ let emRows=day&&Array.isArray(eastmoneyRows)?eastmoneyRows.filter(row=>row&&normalizeDay(row.tradeDate)===day&&
   (row.src==='derive'||normalizeDay(row.sourceTradeDate)===day)):[];
- const currentEmAudit=auditLimitPoolRows(emRows.filter(row=>row.src==='em'),{totalCount:eastmoneyMeta?.totalCount,tradeDate:day,receivedAt:eastmoneyMeta?.receivedAt});
- const clsAccepted=!!day&&cls?.status==='available'&&cls.complete===true&&normalizeDay(cls.tradeDate)===day&&Array.isArray(cls.items)&&
-  cls.items.every(row=>normalizeDay(row.tradeDate)===day&&normalizeDay(row.sourceTradeDate)===day);
+ const rawEm=emRows.filter(row=>row.src==='em');
+ const currentEmAudit=auditLimitPoolRows(rawEm,{totalCount:eastmoneyMeta?.totalCount,tradeDate:day,receivedAt:eastmoneyMeta?.receivedAt});
+ if(!day||!Array.isArray(eastmoneyRows)||eastmoneyMeta?.providerComplete===false)currentEmAudit.providerComplete=false;
+ const emDuplicates=duplicateCodes(rawEm);
+ // An invalid or conflicting supplier copy cannot become a new confirmed row
+ // simply because the union keeps the first copy. Other valid rows survive.
+ emRows=emRows.filter(row=>validCode(row)&&!emDuplicates.has(row.code)&&(row.src==='em'||row.src==='derive'));
+ const clsAudit=auditLimitPoolRows(cls?.items,{totalCount:cls?.totalCount,tradeDate:day,source:'cls'});
+ const clsAccepted=!!day&&cls?.status==='available'&&cls.complete===true&&
+  (cls.source===undefined||cls.source==='cls')&&normalizeDay(cls.tradeDate)===day&&
+  Array.isArray(cls.items)&&cls.items.length>0&&clsAudit.providerComplete&&
+  Number.isSafeInteger(cls.totalCount)&&cls.fetchedCount===cls.items.length&&cls.uniqueCount===cls.items.length&&
+  cls.items.every(row=>validCode(row)&&normalizeDay(row.tradeDate)===day&&normalizeDay(row.sourceTradeDate)===day&&
+   (row.src===undefined||row.src==='cls')&&(row.source===undefined||row.source==='cls'));
+ const rejectedClsStatus=cls?.status==='available'?'invalid':cls?.status||'unavailable';
  const attemptedSources=[{...currentEmAudit,status:emRows.some(row=>row.src==='em')?(currentEmAudit.providerComplete?'available':'partial'):'unavailable',includesST:'provider-defined'},
   {source:'cls',tradeDate:normalizeDay(cls?.tradeDate),totalCount:cls?.totalCount??null,fetchedCount:cls?.fetchedCount??0,
    uniqueCount:cls?.uniqueCount??0,receivedAt:cls?.receivedAt??null,providerComplete:clsAccepted,completenessScope:cls?.scope||'provider-up-pool-including-st',
-   includesST:true,status:clsAccepted?'available':!day?'unavailable':cls?.status||'unavailable'}];
+   includesST:true,status:clsAccepted?'available':!day?'unavailable':rejectedClsStatus}];
  if(!emRows.length&&!clsAccepted&&previousRows.length){
   const retainedSources=(previousMeta?.sources||[]).filter(source=>source.providerComplete).map(source=>source.source);
   return {rows:previousRows.map(row=>({...row,heldRecord:true,heldSources:row.sources||[],currentSourceConfirmed:false,recordStatus:'held-source-observation',
@@ -47,7 +65,7 @@ function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=
  const oldSource=name=>day&&normalizeDay(previousMeta?.tradeDate)===day?(previousMeta.sources||[]).find(source=>source.source===name&&normalizeDay(source.tradeDate)===day&&
   (source.providerComplete||name==='eastmoney'&&previousRows.some(row=>(row.sources||[]).includes('eastmoney')&&normalizeDay(row.tradeDate)===day))):null;
  const oldEm=oldSource('eastmoney'),oldCls=oldSource('cls');
- const currentEmCodes=new Set(emRows.filter(row=>row.src==='em'&&/^\d{6}$/.test(row.code||'')).map(row=>row.code)),heldEmCodes=new Set();
+ const currentEmCodes=new Set(emRows.filter(row=>row.src==='em'&&validCode(row)).map(row=>row.code)),heldEmCodes=new Set();
  if(!currentEmAudit.providerComplete&&oldEm){
   const missing=previousRows.filter(row=>(row.sources||[]).includes('eastmoney')&&normalizeDay(row.tradeDate)===day&&!currentEmCodes.has(row.code));
   for(const row of missing)heldEmCodes.add(row.code);
@@ -60,7 +78,7 @@ function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=
   ...(row.clsObservation||{}),src:'cls',sources:['cls'],quoteAt:null})):[];
  const clsMeta=oldCls&&!clsAccepted?{...oldCls,status:'retained',lastAttempt:attemptedSources[1]}:attemptedSources[1];
  const sources=[emAudit,clsMeta],union=new Map();
- for(const row of emRows){if(!/^\d{6}$/.test(row.code||'')||union.has(row.code))continue;
+ for(const row of [...emRows.filter(row=>row.src==='em'),...emRows.filter(row=>row.src==='derive')]){if(!validCode(row)||union.has(row.code))continue;
   union.set(row.code,{...row,sources:[row.src==='em'?'eastmoney':row.src||'unknown'],sectorTags:row.sector?[row.sector]:[]});}
  for(const row of clsRows){
   const old=union.get(row.code),tags=[...(old?.sectorTags||[]),...(row.sectorTags||[]).map(tag=>typeof tag==='string'?tag:tag?.name).filter(Boolean),...(row.sector?[row.sector]:[])];
@@ -82,7 +100,7 @@ function mergeLimitReviewPools({eastmoneyRows=[],eastmoneyMeta,cls,previousRows=
   row.recordStatus=row.heldRecord?'held-source-observation':row.currentSourceConfirmed?'observed-provider-record':'dated-stock-reconstruction';
  }
  const full=buildLimitReviewPool([...union.values()],{providerMeta:eastmoneyMeta,tradeDate:day,isStrategyExcluded,isRecommendationExcluded});
- const emCodes=new Set(emRows.filter(row=>row.src==='em'&&/^\d{6}$/.test(row.code||'')).map(row=>row.code)),clsCodes=new Set(clsRows.map(row=>row.code));
+ const emCodes=new Set(emRows.filter(row=>row.src==='em'&&validCode(row)).map(row=>row.code)),clsCodes=new Set(clsRows.map(row=>row.code));
  const intersectionCount=[...emCodes].filter(code=>clsCodes.has(code)).length;
  const activeSources=sources.filter(source=>['available','partial','retained'].includes(source.status));
  return {rows:full.rows,meta:{...full.meta,tradeDate:day,source:activeSources.map(source=>source.source).join('+')||full.meta.source,sources,
