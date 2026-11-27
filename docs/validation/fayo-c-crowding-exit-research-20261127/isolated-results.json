@@ -1,0 +1,423 @@
+{
+  "base": "8265fd7da871ea4124f6126c544c076965b87d08",
+  "sourceBlobsBefore": [
+    "ea1840301a092d85624966081825b60583ae7896",
+    "627fdc987c3be070e9cf56a5585dadec47f88944"
+  ],
+  "sourceBlobsAfter": [
+    "14ae79a91ffb8fce3affd364403230c78fc90afb",
+    "43b9c66f4323f6f3f62807abbd3372178dd9193d"
+  ],
+  "environment": "Actual production risk module executed in isolated V8, adapted ESM and node:test/assert; three original/new integration cases not yet executed. New features absent in old source are not defects. Current duplicate rejection tests an existing projection weakness.",
+  "before": {
+    "total": 15,
+    "pass": 0,
+    "results": [
+      {
+        "name": "C24.0 visible same-date duplicate conflicts suppress the new research projection rather than pick the first",
+        "ok": false,
+        "error": "Error:  expected null got {\"high\":12,\"close\":10,\"drawdownFromHighPct\":16.666666666666664,\"upperWickPctOfRange\":66.66666666666666,\"closePositionPctOfRange\":33.33333333333333,\"basis\":\"daily-ohlc-not-intraday-path\"}"
+      },
+      {
+        "name": "C24.1 comparable close breadth and seal-assist decline remain separate observations",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'fullBreadth')"
+      },
+      {
+        "name": "C24.1 missing, wrong-time, wrong-source and changing denominator do not certify breadth",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'fullBreadth')"
+      },
+      {
+        "name": "C24.1 visible contradictory previous theme count does not inherit one duplicate; late edit is not hindsight",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C24.2 explicit unchanged leader identity and original paired returns show co-decline, not causality",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'bothDown')"
+      },
+      {
+        "name": "C24.2 leader rotation, wrong sector, wrong stock and conflicting copies cannot establish co-decline",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C24.2 a real non-declining leader or follower stays non-co-declining, not unknown",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'bothDown')"
+      },
+      {
+        "name": "C24.3 high-board relay differentiates touched-and-failed, never-touched and sealed",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'failedAfterTouch')"
+      },
+      {
+        "name": "C24.3 special session, missing/inconsistent limit and visible prior streak conflict rejected",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C24.4 three-day negative flow and turnover-weighted share use original signed amounts",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'negativeDays')"
+      },
+      {
+        "name": "C24.4 real zero, missing day, mixed source and conflicted amounts cannot imitate persistent outflow",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'negativeDays')"
+      },
+      {
+        "name": "C24.4 future correction does not rewrite visible three-day flow",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'allNegative')"
+      },
+      {
+        "name": "C24.5 stop or target review never infers T+1 sellability or authorizes liquidation",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'reviewLevel')"
+      },
+      {
+        "name": "C24.5 invalid holding, late or wrong-day frozen plan, impossible declared sellability remain unknown",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C24.5 weakness review distinct from frozen stop and target, no sell recommendation",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'reviewLevel')"
+      }
+    ],
+    "skipped": [
+      "C24.integration existing automatic recognition derives leader comparison from original daily bars"
+    ]
+  },
+  "after": {
+    "total": 15,
+    "pass": 15,
+    "results": [
+      {
+        "name": "C24.0 visible same-date duplicate conflicts suppress the new research projection rather than pick the first",
+        "ok": true
+      },
+      {
+        "name": "C24.1 comparable close breadth and seal-assist decline remain separate observations",
+        "ok": true
+      },
+      {
+        "name": "C24.1 missing, wrong-time, wrong-source and changing denominator do not certify breadth",
+        "ok": true
+      },
+      {
+        "name": "C24.1 visible contradictory previous theme count does not inherit one duplicate; late edit is not hindsight",
+        "ok": true
+      },
+      {
+        "name": "C24.2 explicit unchanged leader identity and original paired returns show co-decline, not causality",
+        "ok": true
+      },
+      {
+        "name": "C24.2 leader rotation, wrong sector, wrong stock and conflicting copies cannot establish co-decline",
+        "ok": true
+      },
+      {
+        "name": "C24.2 a real non-declining leader or follower stays non-co-declining, not unknown",
+        "ok": true
+      },
+      {
+        "name": "C24.3 high-board relay differentiates touched-and-failed, never-touched and sealed",
+        "ok": true
+      },
+      {
+        "name": "C24.3 special session, missing/inconsistent limit and visible prior streak conflict rejected",
+        "ok": true
+      },
+      {
+        "name": "C24.4 three-day negative flow and turnover-weighted share use original signed amounts",
+        "ok": true
+      },
+      {
+        "name": "C24.4 real zero, missing day, mixed source and conflicted amounts cannot imitate persistent outflow",
+        "ok": true
+      },
+      {
+        "name": "C24.4 future correction does not rewrite visible three-day flow",
+        "ok": true
+      },
+      {
+        "name": "C24.5 stop or target review never infers T+1 sellability or authorizes liquidation",
+        "ok": true
+      },
+      {
+        "name": "C24.5 invalid holding, late or wrong-day frozen plan, impossible declared sellability remain unknown",
+        "ok": true
+      },
+      {
+        "name": "C24.5 weakness review distinct from frozen stop and target, no sell recommendation",
+        "ok": true
+      }
+    ],
+    "skipped": [
+      "C24.integration existing automatic recognition derives leader comparison from original daily bars"
+    ]
+  },
+  "reg": {
+    "total": 62,
+    "pass": 62,
+    "results": [
+      {
+        "name": "C6.1 conflicting daily observations cannot create a high-mark warning by input order",
+        "ok": true
+      },
+      {
+        "name": "C6.1 equivalent visible daily duplicates do not destroy a genuine sequence",
+        "ok": true
+      },
+      {
+        "name": "C6.1 conflicting earlier volume interrupts the consecutive shrinking sequence",
+        "ok": true
+      },
+      {
+        "name": "C6.1 explicit invalid previous-day reference cannot be silently replaced by a weekday guess",
+        "ok": true
+      },
+      {
+        "name": "C6.2 negative assist count is unknown, not observed collapse",
+        "ok": true
+      },
+      {
+        "name": "C6.2 real zero assists remains a verified adverse observation",
+        "ok": true
+      },
+      {
+        "name": "C6.2 leader name or stock code must identify a real distinct stock",
+        "ok": true
+      },
+      {
+        "name": "C6.2 unique valid leader and numeric code still verify while ambiguous or late evidence stays unknown",
+        "ok": true
+      },
+      {
+        "name": "C6.3 late explicit plan receipts cannot cause hindsight stop, target or regime mismatch",
+        "ok": true
+      },
+      {
+        "name": "C6.3 malformed, unknown or reversed freeze receipt cannot become a known plan",
+        "ok": true
+      },
+      {
+        "name": "C6.3 valid original receipt preserves research facts; fractional holding cannot assert position",
+        "ok": true
+      },
+      {
+        "name": "C6.3 actual backtest selector excludes late and same-second future freeze, retains unique visible plan",
+        "ok": true
+      },
+      {
+        "name": "C6.4 conflict flags block unsupported bid-ask spread evidence",
+        "ok": true
+      },
+      {
+        "name": "C6.4 original suspension cannot be erased or replaced by contradictory quotes",
+        "ok": true
+      },
+      {
+        "name": "C6.5 conflicting duplicate minute and alias of same timestamp cannot generate a repeated plunge",
+        "ok": true
+      },
+      {
+        "name": "C6.5 explicit invalid duplicate value cannot be filtered away before conflict detection",
+        "ok": true
+      },
+      {
+        "name": "C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges",
+        "ok": true
+      },
+      {
+        "name": "C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible",
+        "ok": true
+      },
+      {
+        "name": "C6.5 late conflicting minute cannot rewrite earlier visible history",
+        "ok": true
+      },
+      {
+        "name": "风险仅由有时点的个股与标的上下文触发；情绪和助攻缺失保持未知",
+        "ok": true
+      },
+      {
+        "name": "高位低开与放量滞涨、缩量连板兑现及前日一字开板使用连续交易日",
+        "ok": true
+      },
+      {
+        "name": "基本面需有同标的披露来源和可知时间，金融企业不套用普通工商偿债口径",
+        "ok": true
+      },
+      {
+        "name": "停牌、实时报价价差与全成分板块断层分开判定，封板数不充当全板块上涨数",
+        "ok": true
+      },
+      {
+        "name": "自述动机、已有持仓、冻结止损分别有独立证据，不以盈亏或价格触达推断执行",
+        "ok": true
+      },
+      {
+        "name": "连续剧烈跳水缺少连续成交分钟时保持未知；利空叠加按独立事实计数",
+        "ok": true
+      },
+      {
+        "name": "C21.1 explicit unknown or reversed daily receipt cannot establish historical high mark",
+        "ok": true
+      },
+      {
+        "name": "C21.1 legacy absent receipt differs from future or malformed current receipt",
+        "ok": true
+      },
+      {
+        "name": "C21.2 current conflict or adjusted price cannot create price-based high position or holding evidence",
+        "ok": true
+      },
+      {
+        "name": "C21.2 visible contradictory prior price flag breaks sequence; future revision cannot rewrite history",
+        "ok": true
+      },
+      {
+        "name": "C21.2 explicit special session cannot treat opening gap as ordinary decline",
+        "ok": true
+      },
+      {
+        "name": "C21.3 unrelated declared sector cannot provide held-profit weakness evidence",
+        "ok": true
+      },
+      {
+        "name": "C21.3 conflicting leader observation or malformed member list cannot produce leader-specific high risk",
+        "ok": true
+      },
+      {
+        "name": "C21.4 duplicate market reports deduplicate, same-day conflict cannot count as a consecutive market decline",
+        "ok": true
+      },
+      {
+        "name": "C21.4 visible same-day market value mismatch or explicit invalid current market receipt is not a verified decline",
+        "ok": true
+      },
+      {
+        "name": "C21.5 latest visible withdrawn or explicitly corrected original event cannot keep old warning active",
+        "ok": true
+      },
+      {
+        "name": "C21.5 same-event same-clock conflicts, explicit unknown and same-id conflicting disclosure days are not independent notices",
+        "ok": true
+      },
+      {
+        "name": "C21.5 wrong-symbol or late correction does not erase the original independent disclosure",
+        "ok": true
+      },
+      {
+        "name": "C21.3 visible conflicting leader copy cannot be discarded beside a valid copy",
+        "ok": true
+      },
+      {
+        "name": "C21.2 conflicted or retracted minute does not establish repeated observed plunge",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only quote and receipt cannot impersonate real observation clocks",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only holding and current receipt are not precise observation evidence",
+        "ok": true
+      },
+      {
+        "name": "C22.1 rolled civil dates cannot become frozen decisions",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only announcement receipt cannot establish a third precise notice",
+        "ok": true
+      },
+      {
+        "name": "C22.2 conflicted holding snapshots never establish held-profit or stop facts",
+        "ok": true
+      },
+      {
+        "name": "C22.2 conflicted or wrong-date plans cannot govern current held-position exits",
+        "ok": true
+      },
+      {
+        "name": "C22.2 withdrawn self-report and conflicting frozen plan rejected",
+        "ok": true
+      },
+      {
+        "name": "C22.3 explicitly invalid market cannot assert stage mismatch",
+        "ok": true
+      },
+      {
+        "name": "C22.3 invalid market does not turn holding profit into divergence exit",
+        "ok": true
+      },
+      {
+        "name": "C22.4 malformed theme arrays and members do not crash or assert reversal",
+        "ok": true
+      },
+      {
+        "name": "C22.4 conflicted theme or members and invalid first-board level rejected",
+        "ok": true
+      },
+      {
+        "name": "C22.5 next-session date must be real and calendar receipt precise",
+        "ok": true
+      },
+      {
+        "name": "C23.0 declared daily CSV availability preserves suspension; precise knownAt remains required",
+        "ok": true
+      },
+      {
+        "name": "C23.1 real 20-row window exposes rank and range position separately",
+        "ok": true
+      },
+      {
+        "name": "C23.1 missing weekday, duplicate conflict and adjusted prior cannot produce full range",
+        "ok": true
+      },
+      {
+        "name": "C23.1 future revision does not rewrite original range; explicit corporate action breaks it",
+        "ok": true
+      },
+      {
+        "name": "C23.1 range breakout is not clamped to a fake percentile; flat range stays unknown",
+        "ok": true
+      },
+      {
+        "name": "C23.2 only same-date same-prior-window market and sector returns are compared",
+        "ok": true
+      },
+      {
+        "name": "C23.2 conflict, late market, missing return and wrong role cannot supply relative return",
+        "ok": true
+      },
+      {
+        "name": "C23.3 signed active-buy share distinguishes withdrawal, zero and different turnover",
+        "ok": true
+      },
+      {
+        "name": "C23.3 missing or incomparable declared flow cannot be treated as a real outflow",
+        "ok": true
+      },
+      {
+        "name": "C23.4 daily reversal is a price-only observation, not a fabricated intraday path",
+        "ok": true
+      },
+      {
+        "name": "C23.5 frozen plan gross payoff and break-even are not actual costs or predicted probabilities",
+        "ok": true
+      }
+    ],
+    "skipped": [
+      "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+      "C23.integration original deriveCheckInput and autoValidate carry read-only evidence"
+    ]
+  }
+}
