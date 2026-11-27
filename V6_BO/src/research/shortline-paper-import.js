@@ -7,7 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
-const {quoteSourceAllowsUse} = require('../core/quote-observation-view');
+const {quoteSourceAllowsUse,quoteObservationView} = require('../core/quote-observation-view');
 const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
@@ -89,10 +89,18 @@ function linkDecisionPlan(sample, state, events, now) {
     entries.some(event=>event.tradeDate!==plan.intendedDate)||
     !stamp(basis?.calculatedAt)||basis.calculatedAt>frozen||
     !stamp(basis?.strategyAt)||basis.strategyAt>basis.calculatedAt||
-    !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
+    !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||basis.calculatedAt-q.quoteAt>15000||
+    wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
     typeof q.source!=='string'||!q.source.trim()||
      /mock|synthetic|fixture|demo/i.test(q.source)||/demo/i.test(q.mode||'')||
      !quoteSourceAllowsUse({...q,quoteSource:q.source})||
+     // Replay the frozen observation at its original decision clock, not the
+     // import clock. A legacy omitted receipt/price remains an unknown field,
+     // but an explicit identity, clock or provider contradiction is not proof.
+     quoteObservationView({...q,quoteSource:q.source},basis.calculatedAt).missingReason==='conflicting-quote-evidence'||
+     [q.quoteStatus,q.quoteFreshness,q.freshness].some(status=>['stale','future','unknown','conflict'].includes(status))||
+     q.symbol!=null&&q.symbol!==plan.code||q.quoteSource!=null&&q.quoteSource!==q.source||
+     q.provider!=null&&q.provider!==q.source||q.timestamp!=null&&q.timestamp!==q.quoteAt||
      entries.some(event=>event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||
        event.fillEvidence.mode!=='public-live-unverified'))||
     q.code!==undefined&&q.code!==plan.code||

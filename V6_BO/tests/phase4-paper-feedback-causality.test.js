@@ -140,3 +140,35 @@ test('an altered optional check cannot silently retain the older verified factor
  assert.deepEqual(x.state.trades[0].planEvidenceReview.priorProjection,original);
  assert.equal(x.run().existing,1);assert.deepEqual(x.state.trades[0].factors,[]);
 });
+
+test('frozen quote freshness is evaluated at the original decision clock, not import or receipt time',()=>{
+ for(const age of [15000,15001,3600000]){
+  const x=fixture(),basis=x.plan.decisionEvidence;
+  basis.quoteBasis.quoteAt=basis.calculatedAt-age;
+  const before=JSON.stringify(x.book);
+  assert.equal(x.run().imported,1);
+  const row=x.state.trades[0],eligible=age<=15000;
+  assert.equal(row.snapshotVerified,eligible);
+  assert.equal(row.planId,eligible?x.plan.id:null);
+  assert.equal(row.pnlAmount,90);
+  assert.equal(JSON.stringify(x.book),before);
+  assert.equal(x.run().existing,1);
+ }
+});
+test('explicit conflicts in frozen original quote identity and provenance cannot certify a settled sample',()=>{
+ for(const patch of [
+  {sourceConflict:true},{conflict:true},{evidenceStatus:'conflict'},{quoteStatus:'conflict'},
+  {quoteStatus:'unknown'},{quoteFreshness:'stale'},{freshness:'future'},
+  {tradeDate:'2026-11-03'},{quoteProvider:'other'},{provider:'other'},
+  {quoteSource:'other'},{symbol:'600001'},{timestamp:at-7001}
+ ]){
+  const x=fixture();Object.assign(x.plan.decisionEvidence.quoteBasis,patch);
+  const before=JSON.stringify(x.book);assert.equal(x.run().imported,1);
+  const row=x.state.trades[0];assert.equal(row.snapshotVerified,false);
+  assert.equal(row.planId,null);assert.deepEqual(row.factors,[]);assert.equal(row.pnlAmount,90);
+  assert.equal(JSON.stringify(x.book),before);
+ }
+ const x=fixture();Object.assign(x.plan.decisionEvidence.quoteBasis,{symbol:code,provider:'tencent',
+  quoteSource:'tencent',quoteProvider:'tencent',tradeDate:day,timestamp:at-7000,quoteStatus:'recent-unverified'});
+ assert.equal(x.run().imported,1);assert.equal(x.state.trades[0].snapshotVerified,true);
+});

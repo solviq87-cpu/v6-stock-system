@@ -252,3 +252,31 @@ test('integrated learning consumes the verified settlement, excludes quarantine 
  assert.equal(x.run(restored).existing,1);
  assert.deepEqual(fs.readFileSync(x.file),ledger);
 });
+
+
+test('original decision quote 15-second boundary survives native settlement and rejects stale learning in both research consumers',async t=>{
+ const {readLearningRows,predict}=await import('../public/nova/shortline/learning.mjs');
+ const research=require('../src/core/intelligence-research');
+ const {dictionaryVersion}=await import('../public/nova/shortline/factor-dictionary.mjs');
+ const day='2026-11-13',clock=Date.parse(day+'T15:00:00+08:00');
+ for(const age of [15000,15001,3600000]){
+  const x=setup(t),plan=automaticPlan(x);
+  // Freeze a historical quote at its own original decision clock. Keep
+  // the actual buy execution receipt and source settlement separate.
+  plan.decisionEvidence.quoteBasis.quoteAt=plan.decisionEvidence.calculatedAt-age;
+  x.state.plans.push(plan);roundTrip(x,plan);
+  const ledger=fs.readFileSync(x.file);
+  assert.equal(x.run(day+'T15:00:00+08:00').imported,1);
+  const row=x.state.trades[0],eligible=age===15000;
+  assert.equal(row.snapshotVerified,eligible);
+  assert.equal(row.planId,eligible?plan.id:null);
+  assert.equal(row.pnlAmount,x.service.read().account.events.at(-1).realizedPnl);
+  assert.equal(readLearningRows(x.state,clock).filter(r=>r.learningOutcomeBasis==='recorded-settlement').length,eligible?1:0);
+  assert.equal(predict(x.state,{asOf:clock}).experience.cohorts.find(c=>c.basis==='recorded-settlement').n,eligible?1:0);
+  const report=research.buildIntelligenceResearch({archive:{...x.state,dictionaryVersion},day,now:clock});
+  assert.equal(report.feedback.matureTrades,eligible?1:0);
+  assert.equal(report.canTrade,false);
+  assert.equal(x.run(day+'T15:00:00+08:00').existing,1);
+  assert.deepEqual(fs.readFileSync(x.file),ledger);
+ }
+});
