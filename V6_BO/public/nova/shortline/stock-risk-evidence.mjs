@@ -107,11 +107,55 @@ export function selectFrozenRiskPlan(plans,code,day,cutoff){
 }
 
 
+// One definition for individual and benchmark position measurements.
+function positionMetrics(sequence){
+  const b=sequence[0],day=b.date,clean=n=>finite(n)?n:null;
+  const historicalCount=sequence.length-1;
+  const returnPct=(newer,older)=>positive(newer)&&positive(older)?clean(100*(newer/older-1)):null;
+  // Use an average of scaled prices to avoid overflowing a finite sum.
+  const mean=values=>{
+    const maximum=Math.max(...values);
+    if(!finite(maximum)||maximum<0||!values.length)return null;
+    return maximum===0?0:clean(maximum*(values.reduce((sum,value)=>sum+value/maximum,0)/values.length));
+  };
+  const returns=[1,5,10,20].map(sessions=>{
+    const value=historicalCount>=sessions?returnPct(b.close,sequence[sessions].close):null;
+    const sample=historicalCount>=sessions+20?Array.from({length:20},(_,i)=>
+      returnPct(sequence[i+1].close,sequence[i+1+sessions].close)):[];
+    const complete=sample.length===20&&sample.every(finite)&&value!==null;
+    const rank=complete?100*(sample.filter(n=>n<value).length+sample.filter(n=>n===value).length/2)/20:null;
+    return {sessions,returnPct:value,from:value!==null?sequence[sessions].date:null,to:day,
+      historicalEndpointCount:complete?20:0,requiredHistoricalEndpointCount:20,
+      historicalRankPct:rank,historyFrom:complete?sequence[20].date:null,historyTo:complete?sequence[1].date:null};
+  });
+  const movingAverages=[5,10,20].map(sessions=>{
+    const average=sequence.length>=sessions?mean(sequence.slice(0,sessions).map(r=>r.close)):null;
+    return {sessions,average,deviationPct:returnPct(b.close,average),
+      from:average!==null?sequence[sessions-1].date:null,to:day};
+  });
+  const trueRanges=historicalCount>=14?sequence.slice(0,14).map((r,i)=>{
+    const previousClose=sequence[i+1].close;
+    return Math.max(r.high-r.low,Math.abs(r.high-previousClose),Math.abs(r.low-previousClose));
+  }):[];
+  const atr=trueRanges.length===14?mean(trueRanges):null,ma20=movingAverages[2].average;
+  return {source:b.source,priceBasis:'unadjusted',referenceClose:b.close,day,
+    contiguousPriorBars:historicalCount,returns,movingAverages,
+    atr14:atr===null?null:{value:atr,pctOfClose:clean(100*(atr/b.close)),
+      distanceFromMa20:positive(atr)&&positive(ma20)?clean((b.close-ma20)/atr):null,
+      from:sequence[13].date,to:day,basis:'simple-average-of-14-true-ranges-including-gap-not-Wilder'},
+    openingGapPct:historicalCount?returnPct(b.open,sequence[1].close):null,
+    basis:'same-declared-source-and-sample-family-historical-research-only',
+    continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified',
+    historicalPercentileBasis:'20-prior-overlapping-return-endpoints-midrank-not-probability',
+    canTrade:false};
+}
+
 /** Read-only point-in-time diagnostics, not verified vendor evidence or order permission. */
-export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows}={}){
+export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows,sectorRows=[],indexRows=[]}={}){
   const out={basis:'historical-research-only',canTrade:false,priceRange:null,
     relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
-    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null,positionRisk:null};
+    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null,positionRisk:null,
+    sectorPositionRisk:null,multiWindowRelativeStrength:null,themePersistence:null};
   const cutoff=time(asOf??b?.date);
   const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
   const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
@@ -154,6 +198,7 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
   // The historical percentile compares 20 earlier endpoints, excludes today,
   // and keeps the same declared source/sample family and unadjusted continuity.
   // A 20-session return plus its 20 historical endpoints needs 40 prior bars.
+  let positionSequence=null;
   if(known(b.source)){
     const positionFields=[...priceFields,'sampleSet','sampleSource'];
     const current= currentRows===undefined ? b :
@@ -167,44 +212,107 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
         if(!comparable(r))break;
         sequence.push(r);
       }
-      const historicalCount=sequence.length-1;
-      const returnPct=(newer,older)=>positive(newer)&&positive(older)?clean(100*(newer/older-1)):null;
-      // Use an average of scaled prices to avoid overflowing a finite sum.
-      const mean=values=>{
-        const maximum=Math.max(...values);
-        if(!finite(maximum)||maximum<0||!values.length)return null;
-        return maximum===0?0:clean(maximum*(values.reduce((sum,value)=>sum+value/maximum,0)/values.length));
+      positionSequence=sequence;
+      out.positionRisk=positionMetrics(sequence);
+    }
+  }
+  // The benchmark must be an actual original series, not the derived daily
+  // market/sector change or an inferred index. Multiple codes for one theme
+  // or conflicting versions interrupt comparability rather than choosing one.
+  const benchmarkFields=[...priceFields,'code','role','sector','sampleSet','sampleSource'];
+  const benchmarkPrice=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&
+    (r.corporateAction==null||r.corporateAction===false)&&r.referencePriceConflict!==true&&
+    [r.open,r.high,r.low,r.close].every(positive)&&r.low<=Math.min(r.open,r.close)&&r.high>=Math.max(r.open,r.close)&&r.low<=r.high;
+  function benchmarkSequence(input,role,identity){
+    if(!known(identity)||!Array.isArray(input))return null;
+    const label=r=>r.sector||r.code;
+    const visibleRows=input.filter(r=>r?.role===role&&daily(r)&&r.date<=day&&visible(r,cutoff));
+    const matching=visibleRows.filter(r=>role==='sector'?label(r)===identity:r.code===identity);
+    const codes=[...new Set(matching.filter(r=>r.date===day).map(r=>r.code))];
+    if(codes.length!==1||!known(codes[0]))return null;
+    const code=codes[0],relevant=visibleRows.filter(r=>r.code===code||role==='sector'&&label(r)===identity);
+    const byDate=new Map(unambiguousAt(relevant,benchmarkFields).map(r=>[r.date,r]));
+    const current=byDate.get(day);
+    if(!benchmarkPrice(current)||current.code!==code||!known(current.source)||
+        role==='sector'&&label(current)!==identity)return null;
+    // The two families may have different price vendors, but their declared
+    // sample class must agree. Each benchmark's own source stays fixed.
+    if((current.sampleSet??null)!==(b.sampleSet??null))return null;
+    const comparable=r=>benchmarkPrice(r)&&r.code===code&&r.source===current.source&&
+      r.sampleSet===current.sampleSet&&r.sampleSource===current.sampleSource&&
+      (role!=='sector'||label(r)===identity);
+    const sequence=[current];
+    while(sequence.length<=40){
+      const r=byDate.get(precedingDay(sequence.at(-1)));
+      if(!comparable(r))break;
+      sequence.push(r);
+    }
+    return sequence;
+  }
+  const sectorSequence=benchmarkSequence(sectorRows,'sector',b.sector);
+  const indexSequence=benchmarkSequence(indexRows,'index',b.indexCode);
+  if(sectorSequence)out.sectorPositionRisk={sector:b.sector,code:sectorSequence[0].code,...positionMetrics(sectorSequence)};
+  if(positionSequence&&(sectorSequence||indexSequence)){
+    function aligned(benchmark,sessions,role){
+      if(!benchmark||positionSequence.length<=sessions||benchmark.length<=sessions)return null;
+      for(let i=0;i<=sessions;i++){
+        const s=positionSequence[i],r=benchmark[i];
+        if(s.date!==r.date||role==='sector'&&s.sector!==b.sector||
+            role==='index'&&s.indexCode!=null&&s.indexCode!==b.indexCode)return null;
+      }
+      const stock=clean(100*(b.close/positionSequence[sessions].close-1));
+      const reference=clean(100*(benchmark[0].close/benchmark[sessions].close-1));
+      if(stock===null||reference===null)return null;
+      return {from:positionSequence[sessions].date,to:day,stockReturnPct:stock,benchmarkReturnPct:reference,
+        excessPctPoints:clean(stock-reference),stockAbsoluteDown:stock<0,benchmarkAbsoluteDown:reference<0};
+    }
+    const windows=[1,5,10,20].map(sessions=>({sessions,
+      sector:aligned(sectorSequence,sessions,'sector'),index:aligned(indexSequence,sessions,'index')}));
+    // Compare percentage-point differences, not levels across unequal windows
+    // as a probability, timing trigger, or proof of future underperformance.
+    const near=windows.find(w=>w.sessions===5),long=windows.find(w=>w.sessions===20);
+    const weakening=role=>near[role]&&long[role]&&near[role].excessPctPoints!==null&&long[role].excessPctPoints!==null?
+      near[role].excessPctPoints<long[role].excessPctPoints:null;
+    out.multiWindowRelativeStrength={sector:sectorSequence?{code:sectorSequence[0].code,source:sectorSequence[0].source}:null,
+      index:indexSequence?{code:indexSequence[0].code,source:indexSequence[0].source}:null,
+      windows,shorterExcessBelowLonger:{sector:weakening('sector'),index:weakening('index')},
+      basis:'same-daily-window-return-difference-not-beta-or-predictive-decay',canTrade:false};
+  }
+  // Breadth counts and seal assists are separate observations. Neither a full
+  // declared denominator nor stable totals certifies a frozen member universe.
+  if(positionSequence&&known(b.sector)){
+    const fields=[...priceFields,...themeFields,'sampleSet','sampleSource'];
+    const current=currentRows===undefined?b:unambiguousAt(currentRows.filter(r=>
+      sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff)),fields)[0];
+    if(current&&fields.every(k=>!Object.hasOwn(current,k)||Object.is(current[k],b[k]))){
+      const historyByDay=new Map(unambiguousAt(visibleHistory,fields).map(r=>[r.date,r]));
+      const seq=[b];
+      for(const prior of positionSequence.slice(1,5)){
+        const r=historyByDay.get(prior.date);
+        if(!r||r.sector!==b.sector||r.source!==b.source||r.sampleSet!==b.sampleSet||r.sampleSource!==b.sampleSource)break;
+        seq.push(r);
+      }
+      const validBreadth=r=>seen(r.sectorBreadthSource,r.sectorBreadthAt,r.sectorBreadthReceivedAt,cutoff)&&
+        planClock(r.sectorBreadthAt)===time(r.date)&&Number.isSafeInteger(r.sectorTotalCount)&&r.sectorTotalCount>=10&&
+        r.sectorObservedCount===r.sectorTotalCount&&Number.isSafeInteger(r.sectorAdvancingCount)&&
+        r.sectorAdvancingCount>=0&&r.sectorAdvancingCount<=r.sectorTotalCount;
+      const measure=(n,field)=>{
+        if(seq.length<n)return null;
+        const rows=seq.slice(0,n).reverse();
+        if(field==='breadth'&&!rows.every(r=>validBreadth(r)&&r.sectorBreadthSource===b.sectorBreadthSource&&r.sectorTotalCount===b.sectorTotalCount))return null;
+        if(field==='assists'&&!rows.every(r=>Number.isSafeInteger(r.sectorAssists)&&r.sectorAssists>=0))return null;
+        const days=rows.map(r=>({date:r.date,value:field==='breadth'?100*(r.sectorAdvancingCount/r.sectorTotalCount):r.sectorAssists}));
+        const values=days.map(r=>r.value),changes=values.slice(1).map((v,i)=>v-values[i]);
+        return {source:field==='breadth'?b.sectorBreadthSource:b.source,
+          declaredTotal:field==='breadth'?b.sectorTotalCount:null,days,
+          delta:values.at(-1)-values[0],decliningTransitions:changes.filter(v=>v<0).length,
+          risingTransitions:changes.filter(v=>v>0).length,unchangedTransitions:changes.filter(v=>v===0).length,
+          strictlyDeclining:changes.every(v=>v<0),strictlyRising:changes.every(v=>v>0),
+          basis:field==='breadth'?'same-declared-full-count-not-frozen-membership':'declared-seal-assists-not-full-breadth'};
       };
-      const returns=[1,5,10,20].map(sessions=>{
-        const value=historicalCount>=sessions?returnPct(b.close,sequence[sessions].close):null;
-        const sample=historicalCount>=sessions+20?Array.from({length:20},(_,i)=>
-          returnPct(sequence[i+1].close,sequence[i+1+sessions].close)):[];
-        const complete=sample.length===20&&sample.every(finite)&&value!==null;
-        const rank=complete?100*(sample.filter(n=>n<value).length+sample.filter(n=>n===value).length/2)/20:null;
-        return {sessions,returnPct:value,from:value!==null?sequence[sessions].date:null,to:day,
-          historicalEndpointCount:complete?20:0,requiredHistoricalEndpointCount:20,
-          historicalRankPct:rank,historyFrom:complete?sequence[20].date:null,historyTo:complete?sequence[1].date:null};
-      });
-      const movingAverages=[5,10,20].map(sessions=>{
-        const average=sequence.length>=sessions?mean(sequence.slice(0,sessions).map(r=>r.close)):null;
-        return {sessions,average,deviationPct:returnPct(b.close,average),
-          from:average!==null?sequence[sessions-1].date:null,to:day};
-      });
-      const trueRanges=historicalCount>=14?sequence.slice(0,14).map((r,i)=>{
-        const previousClose=sequence[i+1].close;
-        return Math.max(r.high-r.low,Math.abs(r.high-previousClose),Math.abs(r.low-previousClose));
-      }):[];
-      const atr=trueRanges.length===14?mean(trueRanges):null,ma20=movingAverages[2].average;
-      out.positionRisk={source:b.source,priceBasis:'unadjusted',referenceClose:b.close,day,
-        contiguousPriorBars:historicalCount,returns,movingAverages,
-        atr14:atr===null?null:{value:atr,pctOfClose:clean(100*(atr/b.close)),
-          distanceFromMa20:positive(atr)&&positive(ma20)?clean((b.close-ma20)/atr):null,
-          from:sequence[13].date,to:day,basis:'simple-average-of-14-true-ranges-including-gap-not-Wilder'},
-        openingGapPct:historicalCount?returnPct(b.open,sequence[1].close):null,
-        basis:'same-declared-source-and-sample-family-historical-research-only',
-        continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified',
-        historicalPercentileBasis:'20-prior-overlapping-return-endpoints-midrank-not-probability',
-        canTrade:false};
+      const windows=[3,5].map(days=>({days,breadth:measure(days,'breadth'),sealAssists:measure(days,'assists')}));
+      if(windows.some(w=>w.breadth||w.sealAssists))out.themePersistence={sector:b.sector,windows,
+        basis:'descriptive-daily-persistence-not-intraday-warning-or-collapse-classifier',canTrade:false};
     }
   }
   if(prior.length===20){
