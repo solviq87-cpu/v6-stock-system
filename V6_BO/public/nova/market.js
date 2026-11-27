@@ -1,4 +1,5 @@
 import {createResearchReplay} from './evidence-workbench.mjs';
+import {indexContinuityRows} from './index-continuity-view.mjs';
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
 import {createRiskSummary} from './risk-workbench-view.mjs';
@@ -146,6 +147,9 @@ export function recoveryDisclosure(state){
    event.code+' · '+event.windowMinutes+'分钟变动 '+format(event.returnPct)+'% · 超出此前 '+event.referenceDays+
    ' 个可比日同时段的绝对变动范围 · 原因待核 · '+indexProvider(event.source)+' '+dateTime(event.quoteAt)+
    (event.investigation?.status==='cached-window-checked'?' · 同窗已归档消息 '+event.investigation.evidenceHashes.length+' 条':' · 消息样本不足'))),
+  indexContinuityRows(state.indexWindowResearch?.continuity,Date.now()).map(e=>h('p',{},
+   e.code+' · '+e.windowMinutes+'分钟 · '+e.label+' · 原异动方向 '+e.direction+' · 研究版本 '+e.revision+
+   ' · 当前变动 '+format(e.returnPct)+'% · '+indexProvider(e.source)+' '+dateTime(e.quoteAt)+' · '+e.note)),
   state.indexChannels?.length?h('section',{'aria-label':'盘中渠道回执'},h('h3',{},'盘中渠道回执'),
    h('ul',{},state.indexChannels.map(x=>h('li',{},indexProvider(x.source)+' · '+(x.quoteAt?x.count+' 个指数 · 源端 '+dateTime(x.quoteAt):
     x.status==='reading'?'正在读取':x.status==='unavailable'?'本次请求未成功':'本次未返回当日有效报价')+(x.checkedAt?' · 检查 '+dateTime(x.checkedAt):'')))),

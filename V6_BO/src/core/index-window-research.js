@@ -39,14 +39,53 @@ function windowChange(points, endMinute, width) {
   return {first, last, returnPct: (last.price / first.price - 1) * 100};
 }
 
+// Track one current research revision per index/window. An episode joins only
+// adjacent qualified minutes from the same source and direction. This is not
+// a trading signal, an alert lifecycle, or proof of the cause of a move.
+function continuityRevision(event, previous, slot, abnormal) {
+  const adjacent = previous?.status === 'abnormal' && previous.slot === slot - 1 &&
+    previous.day === event.day && previous.source === event.source;
+  if (!abnormal && !adjacent) return null;
+  const direction = abnormal ? (event.returnPct > 0 ? 'up' : 'down') : previous.direction;
+  const reversed = abnormal && adjacent && direction !== previous.direction;
+  const continuing = adjacent && !reversed;
+  let phase = 'started';
+  if (!abnormal) phase = 'below-historical-range';
+  else if (reversed) phase = 'reversed';
+  else if (continuing) {
+    const change = Math.abs(event.returnPct) - Math.abs(previous.returnPct);
+    phase = Math.abs(change) <= 1e-10 ? 'steady' : change > 0 ? 'strengthening' : 'weakening';
+  }
+  return {
+    episodeId: continuing ? previous.episodeId : event.id,
+    previousEpisodeId: reversed ? previous.episodeId : null,
+    revision: continuing ? previous.revision + 1 : 1,
+    firstDetectedAt: continuing ? previous.firstDetectedAt : event.detectedAt,
+    previousQuoteAt: adjacent ? previous.quoteAt : null,
+    previousReturnPct: adjacent ? previous.returnPct : null,
+    phase, status: abnormal ? 'abnormal' : 'ended', direction, slot,
+    day:event.day, code:event.code, source:event.source, windowMinutes:event.windowMinutes,
+    baseAt:event.baseAt, basePrice:event.basePrice, quoteAt:event.quoteAt, price:event.price,
+    receivedAt:event.receivedAt, detectedAt:event.detectedAt, validUntil:event.validUntil,
+    returnPct:event.returnPct, historicalMaxAbsPct:event.historicalMaxAbsPct,
+    referenceDays:event.referenceDays, method:'adjacent-qualified-index-window-v1',
+    attribution:'unknown', canTrade:false, canNotify:false
+  };
+}
+
 function createIndexWindowResearch({ investigate } = {}) {
   const days = new Map();
   let lastClock = 0;
   let active = [];
+  const continuity = new Map();
+  function clearContinuity(code) {
+    for (const width of WINDOWS) continuity.delete(code + '/' + width);
+  }
   function observe(feed, session, asOf) {
     if (!validTime(asOf) || asOf < lastClock) {
       days.clear();
       active = [];
+      continuity.clear();
       lastClock = 0;
       return;
     }
@@ -55,6 +94,7 @@ function createIndexWindowResearch({ investigate } = {}) {
     const slot = sessionMinute(asOf);
     if (!session?.trading || session.day !== day || feed?.day !== day || slot === null) {
       active = [];
+      continuity.clear();
       return;
     }
     if (!days.has(day)) {
@@ -64,6 +104,14 @@ function createIndexWindowResearch({ investigate } = {}) {
     const current = days.get(day);
     const prior = [...days.entries()].slice(0, -1);
     const latest = uniqueIndices(feed.indices);
+    for (const [key, previous] of continuity) {
+      const row = latest.get(previous.code);
+      if (previous.day !== day || slot - previous.slot > 1 ||
+          !validObservation(row, asOf) || row.quoteSource !== previous.source ||
+          row.quoteAt < previous.quoteAt || row.quoteAt === previous.quoteAt && row.price !== previous.price) {
+        continuity.delete(key);
+      }
+    }
     active = active.filter(e => e.day === day && e.validUntil > asOf && latest.get(e.code)?.quoteSource === e.source);
     for (const code of INDEX_CODES) {
       if (!current.has(code)) current.set(code, new Map());
@@ -76,6 +124,7 @@ function createIndexWindowResearch({ investigate } = {}) {
           row.quoteAt < saved.quoteAt || row.quoteAt === saved.quoteAt && row.price !== saved.price)) {
         points.set(slot, null);
         active = active.filter(e => e.code !== code);
+        clearContinuity(code);
         continue;
       }
       // Sample the first reconciled observation from seconds 0..9 of a
@@ -85,7 +134,11 @@ function createIndexWindowResearch({ investigate } = {}) {
       points.set(slot, {price:row.price, quoteAt:row.quoteAt, receivedAt:row.receivedAt, quoteSource:row.quoteSource});
       for (const width of WINDOWS) {
         const sample = windowChange(points, slot, width);
-        if (!sample || !Number.isFinite(sample.returnPct)) continue;
+        const key = code + '/' + width;
+        if (!sample || !Number.isFinite(sample.returnPct)) {
+          continuity.delete(key);
+          continue;
+        }
         const comparable = [];
         for (const [date, data] of prior) {
           const reference = data.has(code) && windowChange(data.get(code), slot, width);
@@ -94,9 +147,12 @@ function createIndexWindowResearch({ investigate } = {}) {
               quoteAt:reference.last.quoteAt, price:reference.last.price, returnPct:reference.returnPct});
           }
         }
-        if (comparable.length < PRIOR_DAYS) continue;
+        if (comparable.length < PRIOR_DAYS) {
+          continuity.delete(key);
+          continue;
+        }
         const historicalMaxAbsPct = Math.max(...comparable.map(p => Math.abs(p.returnPct)));
-        if (Math.abs(sample.returnPct) <= historicalMaxAbsPct) continue;
+        const abnormal = Math.abs(sample.returnPct) > historicalMaxAbsPct;
         const event = {
           id: [day, code, slot, width, row.quoteSource].join('/'), day, code, source:row.quoteSource,
           windowMinutes:width, baseAt:sample.first.quoteAt, basePrice:sample.first.price,
@@ -105,6 +161,10 @@ function createIndexWindowResearch({ investigate } = {}) {
           validUntil: (Math.floor(row.quoteAt / MINUTE) + 1) * MINUTE,
           method:'same-minute-absolute-range-v1', references:comparable, status:'market-only', attribution:'unknown', canTrade:false, canNotify:false
         };
+        const revision = continuityRevision(event, continuity.get(key), slot, abnormal);
+        if (revision) continuity.set(key, revision);
+        else continuity.delete(key);
+        if (!abnormal) continue;
         // Optional cache research must not abort the market observation loop.
         // Give the investigator a detached copy, never the stored event.
         try {
@@ -120,7 +180,9 @@ function createIndexWindowResearch({ investigate } = {}) {
     return {mode:'experimental-same-minute-range', priorDaysRequired:PRIOR_DAYS,
       priorDaysObserved:Math.max(0, days.size - 1),
       events:validTime(asOf) && asOf >= lastClock
-        ? structuredClone(active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [], canTrade:false};
+        ? structuredClone(active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [],
+      continuity:validTime(asOf) && asOf >= lastClock
+        ? structuredClone([...continuity.values()].filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [], canTrade:false};
   }};
 }
 
