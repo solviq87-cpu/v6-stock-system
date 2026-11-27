@@ -213,3 +213,18 @@ test('waiting seed keeps its original registration cutoff and is not counted as 
  assert.throws(()=>verifyPendingCandidateRegistration(reg,{...context,sorted:[{day,featureCapturedAt:reg.recordedAt,featureFingerprint:hash('too early')}]}),/固定种子预注册时点/);
  assert.throws(()=>verifyPreregisteredCandidate(reg,{...context,freshTest:[]}),/固定种子预注册时点/);
 });
+
+test('actual frozen definitions bind ordinary, legacy and model registration checks',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ const legacy={...x.reg};delete legacy.factorDefinitions;
+ const bad=defs.map((d,i)=>({...d,baseWeight:i===0?d.baseWeight*2:d.baseWeight}));
+ for(const reg of [x.reg,seal(legacy),m.reg]){
+  const context=reg===m.reg?m.context:x.context;
+  assert.equal(verifyPreregisteredCandidate(reg,{...context,definitions:defs}).canTrade,false);
+  assert.throws(()=>verifyPreregisteredCandidate(reg,{...context,definitions:bad}),/实际冻结因子定义/);
+ }
+ const changed=defs.map((d,i)=>({...d,field:i===0?'wrong-field':d.field}));
+ assert.throws(()=>verifyPreregisteredCandidate(m.reg,{...m.context,definitions:changed}),/实际冻结因子定义/);
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ assert.throws(()=>verifyPendingCandidateRegistration(m.reg,{...m.context,definitions:changed}),/实际冻结因子定义/);
+});
