@@ -233,7 +233,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
   const rows=[], index=new Map(plans.filter(p=>{
     try{validatePlan(p,now);return p.intendedDate<=day;}catch{return false;}
   }).map(p=>[p.id,p]));
-  const events=observer.ledgerEvents(book);
+  const events=observer.ledgerEvents(book,cutoff);
   const reference=record=>({id:record.fingerprint,source:record.source,quoteAt:record.quoteAt,
     receivedAt:record.receivedAt,observedAt:record.observedAt,price:record.price});
   for(const plan of index.values()){
@@ -266,6 +266,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
     else facts.push({rule:'按计划买入',status:entry.price>=plan.entryMin&&entry.price<=plan.entryMax?'符合':'触发',
       evidence:`原账本成交 ${entry.price} 元；冻结区间 ${plan.entryMin}–${plan.entryMax} 元`,eventId:entry.eventId});
     if(!entry)facts.push({rule:'按计划止损',status:'不适用',evidence:'该计划没有买入成交'});
+    else if(!at)facts.push({rule:'按计划止损',status:'资料不足',evidence:'原账本买入成交时点未知，待核对该截点的持仓及退出约束'});
     else if(entry.tradeDate===day)facts.push({rule:'按计划止损',status:'不适用',evidence:'当日开仓受原 A 股 T+1 限制，不要求当日卖出'});
     else {
       const active=samples.filter(r=>r.entryEventId===entry.eventId&&r.remainingQuantity>0);
@@ -306,7 +307,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
       else facts.push({rule:'按计划止损',status:'资料不足',evidence:'已出现止损价触及或部分卖出，但可用窗口、完整离场或时点证据不足；不推断漏止损',
         observations:touches.slice(-1).map(reference),eventIds:context.sells.map(s=>s.eventId)});
     }
-    rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,
+    rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:at?entry.tradeDate:null,
       remainingQuantity:context.remaining,coverage,facts});
   }
   const facts=rows.flatMap(r=>r.facts),assessed=facts.filter(f=>['符合','触发'].includes(f.status));

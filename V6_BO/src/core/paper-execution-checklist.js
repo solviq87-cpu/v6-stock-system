@@ -74,7 +74,7 @@ function countsOf(items) { return Object.fromEntries(Object.keys(LABELS).map(key
 function buildPaperExecutionChecklist({day, now = Date.now(), plans = [], book = null,
   observations = [], conditionalOrders = [], candidates = [], dailyReport = null, observationScope = 'persisted-day-observations'} = {}) {
   checkInput({day, now, plans, observations, conditionalOrders, candidates});
-  const cutoff = Math.min(now, closeAt(day)), all = book ? observer.ledgerEvents(book) : null;
+  const cutoff = Math.min(now, closeAt(day)), all = book ? observer.ledgerEvents(book, cutoff) : null;
   const byPlan = new Map(), orders = new Map(), seen = new Set(), missing = [], items = [];
   for (const record of observations) {
     observer.validateObservation(record, {now});
@@ -123,7 +123,7 @@ function buildPaperExecutionChecklist({day, now = Date.now(), plans = [], book =
       .map(({intent}) => intent);
     item.intent = intentRows.at(-1) || null;
     item.remainingQuantity = context.remaining;
-    if (context.entry) item.entry = {eventId:context.entry.eventId, source:'original-paper-ledger',
+    if (context.entry && timeOk(executionTimeOf(context.entry))) item.entry = {eventId:context.entry.eventId, source:'original-paper-ledger',
       executionAt:executionTimeOf(context.entry), tradeDate:context.entry.tradeDate, price:context.entry.price, quantity:context.entry.quantity};
     item.observation = {count:records.length, lastObservedAt:records.at(-1)?.observedAt || null,
       source:'plan-observations', fingerprint:sequenceFingerprint(records.map(r => r.fingerprint)),
