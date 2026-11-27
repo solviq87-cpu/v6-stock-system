@@ -57,6 +57,10 @@ function bindAuthoritativePlan(plan,card) {
 
 function currentDecisionAllows(plan,card) {
   const p=card?.plan;
+  // A negative risk assessment on the current server authority card is a
+  // one-way veto only. Absence or a favorable opinion never grants authority
+  // and cannot bypass the existing candidate, quote or account gates.
+  if(card?.riskAssessment?.status==='blocked'||card?.riskAssessment?.canOpenRisk===false)return false;
   // A current authority card cannot silently revise frozen protection.
   // Legacy internal receipts without optional completeness metadata remain
   // readable; explicit negative or inconsistent evidence cannot open risk.

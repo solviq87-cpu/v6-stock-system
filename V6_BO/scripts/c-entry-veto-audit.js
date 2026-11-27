@@ -12,7 +12,7 @@ async function run(){
    const [m]=await model;
    f.authoritative.plan=m.decisionPlan({price:10,levels:{ma5:9.9,stop:9.5,t1:11.2}},{enabled:true,cash:10000,equity:10000,maxPos:5,positions:[]});
   },'current price geometry separately valid; authoritative producer/transaction route still needs end-to-end proof'],
-  ['UNAPPROVED_C_SPECIALIST_VETO',f=>{f.authoritative.riskAssessment={status:'blocked',canOpenRisk:false};},'proposed shared field not yet approved or consumed, not a proven existing security bypass'],
+  ['UNAPPROVED_C_SPECIALIST_VETO',f=>{f.authoritative.riskAssessment={status:'blocked',canOpenRisk:false};},'explicit negative field on an injected current authority card; producer and transaction-lock integration are not approved or demonstrated'],
   ['MISSING_EXPLICIT_QUOTE_PERMISSION',f=>{delete f.quote.canTrade;},'adapter reaches callback; original transaction may still reject absent fill authority']
  ];
  const results=[];

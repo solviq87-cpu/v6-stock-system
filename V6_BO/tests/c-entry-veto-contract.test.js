@@ -105,3 +105,22 @@ test('integrated C20 missing or non-boolean original quote permission cannot ent
  }
  assert.equal(probe(await fixture()).reached,true);
 });
+
+test('C20 explicit risk veto on current server authority card rejects before buy even with favorable scores',async()=>{
+ for(const assessment of [{status:'blocked',canOpenRisk:false},{status:'blocked',canOpenRisk:true},{status:'allowed',canOpenRisk:false},{canOpenRisk:false}]){
+  const f=await fixture();f.authoritative.riskAssessment=assessment;f.candidate.score=100;f.candidate.modelOpinion='favorable';
+  const before=JSON.stringify(f);const result=probe(f);assert.equal(result.reached,false);assert.equal(result.status,'rejected');assert.equal(JSON.stringify(f),before);
+ }
+});
+test('C20 favorable or absent specialist opinion is not an entry authorization or a replacement for original gates',async()=>{
+ const normal=await fixture();assert.equal(probe(normal).reached,true);
+ const positive=await fixture();positive.authoritative.riskAssessment={status:'allowed',canOpenRisk:true};assert.equal(probe(positive).reached,true);
+ for(const alter of [f=>{f.quote.canTrade=false;},f=>{f.candidate.riskBlocked=true;},f=>{f.authoritative.plan.complete=false;},f=>{f.authoritative.plan.positionPct=0;},f=>{f.newsBlocked=true;},f=>{f.input.riskAssessment={canOpenRisk:true};}]){
+  const f=await fixture();f.authoritative.riskAssessment={status:'allowed',canOpenRisk:true};alter(f);assert.equal(probe(f).reached,false);
+ }
+});
+test('C20 current veto does not rewrite a previously committed read-only retry',async()=>{
+ const f=await fixture(),e={side:'buy',symbol,quantity:100,price:10,eventId:'existing-fill',tradeDate:day,timestamp:now,reason:'作战台计划['+f.plan.id+'] '+symbol+' · 原账户风控'};
+ f.authoritative.riskAssessment={status:'blocked',canOpenRisk:false};f.readBook=()=>({account:{events:[e]}});
+ const result=probe(f);assert.equal(result.reached,false);assert.equal(result.status,'already-executed');
+});
