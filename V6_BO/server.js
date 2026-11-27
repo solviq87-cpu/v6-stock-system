@@ -11511,8 +11511,16 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
 const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
-const {createIndexWindowResearch, investigateKnownNews}=require('./src/core/index-window-research');
-const indexWindowResearch=createIndexWindowResearch({investigate:event=>investigateKnownNews(event,S.news)});
+const {createIndexWindowResearch}=require('./src/core/index-window-research');
+const {createIndexNewsInvestigator}=require('./src/core/index-news-association');
+const investigateIndexNews=createIndexNewsInvestigator({
+  readNews:()=>S.news,allowsItem:newsEvidenceAllowsItem,currentState:newsEvidenceCurrent,
+  readSectors:()=>S.sectors,explicitSectorMatch:explicitNewsSectorMatch
+});
+const indexWindowResearch=createIndexWindowResearch({
+  investigate:event=>investigateIndexNews(event),
+  reviewInvestigation:event=>investigateIndexNews(event,event.investigation.evidenceHashes)
+});
 const sessionIndices=require('./src/core/session-index-feed').createSessionIndexFeed({
   primary:()=>em.fetchIdxRt(),onUpdate:indices=>{S.idxRt=indices;}
 });

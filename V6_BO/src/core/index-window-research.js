@@ -73,7 +73,7 @@ function continuityRevision(event, previous, slot, abnormal) {
   };
 }
 
-function createIndexWindowResearch({ investigate } = {}) {
+function createIndexWindowResearch({ investigate, reviewInvestigation } = {}) {
   const days = new Map();
   let lastClock = 0;
   let active = [];
@@ -176,11 +176,23 @@ function createIndexWindowResearch({ investigate } = {}) {
       }
     }
   }
+  function visibleEvent(event) {
+    const copy = structuredClone(event);
+    if (typeof reviewInvestigation !== 'function' || !copy.investigation?.evidenceHashes?.length) return copy;
+    const priorCount = copy.investigation.evidenceHashes.length;
+    try {
+      copy.investigation = structuredClone(reviewInvestigation(structuredClone(copy)) ?? {status:'unavailable'});
+    } catch {
+      copy.investigation = {status:'unavailable'};
+    }
+    copy.investigation.initialEvidenceCount = priorCount;
+    return copy;
+  }
   return {observe, view(asOf) {
     return {mode:'experimental-same-minute-range', priorDaysRequired:PRIOR_DAYS,
       priorDaysObserved:Math.max(0, days.size - 1),
       events:validTime(asOf) && asOf >= lastClock
-        ? structuredClone(active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [],
+        ? active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil).map(visibleEvent) : [],
       continuity:validTime(asOf) && asOf >= lastClock
         ? structuredClone([...continuity.values()].filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [], canTrade:false};
   }};

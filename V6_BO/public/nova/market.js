@@ -146,7 +146,12 @@ export function recoveryDisclosure(state){
   state.indexWindowResearch?.events?.filter(event=>event.validUntil>Date.now()).map(event=>h('p',{},
    event.code+' · '+event.windowMinutes+'分钟变动 '+format(event.returnPct)+'% · 超出此前 '+event.referenceDays+
    ' 个可比日同时段的绝对变动范围 · 原因待核 · '+indexProvider(event.source)+' '+dateTime(event.quoteAt)+
-   (event.investigation?.status==='cached-window-checked'?' · 同窗已归档消息 '+event.investigation.evidenceHashes.length+' 条':' · 消息样本不足'))),
+   (event.investigation?.currentLocalEvidence===true?' · 同窗当前证据 '+event.investigation.evidenceHashes.length+' 条'+
+    ' · 明确关联个股 '+(event.investigation.relatedSecurities||[]).slice(0,5).join('、')+
+    ' · 明确提及板块 '+((event.investigation.explicitSectors||[]).slice(0,5).join('、')||'未知')+' · 仅关联线索，原因待核':
+    event.investigation?.status==='cached-window-checked'?' · 有界缓存中暂无可核关联':' · 消息证据不可用')+
+   (event.investigation?.initialEvidenceCount>(event.investigation.evidenceHashes||[]).length?' · 原关联未全部通过当前复核':'')+
+   (event.investigation?.truncated?' · 缓存检查有截断':''))),
   indexContinuityRows(state.indexWindowResearch?.continuity,Date.now()).map(e=>h('p',{},
    e.code+' · '+e.windowMinutes+'分钟 · '+e.label+' · 原异动方向 '+e.direction+' · 研究版本 '+e.revision+
    ' · 当前变动 '+format(e.returnPct)+'% · '+indexProvider(e.source)+' '+dateTime(e.quoteAt)+' · '+e.note)),
