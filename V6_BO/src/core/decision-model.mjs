@@ -53,48 +53,102 @@ export function decisionQuoteGate(row,{day,now=Date.now(),poolDay}={}){
  return {ok:reasons.length===0,reasons:[...new Set(reasons)],day:target,quoteAt:time(at)?at:null,source:source||null};
 }
 
-function metric(row,day,now){
+// Match the existing public intraday distribution collector's 15-minute
+// source clock and observed-market breadth's 80% coverage floor. Receipt
+// refreshes and the morning session must not revive obsolete buy evidence.
+const WEATHER_MAX_AGE=15*60000;
+const weatherFields=['adv','dec','flat','observed','total','upLimit','downLimit'];
+const conflicted=row=>row?.sourceConflict===true||row?.conflict===true||
+ ['conflict','conflicting','unknown','stale','future','invalid'].includes(row?.evidenceStatus);
+function weatherClock(at,day,now){
+ if(!time(at)||at>now||now-at>WEATHER_MAX_AGE||chinaDay(at)!==day)return false;
+ const minute=new Date(now+28800000).getUTCHours()*60+new Date(now+28800000).getUTCMinutes();
+ const start=Date.parse(day+(minute>=780?'T13:00:00+08:00':'T09:30:00+08:00'));
+ return at>=start;
+}
+function weatherCoverage(observed,total){
+ return count(observed)&&count(total)&&total>=3000&&total<=20000&&observed<=total&&observed*5>=total*4;
+}
+function sampleTotal(row){
+ const values=[row?.total,row?.universeSize].filter(v=>v!=null);
+ return values.length&&values.every(v=>v===values[0])?values[0]:null;
+}
+const metricClock=row=>row?.quoteAt??row?.observedAt;
+function metric(row,day,now,intraday=false){
+ const at=metricClock(row);
  return row&&decisionDay(row.date)===day&&time(row.knownAt)&&row.knownAt<=now&&chinaDay(row.knownAt)>=day&&text(row.source)&&
-  !forbidden.test(row.source)&&finite(row.value)?row:null;
+  !forbidden.test(row.source)&&!conflicted(row)&&finite(row.value)&&
+  (!intraday||weatherClock(at,day,now)&&weatherClock(row.knownAt,day,now)&&at<=row.knownAt&&
+   (row.quoteAt==null||row.observedAt==null||row.quoteAt===row.observedAt))?row:null;
 }
 
-function distribution(row,day,now){
+function distribution(row,day,now,intraday=false){
  return row&&['market-distribution-intraday','market-distribution'].includes(row.kind)&&decisionDay(row.day)===day&&
-  text(row.source)&&text(row.scope)&&!forbidden.test(row.source)&&time(row.quoteAt)&&time(row.knownAt)&&
+  text(row.source)&&text(row.scope)&&!forbidden.test(row.source)&&!conflicted(row)&&time(row.quoteAt)&&time(row.knownAt)&&
   row.quoteAt<=row.knownAt&&row.knownAt<=now&&chinaDay(row.quoteAt)===day&&
-  ['adv','dec','flat','observed','total','upLimit','downLimit'].every(k=>count(row[k]))&&
-  row.observed>0&&row.observed<=row.total&&row.adv+row.dec+row.flat===row.observed&&row.upLimit<=row.adv&&row.downLimit<=row.dec;
+  weatherFields.every(k=>count(row[k]))&&
+  row.observed>0&&row.observed<=row.total&&row.adv+row.dec+row.flat===row.observed&&row.upLimit<=row.adv&&row.downLimit<=row.dec&&
+  (!intraday||row.kind==='market-distribution-intraday'&&weatherCoverage(row.observed,row.total)&&
+   weatherClock(row.quoteAt,day,now)&&weatherClock(row.knownAt,day,now));
 }
 
 export function decisionWeather(state={}, {day,now=Date.now()}={}){
- const target=decisionDay(day)||chinaDay(now),missing=[],basis=[];
- const wide=[state.marketDistribution,...array(state.marketRecovery?.coverage)]
-  .filter(row=>distribution(row,target,now)).sort((a,b)=>b.quoteAt-a.quoteAt)[0];
+ const target=decisionDay(day)||chinaDay(now),missing=[],basis=[],intraday=currentSession(state,target,now);
+ const snapshots=[state.marketDistribution,...array(state.marketRecovery?.coverage)];
+ const latest=snapshots.filter(row=>distribution(row,target,now,intraday)).sort((a,b)=>b.quoteAt-a.quoteAt)[0];
+ // Conflicts in the same provider/scope/batch cannot be resolved by array
+ // order, a newer receipt clock, or substituting a weaker sample.
+ const wideConflict=Boolean(latest&&snapshots.some(row=>row&&row!==latest&&
+   decisionDay(row.day)===target&&row.kind===latest.kind&&row.source===latest.source&&row.scope===latest.scope&&
+   row.quoteAt===latest.quoteAt&&time(row.knownAt)&&row.knownAt<=now&&row.knownAt>=row.quoteAt&&
+   (conflicted(row)||weatherFields.some(k=>row[k]!==latest[k]))))||
+  Boolean(intraday&&snapshots.some(row=>decisionDay(row?.day)===target&&
+   row.kind==='market-distribution-intraday'&&weatherClock(row.quoteAt,target,now)&&
+   time(row.knownAt)&&row.knownAt<=now&&conflicted(row)));
+ const wide=wideConflict?null:latest;
  let breadth=null,upLimit=null,downLimit=null,sealRate=null;
+ if(wideConflict)missing.push('同批全市场涨跌分布冲突');
  if(wide){
   breadth=wide.adv/wide.observed*100;upLimit=wide.upLimit;downLimit=wide.downLimit;
   basis.push({kind:'breadth',source:wide.source,scope:wide.scope,day:target,quoteAt:wide.quoteAt,knownAt:wide.knownAt,observed:wide.observed,total:wide.total});
- }else{
+ }else if(!wideConflict){
   const b=state.breadth,m=state.dashboard?.mood,at=m?.scope?.snapAt;
-  if(decisionDay(b?.day)===target&&time(b.at)&&b.at<=now&&chinaDay(b.at)===target&&count(b.up)&&count(b.down)&&count(b.n)&&b.n>0&&b.up+b.down<=b.n){
-   breadth=b.up/b.n*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+b.n+' 只',day:target,quoteAt:b.at,observed:b.n});
+  if(decisionDay(b?.day)===target&&time(b.at)&&b.at<=now&&chinaDay(b.at)===target&&count(b.up)&&count(b.down)&&count(b.n)&&b.n>0&&b.up+b.down<=b.n&&
+    !conflicted(b)&&(!intraday||weatherClock(b.at,target,now))){
+   const total=sampleTotal(b);
+   breadth=b.up/b.n*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+b.n+' 只',day:target,quoteAt:b.at,observed:b.n,total:total??null});
+   if(intraday&&!weatherCoverage(b.n,total))missing.push('当前全市场覆盖率');
   }else if(time(at)&&at<=now&&chinaDay(at)===target&&['upN','downN','flatN'].every(k=>count(m?.[k]))&&
-   count(m.scope.sample)&&m.scope.sample>0&&m.upN+m.downN+m.flatN===m.scope.sample){
-   breadth=m.upN/m.scope.sample*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+m.scope.sample+' 只',day:target,quoteAt:at,observed:m.scope.sample});
+   count(m.scope.sample)&&m.scope.sample>0&&m.upN+m.downN+m.flatN===m.scope.sample&&
+   !conflicted(m)&&(!intraday||weatherClock(at,target,now))){
+   const total=sampleTotal(m.scope);
+   breadth=m.upN/m.scope.sample*100;basis.push({kind:'breadth',source:'V6 同批行情宽度',scope:'已采集 '+m.scope.sample+' 只',day:target,quoteAt:at,observed:m.scope.sample,total:total??null});
+   if(intraday&&!weatherCoverage(m.scope.sample,total))missing.push('当前全市场覆盖率');
   }
-  const up=metric(state.marketRecovery?.metrics?.upLimit,target,now),down=metric(state.marketRecovery?.metrics?.downLimit,target,now);
+  const up=metric(state.marketRecovery?.metrics?.upLimit,target,now,intraday),down=metric(state.marketRecovery?.metrics?.downLimit,target,now,intraday);
   // Never divide counts collected from different providers, scopes or batches.
-  if(up&&down&&count(up.value)&&count(down.value)&&up.source===down.source&&up.scope===down.scope&&up.knownAt===down.knownAt){
-   upLimit=up.value;downLimit=down.value;basis.push({kind:'limits',source:up.source,scope:up.scope||'同源专题池',day:target,knownAt:up.knownAt});
+  if(up&&down&&count(up.value)&&count(down.value)&&up.source===down.source&&up.scope===down.scope&&up.knownAt===down.knownAt&&
+    (!intraday||text(up.scope)&&metricClock(up)===metricClock(down))){
+   upLimit=up.value;downLimit=down.value;basis.push({kind:'limits',source:up.source,scope:up.scope||'同源专题池',day:target,knownAt:up.knownAt,
+    ...(intraday?{quoteAt:metricClock(up)}:{})});
   }
  }
- const db=state.dabanke,eco=array(db?.ecology).find(row=>row?.label==='当日封板');
- if(decisionDay(db?.day)===target&&time(db.knownAt)&&db.knownAt<=now&&count(eco?.success)&&count(eco?.total)&&eco.total>0&&eco.success<=eco.total){
+ const db=state.dabanke,ecos=array(db?.ecology).filter(row=>row?.label==='当日封板'),eco=ecos[0];
+ // The real collector returns the page's original market/distribution
+ // timestamps. Do not let a new page receipt hide explicit old source clocks.
+ const dbClocks=[db?.market?.quoteAt,db?.distribution?.quoteAt].filter(v=>v!=null);
+ const dbCurrent=!intraday||db?.mode!=='收盘'&&weatherClock(db?.knownAt,target,now)&&
+  dbClocks.every(at=>weatherClock(at,target,now)&&at<=db.knownAt);
+ if(decisionDay(db?.day)===target&&time(db.knownAt)&&db.knownAt<=now&&dbCurrent&&!conflicted(db)&&
+  count(eco?.success)&&count(eco?.total)&&eco.total>0&&eco.success<=eco.total&&
+  ecos.every(row=>row.success===eco.success&&row.total===eco.total)){
   sealRate=eco.success/eco.total*100;
-  basis.push({kind:'sealing',source:'打板客',scope:'当日触板池（不含 ST）',day:target,knownAt:db.knownAt,sealed:eco.success,touched:eco.total});
+  basis.push({kind:'sealing',source:'打板客',scope:'当日触板池（不含 ST）',day:target,knownAt:db.knownAt,sealed:eco.success,touched:eco.total,
+   ...(dbClocks.length?{quoteAt:Math.min(...dbClocks)}:{})});
  }else{
-  const broken=metric(state.marketRecovery?.metrics?.breakRate,target,now);
-  if(broken&&broken.value>=0&&broken.value<=100){sealRate=100-broken.value;basis.push({kind:'sealing',source:broken.source,scope:broken.scope||'同源触板专题池',day:target,knownAt:broken.knownAt});}
+  const broken=metric(state.marketRecovery?.metrics?.breakRate,target,now,intraday);
+  if(broken&&broken.value>=0&&broken.value<=100){sealRate=100-broken.value;basis.push({kind:'sealing',source:broken.source,scope:broken.scope||'同源触板专题池',day:target,knownAt:broken.knownAt,
+   ...(intraday?{quoteAt:metricClock(broken)}:{})});}
  }
  if(breadth===null)missing.push('同日市场宽度');
  if(upLimit===null||downLimit===null)missing.push('同日同口径涨跌停家数');
