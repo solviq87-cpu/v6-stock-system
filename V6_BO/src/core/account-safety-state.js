@@ -6,7 +6,10 @@ const {tradingFees}=require('./trading-fees');
 const hash=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const quantity=value=>Number.isSafeInteger(value)&&value>=0;
-const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
+const plain=value=>value!==null&&typeof value==='object'&&
+ (Object.getPrototypeOf(value)===Object.prototype||Object.getPrototypeOf(value)===null);
+const symbolIdentity=value=>(typeof value==='string'||Number.isSafeInteger(value))&&/^\d{6}$/.test(String(value));
+const corporateIdentity=value=>typeof value==='string'&&/^[A-Za-z0-9_.:-]{1,100}$/.test(value);
 const day=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 const money=value=>Math.round((value+Number.EPSILON)*100)/100;
 
@@ -41,6 +44,9 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
  if(!plain(book?.account)||!finite(book.account.cash)||book.account.cash<0||!plain(book.account.positions)||!Array.isArray(book.account.events)||!plain(book.orders)||!plain(book.account.eventHashes)){
   fail('INVALID_ACCOUNT_STRUCTURE');return {...result(),reservedCash:null};
  }
+ if(book.corporateEvents!==undefined&&!Array.isArray(book.corporateEvents)){
+  fail('INVALID_CORPORATE_EVENT');return {...result(),reservedCash:null};
+ }
  const byEvent=new Map(),fills=new Map(),corporate=new Map(),reserved=new Map();
  for(const event of book.account.events){
   if(!event||typeof event.eventId!=='string'||byEvent.has(event.eventId))fail('DUPLICATE_LEDGER_EVENT');
@@ -50,14 +56,14 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
  }
  if(Object.keys(book.account.eventHashes).length!==byEvent.size)fail('INVALID_IDEMPOTENCY_INDEX');
  for(const event of book.corporateEvents||[]){
-  if(!event||corporate.has(event.eventId)||byEvent.has(event.eventId)||!/^\d{6}$/.test(event.symbol||'')||!Number.isSafeInteger(event.shareDelta)||!finite(event.cashDelta)||!day(event.effectiveDate))fail('INVALID_CORPORATE_EVENT');
+  if(!plain(event)||!corporateIdentity(event.eventId)||corporate.has(event.eventId)||byEvent.has(event.eventId)||!symbolIdentity(event.symbol)||!Number.isSafeInteger(event.shareDelta)||!finite(event.cashDelta)||!day(event.effectiveDate))fail('INVALID_CORPORATE_EVENT');
   else corporate.set(event.eventId,event);
  }
  // Never present the sum of only the computable orders as the full frozen cash.
  let reservedCash=0,cashBudgetKnown=true;
  for(const [id,item] of Object.entries(book.orders)){
   const order=item?.order,state=item?.state;
-  if(!plain(order)||id!==order.orderId||!['buy','sell'].includes(order.side)||!Array.isArray(item.events)||!item.events.every(plain)||!plain(state)||!quantity(state.remainingQuantity)||typeof state.terminal!=='boolean'){fail('INVALID_ORDER_IDENTITY');cashBudgetKnown=false;continue;}
+  if(!plain(order)||id!==order.orderId||!symbolIdentity(order.symbol)||!['buy','sell'].includes(order.side)||!Array.isArray(item.events)||!item.events.every(plain)||!plain(state)||!quantity(state.remainingQuantity)||typeof state.terminal!=='boolean'){fail('INVALID_ORDER_IDENTITY');cashBudgetKnown=false;continue;}
   for(const fill of item.events.filter(event=>event.type==='fill')){
    if(fills.has(fill.eventId))fail('DUPLICATE_ORDER_FILL');
    fills.set(fill.eventId,fill);
@@ -79,7 +85,7 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
  const roundedCash=money(reservedCash);
  if(!finite(roundedCash)){cashBudgetKnown=false;if(!restrictions.includes('PENDING_BUY_BUDGET_UNKNOWN'))restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
  for(const [symbol,position] of Object.entries(book.account.positions)){
-  if(!/^\d{6}$/.test(symbol)||!quantity(position?.quantity)||!Array.isArray(position?.lots)){fail('INVALID_POSITION');continue;}
+  if(!/^\d{6}$/.test(symbol)||!plain(position)||!quantity(position?.quantity)||!Array.isArray(position?.lots)){fail('INVALID_POSITION');continue;}
   let total=0,lotReserved=0;
   for(const lot of position.lots){
    if(!quantity(lot?.quantity)||!day(lot.buyDate)||lot.sellableDate!=null&&(!day(lot.sellableDate)||lot.sellableDate<lot.buyDate)||!quantity(lot.reserved??0)||(lot.reserved||0)>lot.quantity||!finite(lot.price)||lot.price<0||!finite(lot.cost??lot.price*lot.quantity)||(lot.cost??lot.price*lot.quantity)<0||!finite(lot.fee??0)||(lot.fee??0)<0){fail('INVALID_HOLDING_LOT');continue;}
@@ -110,11 +116,23 @@ function assertAccountReconciliation(book,options){
  return report;
 }
 function defensiveStatus(book){
- const state=book?.defensiveControl;
- if(!state)return {state:'open',version:1,reasonCodes:[],changedAt:null,releaseRequiresApproval:true,originalEntryGatesRemain:true};
+ // Only genuinely absent legacy control is open by default. A corrupt or
+ // inherited control must not silently remove an existing restriction.
+ if(!Object.hasOwn(book??{},'defensiveControl')){
+  if(book!=null&&'defensiveControl' in Object(book))throw Error('防御状态完整性无效：非自有记录');
+  return {state:'open',version:1,reasonCodes:[],changedAt:null,releaseRequiresApproval:true,originalEntryGatesRemain:true};
+ }
+ const state=book.defensiveControl;
  if(!plain(state)||state.version!==1||!['open','restricted'].includes(state.state)||!Array.isArray(state.events)||!state.events.length||state.events.length>1000)throw Error('防御状态完整性无效');
- let previous=null;
- for(const event of state.events){const {hash:stored,...payload}=event;if(stored!==hash(payload)||event.previousHash!==previous||!['open','restricted'].includes(event.state))throw Error('防御状态审计链无效');previous=stored;}
+ let previous=null,previousAt=0;
+ for(const event of state.events){
+  if(!plain(event))throw Error('防御状态审计链无效');
+  const {hash:stored,...payload}=event;
+  if(stored!==hash(payload)||event.previousHash!==previous||!['open','restricted'].includes(event.state))throw Error('防御状态审计链无效');
+  if(!Number.isSafeInteger(event.at)||event.at<=0||event.at<previousAt)throw Error('防御状态审计时间无效或回拨');
+  if(event.state==='open'&&event.approved!==true)throw Error('防御状态解除缺少明确审批');
+  previous=stored;previousAt=event.at;
+ }
  const last=state.events.at(-1);
  if(last.state!==state.state)throw Error('防御状态与审计回执不一致');
  return {version:1,state:state.state,reasonCodes:last.reasonCodes,reason:last.reason,changedAt:last.at,receipt:last.hash,
@@ -124,6 +142,8 @@ function appendDefensiveEvent(book,{state,reason,reasonCodes=[],at,actor='origin
  defensiveStatus(book);
  if(!['open','restricted'].includes(state)||typeof reason!=='string'||!reason.trim()||reason.length>240||!Number.isSafeInteger(at)||at<=0||typeof actor!=='string'||!/^[A-Za-z0-9_.:-]{1,100}$/.test(actor)||!Array.isArray(reasonCodes)||reasonCodes.length>20||reasonCodes.some(x=>typeof x!=='string'||!/^[A-Z0-9_]{1,80}$/.test(x)))throw Error('防御状态输入无效');
  const events=book.defensiveControl?.events||[];
+ if(state==='open'&&approved!==true)throw Error('解除防御需要明确审批');
+ if(events.length&&at<events.at(-1).at)throw Error('防御状态审计时间回拨');
  if(events.length>=1000)throw Error('防御状态审计达到预算，请先按原备份流程归档核对');
  const payload={state,reason:reason.trim(),reasonCodes,at,actor,approved:approved===true,accountRevision:book.revision,previousHash:events.at(-1)?.hash||null};
  book.defensiveControl={version:1,state,events:[...events,{...payload,hash:hash(payload)}]};
