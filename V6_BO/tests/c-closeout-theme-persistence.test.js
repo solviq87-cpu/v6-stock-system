@@ -99,3 +99,18 @@ test('C29.integration existing recognition and historical replay consume origina
  assert.equal(deriveCheckInput(bad,{code,date:day}).recognition.chaseRiskResearch.sectorPositionRisk,null);
  assert.equal(observations(bad,day,{code,all:true}).find(r=>r.date===day).features.chaseRiskResearch.sectorPositionRisk,null);
 });
+
+test('C29.3 price-identical historical duplicates with conflicting benchmark identities invalidate only the affected comparison',async()=>{
+ const f=fixture(),past=f.stocks[37],b=f.stocks.at(-1);
+ const history=f.stocks.slice(0,-1);
+ for(const rows of [[...history,{...past,sector:'医药'}],[{...past,sector:'医药'},...history]]){
+  const r=await run(f,{history:rows});assert.equal(r.positionRisk.contiguousPriorBars,40);
+  assert.equal(win(r.multiWindowRelativeStrength,5).sector,null);assert.ok(win(r.multiWindowRelativeStrength,1).sector);assert.ok(win(r.multiWindowRelativeStrength,20).index);
+ }
+ let r=await run(f,{history:[...history,{...past,indexCode:'000002'}]});
+ assert.equal(win(r.multiWindowRelativeStrength,5).index,null);assert.ok(win(r.multiWindowRelativeStrength,20).sector);
+ r=await run(f,{currentRows:[b,{...b,indexCode:'000002'}]});
+ assert.equal(win(r.multiWindowRelativeStrength,1).index,null);assert.ok(win(r.multiWindowRelativeStrength,20).sector);
+ r=await run(f,{history:[...history,{...past,sector:'医药',knownAt:day+' 15:01'}]});
+ assert.ok(win(r.multiWindowRelativeStrength,20).sector);
+});
