@@ -52,7 +52,7 @@ const validDate = s => {
 const barKey = b => [b.role||'stock', b.code, b.period || (b.date.length>10?'分时':'日K'), b.date].join('/');
 const label = (s,n) => s && s !== MISSING ? n+s : '';
 const isBlack = v => v === true || Boolean(v && !['0','false','否','无'].includes(String(v).trim().toLowerCase()));
-const HEADER = {日期:'date',时间:'date',代码:'code',标的代码:'code',名称:'name',标的名称:'name',开盘:'open',开盘价:'open',最高:'high',最高价:'high',最低:'low',最低价:'low',收盘:'close',收盘价:'close',成交量:'volume',成交额:'amount',换手率:'turnover',全A趋势:'indexTrend',题材:'sector',题材周期:'themeCycle',样本集:'sampleSet',样本来源:'sampleSource',数据来源:'source',黑天鹅:'blackSwan',极端行情:'extreme',周期:'period',数据类型:'role',可用时间:'availableAt'};
+const HEADER = {日期:'date',时间:'date',代码:'code',标的代码:'code',名称:'name',标的名称:'name',开盘:'open',开盘价:'open',最高:'high',最高价:'high',最低:'low',最低价:'low',收盘:'close',收盘价:'close',成交量:'volume',成交量单位:'volumeUnit',成交额:'amount',换手率:'turnover',全A趋势:'indexTrend',题材:'sector',题材周期:'themeCycle',样本集:'sampleSet',样本来源:'sampleSource',数据来源:'source',黑天鹅:'blackSwan',极端行情:'extreme',周期:'period',数据类型:'role',可用时间:'availableAt'};
 export function parseKCsv(csv) {
   if (typeof csv !== 'string' || new TextEncoder().encode(csv).byteLength > 2*1024*1024) throw Error('每次导入上限为 2 MiB');
   csv=csv.replace(/^\uFEFF/,'');
