@@ -215,8 +215,9 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  });
  const batchPreview=previewPlanBatch({snapshot,plans:previews,policy:book.riskPolicy??null,accountRevision:book.revision});
  const assets=snapshot?.positions.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/snapshot.equity,industry:p.industry,theme:p.theme}));
- const tail=assets?.length?tailRisk({assets,observations:history.observations(heldCodes),asOf:now,confidence:policy?.confidence||.95,returnBasis:'adjusted-price'}):unknown(heldCodes.length?'CURRENT_PORTFOLIO_VALUATION_UNAVAILABLE':'NO_OPEN_POSITION_RISK');
- const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,previews,exits,tail,observations:history.observations(heldCodes)});
+ const heldObservations=history.observations(heldCodes);
+ const tail=assets?.length?tailRisk({assets,observations:heldObservations,asOf:now,confidence:policy?.confidence||.95,returnBasis:'adjusted-price'}):unknown(heldCodes.length?'CURRENT_PORTFOLIO_VALUATION_UNAVAILABLE':'NO_OPEN_POSITION_RISK');
+ const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,quotes,previews,exits,tail,observations:heldObservations});
  const opportunityComparisons=[];
  for(const held of diagnostic.positions.slice(0,10))for(const candidate of checkedPlans.slice(0,5)){
   if(held.symbol===candidate.plan.code)continue;

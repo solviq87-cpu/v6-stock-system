@@ -2,6 +2,7 @@
 // Read-only research over the existing advanced portfolio report, never a
 // second account, a source of execution permissions, or a policy installer.
 const {validateEntryPolicy}=require('./common-entry-risk');
+const {quoteUseEligibility}=require('./quote-observation-view');
 const VERSION='fayo-portfolio-defense-research-v1';
 const FLAGS=Object.freeze({researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,canAuthorize:false,guaranteedFill:false});
 const num=x=>typeof x==='number'&&Number.isFinite(x);
@@ -17,23 +18,28 @@ const cents=x=>num(x)&&x>=0&&Number.isSafeInteger(Math.round(x*100))&&Math.abs(x
 const money=x=>Number.isSafeInteger(x)?x/100:null;
 const round=x=>num(x)?Number(x.toFixed(8)):null;
 function sum(xs){let n=0;for(const x of xs){if(!qty(x)||!qty(n+x))return null;n+=x;}return n;}
-function bound({book,diagnostic,snapshot,account,day:date,now}){
+function bound({book,diagnostic,snapshot,account,day:date,now,quotes}){
  if(!['pool','pre'].includes(account)||!day(date)||!time(now)||new Date(now+28800000).toISOString().slice(0,10)!==date||
     !book||book.paperOnly!==true||book.brokerConnected!==false||!hash(book.fingerprint)||!qty(book.revision)||book.revision<1||
     diagnostic?.account!==account||diagnostic.revision!==book.revision||diagnostic.checkedAt!==now||diagnostic.day!==date||
     diagnostic.originalReadValidation!==true||diagnostic.status!=='observed-unverified'||diagnostic.canTrade!==false||diagnostic.writesAccount!==false||
-    snapshot?.evidenceRef!==book.fingerprint||!plain(book.account?.positions)||!Array.isArray(snapshot.positions)||
+    snapshot?.evidenceRef!==book.fingerprint||!plain(book.account?.positions)||!plain(quotes)||!Array.isArray(snapshot.positions)||
     !Array.isArray(diagnostic.positions)||snapshot.positions.length!==diagnostic.positions.length||snapshot.positions.length>220)return null;
  const cash=cents(snapshot.cash),free=cents(snapshot.availableCash),eq=cents(snapshot.equity),reserved=cents(diagnostic.reservedCash);
  if([cash,free,eq,reserved].includes(null)||eq<=0||free>cash||cash-free!==reserved||cash!==cents(book.account.cash)||
-    free!==cents(diagnostic.availableCash)||eq!==cents(diagnostic.equity))return null;
+    cash!==cents(diagnostic.cash)||free!==cents(diagnostic.availableCash)||eq!==cents(diagnostic.equity))return null;
  const rows=[],seen=new Set();
  for(const p of snapshot.positions){
-  const actual=book.account.positions[p?.symbol],d=diagnostic.positions.find(x=>x?.symbol===p?.symbol),v=cents(p?.marketValue);
+  const actual=book.account.positions[p?.symbol],d=diagnostic.positions.find(x=>x?.symbol===p?.symbol),v=cents(p?.marketValue),q=quotes[p?.symbol]?.quote;
+  // A reconciled total is insufficient: each exact quote, quantity and
+  // per-security market value must agree with the original read.
+  const use=q?.code===p?.symbol?quoteUseEligibility(q,now):null;
   if(!code(p?.symbol)||seen.has(p.symbol)||!d||!qty(actual?.quantity)||actual.quantity===0||d.quantity!==actual.quantity||
-     v===null||v===0||!time(d.quoteAt)||d.quoteAt>now||now-d.quoteAt>15000||d.quoteStatus!=='recent-unverified')return null;
+     v===null||v===0||!time(d.quoteAt)||d.quoteAt>now||now-d.quoteAt>15000||d.quoteStatus!=='recent-unverified'||
+     use?.canTrade!==true||q.quoteAt!==d.quoteAt||q.quoteSource!==d.quoteSource||
+     cents(Math.round(q.price*d.quantity*100)/100)!==v)return null;
   seen.add(p.symbol);
-  rows.push({symbol:p.symbol,quantity:d.quantity,value:v,mark:v/100/d.quantity,mature:qty(d.matureUnreserved)&&d.matureUnreserved<=d.quantity?d.matureUnreserved:null,
+  rows.push({symbol:p.symbol,quantity:d.quantity,value:v,mark:q.price,quoteAt:q.quoteAt,mature:qty(d.matureUnreserved)&&d.matureUnreserved<=d.quantity?d.matureUnreserved:null,
    theme:label(p.theme)&&label(p.classificationSource)&&label(p.classificationVersion)&&time(p.classificationKnownAt)&&p.classificationKnownAt<=now?p.theme:null,
    industry:label(p.industry)&&label(p.classificationSource)&&label(p.classificationVersion)&&time(p.classificationKnownAt)&&p.classificationKnownAt<=now?p.industry:null,
    lots:actual.lots});
@@ -45,12 +51,19 @@ function bound({book,diagnostic,snapshot,account,day:date,now}){
 function pending(book,h){
  if(!plain(book.orders)||Object.keys(book.orders).length>50000)return null;
  const seen=new Set(),rows=[];
- for(const item of Object.values(book.orders)){
+ for(const [key,item] of Object.entries(book.orders)){
   const o=item?.order,s=item?.state;
-  if(!o||!s||typeof s.terminal!=='boolean'||!['buy','sell'].includes(o.side)||!code(o.symbol)||!qty(s.remainingQuantity))return null;
-  if(s.terminal)continue;
-  if(!label(o.orderId)||seen.has(o.orderId)||s.remainingQuantity===0)return null;
+  if(!o||!s||typeof s.terminal!=='boolean'||!['buy','sell'].includes(o.side)||!code(o.symbol)||!qty(s.remainingQuantity)||
+     !label(o.orderId)||key!==o.orderId||seen.has(o.orderId)||s.orderId!==o.orderId||s.symbol!==o.symbol||s.side!==o.side||
+     !qty(o.quantity)||o.quantity===0||s.quantity!==o.quantity||!qty(s.filledQuantity)||
+     sum([s.filledQuantity,s.remainingQuantity])!==o.quantity||
+     !['pending','partial','filled','canceled','rejected'].includes(s.status)||
+     s.terminal!==['filled','canceled','rejected'].includes(s.status)||
+     s.status==='filled'&&s.remainingQuantity!==0||s.status==='rejected'&&s.filledQuantity!==0||
+     s.status==='pending'&&s.filledQuantity!==0||s.status==='partial'&&s.filledQuantity===0)return null;
   seen.add(o.orderId);
+  if(s.terminal)continue;
+  if(s.remainingQuantity===0)return null;
   if(o.side==='sell')continue;
   const value=cents(s.remainingQuantity*o.limitPrice);
   if(!num(o.limitPrice)||o.limitPrice<=0||value===null||value===0)return null;
@@ -90,6 +103,22 @@ function reverse(h,p,policy){
   lossPauseRemainingYuan:null,lossPauseReason:'原前收权益/峰值与交易日历回执未在本高级组合读链提供；不得以当前权益替代',
   note:'某证券价格不变、其他证券共同下跌时的集中度触线条件；触线不等于原严格超限，冻结买单全成是假设。统一下跌可能降低仓位比例，不将其伪称为超限。',...FLAGS};
 }
+function lotBasis(a){
+ if(!Array.isArray(a.lots)||!a.lots.length||a.lots.some(l=>!qty(l?.quantity)||cents(l.cost)===null||l.quantity===0&&l.cost!==0)||
+    sum(a.lots.map(l=>l.quantity))!==a.quantity)return null;
+ return sum(a.lots.map(l=>cents(l.cost)));
+}
+function profitRows(h){
+ return h.rows.map(a=>{
+  const basis=lotBasis(a),pnl=basis===null?null:a.value-basis;
+  return {symbol:a.symbol,quantity:a.quantity,quoteAt:a.quoteAt,marketValue:money(a.value),
+   originalRemainingLotCost:money(basis),unrealizedPnl:money(pnl),lossPerOnePct:round(a.value/10000),
+   priceDeclineToErasePositiveUnrealizedPnlPct:pnl!==null&&pnl>0?round(100*pnl/a.value):null,
+   matureUnreserved:a.mature,actualExitProceeds:null,actualExitCost:null,profitReducesRisk:false,
+   status:basis===null?'exposure-only':'observed-unverified',
+   note:'以原剩余批次成本及当前盯市价描述浮盈/亏损；浮盈不释放账户风控或证明可卖，回吐百分比未计实际退出费用。',...FLAGS};
+ });
+}
 function additionRows(h,previews,book,now){
  return arr(previews).slice(0,20).map(p=>{
   const a=h.rows.find(x=>x.symbol===p?.symbol);
@@ -108,9 +137,7 @@ function additionRows(h,previews,book,now){
    beforeWeightPct:round(100*a.value/h.eq),afterFeeWeightPct:round(100*after/(h.eq-fee))});
   // Cost basis comes from retained authority lots, not the current mark or
   // strategy display average; unknown basis does not erase known exposure.
-  if(!Array.isArray(a.lots)||!a.lots.length||a.lots.some(l=>!qty(l?.quantity)||cents(l.cost)===null)||
-     sum(a.lots.map(l=>l.quantity))!==a.quantity)return out;
-  const basis=sum(a.lots.map(l=>cents(l.cost))),next=sum([basis,gross,fee]);
+  const basis=lotBasis(a),next=sum([basis,gross,fee]);
   if(basis===null||next===null)return out;
   Object.assign(out,{status:'estimated-unverified',beforeAverageCost:round(basis/100/a.quantity),afterAverageCost:round(next/100/shares),
    averageCostFalls:next/shares<basis/a.quantity,
@@ -128,8 +155,9 @@ function liquidity(h,exits){
    const e=exits.find(x=>x?.symbol===a.symbol);
    let cap=null,removed=null;
    if(fraction===0||a.mature===0){cap=0;removed=0;}
-   else if(a.mature!==null&&e?.exitEstimateQuantity===a.mature&&qty(e.historicalDailyShares)&&
-      num(e.conditionalSellableSessions)&&e.conditionalSellableSessions>=1){
+   else if(a.mature!==null&&e?.status==='estimated-unverified'&&e.canTrade===false&&e.writesAccount===false&&e.guaranteedFill===false&&
+      e.quoteAt===a.quoteAt&&e.sellable===a.mature&&e.exitEstimateQuantity===a.mature&&qty(e.historicalDailyShares)&&e.historicalDailyShares>0&&
+      qty(e.conditionalSellableSessions)&&e.conditionalSellableSessions===Math.ceil(a.mature/e.historicalDailyShares)){
     cap=Math.floor(e.historicalDailyShares*fraction);removed=Math.min(a.mature,cap);
    }
    const remaining=removed===null?null:Math.round(a.value*(a.quantity-removed)/a.quantity);
@@ -149,7 +177,7 @@ function liquidity(h,exits){
  return {status:'research-scenarios',cases,note:'以历史容量的100%/50%/0%和当前已核可卖批次作单段理论剩余敞口；不推定成交、申报单位、收益或实际可卖时点。剩余持仓权重以剩余持仓市值为分母，不是账户权益仓位。',...FLAGS};
 }
 function coLoss(h,observations,tail,now){
- const out={status:'unknown',alignedDays:null,tailDays:null,pairs:[],styleExposure:null,styleReason:'尚无B组当时有效的风格篮子或因子载荷；共跌不等于同一风格',independenceCertified:false,...FLAGS};
+ const out={status:'unknown',alignedDays:null,tailDays:null,nominalTailDays:null,tailBoundaryScenarioCount:null,pairs:[],styleExposure:null,styleReason:'尚无B组当时有效的风格篮子或因子载荷；共跌不等于同一风格',independenceCertified:false,...FLAGS};
  if(h.rows.length<2||h.rows.length>20||tail?.status!=='estimated-unverified'||tail.returnBasis!=='adjusted-price'||
     !Array.isArray(observations)||observations.length<60||observations.length>3000||tail.sampleCount!==observations.length)return out;
  let last='';
@@ -164,7 +192,10 @@ function coLoss(h,observations,tail,now){
  if(tail.start!==rows[0].date||tail.end!==last)return out;
  // Fixed worst decile diagnostic, not calibrated or inferred crisis states.
  const k=Math.ceil(rows.length*.1-1e-9),sorted=rows.slice().sort((a,b)=>a.portfolio-b.portfolio||a.date.localeCompare(b.date));
- const worst=k>=10?sorted.slice(0,k):null;
+ // Include all ties at the worst-decile boundary. Selecting tied days
+ // by calendar order can manufacture a different pair co-loss frequency.
+ const boundary=k>=10?sorted[k-1].portfolio:null;
+ const worst=boundary===null?null:sorted.filter(r=>r.portfolio<=boundary);
  for(let i=0;i<h.rows.length;i++)for(let j=i+1;j<h.rows.length;j++){
   const a=h.rows[i],b=h.rows[j],both=r=>r.returns[a.symbol]<0&&r.returns[b.symbol]<0;
   out.pairs.push({symbols:[a.symbol,b.symbol],classificationComparison:a.theme&&b.theme?(a.theme===b.theme?'same-declared-theme':'different-declared-themes'):'unknown',
@@ -173,19 +204,20 @@ function coLoss(h,observations,tail,now){
    worstDecileCoLossFraction:worst?round(worst.filter(both).length/worst.length):null});
  }
  return {...out,status:worst?'descriptive-unverified':'partial',alignedDays:rows.length,tailDays:worst?.length??null,
-  note:'使用原完整同源对齐后复权收益与当前固定权重；最差十分位是事后描述，不是独立危机标签、共同因子归因或概率。'};
+  nominalTailDays:k,tailBoundaryScenarioCount:worst?worst.filter(r=>r.portfolio===boundary).length:null,
+  note:'使用原完整同源对齐后复权收益与当前固定权重；最差十分位包括边界同损失样本，实际天数可能超过名义十分位。事后描述非独立危机标签、共同因子归因或概率。'};
 }
 function buildPortfolioDefense(input={}){
  const h=bound(input);
  const out={version:VERSION,status:'unknown',reason:'ORIGINAL_BOUND_ACCOUNT_UNAVAILABLE',account:input.account??null,
-  accountRevision:null,accountEvidenceRef:null,checkedAt:input.now??null,reverseStress:null,additions:[],liquidityStress:null,
+  accountRevision:null,accountEvidenceRef:null,checkedAt:input.now??null,reverseStress:null,additions:[],heldProfitRisk:[],liquidityStress:null,
   jointLoss:null,pending:null,...FLAGS};
  if(!h)return out;
  const {book,now}=input,p=pending(book,h);
  return {...out,status:p?'observed-research':'partial',reason:p?null:'ORIGINAL_PENDING_ORDER_EVIDENCE_UNAVAILABLE',
   accountRevision:book.revision,accountEvidenceRef:book.fingerprint,
   pending:p?{orderCount:p.rows.length,remainingNotional:money(p.notional),estimatedReservedFees:money(p.fees),includesFilledHoldingsOnce:true}:null,
-  reverseStress:reverse(h,p,book.riskPolicy??null),additions:additionRows(h,input.previews,book,now),
+  reverseStress:reverse(h,p,book.riskPolicy??null),additions:additionRows(h,input.previews,book,now),heldProfitRisk:profitRows(h),
   liquidityStress:liquidity(h,input.exits),jointLoss:coLoss(h,input.observations,input.tail,now)};
 }
 module.exports={buildPortfolioDefense,VERSION};
