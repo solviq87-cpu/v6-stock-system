@@ -472,14 +472,16 @@ export function validateCenterCandidate(state,proposal){
       Object.values(proposal.weights).some(value=>typeof value!=='number'||!Number.isFinite(value)))throw Error('中心提案的权重或隔离窗口无效');
   if(proposal.numericModel&&(proposal.factorSchema!==MODEL||!validModel(proposal.numericModel)||
       stable(proposal.numericModel.weights)!==stable(proposal.weights)))throw Error('中心数值提案模型、定义或权重指纹不一致');
-  for(const key of ['candidates','versions'])state[key]||=[];
   if(approvedModelEvidenceReview(state,lastVersion(state),proposal.now??Date.now()).status==='requires-revalidation')
     throw Error('中心获批基线的来源样本已撤销或复核，须重新独立验证');
+  for(const key of ['candidates','versions'])state[key]||=[];
   return buildCandidate(state,false,proposal);
 }
 export function learningAction(state,action,p={}){
   if(!p||typeof p!=='object')throw Error('输入格式无效');
-  for(const key of ['plans','trades','explanations','candidates','versions'])state[key]||=[];
+  // A refused decision is read-only, including on older archives lacking optional arrays.
+  const initialize=()=>{for(const key of ['plans','trades','explanations','candidates','versions'])state[key]||=[];};
+  if(action!=='learn:decision')initialize();
   if(action==='learn:plan')return archivePlan(state,p);
   if(action==='learn:trade'){
     const t=closeTrade(state,p);buildCandidate(state,true);return t;
@@ -492,12 +494,12 @@ export function learningAction(state,action,p={}){
   if(action==='learn:candidate')return buildCandidate(state);
   if(action==='learn:auto-candidate')return buildCandidate(state,true);
   if(action==='learn:decision'){
-    const c=state.candidates.find(x=>x.id===p.id);
+    const c=(state.candidates||[]).find(x=>x.id===p.id);
     if(!c || c.status!=='待人工审批'||c.steps.length!==5||!c.steps.every((s,i)=>s.name===stages[i]&&s.status==='通过'))throw Error('仅允许审批五项验证均已通过的候选');
     if((c.validationFingerprint||c.numericModel)&&c.validationFingerprint!==fingerprint(validationState(c)))throw Error('候选模型、定义、权重或验证记录已变化，必须重新验证');
     const reviewer=required(p.reviewer,'审批人',50),reason=required(p.reason,'审批意见',2000);
     if(!['approve','reject'].includes(p.decision))throw Error('请选择审批结论');
-    if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isLearningTestSample(r)&&(c.sourceIds?.includes(r.id)||c.numericModel?.sourceIds?.includes(r.id)))))throw Error('含测试样本的候选仅用于演示档案');
+    if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||(state.trades||[]).some(r=>isLearningTestSample(r)&&(c.sourceIds?.includes(r.id)||c.numericModel?.sourceIds?.includes(r.id)))))throw Error('含测试样本的候选仅用于演示档案');
     if(p.decision==='approve'&&candidateEvidenceReview(state,c,Date.now()).status==='requires-revalidation')
       throw Error('候选来源样本已撤销或复核，必须重新独立验证');
     if(p.decision==='approve'&&(c.centerFeedback||c.numericModel?.adjustment)&&
@@ -505,6 +507,7 @@ export function learningAction(state,action,p={}){
       throw Error('中心获批基线的来源样本已撤销或复核，须重新独立验证');
     const prev=lastVersion(state)?.number||0;
     if(p.decision==='approve' && c.baseVersion!==prev)throw Error('基线版本已变更，请基于当前版本重新验证');
+    initialize();
     c.decision={reviewer,reason,at:now()};
     if(p.decision==='reject'){c.status='人工驳回';return c;}
     const ver={id:id('version'),sampleScope:c.sampleScope||'live',decay:c.decay,number:prev+1,candidateId:c.id,approvedAt:c.decision.at,reviewer,reason,weights:{...c.weights},strategyThresholds:{...c.strategyThresholds},minSupport:c.minSupport,threshold:c.threshold};
