@@ -113,12 +113,36 @@ function validateRegistryHistory(s,plan){
 function createRegistry(root){
  root=safe(root);const file=path.join(root,'state.json'),inputFile=path.join(root,'input.json'),planFile=path.join(root,'plan.json');
  function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan);return {s,input,plan};}
- function mutate(expected,fn){return withAccountLock(file,()=>{const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');const next=fn(s,input,plan);if(next===null)return seal(s);next.revision=s.revision+1;atomicWrite(file,JSON.stringify(seal(next))+'\n');return seal(next);});}
+ function mutate(expected,fn,{beforePublish}={}){return withAccountLock(file,()=>{
+  const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');
+  const original=hash(s),next=fn(s,input,plan);if(next===null)return seal(s);
+  next.revision=s.revision+1;validateRegistryHistory(next,plan);
+  // Under the existing lock, recheck the authoritative files after staging I/O.
+  // Do not replace a damaged or unexpectedly changed snapshot with an old view.
+  atomicWrite(file,JSON.stringify(seal(next))+'\n',{beforeRename:()=>{
+   if(hash(load().s)!==original)throw Error('参数注册发布前状态变化，须重新读取');
+   if(beforePublish)beforePublish(next,plan);
+  }});return seal(next);
+ });}
  function freeze(input,plan){validatePlan(input,plan);baseline(input);safe(root);fs.mkdirSync(root,{mode:0o700});atomicWrite(inputFile,JSON.stringify(input)+'\n');atomicWrite(planFile,JSON.stringify(plan)+'\n');const s={schemaVersion:1,mode:'research-learning-registry',revision:1,inputFingerprint:hash(input),planFingerprint:hash(plan),stage:'frozen',active:'baseline',events:[],canTrade:false,brokerConnected:false};atomicWrite(file,JSON.stringify(seal(s))+'\n');return seal(s);}
  function evaluate(expected){return mutate(expected,(s,input,plan)=>{if(s.evaluation)return null;s.evaluation=validation(input,plan);s.stage='validated';return s;});}
  function testHoldout(expected){return mutate(expected,(s,input,plan)=>{if(!s.evaluation)throw Error('先完成训练与验证');if(s.holdout)return null;if(hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');s.holdout=holdout(input,plan,s.evaluation);s.stage='holdout-tested';return s;});}
  function verify({replay=false}={}){const {s,input,plan}=load();if(replay){if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');if(s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('样本外结果复算不一致');}return {verified:true,replayed:replay,revision:s.revision,stage:s.stage,active:s.active,canTrade:false};}
- function promote(expected,{marketContext}={}){return mutate(expected,(s,input,plan)=>{
+ function promote(expected,{marketContext}={}){
+ let gateCheckedAt=null;
+ const assessGate=(plan,asOf)=>{
+  const report=assessMarketShock(marketContext,{asOf});
+  if(report.status!=='observed-unverified')
+   throw Error('市场证据缺失、过期或不可核实，拒绝学习参数晋级');
+  if(report.deferLearningUpdate)
+   throw Error('大盘系统性急跌阶段暂缓学习参数晋级，风控与亏损样本继续保留');
+  return {mode:plan.marketGateMode,marketRegime:report.regime,
+   marketEvidenceStatus:report.evidenceStatus,tradeDate:report.tradeDate,
+   observedAt:report.observedAt,provider:report.provider,
+   evidenceFingerprint:hash(marketContext),weightsChanged:false,
+   riskMonitoringRequired:true,returnSamplesPreserved:true};
+ };
+ return mutate(expected,(s,input,plan)=>{
   if(!s.holdout?.eligible||!s.evaluation?.selectedId)throw Error('验证/冻结样本外门禁未通过');
   // Rollback retires this frozen experiment's candidate for new promotions.
   // Previously recorded, valid lifecycle transitions remain readable.
@@ -129,21 +153,16 @@ function createRegistry(root){
   if(s.active===s.evaluation.selectedId)return null;
   let marketGate=null;
   if(plan.marketGateMode==='required-on-promote'){
-   const report=assessMarketShock(marketContext,{asOf:Date.now()});
-   if(report.status!=='observed-unverified')
-    throw Error('市场证据缺失、过期或不可核实，拒绝学习参数晋级');
-   if(report.deferLearningUpdate)
-    throw Error('大盘系统性急跌阶段暂缓学习参数晋级，风控与亏损样本继续保留');
-   marketGate={mode:plan.marketGateMode,marketRegime:report.regime,
-    marketEvidenceStatus:report.evidenceStatus,tradeDate:report.tradeDate,
-    observedAt:report.observedAt,provider:report.provider,
-    evidenceFingerprint:hash(marketContext),weightsChanged:false,
-    riskMonitoringRequired:true,returnSamplesPreserved:true};
+   gateCheckedAt=Date.now();marketGate=assessGate(plan,gateCheckedAt);
   }
   const from=s.active;s.active=s.evaluation.selectedId;
   s.events.push({type:'promote',from,to:s.active,revision:s.revision+1,
     ...(marketGate?{marketGate}:{})});return s;
- });}
+ },{beforePublish:(next,plan)=>{
+  if(plan.marketGateMode!=='required-on-promote')return;
+  const now=Date.now();if(!Number.isSafeInteger(now)||now<gateCheckedAt)throw Error('市场证据发布时钟回退，拒绝学习参数晋级');
+  if(hash(assessGate(plan,now))!==hash(next.events.at(-1).marketGate))throw Error('市场证据发布前变化，拒绝学习参数晋级');
+ }});}
  function rollback(expected){return mutate(expected,s=>{if(s.active==='baseline')return null;const from=s.active;s.active='baseline';s.events.push({type:'rollback',from,to:'baseline',revision:s.revision+1});return s;});}
  function activeProfile(expectedRevision){if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<1))throw Error("预期修订无效");return withAccountLock(file,()=>{const {s,input,plan}=load();if(expectedRevision!==undefined&&s.revision!==expectedRevision)throw Error("研究参数修订冲突");if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation)||s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('激活参数证据复算不一致');const parameters=s.active==='baseline'?baseline(input):s.evaluation.candidates.find(c=>c.id===s.active)?.parameters;if(!parameters)throw Error('激活参数不存在');return {id:s.active,parameters,registryRevision:s.revision,fingerprint:hash({input:s.inputFingerprint,plan:s.planFingerprint,id:s.active,parameters}),source:input.source,provider:input.provider,holdoutEnd:plan.holdoutEnd,executionContract:executionContract(input),learningCostBps:input.learningCostBps??41,costs:{feeBps:input.simulation.feeBps??8,slippageBps:input.simulation.slippageBps??10,sellTaxBps:input.simulation.sellTaxBps??5},canTrade:false};});}
 
