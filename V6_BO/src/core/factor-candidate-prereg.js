@@ -289,7 +289,7 @@ function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
  if(definitions!==undefined){
   if(!declaredDefinitions(definitions,ids)||
-     (sealedDefinitions!==null&&hash(definitions.map(d=>({id:d.id,baseWeight:d.baseWeight})))!==hash(sealedDefinitions))||
+     (envelope!==null&&hash(definitions.map(d=>({id:d.id,baseWeight:d.baseWeight})))!==hash(envelope))||
      (Object.hasOwn(reg,'modelProvenance')&&hash(definitions)!==reg.factorDefinitionsFingerprint))
    throw Error('候选预注册与实际冻结因子定义不一致');
  }
