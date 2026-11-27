@@ -82,35 +82,63 @@ function metric(row,day,now,intraday=false){
    (row.quoteAt==null||row.observedAt==null||row.quoteAt===row.observedAt))?row:null;
 }
 
-function distribution(row,day,now,intraday=false){
+// Keep sector evidence separate from the full-market distribution.
+const marketScope=value=>text(value).replace(/\s/g,'').replace(/[()]/g,m=>m==='('?'（':'）');
+const fullMarketScope=value=>/^沪深京A股(?:（含ST）)?$/.test(marketScope(value));
+const weatherSource=row=>/^打板客(?:盘中涨跌分布|收盘涨跌分布)?$/.test(text(row?.source))?'打板客':text(row?.source).toLowerCase();
+const observationOnly=row=>['simulated','synthetic','fixture','mock','imported','readOnlyBackup'].some(k=>row?.[k]===true)||
+ forbidden.test(text(row?.mode))||forbidden.test(text(row?.quoteMode));
+function distributionReceipt(row,day,now,intraday=false){
  return row&&['market-distribution-intraday','market-distribution'].includes(row.kind)&&decisionDay(row.day)===day&&
-  text(row.source)&&text(row.scope)&&!forbidden.test(row.source)&&!conflicted(row)&&time(row.quoteAt)&&time(row.knownAt)&&
+  text(row.source)&&text(row.scope)&&!forbidden.test(row.source)&&time(row.quoteAt)&&time(row.knownAt)&&
   row.quoteAt<=row.knownAt&&row.knownAt<=now&&chinaDay(row.quoteAt)===day&&
+  (!intraday||row.kind==='market-distribution-intraday'&&fullMarketScope(row.scope)&&
+   weatherClock(row.quoteAt,day,now)&&weatherClock(row.knownAt,day,now));
+}
+function distribution(row,day,now,intraday=false){
+ return distributionReceipt(row,day,now,intraday)&&!conflicted(row)&&(!intraday||!observationOnly(row))&&
   weatherFields.every(k=>count(row[k]))&&
   row.observed>0&&row.observed<=row.total&&row.adv+row.dec+row.flat===row.observed&&row.upLimit<=row.adv&&row.downLimit<=row.dec&&
-  (!intraday||row.kind==='market-distribution-intraday'&&weatherCoverage(row.observed,row.total)&&
-   weatherClock(row.quoteAt,day,now)&&weatherClock(row.knownAt,day,now));
+  (!intraday||weatherCoverage(row.observed,row.total));
+}
+function latestDistributionReceipts(rows,day,now){
+ // Establish the latest visible batch before quality filtering. Never revive
+ // an older batch from a provider whose newest comparable batch is incomplete.
+ const groups=new Map();
+ for(const row of rows){
+  if(!distributionReceipt(row,day,now,true))continue;
+  const key=JSON.stringify([weatherSource(row),marketScope(row.scope)]),previous=groups.get(key);
+  if(!previous||row.quoteAt>previous[0].quoteAt)groups.set(key,[row]);
+  else if(row.quoteAt===previous[0].quoteAt)previous.push(row);
+ }
+ return [...groups.values()].flat();
 }
 
 export function decisionWeather(state={}, {day,now=Date.now()}={}){
  const target=decisionDay(day)||chinaDay(now),missing=[],basis=[],intraday=currentSession(state,target,now);
  const snapshots=[state.marketDistribution,...array(state.marketRecovery?.coverage)];
- const latest=snapshots.filter(row=>distribution(row,target,now,intraday)).sort((a,b)=>b.quoteAt-a.quoteAt)[0];
+ const currentReceipts=intraday?latestDistributionReceipts(snapshots,target,now):snapshots;
+ const latest=currentReceipts.filter(row=>distribution(row,target,now,intraday)).sort((a,b)=>b.quoteAt-a.quoteAt||
+  (intraday?b.observed/b.total-a.observed/a.total||Number(marketScope(b.scope).endsWith('（含ST）'))-Number(marketScope(a.scope).endsWith('（含ST）'))||
+   weatherSource(a).localeCompare(weatherSource(b)):0))[0];
+ const noQualifiedLatest=intraday&&currentReceipts.length>0&&!latest;
  // Conflicts in the same provider/scope/batch cannot be resolved by array
  // order, a newer receipt clock, or substituting a weaker sample.
  const wideConflict=Boolean(latest&&snapshots.some(row=>row&&row!==latest&&
-   decisionDay(row.day)===target&&row.kind===latest.kind&&row.source===latest.source&&row.scope===latest.scope&&
+   decisionDay(row.day)===target&&row.kind===latest.kind&&
+   (intraday?marketScope(row.scope)===marketScope(latest.scope):row.source===latest.source&&row.scope===latest.scope)&&
    row.quoteAt===latest.quoteAt&&time(row.knownAt)&&row.knownAt<=now&&row.knownAt>=row.quoteAt&&
-   (conflicted(row)||weatherFields.some(k=>row[k]!==latest[k]))))||
+   (conflicted(row)||intraday&&observationOnly(row)||weatherFields.some(k=>row[k]!==latest[k]))))||
   Boolean(intraday&&snapshots.some(row=>decisionDay(row?.day)===target&&
    row.kind==='market-distribution-intraday'&&weatherClock(row.quoteAt,target,now)&&
    time(row.knownAt)&&row.knownAt<=now&&conflicted(row)));
  const wide=wideConflict?null:latest;
  let breadth=null,upLimit=null,downLimit=null,sealRate=null;
  if(wideConflict)missing.push('同批全市场涨跌分布冲突');
+ if(noQualifiedLatest&&!wideConflict)missing.push('最新全市场批次未通过覆盖率或来源核验');
  if(wide){
   breadth=wide.adv/wide.observed*100;upLimit=wide.upLimit;downLimit=wide.downLimit;
-  basis.push({kind:'breadth',source:wide.source,scope:wide.scope,day:target,quoteAt:wide.quoteAt,knownAt:wide.knownAt,observed:wide.observed,total:wide.total});
+  basis.push({kind:'breadth',source:wide.source,scope:wide.scope,day:target,quoteAt:wide.quoteAt,knownAt:wide.knownAt,observed:wide.observed,total:wide.total,coverage:wide.observed/wide.total});
  }else if(!wideConflict){
   const b=state.breadth,m=state.dashboard?.mood,at=m?.scope?.snapAt;
   if(decisionDay(b?.day)===target&&time(b.at)&&b.at<=now&&chinaDay(b.at)===target&&count(b.up)&&count(b.down)&&count(b.n)&&b.n>0&&b.up+b.down<=b.n&&
@@ -136,7 +164,7 @@ export function decisionWeather(state={}, {day,now=Date.now()}={}){
  const db=state.dabanke,ecos=array(db?.ecology).filter(row=>row?.label==='当日封板'),eco=ecos[0];
  // The real collector returns the page's original market/distribution
  // timestamps. Do not let a new page receipt hide explicit old source clocks.
- const dbClocks=[db?.market?.quoteAt,db?.distribution?.quoteAt].filter(v=>v!=null);
+ const dbClocks=[db?.market,db?.distribution].filter(v=>v!=null).map(v=>v.quoteAt);
  const dbCurrent=!intraday||db?.mode!=='收盘'&&weatherClock(db?.knownAt,target,now)&&
   dbClocks.every(at=>weatherClock(at,target,now)&&at<=db.knownAt);
  if(decisionDay(db?.day)===target&&time(db.knownAt)&&db.knownAt<=now&&dbCurrent&&!conflicted(db)&&
@@ -144,7 +172,8 @@ export function decisionWeather(state={}, {day,now=Date.now()}={}){
   ecos.every(row=>row.success===eco.success&&row.total===eco.total)){
   sealRate=eco.success/eco.total*100;
   basis.push({kind:'sealing',source:'打板客',scope:'当日触板池（不含 ST）',day:target,knownAt:db.knownAt,sealed:eco.success,touched:eco.total,
-   ...(dbClocks.length?{quoteAt:Math.min(...dbClocks)}:{})});
+   clockBasis:dbClocks.length?'provider-page-clock':'receipt-only',
+   ...(dbClocks.length&&dbClocks.every(time)?{quoteAt:Math.min(...dbClocks)}:{})});
  }else{
   const broken=metric(state.marketRecovery?.metrics?.breakRate,target,now,intraday);
   if(broken&&broken.value>=0&&broken.value<=100){sealRate=100-broken.value;basis.push({kind:'sealing',source:broken.source,scope:broken.scope||'同源触板专题池',day:target,knownAt:broken.knownAt,
