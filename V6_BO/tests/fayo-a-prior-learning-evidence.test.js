@@ -1,0 +1,25 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const {proposeFromSealedResearch:propose}=require('../src/core/factor-shadow-candidate-proposer');
+const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const pack='a'.repeat(64),ids=['a','b'];
+function make(legacy=false){
+ const learning=()=>({days:20,meanIC:.4,reliable:true,reasons:[],confidence:.5,suggestedWeightMultiplier:.04,canTrade:false,productionWeightsChanged:false});
+ const body={mode:'v6-factor-shadow-evolution-v1',status:'shadow-retained',canTrade:false,productionWeightsChanged:false,packFingerprint:pack,lastObservationDay:'2026-06-01',factorIds:ids.slice(),factorLearning:{a:learning(),b:learning()},factorRedundancy:{suppressedFactorIds:['b'],trainingDays:20,evidenceBasis:'frozen-training-only',canTrade:false,productionWeightsChanged:false},trainingEnd:'2026-05-01',trainDays:20,shadowWeights:{a:1,b:1},observedFingerprints:Array.from({length:40},(_,i)=>[hash(['feature',i]),hash(['market',i])]),trialAudit:{schemaVersion:1,status:'consumed',firstHoldoutDay:'2026-05-20',lastHoldoutDay:'2026-05-25',holdoutDays:5,candidateFingerprint:'b'.repeat(64),canTrade:false,productionWeightsChanged:false}};
+ if(legacy){for(const k of ['trainingEnd','trainDays','shadowWeights','observedFingerprints','trialAudit'])delete body[k];body.factorLearning={a:{suggestedWeightMultiplier:.04},b:{suggestedWeightMultiplier:.04}};body.factorRedundancy={suppressedFactorIds:['b']};}
+ return {source:{...body,fingerprint:hash(body)},definitions:ids.map(id=>({id,baseWeight:1})),acceptedWeights:{a:1,b:1},packFingerprint:pack,latestFrozenDay:'2026-06-05'};
+}
+function edit(fn){const input=make();const {fingerprint,...body}=input.source;fn(body,input);input.source={...body,fingerprint:hash(body)};return input;}
+function reject(fn,pattern=/历史训练证据|历史因子训练血缘|冗余因子证据/){assert.throws(()=>propose(edit(fn)),pattern);}
+test('A38 structured consistent historical summaries retain original bounded changes and read-only status',()=>{const x=make(),before=JSON.stringify(x),r=propose(x);assert.deepEqual(r.candidateWeights,{a:1.04,b:.98});assert.equal(r.canTrade,false);assert.equal(r.productionWeightsChanged,false);assert.equal(JSON.stringify(x),before);});
+test('A38 explicit sealed prior weights must match the accepted baseline',()=>reject(s=>{s.shadowWeights.a=1.01;}));
+test('A38 duplicate feature fingerprints cannot be counted as separate historical evidence',()=>reject(s=>{s.observedFingerprints[1][0]=s.observedFingerprints[0][0];}));
+test('A38 missing or malformed fingerprint pairs cannot establish complete history',()=>{reject(s=>{s.observedFingerprints[1]=['bad','c'.repeat(64)];});reject(s=>{s.observedFingerprints[1]=null;});});
+test('A38 training cutoff cannot postdate the prior observation or touch a declared holdout',()=>{reject(s=>{s.trainingEnd='2026-06-02';});reject(s=>{s.trainingEnd=s.trialAudit.firstHoldoutDay;});});
+test('A38 declared training counts must agree with retained evidence and factor sample counts',()=>{reject(s=>{s.trainDays=41;});reject(s=>{s.factorLearning.a.days=21;});});
+test('A38 insufficient or explicitly unreliable structured factor cannot emit a nonzero learned increment',()=>{reject(s=>{s.factorLearning.a.days=14;});reject(s=>{s.factorLearning.a.reliable=false;s.factorLearning.a.reasons=['unstable-daily-sign'];s.factorLearning.a.confidence=0;});});
+test('A38 explicit reasons, confidence and IC cannot contradict the reliability result',()=>{reject(s=>{s.factorLearning.a.reasons=['unstable-daily-sign'];});reject(s=>{s.factorLearning.a.confidence=2;});reject(s=>{s.factorLearning.a.meanIC=-.4;});});
+test('A38 nested evidence cannot claim trading or production authority',()=>{reject(s=>{s.factorLearning.a.canTrade=true;});reject(s=>{s.factorRedundancy.productionWeightsChanged=true;});reject(s=>{s.trialAudit.canTrade=true;});});
+test('A38 declared consumed holdout must remain chronologically valid and within its stated window',()=>{reject(s=>{s.trialAudit.status='not-evaluated';});reject(s=>{s.trialAudit.lastHoldoutDay='2026-06-02';});reject(s=>{s.trialAudit.holdoutDays=7;});});
+test('A38 redundancy evidence must come from training and cannot suppress explicitly unreliable structured evidence',()=>{reject(s=>{s.factorRedundancy.evidenceBasis='holdout';});reject(s=>{s.factorRedundancy.trainingDays=19;});reject(s=>{Object.assign(s.factorLearning.b,{reliable:false,confidence:0,reasons:['unstable-daily-sign'],suggestedWeightMultiplier:0});});});
+test('A38 legacy sparse summaries remain readable but clearly separate from structured evidence',()=>{const old=propose(make(true)),full=propose(make());assert.deepEqual(old.candidateWeights,full.candidateWeights);assert.equal(old.evidenceReview.grade,'legacy-summary-unverified');assert.equal(full.evidenceReview.grade,'structured-summary-unverified');for(const r of [old,full]){assert.equal(r.evidenceReview.independenceCertified,false);assert.equal(r.evidenceReview.trainingEligible,false);assert.equal(r.evidenceReview.autoPromotion,false);}});

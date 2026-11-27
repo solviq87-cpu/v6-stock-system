@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: C EX11 gap up outside frozen range despite passing snapshot
+ok 1 - C EX11 gap up outside frozen range despite passing snapshot
+  ---
+  duration_ms: 3.599102
+  type: 'test'
+  ...
+# Subtest: C EX11 gap down outside frozen range despite passing snapshot
+ok 2 - C EX11 gap down outside frozen range despite passing snapshot
+  ---
+  duration_ms: 0.404099
+  type: 'test'
+  ...
+# Subtest: C EX11 slippage crosses original price band after both quote and open pass
+ok 3 - C EX11 slippage crosses original price band after both quote and open pass
+  ---
+  duration_ms: 1.172901
+  type: 'test'
+  ...
+# Subtest: C EX13 missing open is not an execution price
+ok 4 - C EX13 missing open is not an execution price
+  ---
+  duration_ms: 0.707358
+  type: 'test'
+  ...
+# Subtest: C EX13 null open is not an execution price
+ok 5 - C EX13 null open is not an execution price
+  ---
+  duration_ms: 0.355857
+  type: 'test'
+  ...
+# Subtest: C EX13 boolean open is not an execution price
+ok 6 - C EX13 boolean open is not an execution price
+  ---
+  duration_ms: 0.232611
+  type: 'test'
+  ...
+# Subtest: C EX13 boolean volume cannot manufacture available liquidity
+ok 7 - C EX13 boolean volume cannot manufacture available liquidity
+  ---
+  duration_ms: 0.420745
+  type: 'test'
+  ...
+# Subtest: C EX11 exactly 3 percent boundary retains the original inclusive range
+ok 8 - C EX11 exactly 3 percent boundary retains the original inclusive range
+  ---
+  duration_ms: 0.644473
+  type: 'test'
+  ...
+# Subtest: C EX11 beyond original range stays blocked in preflight
+ok 9 - C EX11 beyond original range stays blocked in preflight
+  ---
+  duration_ms: 0.797593
+  type: 'test'
+  ...
+# Subtest: C EX11 exact intent identity survives identical display fields
+ok 10 - C EX11 exact intent identity survives identical display fields
+  ---
+  duration_ms: 1.920719
+  type: 'test'
+  ...
+# Subtest: C EX11 normal fill keeps fees and T+1 while not mutating original input
+ok 11 - C EX11 normal fill keeps fees and T+1 while not mutating original input
+  ---
+  duration_ms: 0.414595
+  type: 'test'
+  ...
+# Subtest: valid intent passes read-only preflight without mutating account
+ok 12 - valid intent passes read-only preflight without mutating account
+  ---
+  duration_ms: 6.210622
+  type: 'test'
+  ...
+# Subtest: dataset fingerprint mismatch is rejected
+ok 13 - dataset fingerprint mismatch is rejected
+  ---
+  duration_ms: 0.588038
+  type: 'test'
+  ...
+# Subtest: suspended and upper-limit symbols are blocked
+ok 14 - suspended and upper-limit symbols are blocked
+  ---
+  duration_ms: 0.446764
+  type: 'test'
+  ...
+# Subtest: cash shortage and stale price are blocked
+ok 15 - cash shortage and stale price are blocked
+  ---
+  duration_ms: 0.306303
+  type: 'test'
+  ...
+# Subtest: missing, negative, zero and boolean reference prices block the intent
+ok 16 - missing, negative, zero and boolean reference prices block the intent
+  ---
+  duration_ms: 1.005758
+  type: 'test'
+  ...
+# Subtest: boolean, blank and null cash cannot manufacture a balance
+ok 17 - boolean, blank and null cash cannot manufacture a balance
+  ---
+  duration_ms: 0.282657
+  type: 'test'
+  ...
+# Subtest: boolean price, unsafe quantity and unsafe money are blocked
+ok 18 - boolean price, unsafe quantity and unsafe money are blocked
+  ---
+  duration_ms: 0.396609
+  type: 'test'
+  ...
+# Subtest: valid proposal becomes offline simulated fill with fees and T+1 label
+ok 19 - valid proposal becomes offline simulated fill with fees and T+1 label
+  ---
+  duration_ms: 5.570857
+  type: 'test'
+  ...
+# Subtest: duplicate intent is idempotently blocked when already in ledger
+ok 20 - duplicate intent is idempotently blocked when already in ledger
+  ---
+  duration_ms: 1.049604
+  type: 'test'
+  ...
+# Subtest: missing volume and participation limit block fills
+ok 21 - missing volume and participation limit block fills
+  ---
+  duration_ms: 0.90087
+  type: 'test'
+  ...
+# Subtest: cash after actual simulated fees cannot go negative
+ok 22 - cash after actual simulated fees cannot go negative
+  ---
+  duration_ms: 0.646465
+  type: 'test'
+  ...
+# Subtest: invalid simulation costs are rejected
+ok 23 - invalid simulation costs are rejected
+  ---
+  duration_ms: 0.888441
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 115.148311

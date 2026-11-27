@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "parentCommit": "0c240332d9d83acc57c6ea7cfefd48f2fcd1185a",
+  "groups": [
+    {
+      "name": "盘口逐笔",
+      "prs": [
+        493
+      ],
+      "base": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+      "head": "1db724a106ee87248c3b5cdc1ba71e6bff32ff10",
+      "count": 3,
+      "already": 0,
+      "retained": 0
+    },
+    {
+      "name": "跨交易日恢复",
+      "prs": [
+        497
+      ],
+      "base": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+      "head": "3d58fb7f987c532aaf989897023c0172fd9adb98",
+      "count": 4,
+      "already": 0,
+      "retained": 0
+    },
+    {
+      "name": "历史导入与原始回执",
+      "prs": [
+        473,
+        475
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "5ad4f7193e5e11c16247ccb2887b0ca6907fae86",
+      "count": 2,
+      "already": 3,
+      "retained": 1
+    }
+  ],
+  "records": [
+    {
+      "path": "V6_BO/src/core/deep-research-evidence.js",
+      "group": "盘口逐笔",
+      "before": "2af42b5eafc52f942ed2b8b62c88c9aee0f98c35",
+      "source": "bb940060d9a53dc5b5dd1812ba0dcba4891e48ed",
+      "decision": "context-checked function/block merge"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-depth-authorization-evidence.test.js",
+      "before": null,
+      "after": "aae540993de9feee6c0cc634c56ee4e2e859b6d4",
+      "group": "盘口逐笔",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "docs/validation/fayo-d-depth-authorization-evidence-20261127/README.md",
+      "before": null,
+      "after": "a3a67ed40f418fad62cddf5184fe0eaaebf116b1",
+      "group": "盘口逐笔",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "V6_BO/src/core/market-display-snapshot.js",
+      "before": "9fba19227a6804bf32cf5c775fc6fb98e22e3e9a",
+      "after": "bf68d7a5ccd1201e34a5ede498241581717c0e54",
+      "group": "跨交易日恢复",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "V6_BO/src/core/session-index-feed.js",
+      "group": "跨交易日恢复",
+      "before": "cef9410adc9cae853f8c78dc6a41e61b70f7be91",
+      "source": "ae2c2f9d96eb92a2a954a03638f70b00a559131b",
+      "decision": "context-checked function/block merge"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-cross-session-recovery.test.js",
+      "before": null,
+      "after": "9b000f28d42531583d99f081bd2ff44fe55cf518",
+      "group": "跨交易日恢复",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-session-recovery-20261127/README.md",
+      "before": null,
+      "after": "09b07a3735ab24606085bc162d18e1aa58791dae",
+      "group": "跨交易日恢复",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "group": "历史导入与原始回执",
+      "before": "aa7b1cd66de7aa35901235e41e353af4899a393d",
+      "source": "88de33dfeb556c77c2f9a3abd5c29cbcba0498f6",
+      "decision": "retain-newer-eia-compatible-receipt-chain; six original functions exact"
+    },
+    {
+      "path": "docs/validation/fayo-d-history-import-integrity-20261127/README.md",
+      "before": null,
+      "after": "c274c1163bb4eabdaca83e4c573eef0b00268567",
+      "group": "历史导入与原始回执",
+      "decision": "exact source blob"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-receipt-integrity-20261127/README.md",
+      "before": null,
+      "after": "63aa28e8a3554fe0e9167347c05c87cedb76e0e8",
+      "group": "历史导入与原始回执",
+      "decision": "exact source blob"
+    }
+  ],
+  "verification": {
+    "depth": "base and candidate authorization-to-session block identical; #493 changes only that block; exact new block transplanted",
+    "index": "kept #449 highwater and physical cadence; integrated #497 day epoch, queued dispatch check and closed-session admission",
+    "receipt": "all six original receipt functions exact between #475 and candidate; preserve EIA extension",
+    "syntax": "both manually merged JS files compiled by V8",
+    "runtime": "not yet run",
+    "fullCI": "pending",
+    "productionAcceptance": false,
+    "originalTaskCoverage": "No new original task closure inferred without original 16 definitions"
+  },
+  "limits": [
+    "No deleted source files, workflow edits, trade authorization, deployment or source purchase."
+  ]
+}

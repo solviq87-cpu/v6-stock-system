@@ -5,6 +5,20 @@ const crypto=require('node:crypto');
 const {validateImport}=require('./market-data-center');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {assessDailyTurnoverBar}=require('./daily-turnover-sanity');
+const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
+const validClock=n=>Number.isSafeInteger(n)&&n>0&&n<=8e15;
+const decimal=x=>typeof x==='string'&&x.length<=64&&/^\d+(?:\.\d+)?$/.test(x);
+// Exact conversion: 0.29 hands is 29 shares, not a binary floating error.
+// Fractions smaller than one share cannot represent an integer share count.
+function handsToShares(value){
+ if(!decimal(value))return NaN;
+ const [whole,fraction='']=value.split('.');
+ if(/[1-9]/.test(fraction.slice(2)))return NaN;
+ const lots=Number(whole);
+ if(!Number.isSafeInteger(lots))return NaN;
+ const shares=lots*100+Number((fraction+'00').slice(0,2));
+ return Number.isSafeInteger(shares)?shares:NaN;
+}
 const ENDPOINT='https://push2his.eastmoney.com/api/qt/stock/kline/get';
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const validDate=x=>{
@@ -18,7 +32,7 @@ function secId(symbol){
 }
 function parseKlines(payload,expected){
  const d=payload?.data;
- if(!d||String(d.code)!==expected||!Array.isArray(d.klines)||d.klines.length<32||d.klines.length>10000)throw Error('公开日K线结构或返回代码不一致: '+expected);
+ if(!d||typeof d.code!=='string'||d.code!==expected||!Array.isArray(d.klines)||d.klines.length<32||d.klines.length>10000)throw Error('公开日K线结构或返回代码不一致: '+expected);
  const seen=new Set();const bars=[];
  for(const row of d.klines){
   if(typeof row!=='string')throw Error('公开日K线必须是逗号分隔文本');
@@ -28,9 +42,9 @@ function parseKlines(payload,expected){
   const cells=row.split(',');if(cells.length<7)throw Error('公开日K线缺失OHLCV或成交额字段');
   const [date,open,close,high,low,volumeHands,amountYuan]=cells;
   if(!validDate(date)||seen.has(date))throw Error('公开日K线日期无效或重复');seen.add(date);
-  if([open,close,high,low,volumeHands,amountYuan].some(x=>x.trim()===''))
-   throw Error('公开日K线OHLCV或成交额缺失: '+expected);
-  const shares=Number(volumeHands)*100;
+  if([open,close,high,low,volumeHands,amountYuan].some(x=>!decimal(x)))
+   throw Error('公开日K线OHLCV或成交额缺失或非十进制字段: '+expected);
+  const shares=handsToShares(volumeHands);
   const b={date,open:Number(open),high:Number(high),low:Number(low),close:Number(close),
    volume:shares,amount:Number(amountYuan)};
   if(!Object.values(b).slice(1).every(x=>Number.isFinite(x))||
@@ -44,8 +58,12 @@ function parseKlines(payload,expected){
  for(let i=1;i<bars.length;i++)if(bars[i].date<=bars[i-1].date)throw Error('公开日K线日期无序: '+expected);
  return {code:expected,name:String(d.name||expected).slice(0,80),market:expected.startsWith('3')?'chinext':expected.startsWith('68')?'star':'main',bars};
 }
-async function boundedJson(response,maxBytes){
- if(!response?.ok)throw Error('公开日K线HTTP '+(response?.status??'无响应'));
+async function boundedJson(response,maxBytes,requestedUrl){
+ if(hasQuoteRedirect(response,requestedUrl))throw Error('公开日K线拒绝重定向响应');
+ if(response?.ok!==true||response.status!==200)throw Error('公开日K线HTTP '+(response?.status??'无响应'));
+ const declared=response.headers?.get?.('content-length');
+ if(typeof declared==='string'&&/^\d+$/.test(declared)&&Number(declared)>maxBytes)
+  throw Error('公开K线响应超过大小限制');
  const ct=response.headers?.get?.('content-type');if(ct&&!/^(?:application\/(?:json|[\w.+-]+\+json)|text\/plain)(?:\s*;|\s*$)/i.test(ct))throw Error('公开K线响应类型非JSON');
  let bytes;
  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
@@ -57,6 +75,7 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  if(!Array.isArray(symbols)||symbols.length<1||symbols.length>100||new Set(symbols).size!==symbols.length)throw Error('沪深A股股票池需要1到100只互异代码');
  for(const s of symbols)secId(s);
  if(!['qfq','unadjusted'].includes(priceAdjustment))throw Error('历史复权要求明确 qfq 或 unadjusted');
+ if(!validClock(now))throw Error('历史行情请求时钟无效');
  if(!validDate(start)||!validDate(end)||start>=end||end>aShareCalendarDate(now))throw Error('历史行情起止日期无效或位于未来');
  if(typeof fetchImpl!=='function'||!Number.isSafeInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000||!Number.isSafeInteger(maxBytes)||maxBytes<1024||maxBytes>8*1024*1024)throw Error('历史接口请求参数无效');
  const stocks=[];
@@ -65,7 +84,7 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
   for(const [k,v] of Object.entries({secid:secId(symbol),fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57',klt:'101',fqt:priceAdjustment==='qfq'?'1':'0',beg:start.replaceAll('-',''),end:end.replaceAll('-',''),lmt:'10000'}))url.searchParams.set(k,v);
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeoutMs);
   let payload;
-  try{payload=await boundedJson(await fetchImpl(url.toString(),{method:'GET',redirect:'error',signal:ctrl.signal,headers:{Accept:'application/json'}}),maxBytes);}
+  try{payload=await boundedJson(await fetchImpl(url.toString(),{method:'GET',redirect:'error',signal:ctrl.signal,headers:{Accept:'application/json'}}),maxBytes,url.toString());}
   finally{clearTimeout(timer);}
   const parsed=parseKlines(payload,symbol);
   // Only unadjusted prices can be compared with raw CNY turnover / shares.
@@ -86,7 +105,9 @@ async function fetchEastmoneyHistory({symbols,start,end,fetchImpl=globalThis.fet
  const dataset={source:'imported',provider,datasetId,asOf:last,
   volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',
   priceAdjustment:{mode:priceAdjustment,provider:'eastmoney-public-history-fqt-'+(priceAdjustment==='qfq'?'1':'0')},stocks};
- validateImport(dataset,{provider,datasetId});
+ // Use the original request-start clock conservatively; a later wall clock
+ // cannot turn a same-day intraday response into an admitted final daily bar.
+ validateImport(dataset,{provider,datasetId,now});
  return {dataset,metadata:{mode:'unverified-public-daily-history',provider,datasetId,asOf:last,stockCount:stocks.length,priceAdjustment,volumeUnit:'shares',amountUnit:'CNY',
   amountBasis:'actual-unadjusted-turnover',verifiedLive:false,canTrade:false,
   warning:'公开接口可能调整、返回延迟或不完整行情。未核验交易所官方记录、公司行为、复权正确性及数据使用授权。f56按手转股，f57按人民币元保留原成交额；前复权价不得与原始成交额直接反算均价。不能直接用于实盘。'}};

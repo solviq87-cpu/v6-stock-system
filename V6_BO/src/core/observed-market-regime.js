@@ -5,7 +5,7 @@ const {classifyMarket}=require('./market-regime');
 const SCORE_KEYS=['indexTrendScore','marketVolumeScore','riskScore','volatilityScore','sentimentScore'];
 function classifyObservedMarket(snapshot, options={}){
  const breadth=analyzeMarketBreadth(snapshot,options);
- if(!breadth.usable)return {usable:false,reason:breadth.reason,breadth,regime:null,weights:null};
+ if(!breadth.usable||breadth.decisionUsable!==true)return {usable:false,reason:breadth.reason||'合格市场证据覆盖不足，暂停市场环境判断',breadth,regime:null,weights:null};
  const scores=options.scores;
  if(!scores||typeof scores!=='object'||Array.isArray(scores))
   return {usable:false,reason:'缺少独立来源的市场环境评分',breadth,regime:null,weights:null};
@@ -15,7 +15,7 @@ function classifyObservedMarket(snapshot, options={}){
   return {usable:false,reason:'市场环境评分缺少来源',breadth,regime:null,weights:null};
  if(options.scoreDate!==breadth.date)
   return {usable:false,reason:'市场环境评分日期与股票快照不一致',breadth,regime:null,weights:null};
- const classified=classifyMarket({...scores,breadthScore:breadth.breadthScore});
+ const classified=classifyMarket({...scores,breadthScore:breadth.decisionBreadthScore});
  return {usable:true,date:breadth.date,source:breadth.source,scoreSource:options.scoreSource,breadth,
   regime:classified.regime,attackScore:classified.attackScore,defensiveScore:classified.defensiveScore,
   weights:classified.weights,inputs:classified.inputs,

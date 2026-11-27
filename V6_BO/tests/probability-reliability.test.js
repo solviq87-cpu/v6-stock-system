@@ -109,3 +109,18 @@ test('incomplete calibration never becomes a complete improvement claim',()=>{
  assert.equal(r.pairedComparison.improvedBrierOnCompleteHoldout,null);
  assert.equal(r.canTrade,false);assert.equal(r.canApprove,false);
 });
+
+test('labels cannot contradict the original frozen security, model, calendar or horizon identity',()=>{
+ const f=prediction(31),identity={code:f.code,symbol:f.code,signalDay:f.signalDay,predictedAt:f.predictedAt,
+  modelVersion:f.modelVersion,modelFingerprint:f.modelFingerprint,planFingerprint:f.planFingerprint,
+  calendarFingerprint:f.calendarFingerprint,horizonTradingDays:spec.horizonTradingDays};
+ const patches=[{code:'600000'},{symbol:'600000'},{code:null},{signalDay:dates[30]},
+  {predictedAt:f.predictedAt+1},{modelVersion:'v2'},{modelFingerprint:'c'.repeat(64)},
+  {planFingerprint:'d'.repeat(64)},{calendarFingerprint:'e'.repeat(64)},{horizonTradingDays:5}];
+ for(const patch of patches){
+  const r=evaluate(plan,[f],[label(f,true,{...identity,...patch})],calendar,{now:time(70)});
+  assert.equal(r.validationRaw.samples,0);assert.equal(r.exclusions['invalid-or-unmatured-label'],1);
+ }
+ assert.equal(evaluate(plan,[f],[label(f,true,identity)],calendar,{now:time(70)}).validationRaw.samples,1);
+ assert.equal(evaluate(plan,[f],[label(f)],calendar,{now:time(70)}).validationRaw.samples,1);
+});

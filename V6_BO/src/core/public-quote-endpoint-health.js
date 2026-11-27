@@ -5,29 +5,15 @@
  * is ever used to construct a second request.
  */
 const {performance}=require('node:perf_hooks');
-const {address,parse}=require('./public-market');
+const {address,parse,safeClock,boundedQuoteBody,decodeQuote,quoteTransportFailureKind,BodyLimitError}=require('./public-market');
 const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const {session}=require('./quote-dual-source-diagnostic');
 const IDS=Object.freeze(['tencent','eastmoney','sina']);
 const SIZE_LIMIT=65536;
-const safeNow=n=>Number.isSafeInteger(n)&&n>0;
+const safeNow=safeClock;
 const elapsed=start=>Math.max(0,Math.round(performance.now()-start));
 function reason(status,code=null){return {status,httpStatus:code,quoteAt:null,
  quoteAgeMs:null,price:null,previousClose:null};}
-async function boundedBody(response){
- const header=response.headers?.get?.('content-length');
- if(header!==null&&header!==undefined&&/^\d+$/.test(header)&&Number(header)>SIZE_LIMIT)
-  throw Error('body-too-large');
- if(!response.body||typeof response.body[Symbol.asyncIterator]!=='function')
-  throw Error('invalid-response');
- const chunks=[];let n=0;
- for await(const chunk of response.body){
-  const buf=Buffer.from(chunk);n+=buf.length;
-  if(n>SIZE_LIMIT)throw Error('body-too-large');
-  chunks.push(buf);
- }
- return Buffer.concat(chunks);
-}
 async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
  const started=performance.now();
  const controller=new AbortController();
@@ -52,11 +38,18 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    // Partial/empty/other success codes are not the expected complete quote.
    if(httpStatus!==200)return reason('invalid-response',httpStatus);
    let raw;
-   try{raw=await boundedBody(response);}
-   catch(e){return reason(e.message==='body-too-large'?'response-too-large':'invalid-response',httpStatus);}
+   try{raw=await boundedQuoteBody(response,SIZE_LIMIT);}
+   catch(e){
+    if(controller.signal.aborted)return {...reason('timeout'),failureKind:'timeout'};
+    const tooLarge=e instanceof BodyLimitError;
+    const transport=quoteTransportFailureKind(e);
+    const status=tooLarge?'response-too-large':'invalid-response';
+    return {...reason(status,httpStatus),failureKind:tooLarge?status:
+     transport==='transport-error'?status:transport};
+   }
    let q;
    try{
-    const text=id==='eastmoney'?raw.toString('utf8'):new TextDecoder('gb18030').decode(raw);
+    const text=decodeQuote(id,raw);
     q=parse(id,text,code);
    }catch{return reason('invalid-quote',httpStatus);}
    const observedAt=clock();
@@ -67,11 +60,12 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    return {status:fresh?'fresh-source-unverified':'dated-snapshot',
     httpStatus,quoteAt:q.timestamp,quoteAgeMs:age,
     price:q.price,previousClose:q.previousClose};
-  }catch{return reason(controller.signal.aborted?'timeout':'transport-error');}
+  }catch(e){return {...reason(controller.signal.aborted?'timeout':'transport-error'),
+   failureKind:controller.signal.aborted?'timeout':quoteTransportFailureKind(e)};}
  })();
  try{
   const timed=new Promise(resolve=>{
-   timer=setTimeout(()=>{controller.abort();resolve(reason('timeout'));},timeoutMs);
+   timer=setTimeout(()=>{controller.abort();resolve({...reason('timeout'),failureKind:'timeout'});},timeoutMs);
   });
   const result=await Promise.race([work,timed]);
   return {provider:id,...result,elapsedMs:elapsed(started)};
@@ -100,9 +94,11 @@ async function inspectPublicQuoteEndpoints({
   return {...base,status:'outside-weekday-session-window',
    providers:providers.map(id=>({provider:id,...reason('not-requested'),elapsedMs:0}))};
  }
+ let high=startedAt,regressed=false,invalid=false;
+ const observe=()=>{try{const now=clock();if(!safeNow(now)){invalid=true;return NaN;}if(now<high)regressed=true;high=Math.max(high,now);return now;}catch{invalid=true;return NaN;}};
  const results=await Promise.all(providers.map(id=>
-  inspectOne({id,code,clock,fetchImpl,timeoutMs})));
- const finishedAt=clock();
+  inspectOne({id,code,clock:observe,fetchImpl,timeoutMs})));
+ const finishedAt=observe();
  if(!safeNow(finishedAt))throw Error('结束时钟无效');
  // A fast peer may have been fresh when its response arrived but expired
  // while awaiting slower peers. Recompute every reported age at publication;
@@ -111,14 +107,18 @@ async function inspectPublicQuoteEndpoints({
   if(Number.isSafeInteger(r.quoteAt)&&r.quoteAt>0)
    r.quoteAgeMs=finishedAt-r.quoteAt;
   if(!['fresh-source-unverified','dated-snapshot'].includes(r.status))continue;
-  if(r.quoteAt===null||r.quoteAt>finishedAt){
+  if(invalid||regressed||r.quoteAt===null||r.quoteAt>finishedAt){
    // Do not retain price/time fields on a failed receipt.
    Object.assign(r,reason('invalid-quote-time',r.httpStatus));
-  }else if(finishedAt<startedAt||!session(finishedAt)||r.quoteAgeMs>15000){
+  }else if(!session(finishedAt)||r.quoteAgeMs>15000){
    r.status='dated-snapshot';
   }
  }
- return {...base,status:finishedAt<startedAt?'clock-regressed':'completed-unverified',
-  finishedAt:new Date(finishedAt).toISOString(),providers:results};
+ const fresh=results.filter(r=>r.status==='fresh-source-unverified').length;
+ const denied=results.filter(r=>['access-denied','rate-limited'].includes(r.status)).length;
+ const observationPattern=invalid||regressed?'untrusted-clock':fresh===results.length?'all-fresh-unverified':
+  fresh>0?'partial-fresh':denied===results.length&&results.length>1?'all-denied-or-limited':'no-fresh-observation';
+ return {...base,status:invalid||regressed?'clock-regressed':'completed-unverified',
+  finishedAt:new Date(finishedAt).toISOString(),providers:results,observationPattern,commonCauseVerified:false};
 }
 module.exports={inspectPublicQuoteEndpoints};

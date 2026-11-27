@@ -6,11 +6,22 @@
 const {probePublicQuotes,projectProbe}=require('./public-quote-probe');
 const {session}=require('./quote-dual-source-diagnostic');
 const {fetchItickStockQuote}=require('./itick-stock-quote');
-const {resolveUpstream}=require('./data-source-lineage');
+const {resolveUpstream,sourceLineage}=require('./data-source-lineage');
 const PUBLIC_IDS=['tencent','eastmoney','sina'];
 const bps=(a,b)=>10000*Math.abs(a-b)/Math.max(a,b);
 const chinaDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 const validCode=code=>typeof code==='string'&&/^(?:60|68|00|30)\d{4}$/.test(code);
+// The registered publisher is not necessarily registered for A-share quotes.
+// A CN quote-capable or multi-asset route is a research candidate only; the
+// existing explicit iTick stock adapter is the reviewed GLOBAL exception.
+// Generic global sources, historical bars, macro, funds and announcements
+// require a reviewed A-share quote route before they can cast a price vote.
+function ashareQuoteClass(lineage){
+ return lineage?.known===true&&(
+  lineage.market==='CN'&&['a-share-quote','cn-multi-asset','cn-quote-execution'].includes(lineage.dataClass)||
+  lineage.market==='GLOBAL'&&lineage.dataClass==='global-quote'&&
+   lineage.id==='itick'&&lineage.adapter==='itick-stock-quote.js');
+}
 // The calendar is explicit operator-provided evidence, never inferred from weekdays.
 function operatorTradingDay(now,tradingDates){
  if(tradingDates===undefined)return null;
@@ -50,6 +61,8 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   // This identity is operator-declared and is NOT vendor authentication.
   const identity=resolveUpstream(s.id,s.upstreamGroup);
   const upstreamGroup=identity.group;
+  const lineage=sourceLineage(s.id);
+  const publisherCandidate=identity.known&&identity.catalogGroup!==null&&ashareQuoteClass(lineage);
   // Provider aliases without a known upstream cannot vote on independence.
   // Registered routes use their canonical raw publisher, not SDK names.
   if(upstreamGroup!==null&& !/^[a-z][a-z0-9-]{0,63}$/.test(upstreamGroup))
@@ -71,8 +84,8 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
    else {
     // A user-declared alias may group sources MORE conservatively, never
     // split two catalogued wrappers of the same underlying publisher.
-    const publisherCandidate=identity.known&&identity.catalogGroup!==null;
-    reason=publisherCandidate?'eligible-for-comparison':'unregistered-upstream';
+    reason=publisherCandidate?'eligible-for-comparison':
+     identity.known&&identity.catalogGroup!==null?'incompatible-quote-source-class':'unregistered-upstream';
     valid.push({id:s.id,upstreamGroup,catalogGroup:identity.catalogGroup,
      publisherCandidate,price:q.price,previousClose:q.previousClose,quoteAt:q.quoteAt});
    }
@@ -82,7 +95,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
   const observedPrice=Number.isFinite(q?.price)&&q.price>0?q.price:null;
   const observedPreviousClose=Number.isFinite(q?.previousClose)&&q.previousClose>0?q.previousClose:null;
   sourceStatuses.push({provider:s.id,upstreamGroup,upstreamCatalogued:identity.known,
-   publisherCandidate:identity.known&&identity.catalogGroup!==null,
+   publisherCandidate,sourceDataClass:lineage?.dataClass??null,sourceMarket:lineage?.market??null,
    sourceIdentityVerified:false,status:reason,
    quoteAt,quoteAgeMs:quoteAt===null?null:now-quoteAt,
    observedPrice,observedPreviousClose,inConsensus:false});
@@ -90,7 +103,10 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  const base={schemaVersion:1,mode:'multi-source-price-consensus-research',
   code,checkedAt:new Date(now).toISOString(),referencePrice:null,representativeProvider:null,
   supportingProviders:[],sourceCount:sources.length,eligibleCount:valid.length,
+  // Keep the legacy eligibleCount (shape/time/identity evidence) for diagnostics.
+  // Only the class-qualified catalogued subset can contribute price votes.
   cataloguedPublisherCandidates:valid.filter(s=>s.publisherCandidate).length,
+  incompatibleQuoteSourceCount:sourceStatuses.filter(s=>s.status==='incompatible-quote-source-class').length,
   sourceStatuses,priceToleranceBps,previousCloseToleranceBps,timeGapMs,maxAgeMs,
   operatorCalendarProvided:operatorDay!==null,operatorCalendarMatch:operatorDay,
   exchangeCalendarVerified:false,providerLicensed:false,certifiedLive:false,
@@ -119,7 +135,7 @@ function fuseMultiSourcePrices({code,now,sources,priceToleranceBps=30,previousCl
  if(duplicateUpstreamGroups.length)return {...base,status:'duplicate-upstream-evidence',
   duplicateUpstreamGroups,
   note:base.note+'；本轮存在同一上游多个有效来源别名，不能将它们当独立票数'};
- // Only an exact registered single-publisher route can provide a distinct
+ // Only an exact registered A-share quote-class single-publisher route can provide a distinct
  // research vote. Unregistered or multi-upstream declarations remain visible
  // as evidence, but they never create an apparently corroborated price.
  const voting=valid.filter(s=>s.publisherCandidate);

@@ -77,3 +77,23 @@ test('disputed title remains a risk-review clue and simulated or stale quality c
  }
  assert.equal(buildIssuerPools([{symbol,issuerEvidence:clean,quality:{usable:true,fresh:true}}])['公告优势线索池'].length,1);
 });
+
+test('a simulated source or an official PDF path from a future day cannot support news clues',()=>{
+ for(const patch of [{source:'synthetic-fixture'},{provider:'mock-feed'},{provenance:'replay/test'},{dataMode:'fixture-only'},
+  {url:'https://static.cninfo.com.cn/finalpage/2026-11-08/101.pdf'}]){
+  const out=run([row(patch)]);assert.equal(out.count,0);assert.equal(out.unusableCount,1);
+ }
+ assert.equal(run([row()]).strengthClues.length,1);
+});
+test('news linkage and pools cannot reuse another security or historical-only data as current strength',()=>{
+ const e=run([row()]),good={symbol,issuerEvidence:e,patterns:{positiveCount:1},quality:{usable:true,fresh:true}};
+ assert.equal(buildIssuerLinkage(good).strengthConfluence,true);
+ assert.equal(buildIssuerPools([good])['公告优势线索池'].length,1);
+ for(const bad of [{...good,symbol:'600002'},{...good,code:'600002'},
+   {...good,issuerEvidence:{...e,strengthClues:[{...e.strengthClues[0],code:'600002'}]}}]){
+  assert.equal(buildIssuerLinkage(bad).strengthConfluence,false);
+  assert.equal(buildIssuerPools([bad])['公告优势线索池'].length,0);
+ }
+ for(const quality of [{...good.quality,historical:true},{...good.quality,readOnlyBackup:true}])
+  assert.equal(buildIssuerPools([{...good,quality}])['公告优势线索池'].length,0);
+});

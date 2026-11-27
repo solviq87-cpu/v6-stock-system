@@ -1,0 +1,230 @@
+{
+  "engine": "V8 isolated JavaScript execution; exact stock-risk-evidence source; export syntax removed for loading; explicit assert/test harness; not native Node or full repository CI",
+  "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "originalRiskBlob": "facf80c489db4f6ddc23fa71d14dbeb13e35ca9e",
+  "originalBacktestBlob": "73ffaa48a0d84ce7ef019386d8542d6674030e7c",
+  "originalTestBlob": "4306d018147ce7169db9d3be2fc780e281e6a00a",
+  "method": "Before and after same 19 new tests; existing first six direct tests executed before and after; seventh full CSV/autoValidate integration test not run. No external dependencies used.",
+  "before": [
+    {
+      "name": "C6.1 conflicting daily observations cannot create a high-mark warning by input order",
+      "pass": false,
+      "error": "11:0: expected false got true"
+    },
+    {
+      "name": "C6.1 equivalent visible daily duplicates do not destroy a genuine sequence",
+      "pass": false,
+      "error": "30:3: expected true got undefined"
+    },
+    {
+      "name": "C6.1 conflicting earlier volume interrupts the consecutive shrinking sequence",
+      "pass": true
+    },
+    {
+      "name": "C6.1 explicit invalid previous-day reference cannot be silently replaced by a weekday guess",
+      "pass": false,
+      "error": "30:0: expected false got true"
+    },
+    {
+      "name": "C6.2 negative assist count is unknown, not observed collapse",
+      "pass": false,
+      "error": "40:1: expected false got true"
+    },
+    {
+      "name": "C6.2 real zero assists remains a verified adverse observation",
+      "pass": true
+    },
+    {
+      "name": "C6.2 leader name or stock code must identify a real distinct stock",
+      "pass": false,
+      "error": "37:0: expected false got true"
+    },
+    {
+      "name": "C6.2 unique valid leader and numeric code still verify while ambiguous or late evidence stays unknown",
+      "pass": true
+    },
+    {
+      "name": "C6.3 late explicit plan receipts cannot cause hindsight stop, target or regime mismatch",
+      "pass": false,
+      "error": "52:0: expected false got true"
+    },
+    {
+      "name": "C6.3 malformed, unknown or reversed freeze receipt cannot become a known plan",
+      "pass": false,
+      "error": "52:0: expected false got true"
+    },
+    {
+      "name": "C6.3 valid original receipt preserves research facts; fractional holding cannot assert position",
+      "pass": false,
+      "error": "64:0: expected false got true"
+    },
+    {
+      "name": "C6.3 actual backtest selector excludes late and same-second future freeze, retains unique visible plan",
+      "pass": false,
+      "error": "selectFrozenRiskPlan is not a function"
+    },
+    {
+      "name": "C6.4 conflict flags block unsupported bid-ask spread evidence",
+      "pass": false,
+      "error": "57:1: expected false got true"
+    },
+    {
+      "name": "C6.4 original suspension cannot be erased or replaced by contradictory quotes",
+      "pass": true
+    },
+    {
+      "name": "C6.5 conflicting duplicate minute and alias of same timestamp cannot generate a repeated plunge",
+      "pass": false,
+      "error": "60:1: expected false got true"
+    },
+    {
+      "name": "C6.5 explicit invalid duplicate value cannot be filtered away before conflict detection",
+      "pass": false,
+      "error": "60:1: expected false got true"
+    },
+    {
+      "name": "C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges",
+      "pass": false,
+      "error": "60:1: expected false got true"
+    },
+    {
+      "name": "C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible",
+      "pass": false,
+      "error": "60:1: expected true got undefined"
+    },
+    {
+      "name": "C6.5 late conflicting minute cannot rewrite earlier visible history",
+      "pass": true
+    }
+  ],
+  "after": [
+    {
+      "name": "C6.1 conflicting daily observations cannot create a high-mark warning by input order",
+      "pass": true
+    },
+    {
+      "name": "C6.1 equivalent visible daily duplicates do not destroy a genuine sequence",
+      "pass": true
+    },
+    {
+      "name": "C6.1 conflicting earlier volume interrupts the consecutive shrinking sequence",
+      "pass": true
+    },
+    {
+      "name": "C6.1 explicit invalid previous-day reference cannot be silently replaced by a weekday guess",
+      "pass": true
+    },
+    {
+      "name": "C6.2 negative assist count is unknown, not observed collapse",
+      "pass": true
+    },
+    {
+      "name": "C6.2 real zero assists remains a verified adverse observation",
+      "pass": true
+    },
+    {
+      "name": "C6.2 leader name or stock code must identify a real distinct stock",
+      "pass": true
+    },
+    {
+      "name": "C6.2 unique valid leader and numeric code still verify while ambiguous or late evidence stays unknown",
+      "pass": true
+    },
+    {
+      "name": "C6.3 late explicit plan receipts cannot cause hindsight stop, target or regime mismatch",
+      "pass": true
+    },
+    {
+      "name": "C6.3 malformed, unknown or reversed freeze receipt cannot become a known plan",
+      "pass": true
+    },
+    {
+      "name": "C6.3 valid original receipt preserves research facts; fractional holding cannot assert position",
+      "pass": true
+    },
+    {
+      "name": "C6.3 actual backtest selector excludes late and same-second future freeze, retains unique visible plan",
+      "pass": true
+    },
+    {
+      "name": "C6.4 conflict flags block unsupported bid-ask spread evidence",
+      "pass": true
+    },
+    {
+      "name": "C6.4 original suspension cannot be erased or replaced by contradictory quotes",
+      "pass": true
+    },
+    {
+      "name": "C6.5 conflicting duplicate minute and alias of same timestamp cannot generate a repeated plunge",
+      "pass": true
+    },
+    {
+      "name": "C6.5 explicit invalid duplicate value cannot be filtered away before conflict detection",
+      "pass": true
+    },
+    {
+      "name": "C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges",
+      "pass": true
+    },
+    {
+      "name": "C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible",
+      "pass": true
+    },
+    {
+      "name": "C6.5 late conflicting minute cannot rewrite earlier visible history",
+      "pass": true
+    }
+  ],
+  "legacyBefore": [
+    {
+      "name": "风险仅由有时点的个股与标的上下文触发；情绪和助攻缺失保持未知",
+      "pass": true
+    },
+    {
+      "name": "高位低开与放量滞涨、缩量连板兑现及前日一字开板使用连续交易日",
+      "pass": true
+    },
+    {
+      "name": "基本面需有同标的披露来源和可知时间，金融企业不套用普通工商偿债口径",
+      "pass": true
+    },
+    {
+      "name": "停牌、实时报价价差与全成分板块断层分开判定，封板数不充当全板块上涨数",
+      "pass": true
+    },
+    {
+      "name": "自述动机、已有持仓、冻结止损分别有独立证据，不以盈亏或价格触达推断执行",
+      "pass": true
+    },
+    {
+      "name": "连续剧烈跳水缺少连续成交分钟时保持未知；利空叠加按独立事实计数",
+      "pass": true
+    }
+  ],
+  "legacyAfter": [
+    {
+      "name": "风险仅由有时点的个股与标的上下文触发；情绪和助攻缺失保持未知",
+      "pass": true
+    },
+    {
+      "name": "高位低开与放量滞涨、缩量连板兑现及前日一字开板使用连续交易日",
+      "pass": true
+    },
+    {
+      "name": "基本面需有同标的披露来源和可知时间，金融企业不套用普通工商偿债口径",
+      "pass": true
+    },
+    {
+      "name": "停牌、实时报价价差与全成分板块断层分开判定，封板数不充当全板块上涨数",
+      "pass": true
+    },
+    {
+      "name": "自述动机、已有持仓、冻结止损分别有独立证据，不以盈亏或价格触达推断执行",
+      "pass": true
+    },
+    {
+      "name": "连续剧烈跳水缺少连续成交分钟时保持未知；利空叠加按独立事实计数",
+      "pass": true
+    }
+  ]
+}

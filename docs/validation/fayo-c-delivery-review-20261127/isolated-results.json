@@ -1,0 +1,206 @@
+{
+  "base": "bc2623dfe3cdca5cff78781e0d5b036d08cffc41",
+  "engine": "Isolated V8 full old/new lifecycle and original C recovery contract and canonical function. In-memory fs/lock/atomic write/path, deterministic digest substitute, test/assert harness and byteLength substitute; not native Node, real file permissions, concurrency or transport. No notifications sent.",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "blob": "a2a5abfa935c4de9e6249e5e266c30611dd9aaaf"
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "blob": "0e8332e37611934a6553157eb1780906e6f623f2"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-store.js",
+      "blob": "9f42c186d3b9453570dadc5c2375a291405b27f0"
+    },
+    {
+      "path": "V6_BO/tests/risk-alert-lifecycle.test.js",
+      "blob": "e43d412f9d89df6228f141a386040ca0b53d7847"
+    }
+  ],
+  "before": [
+    {
+      "name": "C18.1 queue acceptance or unsupported receiver flag is not gateway acceptance",
+      "pass": false,
+      "error": "equal: expected \"unconfirmed\" got \"gateway-accepted\""
+    },
+    {
+      "name": "C18.2 archive clock rollback cannot display a future receipt or release a reservation",
+      "pass": false,
+      "error": "expected throw /时钟回退/ got undefined"
+    },
+    {
+      "name": "C18.2 resealed impossible receipt times fail closed, original archive is not repaired",
+      "pass": false,
+      "error": "expected throw /回执时序/ got undefined"
+    },
+    {
+      "name": "C18.2 one original event cannot have two reservations, even under a recomputed archive fingerprint",
+      "pass": false,
+      "error": "expected throw /投递记录损坏/ got undefined"
+    },
+    {
+      "name": "C18.3 a provider receiver receipt cannot be replayed for another event in the same account period",
+      "pass": false,
+      "error": "expected throw /其他事件/ got undefined"
+    },
+    {
+      "name": "C18.3 duplicate identical receiver evidence is idempotent even if wrapper reason changes",
+      "pass": false,
+      "error": "equal: expected false got true"
+    },
+    {
+      "name": "C18.3 explicitly mismatched account period or delivery identity cannot confirm a receipt",
+      "pass": false,
+      "error": "expected throw /身份冲突/ got undefined"
+    },
+    {
+      "name": "C18.4 historical status cannot claim a confirmed delivery with no corresponding receipt",
+      "pass": false,
+      "error": "expected throw /状态与保留回执/ got undefined"
+    },
+    {
+      "name": "C18.4 contradictory gateway records stay uncertain; late timeout cannot erase a trusted receiver",
+      "pass": true
+    },
+    {
+      "name": "C18.5 earlier incident delivery remains visible after escalation, detection and receipt times stay separate",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading 'rows')"
+    },
+    {
+      "name": "C18.5 a station view is not receiver confirmation, and conflicting gateway times stay unknown",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading 'rows')"
+    },
+    {
+      "name": "C18.5 review retains all original events but limits the additional projection to sixteen rows",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading 'totalEvents')"
+    }
+  ],
+  "after": [
+    {
+      "name": "C18.1 queue acceptance or unsupported receiver flag is not gateway acceptance",
+      "pass": true
+    },
+    {
+      "name": "C18.2 archive clock rollback cannot display a future receipt or release a reservation",
+      "pass": true
+    },
+    {
+      "name": "C18.2 resealed impossible receipt times fail closed, original archive is not repaired",
+      "pass": true
+    },
+    {
+      "name": "C18.2 one original event cannot have two reservations, even under a recomputed archive fingerprint",
+      "pass": true
+    },
+    {
+      "name": "C18.3 a provider receiver receipt cannot be replayed for another event in the same account period",
+      "pass": true
+    },
+    {
+      "name": "C18.3 duplicate identical receiver evidence is idempotent even if wrapper reason changes",
+      "pass": true
+    },
+    {
+      "name": "C18.3 explicitly mismatched account period or delivery identity cannot confirm a receipt",
+      "pass": true
+    },
+    {
+      "name": "C18.4 historical status cannot claim a confirmed delivery with no corresponding receipt",
+      "pass": true
+    },
+    {
+      "name": "C18.4 contradictory gateway records stay uncertain; late timeout cannot erase a trusted receiver",
+      "pass": true
+    },
+    {
+      "name": "C18.5 earlier incident delivery remains visible after escalation, detection and receipt times stay separate",
+      "pass": true
+    },
+    {
+      "name": "C18.5 a station view is not receiver confirmation, and conflicting gateway times stay unknown",
+      "pass": true
+    },
+    {
+      "name": "C18.5 review retains all original events but limits the additional projection to sixteen rows",
+      "pass": true
+    }
+  ],
+  "legacy": [
+    {
+      "name": "one root groups home, stock and account evidence without losing individual facts or restrictions",
+      "pass": true
+    },
+    {
+      "name": "repeated observations and process restart retain reservation and never schedule the same event twice",
+      "pass": true
+    },
+    {
+      "name": "severity escalation is a distinct event, separates critical notices and bypasses ordinary cooldown",
+      "pass": true
+    },
+    {
+      "name": "explicit usable resolution closes the incident, missing and stale evidence cannot call it safe",
+      "pass": true
+    },
+    {
+      "name": "an absent root in a complete observation records a gap and keeps site restrictions",
+      "pass": true
+    },
+    {
+      "name": "partial observations preserve unrelated roots and account resets cannot reuse old reservations",
+      "pass": true
+    },
+    {
+      "name": "gateway acceptance is not receiver delivery; user viewing is distinct from transport evidence",
+      "pass": true
+    },
+    {
+      "name": "refreshing only the source clock keeps a viewed incident viewed while escalation creates unread evidence",
+      "pass": true
+    },
+    {
+      "name": "nested original plan and order references survive grouping and cannot become trading authority",
+      "pass": true
+    },
+    {
+      "name": "receiver confirmation needs exact retained reservation and a trusted timed receipt, and cannot be downgraded",
+      "pass": true
+    },
+    {
+      "name": "unknown results and contradictory gateway receipts retain the single reservation",
+      "pass": true
+    },
+    {
+      "name": "root and class mute affect only notification, retain site risks and require current authorized-user revision",
+      "pass": true
+    },
+    {
+      "name": "cooldown, daily cap and superseded lifecycle events make oscillating alerts bounded",
+      "pass": true
+    },
+    {
+      "name": "ordinary cooldown reasons persist through restart without creating a delivery or suppressing severe escalation",
+      "pass": true
+    },
+    {
+      "name": "future or missing source time cannot resolve a root and duplicate IDs are rejected",
+      "pass": true
+    },
+    {
+      "name": "old sender result normalization requires affirmative gateway evidence and never invents receiver proof",
+      "pass": true
+    },
+    {
+      "name": "root and category mute keep separate evidence so clearing one scope cannot claim to unmute the other",
+      "pass": true
+    }
+  ],
+  "excludedLegacy": "real process concurrency, filesystem corruption/symlink, original private sender and queue tests; not executed",
+  "passed": 29,
+  "failed": 0
+}

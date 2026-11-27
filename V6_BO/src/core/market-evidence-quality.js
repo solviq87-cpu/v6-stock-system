@@ -7,7 +7,13 @@
  */
 function evaluateMarketEvidence({catalogued,timestampComparable,volumeUnitVerified,
  amountUnitVerified,amountCoverageGapBars,amountComparedBars,comparedBars,
- suspensionCoverageComplete=false,discrepancies}){
+ suspensionCoverageComplete=false,discrepancies}={}){
+ const counts=[amountCoverageGapBars,amountComparedBars,comparedBars,discrepancies];
+ const flags=[catalogued,timestampComparable,volumeUnitVerified,amountUnitVerified,suspensionCoverageComplete];
+ if(flags.some(v=>typeof v!=='boolean')||counts.some(v=>!Number.isSafeInteger(v)||v<0)||comparedBars===0||
+    amountComparedBars>comparedBars||amountCoverageGapBars>comparedBars||
+    (amountUnitVerified?amountComparedBars+amountCoverageGapBars!==comparedBars:amountComparedBars!==0||amountCoverageGapBars!==0))
+  throw Error('行情质量统计分母、覆盖计数或证据标记无效');
  const amountComplete=amountUnitVerified&&amountCoverageGapBars===0&&
   amountComparedBars===comparedBars&&comparedBars>0;
  const findings=[];

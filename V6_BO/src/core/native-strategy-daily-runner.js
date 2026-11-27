@@ -24,34 +24,112 @@ function explicitTime(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)||!validDate(value.slice(0,10)))return null;
  const at=Date.parse(value);return Number.isSafeInteger(at)&&at>0?at:null;
 }
-function availableWithinSession(row,date){
+// The daily evaluator is a research consumer, not a source of quote authority.
+// Legacy undated inputs remain compatible, but explicit late/conflicting data
+// must never enter any of the four native evaluators as same-session evidence.
+const commonTimes=['knownAt','firstKnownAt','availableAt','receivedAt','recordedAt',
+ 'observedAt','retrievedAt','sourceTimestamp','quoteAt','publishedAt','generatedAt'];
+const nullableSourceTimes=new Set(['sourceTimestamp','quoteAt','fundsSourceTimestamp']);
+function availableWithinSession(row,date,{funds=false}={}){
+ if(!row)return true;
+ const cutoff=Date.parse(date+'T23:59:59.999+08:00'),times={};
+ for(const key of [...commonTimes,...(funds?['fundsSourceTimestamp','fundsRetrievedAt']:[])]){
+  if(!own(row,key))continue;
+  if(row[key]===null&&nullableSourceTimes.has(key))continue;
+  const at=explicitTime(row[key]);if(at===null||at>cutoff)return false;
+  times[key]=at;
+ }
+ for(const [before,after] of [['quoteAt','receivedAt'],['sourceTimestamp','retrievedAt'],
+  ['sourceTimestamp','receivedAt'],['fundsSourceTimestamp','fundsRetrievedAt'],
+  ['knownAt','availableAt'],['firstKnownAt','availableAt'],['firstKnownAt','recordedAt'],
+  ['receivedAt','recordedAt'],['observedAt','availableAt']]){
+  if(own(times,before)&&own(times,after)&&times[before]>times[after])return false;
+ }
+ return true;
+}
+function legacyReceiptTimesVisible(row,date){
  if(!row)return true;
  const cutoff=Date.parse(date+'T23:59:59.999+08:00');
- return ['knownAt','availableAt','receivedAt','recordedAt'].every(key=>{
+ return ['knownAt','availableAt','receivedAt','recordedAt','observedAt','sourceTimestamp'].every(key=>{
   if(!own(row,key))return true;
   const at=explicitTime(row[key]);return at!==null&&at<=cutoff;
  });
 }
-function fundHistoryVisible(rows,date){
- if(!Array.isArray(rows))return false;
+// Nested evidence must not bypass the enclosing same-session receipt. Missing
+// optional legacy metadata is not fabricated; explicit metadata must agree.
+function nestedSessionEvidence(row,symbol,date,parent){
+ if(!object(row)||!legacyReceiptTimesVisible(row,date)||!availableWithinSession(row,date))return false;
+ for(const k of ['symbol','code'])if(own(row,k)&&row[k]!==symbol)return false;
+ for(const k of ['date','tradeDate','observedThrough'])if(own(row,k)&&row[k]!==date)return false;
+ const keys=['knownAt','availableAt','receivedAt','recordedAt','observedAt','sourceTimestamp'];
+ const outer=keys.filter(k=>own(parent,k)).map(k=>explicitTime(parent[k]));
+ const inner=keys.filter(k=>own(row,k)).map(k=>explicitTime(row[k]));
+ if(outer.some(at=>at===null)||inner.some(at=>at===null))return false;
+ return !outer.length||!inner.length||Math.max(...inner)<=Math.max(...outer);
+}
+const normalizeDate=value=>typeof value==='string'&&/^\d{8}$/.test(value)?
+ value.slice(0,4)+'-'+value.slice(4,6)+'-'+value.slice(6):value;
+function contradictory(row,allowSynthetic){
+ return ['conflict','sourceConflict','quoteSourceConflict','fundsConflict','fundsSourceConflict','retracted','superseded'].some(k=>row[k]===true)||
+  ['conflict','retracted'].includes(row.evidenceStatus)||
+  !allowSynthetic&&(['simulated','synthetic','fixture','mock','testSample','isTest','fundsSynthetic'].some(k=>row[k]===true)||
+   ['test','demo','fixture'].includes(row.sampleSet));
+}
+// Only explicit metadata is inspected; this is not vendor certification.
+// Sector/market sections may legitimately contain other securities, while a
+// stock-specific factor, fund or Python round may not borrow another symbol.
+function visibleInput(value,{symbol,date,allowSynthetic,funds=false}){
+ let visited=0;
+ function inspect(v,depth=0){
+  if(v==null||typeof v!=='object')return true;
+  if(++visited>20000||depth>12)return false;
+  if(Array.isArray(v))return v.every(x=>inspect(x,depth+1));
+  if(!availableWithinSession(v,date,{funds})||contradictory(v,allowSynthetic))return false;
+  if(symbol!==undefined&&['symbol','code'].some(k=>v[k]!=null&&v[k]!==symbol))return false;
+  for(const k of ['date','tradeDate','observedThrough',...(funds?['fundsTradeDate']:[])]){
+   if(v[k]==null)continue;
+   const d=normalizeDate(v[k]);if(!validDate(d)||d>date)return false;
+  }
+  return Object.values(v).every(x=>inspect(x,depth+1));
+ }
+ return inspect(value);
+}
+function fundHistoryVisible(rows,date,symbol,allowSynthetic){
+ if(!Array.isArray(rows)||!visibleInput(rows,{date,symbol,allowSynthetic,funds:true}))return false;
  let previous=null;
- // Keep undated legacy summaries compatible, but never let an explicit
- // future, misordered or late fund record pass as a same-session observation.
+ // Keep undated legacy summaries compatible; a declared row date is not a
+ // receipt timestamp and cannot override a later retrieval or known time.
  for(const row of rows){
-  if(!object(row)||!availableWithinSession(row,date))return false;
-  const declared=[row.date,row.tradeDate].filter(x=>x!==undefined);
+  if(!object(row)||!legacyReceiptTimesVisible(row,date))return false;
+  const declared=[row.date,row.tradeDate,row.fundsTradeDate].filter(x=>x!==undefined&&x!==null).map(normalizeDate);
   if(declared.some(d=>!validDate(d)||d>date||d!==declared[0]))return false;
   if(declared.length){if(previous!==null&&declared[0]<=previous)return false;previous=declared[0];}
  }
  return true;
 }
-function baziContext(context,date){
+function baziContext(context,date,symbol,allowSynthetic,gaps){
  const allowed=['name','sectorInfo','fundDays','mainInflow','thsNetAmt','fundsSourceTimestamp'];
  const out=Object.fromEntries(allowed.filter(k=>own(context,k)).map(k=>[k,context[k]]));
- if(!fundHistoryVisible(out.fundDays,date))delete out.fundDays;
- if(own(out,'fundsSourceTimestamp')){
-  const at=explicitTime(out.fundsSourceTimestamp),cutoff=Date.parse(date+'T23:59:59.999+08:00');
-  if(at===null||at>cutoff){delete out.mainInflow;delete out.thsNetAmt;delete out.fundDays;delete out.fundsSourceTimestamp;}
+ if(own(out,'sectorInfo')&&!visibleInput(out.sectorInfo,{date,allowSynthetic})){
+  delete out.sectorInfo;gaps.push('sectorInfo');
+ }
+ if(own(out,'fundDays')&&!fundHistoryVisible(out.fundDays,date,symbol,allowSynthetic)){
+  delete out.fundDays;gaps.push('fundDays');
+ }
+ const metadata=Object.fromEntries(['fundsSourceTimestamp','fundsRetrievedAt','fundsTradeDate','fundsConflict','fundsSourceConflict','fundsSynthetic'].filter(k=>own(context,k)).map(k=>[k,context[k]]));
+ if(own(metadata,'fundsSourceTimestamp')&&explicitTime(metadata.fundsSourceTimestamp)===null||
+    !visibleInput(metadata,{date,symbol,allowSynthetic,funds:true})){
+  for(const k of ['mainInflow','thsNetAmt','fundDays','fundsSourceTimestamp'])delete out[k];
+  gaps.push('fundReceipt');
+ }
+ return out;
+}
+function fourteenContext(context,date,symbol,allowSynthetic,gaps){
+ const out={...context};
+ for(const k of ['sector','auction','profitRatio','fourteenEvidence','floatCap']){
+  if(own(out,k)&&!visibleInput(out[k],{date,allowSynthetic,...(['auction','profitRatio','fourteenEvidence','floatCap'].includes(k)?{symbol}:{})})){
+   delete out[k];gaps.push(k);
+  }
  }
  return out;
 }
@@ -82,14 +160,19 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // Never infer free-float, order flow, auction, sector or fundamentals from OHLCV.
    if(extra&&['rows','bars','price','code','ctx','stock'].some(k=>own(extra,k)))
     throw Error('快照不得覆盖原生证券身份、历史K线或收盘价: '+key);
-   const context=availableWithinSession(extra,date)?extra||{}:{};
+   const allowSynthetic=['fixture','simulated'].includes(history.source);
+   const context=legacyReceiptTimesVisible(extra,date)&&availableWithinSession(extra,date)&&(!extra||!contradictory(
+    Object.fromEntries(Object.entries(extra).filter(([k])=>!k.startsWith('funds'))),allowSynthetic))?extra||{}:{};
+   const inputGaps={fourteen:[],bazi:[],gpt:[],python:[]};
+   if(extra&&context!==extra)for(const system of ['fourteen','bazi','gpt'])inputGaps[system].push('snapshot');
+   const fourContext=fourteenContext(context,date,symbol,allowSynthetic,inputGaps.fourteen);
    const rows=bars.map((b,j)=>({...b,pct:j?100*(b.close/bars[j-1].close-1):0}));
-   const four=projectFourteenEvidence(context,{symbol,date,cutoff:Date.parse(date+'T23:59:59.999+08:00'),
-    allowSynthetic:['fixture','simulated'].includes(history.source)});
-   const stockInfo={code:symbol,name:context.name||symbol,price:last.close,...(context.floatCap===undefined?{}:{floatCap:context.floatCap}),...(four?.stock||{})};
+   const four=projectFourteenEvidence(fourContext,{symbol,date,cutoff:Date.parse(date+'T23:59:59.999+08:00'),allowSynthetic});
+   if(own(fourContext,'fourteenEvidence')&&!four)inputGaps.fourteen.push('fourteenEvidence');
+   const stockInfo={code:symbol,name:context.name||symbol,price:last.close,...(fourContext.floatCap===undefined?{}:{floatCap:fourContext.floatCap}),...(four?.stock||{})};
    const results={};
    try{
-    const r=fourteen.evaluateOne({stock:stockInfo,rows,sector:context.sector,auction:context.auction,profitRatio:context.profitRatio,...(four?.sections||{})},undefined);
+    const r=fourteen.evaluateOne({stock:stockInfo,rows,sector:fourContext.sector,auction:fourContext.auction,profitRatio:fourContext.profitRatio,...(four?.sections||{})},undefined);
     const excludedKnown=r.items.some(x=>x.i===11&&!x.unknown);
     const sufficientlyObserved=excludedKnown&&r.known>=6;
     const verdict=r.excluded.length?'fail':sufficientlyObserved?r.verdict:'unknown';
@@ -98,7 +181,7 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
      snapshotEvidence:four?{status:'declared-same-session',source:four.source,knownAt:four.knownAt}:null};
    }catch(err){results.fourteen={verdict:'unknown',reason:'原生评估异常: '+err.message};}
    try{
-    const r=bazi.evaluate({...baziContext(context,date),code:symbol,rows,price:last.close});
+    const r=bazi.evaluate({...baziContext(context,date,symbol,allowSynthetic,inputGaps.bazi),code:symbol,rows,price:last.close});
     const insufficient=r.insufficient||[],criticalMissing=r.coverage?.criticalMissing||[];
     // '观察' is neither a completed entry condition nor a confirmed rejection.
     // Keep the native score for diagnosis, but do not admit partial evidence.
@@ -110,7 +193,11 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // GPT rules require separately observed factor inputs. OHLCV alone cannot supply
    // flow/quality/market-state features. Never substitute zeros or neutral scores.
    if(context.gptSnapshot && context.gptSnapshotObservedThrough===date){
-    if(completeScores(context.gptSnapshot,GPT_FIELDS)&&completeScores(context.market,MARKET_FIELDS)&&
+    const factorVisible=visibleInput(context.gptSnapshot,{date,symbol,allowSynthetic})&&nestedSessionEvidence(context.gptSnapshot,symbol,date,context);
+    const marketVisible=visibleInput(context.market,{date,allowSynthetic})&&nestedSessionEvidence(context.market,symbol,date,context);
+    if(!factorVisible)inputGaps.gpt.push('gptSnapshot');
+    if(!marketVisible)inputGaps.gpt.push('market');
+    if(factorVisible&&marketVisible&&completeScores(context.gptSnapshot,GPT_FIELDS)&&completeScores(context.market,MARKET_FIELDS)&&
        (!own(context,'marketObservedThrough')||context.marketObservedThrough===date)){
      const snapshot=Object.fromEntries(GPT_FIELDS.map(k=>[k,context.gptSnapshot[k]]));
      const market=Object.fromEntries(MARKET_FIELDS.map(k=>[k,context.market[k]]));
@@ -122,8 +209,19 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // Python has a separate runtime and three-round provenance requirement; do not fake it.
    const py=pythonEvidence[key];
    const evaluatedPython=evaluatePythonEvidence(py,{symbol,date});
-   results.python=availableWithinSession(py,date)?evaluatedPython:
-    {verdict:'unknown',reason:'Python回执在该历史交易日结束后才可知或时间无效'};
+   const pythonVisible=visibleInput(py,{date,symbol,allowSynthetic})&&legacyReceiptTimesVisible(py,date)&&
+    (!py||Array.isArray(py.rounds)&&py.rounds.every(r=>nestedSessionEvidence(r,symbol,date,py)));
+   if(!pythonVisible)inputGaps.python.push('pythonEvidence');
+   results.python=pythonVisible?evaluatedPython:
+    {verdict:'unknown',reason:'Python回执或三轮原始证据的时点、身份或来源无效'};
+   // A known negative result may still be retained; an invalid optional input
+   // cannot help a strategy turn into a positive signal. Keep native scores
+   // for diagnostics without presenting the rejected evidence as admitted.
+   for(const [system,gaps] of Object.entries(inputGaps))if(gaps.length){
+    const r=results[system];
+    results[system]={...r,verdict:r.verdict==='pass'?'unknown':r.verdict,
+     rejectedDataInputs:gaps,sourceEvidenceVerified:false};
+   }
    for(const [system,r] of Object.entries(results)){
     coverage[system][r.verdict==='unknown'?'unknown':'evaluated']++;
     signals.push({system,symbol,date,observedThrough:date,verdict:r.verdict,

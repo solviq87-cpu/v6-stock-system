@@ -56,16 +56,18 @@ function knownMetadata(item,published,now){
 }
 const negativeMetadata=item=>['simulated','synthetic','mock','demo','testSample','isTest'].some(k=>[true,1,'true','1','是'].includes(item[k]))||
  ['test','demo','synthetic','fixture'].includes(item.sampleSet)||
- ['simulation','synthetic','mock','test','demo'].includes(item.mode);
+ ['simulation','synthetic','mock','test','demo'].includes(item.mode)||
+ ['source','provider','provenance','mode','dataMode','sampleSource'].some(k=>typeof item[k]==='string'&&
+ /(?:^|[-_:/\.\s])(?:simulat(?:ed|ion)?|fixture|mock|synthetic|test|demo)(?:$|[-_:/\.\s])/i.test(item[k]));
 const revoked=item=>item.retracted===true||item.revoked===true||item.withdrawn===true||
  ['retracted','revoked','withdrawn','superseded'].includes(item.kind)||['retracted','revoked','withdrawn','superseded'].includes(item.status);
-function documentKey(url){
+function documentKey(url,now){
  // Only the narrow CNINFO PDF path is accepted. Normalize case for identity
  // comparison, but never rewrite the supplied original link for display.
  if(!OFFICIAL_PDF.test(url))return null;
  const d=url.match(/\/finalpage\/(\d{4}-\d{2}-\d{2})\//i)?.[1];
  const t=Date.parse(d+'T00:00:00Z');
- if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==d)return null;
+ if(!Number.isFinite(t)||new Date(t).toISOString().slice(0,10)!==d||d>new Date(now+28800000).toISOString().slice(0,10))return null;
  return url.toLowerCase();
 }
 function linkIssuerEvents({symbol,announcements=[],now=Date.now(),maxAgeDays=90}={}){
@@ -83,7 +85,7 @@ function linkIssuerEvents({symbol,announcements=[],now=Date.now(),maxAgeDays=90}
   if(codes===null){unusableCount++;continue;}
   if(!codes.includes(code))continue;
   const title=clean(item.title,240),source=clean(item.source,120),url=clean(item.url,360);
-  const published=strictInstant(item.publishedAt,now),key=documentKey(url);
+  const published=strictInstant(item.publishedAt,now),key=documentKey(url,now);
   const metadata=published===null?null:knownMetadata(item,published,now);
   if(!title||!source||published===null||now-published>maxAgeDays*86400000||
     !key||!metadata||negativeMetadata(item)){unusableCount++;continue;}
@@ -126,8 +128,17 @@ function linkIssuerEvents({symbol,announcements=[],now=Date.now(),maxAgeDays=90}
    strengthClues:events.filter(x=>x.category==='strength-clue'),
    conflicts:events.filter(x=>x.category==='conflicting')};
 }
+function issuerIdentityOK(item,e){
+ const ids=['symbol','code'].filter(k=>item?.[k]!=null).map(k=>item[k]);
+ if(!ids.length)return true; // legacy presentation callers with no outer identity
+ if(ids.some(x=>!codeOK(x))||new Set(ids).size!==1)return false;
+ return (!Object.hasOwn(e,'symbol')||e.symbol===ids[0])&&
+ ['riskClues','strengthClues','conflicts','events'].every(k=>!Array.isArray(e[k])||
+ e[k].every(row=>row&&(!Object.hasOwn(row,'code')||row.code===ids[0])));
+}
 function buildIssuerLinkage(item){
- const e=item?.issuerEvidence||{},positive=item?.patterns?.positiveCount||0,risk=item?.patterns?.riskCount||0;
+ const evidence=item?.issuerEvidence||{},e=issuerIdentityOK(item,evidence)?evidence:{},
+ positive=item?.patterns?.positiveCount||0,risk=item?.patterns?.riskCount||0;
  const newsRisk=(e.riskClues||[]).length+(e.conflicts||[]).length;
  const newsStrength=(e.strengthClues||[]).length;
  return {mode:'research-only',marketPatternCount:positive,patternRiskCount:risk,
@@ -139,13 +150,13 @@ function buildIssuerPools(items=[]){
  const pools={'公告风险核对池':[],'公告优势线索池':[],'公告矛盾待核对池':[]};
  for(const item of items){
   const e=item?.issuerEvidence;
-  if(!e||e.status!=='headline-research-only')continue;
+  if(!e||e.status!=='headline-research-only'||!issuerIdentityOK(item,e))continue;
   const row={symbol:item.symbol,name:item.name,documents:e.count,riskClues:e.riskClues.length,
    strengthClues:e.strengthClues.length,conflicts:e.conflicts.length,
    riskConflict:!!item.issuerLinkage?.riskConflict,
    note:'仅公告标题线索，未核实正文；非正式推荐'};
   if(e.riskClues.length)pools['公告风险核对池'].push(row);
-  if(e.strengthClues.length&&!item.blockedBySafety&&item.quality?.usable&&item.quality.fresh!==false&&item.quality.simulated!==true)pools['公告优势线索池'].push(row);
+  if(e.strengthClues.length&&!item.blockedBySafety&&item.quality?.usable&&item.quality.fresh!==false&&item.quality.simulated!==true&&item.quality.historical!==true&&item.quality.readOnlyBackup!==true)pools['公告优势线索池'].push(row);
   if(e.conflicts.length||item.issuerLinkage?.riskConflict)pools['公告矛盾待核对池'].push(row);
  }
  for(const rows of Object.values(pools))rows.sort((a,b)=>b.riskClues-a.riskClues||a.symbol.localeCompare(b.symbol));

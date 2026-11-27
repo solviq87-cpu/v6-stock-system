@@ -29,7 +29,7 @@ test('SMS adapter passes idempotency and expiry, never certifies delivery or ret
 test('multi-source retry falls back with provenance isolation then labels stale cache',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-fallback-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  let down=false,calls=0;const fixture={...history(),source:'imported',provider:'backup-provider',datasetId:'dataset-001'};
- const center=createMarketFailover({directory:dir,retries:1,sources:[{id:'primary',url:'https://primary.example.org/data',provider:'primary-provider',datasetId:'dataset-001'},{id:'backup',url:'https://backup.example.org/data',provider:'backup-provider',datasetId:'dataset-001'}],fetchImpl:async url=>{calls++;if(down||url.includes('primary'))throw Error('offline');return {ok:true,headers:{get:()=>null},body:Readable.from([Buffer.from(JSON.stringify(fixture))])};}});
+ const center=createMarketFailover({directory:dir,retries:1,sources:[{id:'primary',url:'https://primary.example.org/data',provider:'primary-provider',datasetId:'dataset-001'},{id:'backup',url:'https://backup.example.org/data',provider:'backup-provider',datasetId:'dataset-001'}],fetchImpl:async url=>{calls++;if(down||url.includes('primary'))throw Error('offline');return {ok:true,status:200,headers:{get:()=>null},body:Readable.from([Buffer.from(JSON.stringify(fixture))])};}});
  const result=await center.sync();assert.equal(result.mode,'fallback');assert.equal(result.provider,'backup-provider');assert.equal(calls,3);assert.equal(fs.existsSync(path.join(dir,'primary.json')),false);
  down=true;const cached=await center.sync();assert.equal(cached.mode,'cached-degraded');assert.equal(cached.stale,true);assert.equal(cached.canTrade,false);
 });

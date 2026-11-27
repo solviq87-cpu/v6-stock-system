@@ -1,0 +1,185 @@
+{
+  "base": "4a99f138088e02389c8a3e8760c58541a4272954",
+  "sourceBlob": "8ca7c54c83135018ec33c42c7481b25383917d97",
+  "observerBlob": "967bbb22b941fc884ea79b3f664668eeb9b8f571",
+  "legacyTestsBlob": "f96a8a2a76c1e4ec0f427d43da4addb43bb803e0",
+  "engine": "V8 isolated actual complete old/new replay, helper and original forward observer; test/assert and deterministic digest substitute (NOT Node crypto). Not native Node, live data, whole repo or browser.",
+  "unit": [
+    {
+      "name": "C15.1 explicit future, reversed, unknown or preclose receipt cannot be replaced with wrapper time",
+      "pass": true
+    },
+    {
+      "name": "C15.1 explicit suspension, duplicate bar, wrong security, basis and withdrawal cannot become complete path",
+      "pass": true
+    },
+    {
+      "name": "C15.1 missing individual clocks stay snapshot-only, never invented original time",
+      "pass": true
+    },
+    {
+      "name": "C15.2 recovered endpoint does not erase earlier close event or actual availability",
+      "pass": true
+    },
+    {
+      "name": "C15.2 earlier gap prevents certification of first trigger date, but actual later adverse close survives",
+      "pass": true
+    },
+    {
+      "name": "C15.2 later gap does not erase previously observed event, and no known event is not false risk",
+      "pass": true
+    },
+    {
+      "name": "C15.3 corporate action invalidates subsequent unadjusted return path, never manufactures a sellable loss",
+      "pass": true
+    },
+    {
+      "name": "C15.3 before maturity and purged folds cannot certify a complete clear path or leak future labels",
+      "pass": true
+    },
+    {
+      "name": "C15.3 only every eligible close observed with no adverse event certifies a clear close path",
+      "pass": true
+    },
+    {
+      "name": "C15.4 same-day co-occurrences are not independent risk trials and missing days stay visible",
+      "pass": true
+    },
+    {
+      "name": "C15.4 incomplete event remains in unknown denominator rather than clear",
+      "pass": true
+    },
+    {
+      "name": "C15.5 same paired sample changes labels only, never chooses a new production cutoff",
+      "pass": true
+    },
+    {
+      "name": "C15.5 absent or malformed paired outcome and invalid neighboring target remain unknown",
+      "pass": true
+    },
+    {
+      "name": "C15.2 late original receipt separates event date, prefix proof time and earliest available adverse close",
+      "pass": true
+    },
+    {
+      "name": "C15.5 central label uses exact registered threshold, without rounding it to a different event",
+      "pass": true
+    }
+  ],
+  "integration": [
+    {
+      "name": "C15 integration: recovered terminal label and observed intermediate adverse close remain separate",
+      "pass": true
+    },
+    {
+      "name": "C15 integration: explicit future target receipt rejects original endpoint, not only new path",
+      "pass": true
+    },
+    {
+      "name": "C15 integration: legacy missing clocks leave original descriptive endpoint but path stays unknown",
+      "pass": true
+    },
+    {
+      "name": "C15 integration: absent registered day lowers received-day coverage even when remaining paired endpoint coverage is one",
+      "pass": true
+    }
+  ],
+  "legacy": [
+    {
+      "name": "C10.1 original frozen cohort and three policies use exactly the same four holdout labels",
+      "pass": true
+    },
+    {
+      "name": "C10.1 post-next-open freeze, late input and duplicate security-day are rejected",
+      "pass": true
+    },
+    {
+      "name": "C10.1 mutation, duplicate packet and mixed feed do not silently enter the same sample",
+      "pass": true
+    },
+    {
+      "name": "C10.2 absent decision or abstention is not a clear label and reduces paired coverage",
+      "pass": true
+    },
+    {
+      "name": "C10.2 missing entire frozen day stays a missing population denominator, never zero risk",
+      "pass": true
+    },
+    {
+      "name": "C10.2 missing, suspended and corporate-action labels stay unknown rather than false negative or normal divergence",
+      "pass": true
+    },
+    {
+      "name": "C10.2 pending horizons remain unknown before actual target close",
+      "pass": true
+    },
+    {
+      "name": "C10.3 Brier is computed on identical declared event probabilities only",
+      "pass": true
+    },
+    {
+      "name": "C10.3 ranking scores, out-of-range probabilities, duplicate opinions and wrong model version cannot become probabilities",
+      "pass": true
+    },
+    {
+      "name": "C10.3 true zero event/alert denominator stays unknown, never perfect precision or recall",
+      "pass": true
+    },
+    {
+      "name": "C10.4 tail uses one worst security per complete day, then disjoint windows, not four independent trades",
+      "pass": true
+    },
+    {
+      "name": "C10.4 small tail sample does not output an apparently precise VaR or ES",
+      "pass": true
+    },
+    {
+      "name": "C10.4 overlapping horizon windows cannot create independent tail samples",
+      "pass": true
+    },
+    {
+      "name": "C10.5 preregistration must precede first signal, model training cutoff, immutable plan and same calendar",
+      "pass": true
+    },
+    {
+      "name": "C10.5 windows overlapping next fold are purged without using their outcomes",
+      "pass": true
+    },
+    {
+      "name": "C10.5 even passing descriptive criteria never promotes, trains, proves execution or claims actual avoided loss",
+      "pass": true
+    },
+    {
+      "name": "C10.1 policy opinions bind event, horizon, threshold and plan; source evidence references are retained",
+      "pass": true
+    },
+    {
+      "name": "C10.1 cohort population and explicitly simulated sources cannot be silently substituted",
+      "pass": true
+    }
+  ],
+  "beforeIntegration": [
+    {
+      "name": "C15 integration: recovered terminal label and observed intermediate adverse close remain separate",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading 'eventObserved')"
+    },
+    {
+      "name": "C15 integration: explicit future target receipt rejects original endpoint, not only new path",
+      "pass": false,
+      "error": "expected null got false"
+    },
+    {
+      "name": "C15 integration: legacy missing clocks leave original descriptive endpoint but path stays unknown",
+      "pass": false,
+      "error": "expected \"snapshot-only-unverified\" got undefined"
+    },
+    {
+      "name": "C15 integration: absent registered day lowers received-day coverage even when remaining paired endpoint coverage is one",
+      "pass": false,
+      "error": "expected 0.5 got undefined"
+    }
+  ],
+  "passed": 37,
+  "failed": 0
+}

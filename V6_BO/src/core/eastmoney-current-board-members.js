@@ -22,6 +22,16 @@ const time = t => Number.isSafeInteger(t) && t > 946684800000 && t < 41024448000
 const number = value => typeof value === 'number' && Number.isFinite(value) ? value :
   typeof value === 'string' && /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value) && Number.isFinite(Number(value)) ? Number(value) : null;
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+const percentage = value => { const n=number(value); return n!==null&&n>=-100&&n<=100?n:null; };
+function memberMarketMatches(code,market){
+ if(![0,1].includes(market))return false;
+ // Only enforce the already supported Shanghai/Shenzhen A-share prefixes.
+ // Other code families retain the previous eligibility boundary, not a new
+ // exchange certification.
+ if(/^(?:60|68)\d{4}$/.test(code))return market===1;
+ if(/^(?:00|30)\d{4}$/.test(code))return market===0;
+ return true;
+}
 const nameOK = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 80 && !/[\u0000-\u001f<>]/.test(value);
 const boardID = b => b.category + '|' + b.code;
 const makeURL = (base, params) => base + '?' + new URLSearchParams(params).toString();
@@ -115,10 +125,13 @@ async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
         for (const row of d.diff) {
           const key = row?.f12;
           if (typeof key !== 'string' || !(code ? /^\d{6}$/ : /^BK\d{4}$/).test(key) || seen.has(key) ||
-            (code ? ![0, 1].includes(row.f13) : !nameOK(row.f14))) throw Error('分页身份、名称、市场或唯一性无效');
+            (code ? !memberMarketMatches(key,row.f13) : !nameOK(row.f14))) throw Error('分页身份、名称、市场或唯一性无效');
           seen.add(key); rows.push(row);
         }
-        if (rows.length === total) { complete = true; break; }
+        if (rows.length === total) {
+          if(code&&total===0)throw Error('选定板块成员为空，不能认定完整成员清单');
+          complete = true; break;
+        }
       }
       if (!complete) throw Error('成员或分类目录超过1000条有界上限');
     } catch (error) { captureError(code ? 'members' : 'catalogue', code || category, error); }
@@ -150,11 +163,15 @@ async function fetchEastmoneyCurrentBoards(options = {}, dependencies = {}) {
         if (p.length !== 15 || !day(p[0]) || p[0] > requestedDate || seen.has(p[0])) throw Error('资金日期、重复或字段无效');
         seen.add(p[0]); const n = p.slice(1).map(number);
         records.push({ tradeDate: p[0], mainNetInflow: n[0], smallNetInflow: n[1], midNetInflow: n[2],
-          bigNetInflow: n[3], superNetInflow: n[4], mainNetInflowPct: n[5], smallNetInflowPct: n[6],
-          midNetInflowPct: n[7], bigNetInflowPct: n[8], superNetInflowPct: n[9], knownAt: result.observedAt });
+          bigNetInflow: n[3], superNetInflow: n[4], mainNetInflowPct: percentage(p[6]), smallNetInflowPct: percentage(p[7]),
+          midNetInflowPct: percentage(p[8]), bigNetInflowPct: percentage(p[9]), superNetInflowPct: percentage(p[10]), knownAt: result.observedAt });
       }
       records.sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
-      return { status: records.length ? 'observed-unverified' : 'unknown', records: records.slice(-historyDays),
+      const window=records.slice(-historyDays),mainKnown=window.filter(r=>r.mainNetInflow!==null).length;
+      // Dated placeholders are not successful main-flow observations. Preserve
+      // dates and component values without manufacturing a net amount.
+      return { status: !mainKnown?'unknown':mainKnown===window.length?'observed-unverified':'partial-evidence', records: window,
+        coverage:{returnedDates:window.length,knownMainNetInflowDates:mainKnown,missingMainNetInflowDates:window.length-mainKnown},
         observedAt: result.observedAt, lastTradeDate: records.at(-1)?.tradeDate ?? null, sourceTimestamp: null,
         rawHash: result.rawHash, historicalMembershipVerified: false, unit: 'CNY', completeness: 'upstream-does-not-declare-total-history' };
     } catch (error) { captureError('flow', code, error); return { status: 'unknown', records: [], lastTradeDate: null, sourceTimestamp: null, historicalMembershipVerified: false, unit: 'CNY' }; }

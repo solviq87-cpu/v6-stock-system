@@ -8,6 +8,9 @@ const MAX_TRIALS=6,WINDOW_DAYS=90;
 const INSPECTED=new Set(['shadow-updated','shadow-retained','paused-market-shock']);
 const MONITOR_ONLY=new Set(['paused-shadow-decay','paused-shadow-cooldown','shadow-recovered']);
 const validFingerprint=s=>typeof s==='string'&&/^[a-f0-9]{64}$/.test(s);
+const own=(o,k)=>Object.hasOwn(o,k);
+const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const readOnly=x=>['canTrade','productionWeightsChanged'].every(k=>!own(x,k)||x[k]===false);
 const finiteDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -47,6 +50,13 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
      audit.schemaVersion!==1||
      audit.status!==(inspected?'consumed':'not-evaluated')))
    throw Error('全局试验审计状态与报告状态不一致，拒绝少计试验');
+  // Reconcile explicit consumption and research authority across the producer's
+  // existing summaries. Older archives may omit these optional summaries.
+  const receipt=report.globalTrialBudget;
+  if(!readOnly(report)||hasAudit&&!readOnly(audit)||
+     own(report,'globalTrialBudget')&&(!record(receipt)||!readOnly(receipt)||
+      own(receipt,'consumedThisRun')&&receipt.consumedThisRun!==inspected))
+   throw Error('全局试验消费或权限声明与研究档案不一致');
   // Older immutable reports predate trialAudit; retain their conservative
   // inspected-holdout treatment rather than rewriting those archives.
   const legacy=!hasAudit&&inspected;
@@ -79,16 +89,22 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
    throw Error('全局试验档案晚于当前研究清单，历史交易日倒退');
   if([start,end,report.lastObservationDay].some(absentFromManifest))
    throw Error('全局试验档案日期不在当前研究清单');
+  const prefix=report.holdout?.firstFreshDay;
+  if(own(report,'trainingEnd')&&(!finiteDate(report.trainingEnd)||report.trainingEnd>=start)||
+     own(report,'holdout')&&(!record(report.holdout)||!finiteDate(prefix)||prefix>start||absentFromManifest(prefix))||
+     own(report,'trainingEnd')&&prefix&&report.trainingEnd>=prefix||
+     !legacy&&own(report,'testDays')&&(!Number.isSafeInteger(report.testDays)||report.testDays<audit.holdoutDays))
+   throw Error('全局试验保留集摘要与已检验日期或天数不一致');
   if(!legacy){
-   // Sparse trading manifests can contain fewer days than calendar dates.
-   // A declared count may not exceed either verified bound. Do not require
-   // equality: eligible cross-sections legitimately skip some signal days.
-   const calendarBound=1+(Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000;
-   if(audit.holdoutDays>calendarBound||
-      (start>=firstKnownDay&&audit.holdoutDays>days.filter(d=>d>=start&&d<=end).length))
+   // Bound even a straddling interval: before the retained manifest use only
+   // a calendar-day upper bound, inside it count explicit research days.
+   const earlierDays=start<firstKnownDay?Math.max(0,(Date.parse(firstKnownDay)-Date.parse(start))/86400000):0;
+   const calendarBound=1+(Date.parse(end)-Date.parse(start))/86400000;
+   const retainedBound=earlierDays+days.filter(d=>d>=start&&d<=end).length;
+   if(audit.holdoutDays>Math.min(calendarBound,retainedBound))
     throw Error('全局试验保留集天数与原日期范围不一致');
   }
-  counted.push({firstDay:start,lastDay:end,fingerprint:report.fingerprint,
+  counted.push({firstDay:start,lastDay:end,inspectionDay:report.lastObservationDay,fingerprint:report.fingerprint,
    parentFingerprint:report.previousFingerprint||null,legacy});
  }
  counted.sort((a,b)=>a.firstDay.localeCompare(b.firstDay)||
@@ -97,10 +113,15 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   if(counted[i].firstDay<=counted[i-1].lastDay)
    throw Error('全局研究试验跨模型版本复用了同一批保留日');
  }
- const recent=counted.filter(x=>x.lastDay>=windowStart);
+ // Charge at the archive's last observation day, not the potentially much
+ // older tested holdout end. A short manifest cannot establish expiration.
+ const windowHistoryComplete=days.length>=WINDOW_DAYS;
+ const recent=counted.filter(x=>!windowHistoryComplete||x.inspectionDay>=windowStart)
+  .sort((a,b)=>a.inspectionDay.localeCompare(b.inspectionDay)||a.lastDay.localeCompare(b.lastDay));
  return {status:recent.length>=MAX_TRIALS?'budget-exhausted':'budget-available',
   windowTradingDays:WINDOW_DAYS,maxTrials:MAX_TRIALS,
-  windowStartDay:windowStart,asOfDay,
+  windowStartDay:windowStart,asOfDay,windowHistoryComplete,
+  carriedBeforeManifestTrials:recent.filter(x=>x.inspectionDay<firstKnownDay).length,
   allTimeTrialCount:counted.length,usedTrials:recent.length,
   remainingTrials:Math.max(0,MAX_TRIALS-recent.length),
   lastTrialFingerprint:recent.at(-1)?.fingerprint||null,

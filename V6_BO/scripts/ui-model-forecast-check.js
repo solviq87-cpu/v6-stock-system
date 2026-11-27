@@ -17,7 +17,16 @@ const server=http.createServer((req,res)=>{const p=new URL(req.url,'http://127.0
    await page.route('**/api/**',async route=>{const req=route.request(),url=new URL(req.url());
     if(url.pathname!=='/api/research/workspace')return route.fulfill({status:403,json:{ok:false,error:'synthetic permission denial'}});calls.push(req.method());
     if(req.headers().authorization!=='Bearer synthetic-editor')return route.fulfill({status:403,json:{ok:false,error:'合成权限拒绝'}});
-    try{if(req.method()==='POST')return route.fulfill({json:F.freezeForecast(workspace,S.readEvents(workspace),req.postDataJSON(),{now})});
+    try{if(req.method()==='POST'){
+     // This synthetic browser fixture must use the same clock for both
+     // request receipt and the production's final publication deadline.
+     // Restore it before any asynchronous browser operation.
+     const realNow=Date.now;let saved;
+     Date.now=()=>now;
+     try{saved=F.freezeForecast(workspace,S.readEvents(workspace),req.postDataJSON(),{now});}
+     finally{Date.now=realNow;}
+     return route.fulfill({json:saved});
+    }
      const q=Object.fromEntries(url.searchParams);for(const k of ['asOf','offset','limit','minScore'])if(k in q)q[k]=Number(q[k]);const view=W.workspaceView(workspace,q,{now});return route.fulfill({json:{ok:true,result:view}});
     }catch(e){return route.fulfill({status:422,json:{ok:false,error:e.code?.startsWith('FORECAST_')?e.message:'合成研究错误'}});}
    });

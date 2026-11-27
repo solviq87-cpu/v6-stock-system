@@ -34,7 +34,7 @@ function audit(emFile,baostockFile,{now=Date.now(),calendarFile}={}){
  // Suspended BaoStock rows are SOURCE STATUS EVIDENCE, never synthetic OHLC.
  // Keep normalizer strict: only actually traded rows reach numeric parity.
  const partition=partitionBaoStockRows({...raw,now});
- const normalized=normalizeBaoStockDaily({...raw,rows:partition.tradingRows});
+ const normalized=normalizeBaoStockDaily({...raw,rows:partition.tradingRows,now});
  const comparison=compareMarketFeeds(em,normalized.dataset);
  const calendarCoverage=auditDailySessionCoverage(normalized.dataset,{
   now,calendarFile,suspensions:partition.suspensions

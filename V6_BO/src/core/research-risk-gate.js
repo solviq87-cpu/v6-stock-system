@@ -13,7 +13,8 @@ function assessCandidateEvidence(snapshot, breadth, regime, candidates=[], inter
   const knownRisk=c.isST===true||c.suspended===true||c.tradable===false||
    (typeof c.riskScore==='number'&&Number.isFinite(c.riskScore)&&c.riskScore>=85);
   if(knownRisk)reasons.push('已有候选标记为高风险或不可交易');
-  if(!breadth?.usable)reasons.push('市场宽度覆盖不足');
+  const breadthReady=breadth?.usable&&breadth.decisionUsable!==false;
+  if(!breadthReady)reasons.push('市场宽度覆盖不足');
   if(!matched.has(code))reasons.push('未匹配到公开行情');
   if(!regime?.usable)reasons.push('缺少独立且同日期的市场环境评分');
   const timeStatus=quoteTimes.get(code)||'unknown';
@@ -21,7 +22,7 @@ function assessCandidateEvidence(snapshot, breadth, regime, candidates=[], inter
   if(!quoteTimeReady)reasons.push('缺少该股可核对的近期供应商自报报价时点；请求日期不能冒充报价时间');
   if(!Number.isFinite(c.finalScore))reasons.push('原候选评分未知');
   if(knownRisk)reasons.push('风险拦截优先于研究证据完整性');
-  const evidenceReady=Boolean(!knownRisk&&breadth?.usable&&matched.has(code)&&regime?.usable&&
+  const evidenceReady=Boolean(!knownRisk&&breadthReady&&matched.has(code)&&regime?.usable&&
    quoteTimeReady&&Number.isFinite(c.finalScore));
   items.push({code,name:String(c.name||code).slice(0,64),originalScore:Number.isFinite(c.finalScore)?c.finalScore:null,
    riskStatus:knownRisk?'blocked':evidenceReady?'research-only':'unknown',

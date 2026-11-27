@@ -118,8 +118,8 @@ function validateMarketReceipts(events){
    if(typeof d.replayOf!=='string'||!HASH.test(d.replayOf)||!original||original.data.status!=='quarantined'||
     seriesKey(original.data)!==key||original.data.dataVersion!==d.dataVersion||original.data.receivedAt!==d.receivedAt||
     original.data.rawEvidence.byteLength!==d.rawEvidence.byteLength||d.review?.reviewedAt!==event.recordedAt||
-    d.review?.method!=='immutable-raw-original-import-gates'||typeof d.review.reviewerId!=='string'||!d.review.reviewerId.trim()||
-    typeof d.review.reason!=='string'||!d.review.reason.trim())
+    d.review?.method!=='immutable-raw-original-import-gates'||typeof d.review.reviewerId!=='string'||!d.review.reviewerId.trim()||d.review.reviewerId.length>128||/[\x00-\x1f\x7f]/.test(d.review.reviewerId)||
+    typeof d.review.reason!=='string'||d.review.reason.trim().length<8||d.review.reason.length>1000||/[\x00-\x1f\x7f]/.test(d.review.reason))
     throw Error('行情隔离回放来源或复核记录无效');
   }else if(d.review!=null)throw Error('行情复核缺少原隔离回执');
   if(d.gateRequirements.independentReferenceRequired)required.add(key);
@@ -131,6 +131,41 @@ function readReceipts(root,{asOf=Date.now(),provider,datasetId,verifyRaw=false}=
  const events=validateMarketReceipts(store.readEvents(roots(root).events,{asOf}).filter(event=>event.data?.protocol===PROTOCOL));
  if(verifyRaw)verifyReceiptRaw(root,events);
  return events.filter(event=>(provider===undefined||event.data.provider===provider)&&(datasetId===undefined||event.data.datasetId===datasetId));
+}
+
+ // A valid blob hash proves bytes, not the truth of the accompanying claims.
+ // Reuse the existing importer and consensus gates at original recorded clocks.
+function verifyAdmittedContent(d,raw,referenceRaw){
+ const decode=(bytes,label)=>{
+  if(!Buffer.isBuffer(bytes))throw Error(label+'缺少原始字节');
+  const text=bytes.toString('utf8');
+  if(!Buffer.from(text,'utf8').equals(bytes))throw Error(label+'不是有效UTF-8');
+  return JSON.parse(text);
+ };
+ const data=decode(raw,'原始行情回执'),validate=require('./market-data-center').validateImport;
+ const details=validate(data,{provider:d.provider,datasetId:d.datasetId,now:d.receivedAt});
+ if((data.observedAt??null)!==d.sourceObservedAt||
+  (typeof data.factorVersion==='string'&&data.factorVersion.length<=128?data.factorVersion:null)!==d.factorVersion)
+  throw Error('原始行情回执版本或供应商时点与原始数据不一致');
+ if(d.scope?.firstDate!==details.firstDate||d.scope?.lastDate!==details.lastDate||
+  d.scope?.stocks!==details.stocks||d.eventAt!==Date.parse(details.lastDate+'T15:00:00+08:00'))
+  throw Error('原始行情回执范围或事件时点与原始数据不一致');
+ if(d.independentReference){
+  const metadata=d.independentReference,reference=decode(referenceRaw,'独立行情原回执');
+  if(reference.provider!==metadata.provider||reference.datasetId!==metadata.datasetId||reference.observedAt!==metadata.observedAt||
+   !validTime(reference.observedAt)||reference.observedAt>d.availableAt)
+   throw Error('原归档独立来源身份或时点不一致');
+  validate(reference,{provider:metadata.provider,datasetId:metadata.datasetId,now:d.availableAt});
+  const consensus=require('./market-feed-consensus').compareMarketFeeds(data,reference);
+  if(!consensus.consensus||consensus.evidenceQuality?.status!=='consistent-research-only')
+   throw Error('原归档独立来源仍未通过既有一致性门禁');
+ }
+ return {data,details};
+}
+function verifyArchivedAdmission(root,event){
+ const d=event.data;
+ return verifyAdmittedContent(d,readRaw(root,d.rawEvidence),
+  d.independentReference?readRaw(root,d.independentReference.rawEvidence):null);
 }
 
 function appendReceipt({root,raw,provider,datasetId,receivedAt,availableAt=receivedAt,status,reason=null,details=null,
@@ -163,7 +198,14 @@ function appendReceipt({root,raw,provider,datasetId,receivedAt,availableAt=recei
  const id=requestId||(events.some(e=>e.requestId===legacyId)?legacyId:scopedId),prior=all.find(e=>e.requestId===id);
  const semantic=d=>{const {version,firstKnownAt,revisionDetectedAt,...rest}=d;return rest;};
  if(prior&&store.digest(semantic(prior.data))!==store.digest(semantic(data)))throw Error('同请求ID内容冲突');
- if(!prior)validateMarketReceipts([...all,{kind:'diagnostic',recordedAt:availableAt,data,hash:null}]);
+ if(!prior){
+  validateMarketReceipts([...all,{kind:'diagnostic',recordedAt:availableAt,data,hash:null}]);
+  if(status==='admitted'){
+   const verified=verifyAdmittedContent(data,raw,referenceRaw);
+   if(store.digest(data.historicalCoverage)!==store.digest(verified.details.historicalCoverage??null))
+    throw Error('原始行情回执历史覆盖声明与原始数据不一致');
+  }
+ }
  saveRaw(root,raw);if(referenceRaw)saveRaw(root,referenceRaw);
  const payload=prior?.data??data;
  return store.appendEvent(roots(root,true).events,'diagnostic',payload,{requestId:id,now:availableAt,beforeCommitLocked:({events:current,reused})=>{
@@ -180,13 +222,14 @@ function readMarketDataEvidence({root,asOf=Date.now(),provider,datasetId}={}){
   quarantine=events.filter(event=>event.data.status==='quarantined'),originalQuarantine=quarantine.filter(event=>!event.data.replayOf),
   versions=new Set(events.map(event=>event.data.dataVersion));
  verifyReceiptRaw(root,events);
+ const latest=admitted.at(-1),verified=latest?verifyArchivedAdmission(root,latest):null;
  const resolved=new Set(admitted.map(event=>event.data.replayOf).filter(Boolean));
  return {schemaVersion:1,mode:'original-market-history-import-evidence',status:events.length?'observed-with-source-clock-gaps':'missing-data',
   asOf,receipts:events.length,dataVersions:versions.size,admitted:admitted.length,
   quarantined:quarantine.length,quarantineCases:originalQuarantine.length,
   unresolvedQuarantine:originalQuarantine.filter(event=>!resolved.has(event.hash)).length,
   latestVersion:admitted.at(-1)?.data.dataVersion||null,
-  historicalCoverage:admitted.at(-1)?.data.historicalCoverage||{status:'unknown',complete:false,verifiedExternal:false},
+  historicalCoverage:verified?.details.historicalCoverage||{status:'unknown',complete:false,verifiedExternal:false},
   entries:events.slice(-12).map(event=>({id:event.hash,recordedAt:event.recordedAt,...event.data,rawEvidence:{...event.data.rawEvidence}})),
   completePointInTime:false,missing:['供应商原始发布、修订时间和完整历史成分股覆盖尚未独立验证'],...store.FLAGS};
 }
@@ -199,21 +242,7 @@ function readMarketDataAsOf({root,decisionAt,provider,datasetId}={}){
  verifyReceiptRaw(root,events);
  const selected=events.filter(event=>event.data.status==='admitted').at(-1);
  if(!selected)return {status:'unavailable-at-decision',data:null,decisionAt,...store.FLAGS};
- const raw=readRaw(root,selected.data.rawEvidence),text=raw.toString('utf8');
- if(!Buffer.from(text,'utf8').equals(raw))throw Error('原始行情回执不是有效UTF-8');
- const data=JSON.parse(text);
- require('./market-data-center').validateImport(data,{provider,datasetId,now:selected.data.receivedAt});
- if((data.observedAt??null)!==selected.data.sourceObservedAt||
-  (typeof data.factorVersion==='string'&&data.factorVersion.length<=128?data.factorVersion:null)!==selected.data.factorVersion)
-  throw Error('原始行情回执版本或供应商时点与原始数据不一致');
- if(selected.data.independentReference){
-  const metadata=selected.data.independentReference,rawReference=readRaw(root,metadata.rawEvidence),text=rawReference.toString('utf8');
-  if(!Buffer.from(text,'utf8').equals(rawReference))throw Error('独立行情原回执不是有效UTF-8');
-  const reference=JSON.parse(text),consensus=require('./market-feed-consensus').compareMarketFeeds(data,reference);
-  if(reference.provider!==metadata.provider||reference.datasetId!==metadata.datasetId||reference.observedAt!==metadata.observedAt||
-   !consensus.consensus||consensus.evidenceQuality?.status!=='consistent-research-only'||reference.observedAt>selected.recordedAt)
-   throw Error('原归档独立来源仍未通过既有一致性门禁');
- }
+ const {data}=verifyArchivedAdmission(root,selected);
  return {status:'available-research-snapshot',data,decisionAt,archiveHash:selected.hash,version:selected.data.version,
   dataVersion:selected.data.dataVersion,receivedAt:selected.data.receivedAt,availableAt:selected.recordedAt,...store.FLAGS};
 }
@@ -230,6 +259,9 @@ function backgroundScope(provider,value){
  }else if(provider==='sec-edgar'){
   keys=['cik','tag','unit','asOf'];scope={cik:value.cik,tag:value.tag,unit:value.unit,asOf:value.asOf};
   if(!Number.isSafeInteger(scope.cik)||scope.cik<1||scope.cik>9999999999||typeof scope.tag!=='string'||!/^[A-Za-z][A-Za-z0-9]{1,63}$/.test(scope.tag)||!['USD','shares','USD/shares'].includes(scope.unit)||!day(scope.asOf)||scope.asOf<'1994-01-01')throw Error('SEC背景数据范围无效');
+ }else if(provider==='us-eia'){
+  keys=['series','start','end'];scope={series:value.series,start:value.start,end:value.end};
+  if(!['RWTC','RBRTE'].includes(scope.series)||!day(scope.start)||!day(scope.end)||scope.start>scope.end)throw Error('EIA背景数据范围无效');
  }else if(provider==='worldbank'){
   keys=['country','indicator','startYear','endYear'];scope={country:value.country,indicator:value.indicator,startYear:value.startYear,endYear:value.endYear};
  }else throw Error('未登记的官方背景数据来源');
@@ -248,6 +280,7 @@ function backgroundProjection(provider,scope,raw,observedAt){
   if(raw.length>12*1024*1024||scope.asOf>new Date(observedAt).toISOString().slice(0,10))throw Error('SEC背景数据范围或响应超限');
   return require('./sec-companyfacts').projectCompanyFact(JSON.parse(text),{...scope,now:observedAt});
  }
+ if(provider==='us-eia')return require('./eia-spot-daily').projectEiaJson(text,{...scope,observedAt});
  if(raw.length>128*1024)throw Error('World Bank背景数据响应超限');
  require('./worldbank-indicators').validate({...scope,now:observedAt});
  return require('./worldbank-indicators').parseWorldBankResponse(JSON.parse(text),{...scope,observedAt});
@@ -302,7 +335,7 @@ function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,reques
  const data={protocol:BACKGROUND_PROTOCOL,provider,upstreamGroup:provider,scope,scopeId,rawEvidence,dataVersion,projectionHash,byteBasis,
   requestStartedAt,observedAt,availableAt,firstKnownAt:first?.recordedAt??availableAt,sourcePublishedAt:null,sourceRevisedAt:null,sourceRevisionKnown:false,
   revisionDetectedAt:previous&&!same?observedAt:null,version:same?previous.data.version:(previous?.data.version??0)+1,previousReceipt:previous?.hash??null,
-  sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+  sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
  const requestId='background-'+store.digest({scopeId,observedAt,dataVersion}).slice(0,64);
  return store.appendEvent(roots(root,true).events,'diagnostic',data,{now:availableAt,requestId,beforeCommitLocked:({events:current,reused})=>{
   if(reused)return true;
@@ -358,11 +391,12 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){
     // arbitrary metadata, or an inferred original publication timestamp.
     const values=records.slice(-5).map(r=>provider==='ecb'?{period:r.date,value:r.unitsPerEuro,unit:projected.currency+' / EUR'}:
      provider==='sec-edgar'?{period:r.reportedEnd,value:r.reportedValue,unit:r.unit,filedDate:r.filedDate,accession:r.accession}:
+      provider==='us-eia'?{period:r.date,value:r.value,unit:r.unit}:
       {period:String(r.year),value:r.value,unit:null});
     const missingValues=records.filter(r=>(provider==='ecb'?r.unitsPerEuro:provider==='sec-edgar'?r.reportedValue:r.value)===null).length;
     checked++;
     return {...row,status:'verified-latest-receipt',scope:backgroundScope(provider,d.scope),byteBasis:d.byteBasis,
-     sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
+     sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
      records:values,recordCount:records.length,missingValues};
    }catch{return row;}
   });

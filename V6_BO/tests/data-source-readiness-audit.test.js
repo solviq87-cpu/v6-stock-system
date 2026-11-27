@@ -309,7 +309,7 @@ test('both npm entry points invoke the existing read-only readiness CLI',()=>{
 test('all registered routes keep static adapter, actual attempt, successful data and business execution phases separate',()=>{
  const r=audit({asOf:NOW}),s=r.summary,byId=new Map(r.routes.map(x=>[x.id,x]));
  assert.equal(s.registeredRoutes,122);assert.equal(new Set(r.routes.map(x=>x.id)).size,122);
- assert.equal(s.candidateRegistrationOnlyRoutes,99);assert.equal(s.namedAdapterCodeReviewedRoutes,18);
+ assert.equal(s.candidateRegistrationOnlyRoutes,98);assert.equal(s.namedAdapterCodeReviewedRoutes,19);
  assert.equal(s.genericGatewayContractRoutes,2);assert.equal(s.manualImportContractRoutes,3);
  assert.equal(s.namedAdapterNotReviewedRoutes,0);assert.equal(s.staticBusinessAnalysisPathRoutes,4);
  assert.equal(s.businessAnalysisExecutionRoutesVerified,0);assert.equal(s.productionActiveSourcesVerified,0);
@@ -348,4 +348,44 @@ test('regressed publication may retain a dated quote for diagnosis but must not 
 
 test('a fixture-marked report is not evidence of an actual provider call',()=>{
  for(const flag of ['synthetic','mock','fixture','testSample'])assert.throws(()=>audit({asOf:NOW,snapshot:{...snapshot(),[flag]:true}}),/快照/);
+});
+
+test('D group: EIA code-reviewed route does not grant an actual call or credentials',()=>{
+ const r=audit({asOf:NOW}),row=r.routes.find(x=>x.id==='us-eia');
+ assert.equal(row.declaredAdapter,'eia-spot-daily.js');
+ assert.equal(row.access,'credentials-required');
+ assert.equal(row.integration.adapterStage,'named-adapter-code-reviewed');
+ assert.equal(row.integration.staticWiringScope,'manual-background-archive');
+ assert.ok(row.integration.sourcePaths.includes('V6_BO/src/core/eia-spot-daily.js'));
+ assert.ok(row.integration.sourcePaths.includes('V6_BO/scripts/collect-eia-spot.js'));
+ assert.ok(row.integration.sourcePaths.includes('V6_BO/src/core/market-data-evidence.js'));
+ assert.equal(row.phases.actualCall,'unknown');
+ assert.equal(row.phases.authorization,'unknown');
+ assert.equal(row.integration.businessAnalysisExecutionVerified,null);
+ assert.equal(row.licensedForLive,null);
+ assert.equal(row.productionEnabled,null);
+ assert.equal(row.canTrade,false);
+ assert.equal(row.observedOnThisExactRoute,false);
+});
+test('D group: ECB derived cross-reference belongs to the canonical single source',()=>{
+ const r=audit({asOf:NOW}),ecb=r.routes.find(x=>x.id==='ecb'),alias=r.routes.find(x=>x.id==='ecb-fx-daily');
+ assert.ok(ecb.integration.sourcePaths.includes('V6_BO/src/core/ecb-cross-reference.js'));
+ assert.equal(alias.integration.adapterStage,'candidate-registration-only');
+ assert.equal(alias.upstreamGroup,ecb.upstreamGroup);
+ assert.equal(ecb.canTrade,false);
+ assert.equal(alias.canTrade,false);
+ assert.equal(r.providerIndependenceVerified,false);
+});
+test('D group: offline implementation reconciliation preserves discovery partition and authorization flags',()=>{
+ const r=audit({asOf:NOW}),s=r.summary;
+ assert.equal(s.registeredRoutes,122);
+ assert.equal(s.candidateRegistrationOnlyRoutes+s.namedAdapterCodeReviewedRoutes+s.genericGatewayContractRoutes+s.manualImportContractRoutes+s.namedAdapterNotReviewedRoutes,122);
+ assert.equal(s.guardedResearchRoutes,2);
+ assert.equal(s.licensedLiveSourcesVerified,0);
+ assert.equal(s.productionActiveSourcesVerified,0);
+ assert.equal(r.autoEnableNewProviders,false);
+ assert.equal(r.canTrade,false);
+ assert.equal(r.canTrain,false);
+ assert.equal(r.canNotify,false);
+ assert.equal(r.summary.attemptedExactRoutes,0);
 });
