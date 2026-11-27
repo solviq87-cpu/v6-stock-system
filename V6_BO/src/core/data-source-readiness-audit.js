@@ -52,7 +52,8 @@ function consistentHttp(status,code){
  if(status==='access-denied')return code===401||code===403;
  if(status==='rate-limited')return code===429;
  if(status==='http-error')return code>=400&&code<=599&&![401,403,429].includes(code);
- if(['response-too-large','invalid-response','invalid-quote','invalid-quote-time'].includes(status))return code>=200&&code<300;
+ if(status==='invalid-response')return code>=200&&code<300;
+ if(['response-too-large','invalid-quote','invalid-quote-time'].includes(status))return code===200;
  if(['timeout','transport-error','not-requested'].includes(status))return code===null;
  return false;
 }
@@ -86,10 +87,17 @@ function inspectProbe(snapshot,now,routeById){
     !Array.isArray(snapshot.providers)||snapshot.providers.length<1||snapshot.providers.length>3||
     !['completed-unverified','outside-weekday-session-window','clock-regressed'].includes(snapshot.status))
   throw Error('健康快照类型、来源身份或研究权限无效');
+ const pattern=snapshot.observationPattern;
+ const modern=pattern!==undefined||snapshot.commonCauseVerified!==undefined;
+ if(modern&&(snapshot.commonCauseVerified!==false||
+    !['untrusted-clock','all-fresh-unverified','partial-fresh','all-denied-or-limited','no-fresh-observation'].includes(pattern)||
+    (pattern==='untrusted-clock')!==(snapshot.status==='clock-regressed')||
+    snapshot.status==='outside-weekday-session-window'))
+  throw Error('健康快照共同故障或时钟声明无效');
  const started=iso(snapshot.startedAt);
  const ended=snapshot.status==='outside-weekday-session-window'?started:iso(snapshot.finishedAt);
  if(started>now||ended>now||snapshot.status==='completed-unverified'&&ended<started||
-    snapshot.status==='clock-regressed'&&ended>=started||
+    snapshot.status==='clock-regressed'&&ended>=started&&!modern||
     snapshot.status==='outside-weekday-session-window'&&(session(started)||snapshot.finishedAt!==undefined&&iso(snapshot.finishedAt)!==started)||
     snapshot.status!=='outside-weekday-session-window'&&!session(started))
   throw Error('健康快照观察时钟超出审核时点或因果矛盾');
@@ -108,6 +116,7 @@ function inspectProbe(snapshot,now,routeById){
   if(row.status!=='not-requested'&&!consistentHttp(row.status,row.httpStatus))
    throw Error('健康快照HTTP码与观测结论冲突');
   if(withQuote){
+   if(modern&&pattern==='untrusted-clock')throw Error('不可信时钟报告不能保留有效报价');
    if(quote===null||quote>ended||quote>now||row.quoteAgeMs!==ended-quote||
       typeof row.price!=='number'||!Number.isFinite(row.price)||row.price<=0||
       typeof row.previousClose!=='number'||!Number.isFinite(row.previousClose)||row.previousClose<=0)
@@ -134,12 +143,22 @@ function inspectProbe(snapshot,now,routeById){
       snapshot.status==='clock-regressed'?'clock-regressed':
       age>15000?'historical-probe-only':
       row.status==='fresh-source-unverified'?'quote-expired-at-audit':row.status,
-    recentAtAudit:current
+    recentAtAudit:current,
+    freshAtReport:snapshot.status==='completed-unverified'&&row.status==='fresh-source-unverified',
+    reportedElapsedMs:attempted?row.elapsedMs:null
   });
  }
+ const rows=[...observations.values()],fresh=rows.filter(r=>r.freshAtReport).length,
+  denied=rows.filter(r=>['access-denied','rate-limited'].includes(r.lastProbeStatus)).length;
+ const expectedPattern=snapshot.status==='clock-regressed'?'untrusted-clock':
+  snapshot.status==='outside-weekday-session-window'?'not-requested':
+  fresh===rows.length?'all-fresh-unverified':fresh>0?'partial-fresh':
+  denied===rows.length&&rows.length>1?'all-denied-or-limited':'no-fresh-observation';
+ if(modern&&pattern!==expectedPattern)throw Error('健康快照观测分级与实际记录不一致');
  return {observations,report:{code:snapshot.code,reportAt:new Date(ended).toISOString(),
   status:snapshot.status,ageMs:now-ended,providerCount:observations.size,
-  attemptedProviderCount:[...observations.values()].filter(x=>x.attempted).length}};
+  attemptedProviderCount:rows.filter(x=>x.attempted).length,
+  observationPattern:expectedPattern,commonCauseVerified:false}};
 }
 // Count catalogue declarations, not authenticated publishers. Multi-source
 // frameworks and ambiguous wrappers have no resolved publisher vote.
@@ -208,6 +227,12 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
    lastReportedAt:probe?.reportAt??null,
    lastObservedAt:attempted?probe.reportAt:null,
    originalQuoteAgeMs:probe?.originalQuoteAgeMs??null,
+   endpointHealth:{scope:'single-reported-check-only',
+    status:!probe?'unknown':!attempted?'not-requested':report.status==='clock-regressed'?'untrusted-clock':
+      probe.recentAtAudit?'recent-quote-unverified':probe.successfulQuoteObservation?'dated-quote-unverified':probe.lastProbeStatus,
+    reportedElapsedMs:probe?.reportedElapsedMs??null,
+    freshAtReport:attempted&&report.status==='completed-unverified'?probe.freshAtReport:null,
+    sustainedAvailabilityPct:null,providerLatencyP95Ms:null,rankingEligible:false,latencyIsExchangeDelay:false},
    phases:{registration:'registered',adapter:integration.adapterStage,report:probe?'reported':'not-reported',
     attempt:attempted?'attempted':probe?'not-requested':'unknown',
     singleQuote:successfulQuote===true?'observed-unverified':attempted?'no-usable-quote':'unknown',
@@ -221,6 +246,22 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
  const reported=routes.filter(x=>x.reportedOnThisExactRoute);
  const probed=routes.filter(x=>x.observedOnThisExactRoute);
  const observedUpstreams=[...new Set(probed.map(x=>x.upstreamGroup))].sort();
+ const eligible=routes.filter(x=>PROVIDERS.has(x.id)&&x.declaredAdapter==='public-quote-probe');
+ const successful=probed.filter(x=>x.successfulQuoteObservation===true).length,
+  freshAtReport=probed.filter(x=>x.endpointHealth.freshAtReport===true).length,
+  recent=probed.filter(x=>x.recentQuoteAtAudit===true).length;
+ const trustedReport=report?.status==='completed-unverified';
+ const ratio=(count,total)=>total>0?Number((100*count/total).toFixed(3)):null;
+ const probeCoverage={scope:'single-symbol-one-shot-public-endpoint-observation',
+  eligibleExactRoutes:eligible.length,reportedRoutes:reported.length,attemptedRoutes:probed.length,
+  notAttemptedRoutes:eligible.length-probed.length,attemptCoveragePct:ratio(probed.length,eligible.length),
+  successfulQuotes:successful,freshAtReport,recentAtAudit:recent,
+  returnedQuoteRateAmongAttemptsPct:trustedReport?ratio(successful,probed.length):null,
+  freshRateAmongAttemptsPct:trustedReport?ratio(freshAtReport,probed.length):null,
+  missingOrFailedAttempts:trustedReport?probed.length-successful:null,
+  clockRejectedAttempts:report?.status==='clock-regressed'?probed.length:0,
+  elapsedObservationCount:probed.filter(r=>r.endpointHealth.reportedElapsedMs!==null).length,
+  longitudinalAvailabilityPct:null,providerRankingVerified:false,fullMarketCoverageVerified:false};
  return {schemaVersion:2,mode:'read-only-registered-source-readiness-evidence',
   auditedAt:new Date(asOf).toISOString(),
   status:probed.length?'observational-evidence-unverified':report?'report-only-no-attempt':'registry-only-no-probe',
@@ -251,7 +292,7 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
    sustainedAvailabilitySourcesVerified:0,productionActiveSourcesVerified:0,
    guardedResearchRoutes:byAccess['guarded-research']||0,
    byAccess,byMarket,byEvidenceState,byDeclaredIntegrationKind},
-  probe:report,routes,lineage,runtimeUsage:{status:'not-checked',scope:'last-qualified-runtime-quote-sample-per-day',
+  probe:report,probeCoverage,routes,lineage,runtimeUsage:{status:'not-checked',scope:'last-qualified-runtime-quote-sample-per-day',
    reviewedDays:null,matchedSourceLabels:null,allRouteUsageVerified:false},canTrade:false,canNotify:false,canTrain:false,
   verifiedLive:false,providerIndependenceVerified:false,autoEnableNewProviders:false,
   qualityProvesPriceAccuracy:false,
@@ -268,23 +309,41 @@ async function auditRuntimeSourceUsage({asOf=Date.now(),snapshot,runtimeRoot}={}
   canWrite:()=>false,calendar:()=>null});
  const report=await original.report();
  const known=new Set(result.routes.map(r=>r.id)),observed=new Map();
- let reviewedDays=0,skippedDays=0,partialDays=0,unregisteredSampleRows=0;
+ let reviewedDays=0,skippedDays=0,partialDays=0,unregisteredSampleRows=0,contradictorySampleDays=0,eligibleSampleRows=0;
  for(const day of report.days){
-  const evidence=day.latestLive?.market?.quoteEvidence,at=evidence?.observedAt;
+  const market=day.latestLive?.market,evidence=market?.quoteEvidence,at=evidence?.observedAt;
   if(!day.liveSamples)continue;
   if(day.sourceShas.length!==1||evidence?.schemaVersion!==1||evidence.conflictPolicy!=='explicit-and-duplicate-v1'||
    evidence.truncated!==false||!validMs(at)||at>asOf||at<day.firstObservedAt||at>day.lastObservedAt||
    new Date(at+28800000).toISOString().slice(0,10)!==day.day||!Array.isArray(evidence.samples)||
    evidence.samples.length<1||evidence.samples.length>10){skippedDays++;continue;}
-  reviewedDays++;if(evidence.sampleTruncated!==false)partialDays++;
-  const labels=new Set();
-  for(const q of evidence.samples){
-   if(q?.eligibleFresh!==true||q.sourceAllowed!==true||q.sourceConflict!==false||q.quoteStatus!=='recent-unverified'||
+  // Validate projected sample identity and denominator before counting labels.
+  const sample=evidence.samples,seen=new Set();
+  let contradiction=evidence.sampled!==true||evidence.sampleLimit!==10||
+   typeof evidence.sampleTruncated!=='boolean'||
+   !Number.isSafeInteger(market.observedSymbols)||market.observedSymbols<sample.length||
+   sample.length!==Math.min(10,market.observedSymbols)||
+   evidence.sampleTruncated!==(market.observedSymbols>sample.length)||
+   !Number.isSafeInteger(market.freshQuotes)||market.freshQuotes<1||market.freshQuotes>market.observedSymbols;
+  let freshRows=0;const labels=new Set();let unknownLabels=0;
+  for(const q of sample){
+   if(!q||typeof q.code!=='string'||!/^\d{6}$/.test(q.code)||seen.has(q.code)||q.sampled!==true||
+      typeof q.eligibleFresh!=='boolean'){contradiction=true;continue;}
+   seen.add(q.code);
+   if(!q.eligibleFresh)continue;
+   freshRows++;
+   if(q.sourceAllowed!==true||q.sourceConflict!==false||q.quoteStatus!=='recent-unverified'||
+    q.reason!=='fresh-original-quote'||typeof q.price!=='number'||!Number.isFinite(q.price)||q.price<=0||
     !validMs(q.quoteAt)||!validMs(q.receivedAt)||q.quoteAt>q.receivedAt||q.receivedAt>at||at-q.quoteAt>15000||
-    typeof q.source!=='string')continue;
-   if(!known.has(q.source)){unregisteredSampleRows++;continue;}
+    new Date(q.quoteAt+28800000).toISOString().slice(0,10)!==day.day||
+    typeof q.source!=='string'||!q.source.trim()){contradiction=true;continue;}
+   if(!known.has(q.source)){unknownLabels++;continue;}
    labels.add(q.source);
   }
+  if(freshRows>market.freshQuotes||!evidence.sampleTruncated&&freshRows!==market.freshQuotes)contradiction=true;
+  if(contradiction){skippedDays++;contradictorySampleDays++;continue;}
+  reviewedDays++;if(evidence.sampleTruncated)partialDays++;
+  eligibleSampleRows+=freshRows;unregisteredSampleRows+=unknownLabels;
   for(const label of labels){const x=observed.get(label)||{sampledDays:0,latestObservedAt:null};
    x.sampledDays++;x.latestObservedAt=Math.max(x.latestObservedAt||0,at);observed.set(label,x);}
  }
@@ -298,7 +357,7 @@ async function auditRuntimeSourceUsage({asOf=Date.now(),snapshot,runtimeRoot}={}
  }
  result.runtimeUsage={status:reviewedDays?'bounded-original-samples-reviewed':'no-qualified-sample-reviewed',
   scope:'last-qualified-runtime-quote-sample-per-day',reviewedDays,skippedDays,partialDays,matchedSourceLabels:observed.size,
-  unregisteredSampleRows,allRouteUsageVerified:false,verifiedExternal:false,downstreamUseVerified:false,
+  unregisteredSampleRows,eligibleSampleRows,contradictorySampleDays,allRouteUsageVerified:false,verifiedExternal:false,downstreamUseVerified:false,
   note:'原私有日志哈希链与原运行报告读取器；仅统计每日末次合格报价样本中实际出现的确切来源标签。缺席不是未使用，标签不是适配器调用证明，不证明策略、账户、通知或授权。'};
  return result;
 }
