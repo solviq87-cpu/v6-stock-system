@@ -1,0 +1,21 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {createMarketDataCenter,validateImport}=require('../src/core/market-data-center');
+const now=Date.parse('2025-02-10T16:00:00+08:00'),early=Date.parse('2025-02-10T14:00:00+08:00');
+const provider='test-history-source',datasetId='test-history-dataset';
+function data(observedAt=now){return {source:'imported',provider,datasetId,asOf:'2025-02-10',observedAt,stocks:[{symbol:'600000',bars:Array.from({length:41},(_,i)=>({date:new Date(Date.UTC(2025,0,1+i)).toISOString().slice(0,10),open:10,high:11,low:9,close:10,volume:1000}))}]};}
+const raw=()=>Buffer.from(JSON.stringify(data()));
+function response(overrides={}){return {ok:true,status:200,headers:{get:()=>null},body:(async function*(){yield raw();})(),...overrides};}
+function fixture(t,fetchImpl,extra={}){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-d12-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const outputFile=path.join(dir,'history.json');return {outputFile,center:createMarketDataCenter({url:'https://example.org/history',outputFile,provider,datasetId,fetchImpl,clock:()=>now,...extra})};}
+test('source observation before close cannot be upgraded by later receipt',()=>{assert.throws(()=>validateImport(data(early),{provider,datasetId,now}),/15:10/);assert.doesNotThrow(()=>validateImport(data(),{provider,datasetId,now}));});
+test('invalid audit clock is rejected',()=>assert.throws(()=>validateImport(data(),{provider,datasetId,now:String(now)}),/时钟/));
+test('HTTP 206 cannot admit a historical dataset',async t=>{const f=fixture(t,async()=>response({status:206}));assert.match((await f.center.sync()).error,/HTTP/);assert.equal(fs.existsSync(f.outputFile),false);});
+test('hidden redirect rejected',async t=>{const f=fixture(t,async()=>response({redirected:true,url:'https://other.example.org/history'}));assert.match((await f.center.sync()).error,/重定向/);assert.equal(fs.existsSync(f.outputFile),false);});
+test('invalid content length rejected',async t=>{const f=fixture(t,async()=>response({headers:{get:k=>k==='content-length'?'1e3':null}}));assert.match((await f.center.sync()).error,/长度/);});
+test('truncated declared byte length rejected',async t=>{const f=fixture(t,async()=>response({headers:{get:k=>k==='content-length'?String(raw().length+10):null}}));assert.match((await f.center.sync()).error,/长度/);});
+test('invalid UTF-8 in otherwise parseable JSON is quarantined',async t=>{const bytes=Buffer.concat([raw().subarray(0,-1),Buffer.from(',"note":"'),Buffer.from([0xff]),Buffer.from('"}')]);const f=fixture(t,async()=>response({body:(async function*(){yield bytes;})()}));assert.match((await f.center.sync()).error,/JSON解析/);assert.equal(fs.existsSync(f.outputFile),false);});
+test('clock rollback during response rejected even when final clock recovers',async t=>{let i=0;const values=[now-10,now,now-1,now+10];const f=fixture(t,async()=>response(),{clock:()=>values[Math.min(i++,values.length-1)]});assert.match((await f.center.sync()).error,/时钟/);assert.equal(fs.existsSync(f.outputFile),false);});
+test('permission revoked during staged output cannot publish',async t=>{let allowed=true;const f=fixture(t,async()=>response(),{canWrite:()=>allowed});const original=fs.fsyncSync,open=fs.openSync;let triggered=false,stagedFd=null;fs.openSync=function(file,...args){const fd=open.call(fs,file,...args);if(typeof file==='string'&&path.basename(file).startsWith('.history.json.')&&file.endsWith('.tmp'))stagedFd=fd;return fd;};fs.fsyncSync=function(fd){const result=original.call(fs,fd);if(fd===stagedFd){allowed=false;triggered=true;}return result;};try{const result=await f.center.sync();assert.equal(triggered,true);assert.match(result.error,/只读/);assert.equal(fs.existsSync(f.outputFile),false);}finally{fs.fsyncSync=original;fs.openSync=open;}});
+test('valid historical input still publishes',async t=>{const f=fixture(t,async()=>response({headers:{get:k=>k==='content-length'?String(raw().length):null}}));assert.equal((await f.center.sync()).updated,true);assert.equal(fs.existsSync(f.outputFile),true);assert.equal(f.center.status().canTrade,false);});
