@@ -253,7 +253,9 @@ test('共享撤销门禁覆盖原数值训练血缘及中心继承的历史验�
  const {candidateEvidenceReview,approvedModelEvidenceReview}=require('../public/nova/shortline/sample-quality.mjs');
  const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
  const review={status:'revalidated',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8),revalidatedAt:time(9)};
- const training={id:'training',planEvidenceReview:review},held={id:'validation',planEvidenceReview:review};
+ const evidence={code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const training={...evidence,id:'training',planEvidenceReview:review},held={...evidence,id:'validation',planEvidenceReview:review};
  const old={id:'old',createdAt:time(5),sourceIds:['validation'],numericModel:{sourceIds:['training'],trainCutoff:time(4)}};
  const base={number:1,candidateId:'old',numericModel:old.numericModel};
  const newCandidate={id:'new',createdAt:time(10),baseVersion:1,sourceIds:['different'],centerFeedback:{},numericModel:old.numericModel};
@@ -288,4 +290,43 @@ test('原生智能中心、短线评分及自动调权共用已撤销模型来�
  assert.equal(predict(x.state,{asOf:clock}).score,null);assert.equal(JSON.stringify(x.state),before);
  row.planEvidenceReview.status='revalidated';row.planEvidenceReview.revalidatedAt=new Date(clock).toISOString();
  assert.equal(research.buildIntelligenceResearch({archive:x.state,day:check.date,now:clock,calendar:x.calendar}).factors.approvedScoring.status,'requires-source-revalidation');
+});
+
+test('恢复来源必须保持原结算质量，晚到归档不能反向改变历史审批',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview,verifiedLearningObservation,sampleMatches}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const original={id:'restored',code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const review={status:'revalidated',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8),revalidatedAt:time(9)};
+ const valid={...original,planEvidenceReview:review};
+ const c={id:'candidate',createdAt:time(10),sourceIds:[original.id]};
+ const v={number:1,candidateId:c.id,approvedAt:time(10)};
+ const cutoff=point(11);
+ const state=trades=>({scope:'live',trades,candidates:[c],versions:[v]});
+ const check=(trades,expected,asOf=cutoff)=>{
+  const s=state(trades),before=JSON.stringify(s);
+  assert.equal(candidateEvidenceReview(s,c,asOf).status,expected);
+  assert.equal(approvedModelEvidenceReview(s,v,asOf).status,expected);
+  assert.equal(JSON.stringify(s),before);
+ };
+ const good='no-known-revocation',bad='requires-revalidation';
+ check([valid],good);check([valid,{...valid}],good);
+ for(const patch of [{pnl:null},{snapshotVerified:false},{blackSwan:true},{createdAt:null},
+  {repeatable:false},{exitTime:'bad-clock'},{extreme:true}]){
+  const damaged={...valid,...patch};
+  assert.ok(!verifiedLearningObservation(damaged,cutoff)||!sampleMatches(damaged,'standard'));
+  check([damaged],bad);
+ }
+ check([{id:original.id,planEvidenceReview:review}],bad);
+ check([{...original,planEvidenceReview:false}],bad);
+ check([{...valid,planEvidenceReview:{...review,revalidatedAt:null}}],bad);
+ check([valid,{...valid,pnl:3}],bad);
+ check([valid,{...valid,sampleSet:'demo',pnl:99}],good);
+ const later={...original,createdAt:time(12),planEvidenceReview:{status:'quarantined',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8)}};
+ check([original,later],good);check([later],good);
+ check([original,later],bad,point(12));
+ check([{...original,snapshotVerified:false,planEvidenceReview:{status:'quarantined',firstQuarantinedAt:time(12),lastQuarantinedAt:time(12)}}],good);
+ assert.equal(candidateEvidenceReview(state([valid]),{...c,createdAt:time(7)},cutoff).status,bad);
+ assert.equal(candidateEvidenceReview(state([valid]),{...c,createdAt:time(8)},cutoff).status,bad);
+ check([],good); // the candidate may instead reference a historical K-line label
 });
