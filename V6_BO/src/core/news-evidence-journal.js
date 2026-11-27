@@ -164,33 +164,54 @@ function sourceTime(v){
  if(local.slice(0,19)!==value.slice(0,19))throw Error('INVALID_SOURCE_TIME');
  return t;
 }
-function providerInput(raw,last,{now=Date.now()}={}){
+function providerInput(raw,last,{now=Date.now(),includeUnchanged=false}={}){
  const base={schemaVersion:1,source:'eastmoney-fast-news',eventId:String(raw.code||''),
   title:raw.title||'',body:raw.summary||'',bodyScope:'provider-summary',url:raw.url||raw.link||null,
-  securities:[...new Set((raw.stockList||[]).map(s=>/^[013]\.(\d{6})$/.exec(String(s))?.[1]).filter(Boolean))],
+  securities:[...new Set((raw.stockList||[]).map(s=>/^[013]\.(\d{6})$/.exec(String(s))?.[1]).filter(Boolean))].sort(),
   publishedAt:sourceTime(raw.showTime),receivedAt:now,revisedAt:sourceTime(raw.revisedAt),
   kind:raw.retracted===true?'retracted':last?'revised':'original',supersedes:last?.eventHash||null};
  if(!last)base.revisedAt=null;
- const edition=hash({title:base.title,body:base.body,url:base.url,securities:base.securities,
-  publishedAt:base.publishedAt,revisedAt:base.revisedAt,retracted:raw.retracted===true});
+ const editionContent=(row,retracted)=>({title:row.title,body:row.body,url:row.url,securities:[...row.securities].sort(),
+  publishedAt:row.publishedAt,revisedAt:row.revisedAt,retracted});
+ const edition=hash(editionContent(base,raw.retracted===true));
  base.sourceRevisionId=edition;
- if(last?.evidence.sourceRevisionId===edition)return null;
+ // Preserve historical editions whose hash predated canonical security order.
+ const prior=last?.evidence;
+ const equivalent=prior&&hash(editionContent(prior,prior.kind==='retracted'))===
+   hash(editionContent({...base,url:safeUrl(base.url)},raw.retracted===true));
+ if(!includeUnchanged&&(prior?.sourceRevisionId===edition||equivalent))return null;
  return base;
+}
+// Reconcile all versions of an ID before any append. A conflicting or invalid
+// peer must not allow input order to choose an edition or hide a retraction.
+function prepareProviderBatch(raw,events,{now=Date.now()}={}){
+ if(!Array.isArray(raw)||raw.length>2000)throw Error('PROVIDER_NEWS_BATCH_LIMIT');
+ const latest=new Map(events.map(e=>[key(e.evidence),e])),groups=new Map();
+ const inputs=[],rejectedEventIds=[];let rejected=0;
+ for(const row of raw){
+  const id=String(row?.code||''),k=JSON.stringify(['eastmoney-fast-news',id]);
+  const group=groups.get(k)||{id,count:0,invalid:false,normalized:null,row:null,last:latest.get(k)};
+  groups.set(k,group);group.count++;
+  try{
+   const input=providerInput(row,group.last,{now,includeUnchanged:true});
+   const normalized=normalize(input,{now});
+   if(group.normalized&&hash(group.normalized)!==hash(normalized))group.invalid=true;
+   else if(!group.normalized){group.normalized=normalized;group.row=row;}
+  }catch{group.invalid=true;}
+ }
+ for(const group of groups.values()){
+  try{
+   if(group.invalid||!group.normalized)throw Error('CONFLICTING_PROVIDER_BATCH_EVENT');
+   const input=providerInput(group.row,group.last,{now});if(!input)continue;
+   checkNext(events,normalize(input,{now}));inputs.push(input);
+  }catch{rejected+=group.count;rejectedEventIds.push(group.id);}
+ }
+ return {inputs,rejected,rejectedEventIds};
 }
 function captureProviderBatch(root=ROOT,raw,{now=Date.now()}={}){
  if(!Array.isArray(raw)||raw.length>2000)throw Error('PROVIDER_NEWS_BATCH_LIMIT');
- const events=readJournal(root,{now}),latest=new Map(events.map(e=>[key(e.evidence),e]));
- const inputs=[],rejectedEventIds=[];let rejected=0;
- for(const row of raw){
-  try{
-   const last=latest.get(JSON.stringify(['eastmoney-fast-news',String(row.code||'')]));
-   const input=providerInput(row,last,{now});if(!input)continue;
-   const normalized=normalize(input,{now});checkNext(events,normalized);
-   // Duplicate events from overlapping provider columns are captured once.
-   if(inputs.some(x=>key(x)===key(input)))continue;
-   inputs.push(input);
-  }catch{rejected++;rejectedEventIds.push(String(row?.code||''));}
- }
+ const events=readJournal(root,{now});
+ const {inputs,rejected,rejectedEventIds}=prepareProviderBatch(raw,events,{now});
  let imported=0;
  for(let offset=0;offset<inputs.length;offset+=200)imported+=appendBatch(root,inputs.slice(offset,offset+200),{now}).results.filter(r=>!r.reused).length;
  return {captured:imported,rejected,rejectedEventIds,...FLAGS};

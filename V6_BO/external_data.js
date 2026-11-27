@@ -75,15 +75,35 @@ async function fetchCommodities() {
 
 // ── 两融余额 ── 东财 datacenter 全部 reportName「报表配置不存在」（本网络上游不通），诚实标记不可达，不造假
 const MARGIN_CANDIDATES = ['RPT_RZRQ_TOTALNEW', 'RPT_MARGIN_TRADE_SUM'];
+const marginNumber = value => {
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+(?:\.\d+)?$/.test(value))) return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+};
+function marginDay(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?: 00:00:00)?$/.test(value)) return null;
+  const day=value.slice(0,10), at=Date.parse(day+'T00:00:00Z');
+  return Number.isFinite(at) && new Date(at).toISOString().slice(0,10)===day ? day : null;
+}
+function normalizeMarginResponse(json, reportName, receivedAt) {
+  if (!MARGIN_CANDIDATES.includes(reportName) || !Number.isSafeInteger(receivedAt) || receivedAt<=0 || receivedAt>=8e15 ||
+      json?.success!==true || !Array.isArray(json.result?.data) || json.result.data.length!==1) return null;
+  const row=json.result.data[0], date=marginDay(row?.DATE);
+  if (!date || date>new Date(receivedAt+28800000).toISOString().slice(0,10)) return null;
+  const rzBalance=marginNumber(row.RZYE), rqBalance=marginNumber(row.RQYE), rzBalanceSzReported=marginNumber(row.RZYE_SZ);
+  // Distinct source fields cannot replace one another; zero is an observation.
+  if ([rzBalance,rqBalance,rzBalanceSzReported].every(n=>n===null)) return null;
+  return {date,rzBalance,rqBalance,rzBuy:marginNumber(row.RZJME),rqSell:marginNumber(row.RQMCL),
+    rzBalanceSzReported,reportName,receivedAt,sourceQuoteAt:null,
+    scope:'provider-reported-fields-unverified',verifiedLive:false,canTrade:false};
+}
 async function fetchMargin() {
   let lastErr = '';
   for (const rn of MARGIN_CANDIDATES) {
     try {
       const j = await jget(`https://datacenter-web.eastmoney.com/api/data/v1/get?reportName=${rn}&columns=ALL&source=WEB&client=WEB&pageSize=1`);
-      const row = (j && j.result && j.result.data && j.result.data[0]);
-      if (row && (row.RZYE || row.RZYE_SZ || row.RQYE)) {
-        return { date: row.DATE, rzBalance: row.RZYE || row.RZYE_SZ, rqBalance: row.RQYE, rzBuy: row.RZJME, rqSell: row.RQMCL, reportName: rn };
-      }
+      const normalized = normalizeMarginResponse(j,rn,Date.now());
+      if (normalized) return normalized;
       lastErr = (j && j.message) || '空数据:' + rn;
     } catch (e) { lastErr = e.message; }
   }
@@ -198,4 +218,4 @@ function initExternalData(S, { isPrimary = true, intervalMs = 60 * 1000 } = {}) 
   return { tick };
 }
 
-module.exports = { initExternalData, fetchAll, loadExt, mergeExt, EXT_FILE };
+module.exports = { initExternalData, fetchAll, loadExt, mergeExt, EXT_FILE, normalizeMarginResponse };
