@@ -1,0 +1,122 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "ladder-normal.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "ladder-no-limit.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "ladder-ipo.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "ladder-dated.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "ladder-gap.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "ladder-normal.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "ladder-no-limit.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "ladder-ipo.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "ladder-dated.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "ladder-gap.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  }
+]
