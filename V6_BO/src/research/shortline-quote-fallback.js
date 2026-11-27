@@ -50,9 +50,18 @@ function txData(inst, raw) {
   return {name:identityName(inst,q[1]),data:d};
 }
 const number = x => typeof x==='number' ? x : typeof x==='string' && /^\d+(?:\.\d+)?$/.test(x) ? Number(x) : NaN;
+function exactVolume(value,multiplier){
+  const text=typeof value==='number'&&Number.isFinite(value)?String(value):value;
+  requireThat(typeof text==='string'&&text.length<=64&&/^\d+(?:\.\d+)?$/.test(text),'行情成交量十进制无效');
+  const [whole,fraction='']=text.split('.'),places=multiplier===100?2:0;
+  requireThat(!/[^0]/.test(fraction.slice(places)),'行情成交量不能换算为整数');
+  const result=BigInt(whole)*BigInt(multiplier)+(places?BigInt((fraction+'00').slice(0,places)):0n);
+  requireThat(result<=BigInt(Number.MAX_SAFE_INTEGER),'行情成交量超出安全范围');
+  return Number(result);
+}
 function bar(values, multiplier,hasAmount) {
   const [open,close,high,low,qty,amount] = values.map(number);
-  const volume = qty*multiplier;
+  const volume = exactVolume(values[4],multiplier);
   requireThat([open,close,high,low].every(n=>Number.isFinite(n)&&n>0) && high>=Math.max(open,close) &&
     low<=Math.min(open,close) && Number.isSafeInteger(volume) && volume>=0, '行情 OHLCV 数值或单位异常');
   if (hasAmount) requireThat(Number.isFinite(amount) && amount>=0,'成交额数值异常');
@@ -117,7 +126,8 @@ function checkReference(ref,inst,day,rows,receivedAt,required) {
   if(!ref){ requireThat(!required,'新浪响应未带证券身份，缺少同日独立原始日K参照');return; }
   requireThat(ref.code===inst.code && ref.date===day && ref.priceBasis==='unadjusted' &&
     Number.isSafeInteger(ref.knownAt) && ref.knownAt<=receivedAt && ref.knownAt>=Date.parse(day+'T15:00:00+08:00') &&
-    typeof ref.source==='string' && ref.source.trim() && (!required || !/sina|新浪/i.test(ref.source)), '日K参照身份、复权口径或可用时点不符');
+    typeof ref.source==='string' && ref.source.trim() && (!required || !/sina|新浪/i.test(ref.source)) &&
+    assessDailyBarFinality(day,{now:receivedAt,observedAt:ref.knownAt}).usable, '日K参照身份、复权口径或可用时点不符');
   const same=(a,b)=>Number.isFinite(b)&&Math.abs(a-b)<0.005001;
   requireThat(same(rows.at(-1).close,ref.close),'分时收盘与同日原始日K不符');
   if(required) requireThat(same(rows[0].open,ref.open) && same(Math.max(...rows.map(b=>b.high)),ref.high) &&
@@ -126,30 +136,41 @@ function checkReference(ref,inst,day,rows,receivedAt,required) {
 function createShortlineQuoteFallback({request=requestResearchBytes,clock=Date.now,requestGovernor}={}) {
   const send=createResearchRequest(request,requestResearchBytes,requestGovernor);
   let indexQuotes;
-  function closingIndexQuotes(){
-    if(!indexQuotes||clock()-indexQuotes.at>=300000){
+  function closingIndexQuotes(readClock){
+    const at=readClock();
+    if(!indexQuotes||at<indexQuotes.at||at-indexQuotes.at>=300000){
       const task=send('https://qt.gtimg.cn/q=sh000001,sz399001,sz399006,sh000985',{timeoutMs:10000,maxBytes:65536})
         .then(result=>new TextDecoder('gbk').decode(result.raw)).catch(error=>{indexQuotes=null;throw error;});
-      indexQuotes={at:clock(),task};
+      indexQuotes={at,task};
     }
     return indexQuotes.task;
   }
   async function collect(inst,day,plans,kind,reference) {
     const attempts=[];
     const failure = () => ({rows:[],...(kind==='minutes'?{bars:[]}:{}),attempts,src:null,receivedAt:null});
-    const start=clock();
+    let high=0,clockInvalid=false;
+    const readClock=()=>{try{const at=clock();requireThat(Number.isSafeInteger(at)&&at>0&&
+      Number.isFinite(new Date(at+28800000).getTime())&&at>=high,'采集时钟无效或倒退');high=at;return at;}
+      catch{clockInvalid=true;indexQuotes=null;throw Error('采集时钟无效或倒退');}};
+    let start;try{start=readClock();}catch{return failure();}
     if(!assessDailyBarFinality(day,{observedAt:start,now:start}).usable)return failure();
     for(const {provider,target,parse,timeoutMs=4000} of plans) {
       const attempt={provider,requestUrl:target};
       attempts.push(attempt);
       try {
-        const response=await send(target,{timeoutMs,processTimeoutMs:timeoutMs+1000,maxBytes:600000});
-        let receivedAt=clock();const raw=response?.raw;
-        requireThat(Number.isSafeInteger(receivedAt) && receivedAt>=start && Buffer.isBuffer(raw) && raw.length<=600000,'无有效响应或采集时刻');
+        readClock();
+        const response=await send(target,{timeoutMs,processTimeoutMs:timeoutMs+1000,maxBytes:600000,beforeStart:()=>{readClock();return {};}});
+        let receivedAt=readClock();const raw=response?.raw;
+        requireThat(Buffer.isBuffer(raw)&&raw.length>0&&raw.length<=600000,'无有效响应或采集时刻');
         const rawHash=createHash('sha256').update(raw).digest('hex');
         Object.assign(attempt,{receivedAt,rawHash});
-        const {name,rows,step}=await parse(raw.toString('utf8'));
-        if(provider==='sina-tencent'){receivedAt=clock();attempt.receivedAt=receivedAt;}
+        requireThat((response.status===undefined||response.status===200)&&(response.ok===undefined||response.ok===true)&&
+          response.redirected!==true&&response.type!=='opaqueredirect'&&(!response.url||response.url===target),'行情HTTP状态或最终地址异常');
+        const text=raw.toString('utf8');
+        requireThat(Buffer.from(text,'utf8').equals(raw),'行情原始响应不是有效UTF-8');
+        const {name,rows,step}=await parse(text,readClock);
+        const completed=readClock();
+        if(provider==='sina-tencent'){attempt.rawReceivedAt=receivedAt;receivedAt=completed;attempt.receivedAt=receivedAt;}
         if(kind==='minutes' && inst.role==='stock')checkReference(reference,inst,day,rows,receivedAt,provider==='sina');
         const src='V6/'+provider, period=step?step+'m':'日K';
         const volumeUnit=inst.role==='stock'?'shares':provider+'-index-volume';
@@ -162,6 +183,7 @@ function createShortlineQuoteFallback({request=requestResearchBytes,clock=Date.n
         attempt.status='unavailable';
         attempt.reason=error.code==='MARKET_RESTRICTED'?'供应商限流，遵循重试时间':error.response?.status?'行情网关 HTTP '+error.response.status:
           typeof error.code==='number'?'行情网络请求失败（'+error.code+'）':String(error.message||error).slice(0,180);
+        if(clockInvalid)break;
       }
     }
     return failure();
@@ -176,15 +198,15 @@ function createShortlineQuoteFallback({request=requestResearchBytes,clock=Date.n
     plans.push({provider:'eastmoney',target:emKline(inst,day,101,count),
       parse(raw){const {name,data}=emData(inst,raw);return {name,rows:dailyRows(data.klines?.map(s=>s.split(',')),day,count,true)};}});
     if(inst.role==='index')plans.push({provider:'sina-tencent',timeoutMs:11000,target:url(SINA.replace('series=','_series='),{symbol:inst.key,scale:'240',ma:'no',datalen:String(count)}),
-      async parse(raw){
+      async parse(raw,readClock){
         const packet=/\bvar _series=\((\[[\s\S]*\])\);?\s*$/.exec(raw);
         requireThat(packet,'新浪日K响应格式不符');
         const rows=dailyRows(JSON.parse(packet[1]).map(b=>[b.day,b.open,b.close,b.high,b.low,b.volume]),day,count,false);
-        const response=await closingIndexQuotes();
+        const response=await closingIndexQuotes(readClock);
         const fields=[...response.matchAll(/^v_([a-z]{2}\d{6})="([^"]+)";?\s*$/gm)].find(m=>m[1]===inst.key);
         requireThat(fields?.[1]===inst.key,'腾讯核对指数身份不符');
         const f=fields[2].split('~'),at=require('../core/public-market').timestamp(f[30]);
-        requireThat(f[2]===inst.code&&at>=Date.parse(day+'T15:00:00+08:00')&&at<=clock()&&
+        requireThat(f[2]===inst.code&&at>=Date.parse(day+'T15:00:00+08:00')&&at<=readClock()&&
           new Date(at+28800000).toISOString().slice(0,10)===day&&Math.abs(number(f[3])-rows.at(-1).close)<0.0051&&
           Math.abs(number(f[4])-rows.at(-2).close)<0.0051,'两源指数收盘或前收不一致');
         return {name:identityName(inst,f[1]),rows};
