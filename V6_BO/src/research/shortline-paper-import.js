@@ -7,8 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
-const {quoteSourceAllowsUse,quoteObservationView} = require('../core/quote-observation-view');
-const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
+const {frozenFeedbackQuote,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
 const money = n => Math.round((n + Number.EPSILON) * 100);
@@ -79,34 +78,10 @@ function linkDecisionPlan(sample, state, events, now) {
   if(ids.some(id=>!id)||new Set(ids).size!==1)return sample;
   const matches=(state.plans||[]).filter(plan=>plan.id===ids[0]);
   if(matches.length!==1)return sample;
-  const plan=matches[0],at=Math.min(...legs.map(leg=>leg.time)),basis=plan.decisionEvidence;
-  try{validatePlan(plan,now);}catch{return sample;}
-  const frozen=Date.parse(plan.frozenAt),q=basis?.quoteBasis;
+  const plan=matches[0],at=Math.min(...legs.map(leg=>leg.time)),frozen=Date.parse(plan.frozenAt);
   const stamp=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
-  // A valid settlement proves cash and shares, not a causal research plan.
-  // Preserve that settlement if the original decision clocks do not agree.
-  if(plan.code!==sample.code||frozen>at||wall(frozen).slice(0,10)!==plan.intendedDate||
-    entries.some(event=>event.tradeDate!==plan.intendedDate)||
-    !stamp(basis?.calculatedAt)||basis.calculatedAt>frozen||
-    !stamp(basis?.strategyAt)||basis.strategyAt>basis.calculatedAt||
-    !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||basis.calculatedAt-q.quoteAt>15000||
-    wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
-    typeof q.source!=='string'||!q.source.trim()||
-     /mock|synthetic|fixture|demo/i.test(q.source)||/demo/i.test(q.mode||'')||
-     !quoteSourceAllowsUse({...q,quoteSource:q.source})||
-     // Replay the frozen observation at its original decision clock, not the
-     // import clock. A legacy omitted receipt/price remains an unknown field,
-     // but an explicit identity, clock or provider contradiction is not proof.
-     quoteObservationView({...q,quoteSource:q.source},basis.calculatedAt).missingReason==='conflicting-quote-evidence'||
-     [q.quoteStatus,q.quoteFreshness,q.freshness].some(status=>['stale','future','unknown','conflict'].includes(status))||
-     q.symbol!=null&&q.symbol!==plan.code||q.quoteSource!=null&&q.quoteSource!==q.source||
-     q.provider!=null&&q.provider!==q.source||q.timestamp!=null&&q.timestamp!==q.quoteAt||
-     entries.some(event=>event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||
-       event.fillEvidence.mode!=='public-live-unverified'))||
-    q.code!==undefined&&q.code!==plan.code||
-    q.price!==undefined&&(!Number.isFinite(q.price)||q.price<=0)||
-    q.receivedAt!==undefined&&(!stamp(q.receivedAt)||q.receivedAt<q.quoteAt||q.receivedAt>basis.calculatedAt)||
-    basis.strategyBasis?.day!==undefined&&basis.strategyBasis.day!==plan.intendedDate)return sample;
+  if(plan.code!==sample.code||!frozenFeedbackQuote(plan,at)||entries.some(event=>event.tradeDate!==plan.intendedDate||
+    event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||event.fillEvidence.mode!=='public-live-unverified')))return sample;
   // Do not choose one of several conflicting check records or borrow its
   // factors. A valid frozen plan may still be linked without that optional check.
   const checks=plan.checkId?(state.checks||[]).filter(check=>check.id===plan.checkId):[];
