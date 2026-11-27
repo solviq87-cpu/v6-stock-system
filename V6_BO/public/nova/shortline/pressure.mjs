@@ -5,11 +5,14 @@ const DAY=86400000;
 const validCode=c=>typeof c==='string'&&/^\d{6}$/.test(c);
 const validDay=d=>typeof d==='string'&&dayPattern.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
 const finite=Number.isFinite;
+const receiptTime=x=>Number.isSafeInteger(x)&&x>0&&x<8e15;
+const nonblank=x=>typeof x==='string'&&x.trim().length>0;
+const arr=x=>Array.isArray(x)?x:[];
 const positive=x=>finite(x)&&x>0;
 const pct=x=>Math.round(x*100)/100;
 const escape=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clock=x=>{
-  if(Number.isSafeInteger(x)&&x>0)return x;
+  if(receiptTime(x))return x;
   if(typeof x!=='string'||!validDay(x.slice(0,10)))return NaN;
   if(x.length===10)return Date.parse(x+'T15:00:00+08:00');
   const t=x.replace(' ','T');
@@ -19,23 +22,34 @@ const clock=x=>{
 const wall=n=>finite(n)?new Date(n+8*3600000).toISOString().slice(0,16).replace('T',' '):'未取得';
 const categories=['减持','问询','监管','解禁','商誉'];
 const ratio=(x,min,max)=>finite(x)&&x>=min&&x<=max;
-const metaKeys=new Set(['knownAt','lastSeenAt']);
+const metaKeys=new Set(['knownAt','lastSeenAt','receiptTimes']);
 
 // Historical receipts can be later than their trade dates. They remain visible
 // on later reviews; the signal-time projection passes its own cutoff below.
 export function chipHistory(bars,code,day,asOf){
   const cut=clock(asOf);
   if(!validCode(code)||!validDay(day)||!finite(cut))return [];
-  const dated=new Map(),conflicts=new Set();
-  for(const b of bars||[]){
+  const dated=new Map(),conflicts=new Set(),rawByDay=new Map(),rawConflicts=new Set();
+  for(const b of arr(bars)){
+    if(!b||typeof b!=='object')continue;
     if(b.code!==code||(b.role&&b.role!=='stock')||!validDay(b.date)||b.date>day||clock(b.date)>cut||
        !['日K','1d','D','daily',undefined].includes(b.period)||b.priceBasis&&b.priceBasis!=='unadjusted')continue;
-    const marks=[b.knownAt,b.availableAt].filter(x=>x!=null).map(clock);
-    if(!marks.length||marks.some(t=>!finite(t)||t>cut))continue;
-    const knownAt=Math.max(clock(b.date),...marks);
-    const prior=dated.get(b.date);
-    if(prior&&['high','low','close','volume','chipPeak'].some(k=>prior[k]!==b[k])){conflicts.add(b.date);continue;}
+    const closeAt=clock(b.date),marks=[b.knownAt,b.availableAt].filter(x=>x!=null).map(clock);
+    // A daily close cannot have been obtained before that daily bar completed.
+    if(!marks.length||marks.some(t=>!receiptTime(t)||t>cut||t<closeAt))continue;
+    const knownAt=Math.max(...marks),prior=dated.get(b.date);
+    if(prior&&['high','low','close','volume','volumeUnit'].some(k=>!Object.is(prior[k],b[k]))){conflicts.add(b.date);continue;}
     if(!prior||prior.knownAt>knownAt)dated.set(b.date,{...b,knownAt});
+    if(!positive(b.chipPeak))continue;
+    // Explicit raw-chip clocks are independent of the daily bar. A future
+    // raw observation is invisible to the earlier report, including conflicts.
+    const chipAt=Object.hasOwn(b,'chipKnownAt')?clock(b.chipKnownAt):knownAt;
+    if(!receiptTime(chipAt)||chipAt<closeAt||chipAt>cut)continue;
+    const raw={peak:b.chipPeak,lockedRatio:ratio(b.lockedRatio,0,100)?b.lockedRatio:null,
+      knownAt:Math.max(knownAt,chipAt),source:String(b.chipSource||b.sampleSource||b.source||'导入文件原字段 chipPeak').slice(0,150)};
+    const old=rawByDay.get(b.date);
+    if(old&&(old.peak!==raw.peak||old.lockedRatio!==raw.lockedRatio)){rawConflicts.add(b.date);continue;}
+    if(!old||old.knownAt>raw.knownAt)rawByDay.set(b.date,raw);
   }
   const rows=[...dated.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-80);
   let window=[];
@@ -45,11 +59,11 @@ export function chipHistory(bars,code,day,asOf){
       window=[];continue;
     }
     window.push(row);if(window.length>20)window.shift();
-    if(positive(row.chipPeak)){
-      const knownAt=Math.max(row.knownAt,clock(row.chipKnownAt??row.knownAt));
-      if(knownAt<=cut)out.push({id:'chip/'+row.date+'/raw',code,date:row.date,kind:'raw',peak:row.chipPeak,close:row.close,
-        source:String(row.chipSource||row.sampleSource||row.source||'导入文件原字段 chipPeak').slice(0,150),knownAt,
-        ...(ratio(row.lockedRatio,0,100)?{lockedRatio:row.lockedRatio}:{})});
+    if(rawConflicts.has(row.date))continue;
+    const raw=rawByDay.get(row.date);
+    if(raw){
+      out.push({id:'chip/'+row.date+'/raw',code,date:row.date,kind:'raw',peak:raw.peak,close:row.close,
+        source:raw.source,knownAt:raw.knownAt,...(raw.lockedRatio!==null?{lockedRatio:raw.lockedRatio}:{})});
       continue;
     }
     if(window.length<20||new Set(window.map(b=>b.volumeUnit||'同批原始量')).size!==1)continue;
@@ -75,18 +89,44 @@ export function chipHistory(bars,code,day,asOf){
 }
 
 function signature(x){return JSON.stringify(Object.fromEntries(Object.entries(x).filter(([k])=>!metaKeys.has(k)).sort(([a],[b])=>a.localeCompare(b))));}
+// Compression retains the actual receipt clocks so a late contradictory
+// revision at an already observed time is still detected on historical replay.
+function observedTimes(row){
+  if(!receiptTime(row?.knownAt))return [];
+  return [...new Set([row.knownAt,...arr(row.receiptTimes).filter(t=>receiptTime(t)&&t>=row.knownAt)])].sort((a,b)=>a-b);
+}
 function collect(original,incoming){
-  const entries=[...original,...incoming].filter(x=>x?.id&&Number.isSafeInteger(x.knownAt)).sort((a,b)=>a.knownAt-b.knownAt||a.id.localeCompare(b.id));
-  const previous=new Map(),out=[];
-  for(const x of entries){
-    const value=signature(x);
-    if(previous.get(x.id)===value)continue;
-    previous.set(x.id,value);out.push(x);
+  const byId=new Map(),out=[];
+  for(const [rows,archived] of [[arr(original),true],[arr(incoming),false]]){
+    for(const x of rows){
+      if(!nonblank(x?.id)||!receiptTime(x.knownAt))continue;
+      const {receiptTimes,lastSeenAt,...data}=x;
+      if(!byId.has(x.id))byId.set(x.id,new Map());
+      const byTime=byId.get(x.id),value=signature(x);
+      // New reports do not supply archive compression metadata.
+      for(const at of archived?observedTimes(x):[x.knownAt]){
+        if(!byTime.has(at))byTime.set(at,new Map());
+        const group=byTime.get(at);
+        if(!group.has(value))group.set(value,{...data,knownAt:at});
+      }
+    }
   }
-  return out;
+  for(const byTime of byId.values()){
+    let previous=null,previousRow=null;
+    for(const [at,group] of [...byTime.entries()].sort(([a],[b])=>a-b)){
+      const single=group.size===1?[...group.keys()][0]:null;
+      if(single!==null&&single===previous&&previousRow){
+        (previousRow.receiptTimes??=[previousRow.knownAt]).push(at);
+        continue;
+      }
+      out.push(...group.values());previous=single;
+      previousRow=single===null?null:group.get(single);
+    }
+  }
+  return out.sort((a,b)=>a.knownAt-b.knownAt||a.id.localeCompare(b.id));
 }
 export function mergePressureHistory(state,report){
-  if(!report||!validCode(report.code)||!validDay(report.day)||!Number.isSafeInteger(report.knownAt))return;
+  if(!report||!validCode(report.code)||!validDay(report.day)||!receiptTime(report.knownAt)||report.knownAt<Date.parse(report.day+'T00:00:00+08:00'))return;
   const rows=state.pressureHistory??=[];
   let dest=rows.find(x=>x.code===report.code&&x.day===report.day);
   if(!dest){
@@ -96,14 +136,21 @@ export function mergePressureHistory(state,report){
   if(report.name)dest.name=String(report.name).slice(0,60);
   dest.knownAt=Math.min(dest.knownAt,report.knownAt);
   for(const key of ['clues','facts','coverage','chipSeries']){
-    const incoming=(report[key]||[]).filter(x=>x.code===report.code&&x.knownAt<=report.knownAt&&(key!=='chipSeries'||x.date===report.day));
+    const incoming=arr(report[key]).filter(x=>x?.code===report.code&&receiptTime(x.knownAt)&&x.knownAt<=report.knownAt&&(key!=='chipSeries'||x.date===report.day));
     dest[key]=collect(dest[key],incoming);
   }
 }
 function latestVersions(rows,cut){
   const byId=new Map();
-  for(const r of rows)if(r.knownAt<=cut&&(!byId.has(r.id)||byId.get(r.id).knownAt<r.knownAt))byId.set(r.id,r);
-  return [...byId.values()];
+  for(const r of arr(rows)){
+    if(!nonblank(r?.id)||!receiptTime(r.knownAt)||r.knownAt>cut)continue;
+    const at=observedTimes(r).filter(t=>t<=cut).at(-1);
+    if(at===undefined)continue;
+    const prior=byId.get(r.id),value=signature(r);
+    if(!prior||prior.at<at)byId.set(r.id,{at,row:r,value,conflict:false});
+    else if(prior.at===at&&prior.value!==value)prior.conflict=true;
+  }
+  return [...byId.values()].filter(x=>!x.conflict).map(x=>x.row);
 }
 const archiveIndex=new WeakMap();
 function reportsForCode(state,code){
@@ -122,20 +169,24 @@ function reportsOf(state){
   return [...(state.pressureHistory||[]),...(current?[current]:[])];
 }
 export function confirmedFact(f,code,day,cutoff){
-  if(!f||f.code!==code||f.verified!==true||!categories.includes(f.category)||!f.source||!f.description||
-     !validDay(f.expires)||f.expires<day||!validDay(f.eventDay)||!Number.isSafeInteger(f.knownAt)||f.knownAt>cutoff)return false;
+  if(!f||!validCode(code)||!validDay(day)||!receiptTime(cutoff)||!nonblank(f.id)||f.code!==code||f.verified!==true||
+     f.retracted===true||f.withdrawn===true||!categories.includes(f.category)||!nonblank(f.source)||!nonblank(f.description)||
+     !validDay(f.expires)||f.expires<day||!validDay(f.eventDay)||f.expires<f.eventDay||!receiptTime(f.knownAt)||f.knownAt>cutoff)return false;
+  if(f.category==='商誉'&&f.riskTag==='高商誉（≥30%净资产）'&&
+     (f.unit!=='%净资产'||!finite(f.value)||f.value<30))return false;
   const published=f.publishedAt,updated=f.sourceUpdatedAt;
   if([published,updated].some(t=>t!=null&&(!Number.isSafeInteger(t)||t<=0||t>f.knownAt)))return false;
-  if(f.category==='解禁')return Number.isSafeInteger(updated);
+  if(f.category==='解禁')return receiptTime(updated);
   if(f.eventDay>day||Date.parse(f.eventDay+'T00:00:00+08:00')>f.knownAt)return false;
-  return f.category==='减持'||Number.isSafeInteger(published);
+  return f.category==='减持'||receiptTime(published);
 }
 export function addPressureRiskFacts(report,code,asOf,facts){
   const cutoff=clock(asOf);
-  if(!facts||!validCode(code)||report?.code!==code||!validDay(report.day)||!finite(cutoff)||!(report.knownAt<=cutoff))return facts;
+  if(!facts||!validCode(code)||report?.code!==code||!validDay(report.day)||!receiptTime(cutoff)||
+     !receiptTime(report.knownAt)||report.knownAt>cutoff||report.knownAt<Date.parse(report.day+'T00:00:00+08:00'))return facts;
   const day=new Date(cutoff+8*3600000).toISOString().slice(0,10);
   if(report.day>day)return facts;
-  for(const f of latestVersions(report.facts||[],cutoff)){
+  for(const f of latestVersions(arr(report.facts).filter(f=>f?.code===code),cutoff)){
     if(!confirmedFact(f,code,day,cutoff))continue;
     let key='';
     if(f.category==='减持'&&f.factorCode==='GG-01')key='56:0';
@@ -148,16 +199,20 @@ export function addPressureRiskFacts(report,code,asOf,facts){
 }
 export function pressureLearningTags(state,{code,date},asOf){
   const day=String(date||'').slice(0,10),cut=clock(asOf);
-  if(!validCode(code)||!validDay(day)||!finite(cut))return [];
-  const eligible=reportsForCode(state,code).filter(r=>r.day<=day&&r.knownAt<=cut);
-  const facts=latestVersions(eligible.flatMap(r=>r.facts||[]),cut);
+  if(!validCode(code)||!validDay(day)||!receiptTime(cut)||Date.parse(day+'T00:00:00+08:00')>cut)return [];
+  const eligible=reportsForCode(state,code).filter(r=>r?.code===code&&validDay(r.day)&&r.day<=day&&receiptTime(r.knownAt)&&
+    r.knownAt>=Date.parse(r.day+'T00:00:00+08:00')&&r.knownAt<=cut);
+  const facts=latestVersions(eligible.flatMap(r=>arr(r.facts)).filter(f=>f?.code===code),cut);
   const tags=new Set();
   for(const f of facts){
     if(!confirmedFact(f,code,day,cut)||!f.riskTag)continue;
     tags.add('压力·'+f.riskTag);
   }
   // Only a close that existed by the decision time can describe cost position.
-  const chips=latestVersions(eligible.flatMap(r=>r.chipSeries||[]),cut).filter(x=>x.code===code&&x.date<=day&&Date.parse(day)-Date.parse(x.date)<=10*DAY&&positive(x.peak)&&positive(x.close));
+  const chips=latestVersions(eligible.flatMap(r=>arr(r.chipSeries)).filter(x=>x?.code===code),cut)
+    .filter(x=>validDay(x.date)&&x.date<=day&&Date.parse(day)-Date.parse(x.date)<=10*DAY&&
+      x.knownAt>=clock(x.date)&&nonblank(x.source)&&['raw','estimate'].includes(x.kind)&&
+      x.retracted!==true&&x.withdrawn!==true&&positive(x.peak)&&positive(x.close));
   const chip=chips.sort((a,b)=>b.date.localeCompare(a.date)||Number(b.kind==='raw')-Number(a.kind==='raw'))[0];
   if(chip)tags.add('筹码·'+(chip.kind==='raw'?'原始':'估算')+'峰'+(chip.close===chip.peak?'平价':chip.close>chip.peak?'上方收盘':'下方收盘'));
   return [...tags].sort();
