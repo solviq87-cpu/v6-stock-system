@@ -7,6 +7,7 @@ const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex'
 const clone=x=>JSON.parse(JSON.stringify(x));
 const seal=p=>({...p,fingerprint:hash(p)});
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
+const instant=t=>typeof t==='string'&&/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(t)&&Number.isFinite(Date.parse(t))&&validDate(t.slice(0,10));
 function safe(file){let p=path.parse(path.resolve(file)).root;for(const part of path.resolve(file).slice(p.length).split(path.sep).filter(Boolean)){p=path.join(p,part);try{if(fs.lstatSync(p).isSymbolicLink())throw Error('参数注册路径禁止符号链接');}catch(e){if(e.code!=='ENOENT')throw e;}}return path.resolve(file);}
 function read(file,max=8*1024*1024){safe(file);const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW);try{const s=fs.fstatSync(fd);if(!s.isFile()||s.size>max)throw Error('参数文件类型或大小无效');const b=fs.readFileSync(fd);if(b.length>max)throw Error('参数文件超过上限');return JSON.parse(b);}finally{fs.closeSync(fd);}}
 function unseal(x){const {fingerprint,...p}=x||{};if(fingerprint!==hash(p))throw Error('参数注册文件完整性失败');return p;}
@@ -23,12 +24,14 @@ function validatePlan(input,plan){
  if(plan.marketGateMode!==undefined&&plan.marketGateMode!=='required-on-promote')throw Error('市场学习晋级门禁模式无效');
  const dates=input.stocks?.[0]?.bars?.map(b=>b.date)||[];
  if(!dates.length||dates.length>400||input.stocks.length>20||input.stocks.length*dates.length>5000||!dates.every(validDate)||input.asOf!==dates.at(-1))throw Error('冻结研究需要对齐的限额内历史');
+ const sourceCut=Date.parse(input.decisionAt);
+ if(!instant(input.decisionAt)||sourceCut>Date.now()||new Date(sourceCut+8*3600000).toISOString().slice(0,10)<input.asOf)throw Error('冻结研究原决策时点无效');
  const a=dates.indexOf(plan.trainEnd),b=dates.indexOf(plan.validationEnd),c=dates.indexOf(plan.holdoutEnd);
  if(a<60||b-a<20||c-b<20||c!==dates.length-1)throw Error('训练/验证/冻结样本外各段不足或未按序覆盖');
  if(input.nativeEvidence!==undefined){const n=input.nativeEvidence;if(!n||typeof n!=='object'||Array.isArray(n)||n.schemaVersion!==1||Object.keys(n).some(k=>!['schemaVersion','snapshots','pythonEvidence','splitDay'].includes(k)))throw Error('原生证据结构无效');const allowed=new Set();for(const stock of input.stocks)for(const bar of stock.bars){if(bar.originalRuleSignals!==undefined||bar.originalRuleEvidence!==undefined)throw Error('禁止混用原生及手工证据');allowed.add(String(stock.symbol||stock.code)+'/'+bar.date);}for(const key of ['snapshots','pythonEvidence'])if(n[key]!==undefined){if(!n[key]||typeof n[key]!=='object'||Array.isArray(n[key])||Object.keys(n[key]).some(k=>!allowed.has(k)))throw Error('原生证据包含未知或未来日期键');}}
- if(input.nativeEvidence?.splitDay!==undefined&&input.nativeEvidence.splitDay>=a)throw Error('原生回放splitDay须在训练段内部');
+ if(input.nativeEvidence?.splitDay!==undefined&&(!Number.isSafeInteger(input.nativeEvidence.splitDay)||input.nativeEvidence.splitDay<0||input.nativeEvidence.splitDay>=a))throw Error('原生回放splitDay须在训练段内部');
  if(!Array.isArray(plan.candidates)||!plan.candidates.length||plan.candidates.length>4)throw Error('候选数须为1至4');
- const ids=new Set();for(const candidate of plan.candidates){if(!candidate||typeof candidate.id!=='string'||!/^[A-Za-z0-9_-]{1,40}$/.test(candidate.id)||candidate.id==='baseline'||ids.has(candidate.id)||Object.keys(candidate).some(k=>!['id','parameters'].includes(k)))throw Error('候选ID重复或格式无效');ids.add(candidate.id);config(candidate.parameters);}
+ const ids=new Set(),vectors=new Set();for(const candidate of plan.candidates){if(!candidate||typeof candidate.id!=='string'||!/^[A-Za-z0-9_-]{1,40}$/.test(candidate.id)||candidate.id==='baseline'||ids.has(candidate.id)||Object.keys(candidate).some(k=>!['id','parameters'].includes(k)))throw Error('候选ID重复或格式无效');ids.add(candidate.id);const vector=hash(config(candidate.parameters));if(vectors.has(vector))throw Error('重复候选参数向量不得重复消耗验证样本');vectors.add(vector);}
  const g=plan.gates,keys=['minClosedTrades','maxDrawdownPct','minReturnPct','minExcessReturnPct','costStressBps'];
  if(!g||Object.keys(g).some(k=>!keys.includes(k))||!keys.every(k=>Number.isFinite(g[k]))||!Number.isSafeInteger(g.minClosedTrades)||g.minClosedTrades<3||g.maxDrawdownPct<=0||g.maxDrawdownPct>50||g.minReturnPct<0||g.minExcessReturnPct<0||g.costStressBps<10||g.costStressBps>100)throw Error('必须预先冻结有效的样本数/回撤/收益/额外成本门槛');
  for(const k of ['avoidDefensive','avoidHeavyweights','requireMarket','requireForecast'])if(input.selectionPolicy?.[k]===false)throw Error('冻结研究不允许关闭证据或回避门禁');
@@ -36,28 +39,49 @@ function validatePlan(input,plan){
  if(input.simulation?.feeSchedules)throw Error('当前冻结成本压力不支持日期费表，请显式使用统一bps协议');
  if(input.simulation?.holdDays!==undefined&&input.simulation.holdDays!==1)throw Error('冻结协议只支持一个交易日持有');
  if(!input.simulation||!input.tradingCalendar)throw Error('晋级需要独立模拟及显式交易日历');
- require('./historical-validation').validateDataset({source:input.source,asOf:input.asOf,stocks:input.stocks});require('./trading-calendar').createTradingCalendar(input.tradingCalendar).assertDates(dates);
+ require('./historical-validation').validateDataset({source:input.source,asOf:input.asOf,stocks:input.stocks,settlements:input.simulation.settlements});
+ if(input.simulation.universeHistory!=null)require('./historical-universe').validateUniverseHistory(input.simulation.universeHistory);
+ require('./trading-calendar').createTradingCalendar(input.tradingCalendar).assertDates(dates);
  return {a,b,c,dates};
 }
 function baseline(input){return config({learningConfig:input.learningConfig,selectionPolicy:{minUpProbability:input.selectionPolicy?.minUpProbability??.5,maxIndexWeightPct:input.selectionPolicy?.maxIndexWeightPct??3}});}
 function applyParameters(input,parameters){const p=config(parameters);return {...clone(input),learningConfig:p.learningConfig,selectionPolicy:{...input.selectionPolicy,...p.selectionPolicy,avoidDefensive:true,avoidHeavyweights:true,requireMarket:true,requireForecast:true}};}
 function segment(input,parameters,start,end,stress=0){
- const data=applyParameters(input,parameters),dates=input.stocks[0].bars.map(b=>b.date),through=dates[end];data.asOf=through;data.decisionAt=through+'T16:00:00+08:00';
+ const data=applyParameters(input,parameters),dates=input.stocks[0].bars.map(b=>b.date),through=dates[end];data.asOf=through;
+ // Do not extend the original decision clock to a later synthetic close.
+ const close=through+'T16:00:00+08:00';
+ data.decisionAt=Date.parse(input.decisionAt)<Date.parse(close)?input.decisionAt:close;
+ const cut=Date.parse(data.decisionAt);
+ const known=(row,key)=>{if(!instant(row?.[key]))throw Error('研究分段证据已知时点无效');return Date.parse(row[key])<=cut;};
+ const visible=(rows,dateKey,timeKey)=>{if(!Array.isArray(rows))throw Error('研究分段证据列表无效');return rows.filter(e=>{if(!validDate(e?.[dateKey]))throw Error('研究分段证据日期无效');return e[dateKey]<=through&&known(e,timeKey);});};
  data.stocks=data.stocks.map(s=>({...s,bars:s.bars.slice(0,end+1)}));for(const series of Object.values(data.indices||{}))series.bars=series.bars.filter(b=>b.date<=through);
- for(const key of ['sectorEvidence','weightEvidence'])if(data[key])data[key]=data[key].filter(e=>e.tradeDate<=through);
+ for(const key of ['sectorEvidence','weightEvidence'])if(data[key]!=null)data[key]=visible(data[key],'tradeDate','knownAt');
  if(data.nativeEvidence)for(const key of ['snapshots','pythonEvidence'])if(data.nativeEvidence[key])data.nativeEvidence[key]=Object.fromEntries(Object.entries(data.nativeEvidence[key]).filter(([k])=>k.split('/').at(-1)<=through));
  data.tradingCalendar={...data.tradingCalendar,to:through,sessions:data.tradingCalendar.sessions.filter(s=>s.date<=through)};
  data.simulation={...data.simulation,start,end,holdDays:1,feeBps:(input.simulation.feeBps??8)+stress,slippageBps:(input.simulation.slippageBps??10)+stress,sellTaxBps:input.simulation.sellTaxBps??5};
+ // Keep only effective and known settlement/membership evidence at this cut.
+ // A declared but empty membership table remains empty, not unrestricted.
+ if(data.simulation.settlements!=null)data.simulation.settlements=visible(data.simulation.settlements,'effectiveDate','publishedAt');
+ if(data.simulation.universeHistory!=null)data.simulation.universeHistory=visible(data.simulation.universeHistory,'from','knownAt').filter(e=>e.securityMaster===undefined||known(e.securityMaster,'availableAt'));
  if(stress&&data.simulation.feeSchedules)throw Error('当前成本压力仅支持显式bps费率，不能忽略日期费表');
- const report=runAdaptiveResearch(data);return {trainedRules:Object.entries(report.learning.ruleStatus).filter(([,r])=>r.trained).map(([id])=>id),metrics:report.simulation.metrics,statistics:report.simulation.statistics,reportFingerprint:hash(report),firstDate:dates[start],lastDate:through};
+ const report=runAdaptiveResearch(data);
+ if(!report||report.asOf!==through||report.decisionAt!==data.decisionAt||report.canTrade!==false||report.brokerConnected!==false||!validMetrics(report.simulation?.metrics)||!report.learning?.ruleStatus||typeof report.learning.ruleStatus!=='object'||Array.isArray(report.learning.ruleStatus)||Object.values(report.learning.ruleStatus).some(r=>typeof r?.trained!=='boolean'))throw Error('研究分段评分回执或边界无效');
+ return {trainedRules:Object.entries(report.learning.ruleStatus).filter(([,r])=>r.trained===true).map(([id])=>id),metrics:report.simulation.metrics,statistics:report.simulation.statistics,reportFingerprint:hash(report),firstDate:dates[start],lastDate:through};
 }
-function pass(row,g,reference=null){const m=row.metrics;return row.trainedRules.length>0&&m.closedTrades>=g.minClosedTrades&&m.maxDrawdownPct<=g.maxDrawdownPct&&m.returnPct>=g.minReturnPct&&(!reference||m.returnPct-reference.metrics.returnPct>=g.minExcessReturnPct);}
+const validMetrics=m=>m&&Number.isSafeInteger(m.closedTrades)&&m.closedTrades>=0&&Number.isFinite(m.maxDrawdownPct)&&m.maxDrawdownPct>=0&&m.maxDrawdownPct<=100&&Number.isFinite(m.returnPct)&&m.returnPct>=-100;
+function pass(row,g,reference=null){const m=row.metrics;return validMetrics(m)&&(!reference||validMetrics(reference.metrics))&&row.trainedRules.length>0&&m.closedTrades>=g.minClosedTrades&&m.maxDrawdownPct<=g.maxDrawdownPct&&m.returnPct>=g.minReturnPct&&(!reference||m.returnPct-reference.metrics.returnPct>=g.minExcessReturnPct);}
 function validation(input,plan){const {a,b}=validatePlan(input,plan),g=plan.gates,base=baseline(input),run=p=>({train:segment(input,p,27,a),validation:segment(input,p,a+1,b),stress:segment(input,p,a+1,b,g.costStressBps)}),reference=run(base);
  const candidates=plan.candidates.map(c=>{const parameters=config(c.parameters),results=run(parameters);return {id:c.id,parameters,...results,eligible:pass(results.train,g)&&pass(results.validation,g,reference.validation)&&pass(results.stress,g,reference.stress)};});
  const winner=candidates.filter(c=>c.eligible).sort((x,y)=>y.validation.metrics.returnPct-x.validation.metrics.returnPct||x.id.localeCompare(y.id))[0];
  return {method:'frozen-parameters-prequential-v1',reference,candidates,selectedId:winner?.id||null,holdoutRead:false};
 }
-function holdout(input,plan,evaluation){if(!evaluation.selectedId)return {eligible:false,reason:'NO_VALIDATED_CANDIDATE'};const {b,c}=validatePlan(input,plan),candidate=evaluation.candidates.find(x=>x.id===evaluation.selectedId),g=plan.gates,reference=segment(input,baseline(input),b+1,c),referenceStress=segment(input,baseline(input),b+1,c,g.costStressBps),result=segment(input,candidate.parameters,b+1,c),stress=segment(input,candidate.parameters,b+1,c,g.costStressBps);return {selectedId:candidate.id,reference,referenceStress,result,stress,eligible:pass(result,g,reference)&&pass(stress,g,referenceStress)};}
+function holdoutFromVerifiedEvaluation(input,plan,evaluation){if(!evaluation.selectedId)return {eligible:false,reason:'NO_VALIDATED_CANDIDATE'};const {b,c}=validatePlan(input,plan),candidate=evaluation.candidates.find(x=>x.id===evaluation.selectedId),g=plan.gates,reference=segment(input,baseline(input),b+1,c),referenceStress=segment(input,baseline(input),b+1,c,g.costStressBps),result=segment(input,candidate.parameters,b+1,c),stress=segment(input,candidate.parameters,b+1,c,g.costStressBps);return {selectedId:candidate.id,reference,referenceStress,result,stress,eligible:pass(result,g,reference)&&pass(stress,g,referenceStress)};}
+// The exported entry point must not accept a caller-invented winner.
+// Registry methods already replay validation and use the private helper.
+function holdout(input,plan,evaluation){
+ if(!evaluation||hash(validation(input,plan))!==hash(evaluation))throw Error('验证结果复算不一致，拒绝读取样本外');
+ return holdoutFromVerifiedEvaluation(input,plan,evaluation);
+}
 function executionContract(input){const simulation={...input.simulation};for(const key of ['start','end','settlements','universeHistory'])delete simulation[key];return hash({simulation,excludedSectors:input.selectionPolicy?.excludedSectors??null,nativeEvidenceMode:input.nativeEvidence!==undefined});}
 function createRegistry(root){
  root=safe(root);const file=path.join(root,'state.json'),inputFile=path.join(root,'input.json'),planFile=path.join(root,'plan.json');
@@ -65,11 +89,11 @@ function createRegistry(root){
  function mutate(expected,fn){return withAccountLock(file,()=>{const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');const next=fn(s,input,plan);if(next===null)return seal(s);next.revision=s.revision+1;atomicWrite(file,JSON.stringify(seal(next))+'\n');return seal(next);});}
  function freeze(input,plan){validatePlan(input,plan);baseline(input);safe(root);fs.mkdirSync(root,{mode:0o700});atomicWrite(inputFile,JSON.stringify(input)+'\n');atomicWrite(planFile,JSON.stringify(plan)+'\n');const s={schemaVersion:1,mode:'research-learning-registry',revision:1,inputFingerprint:hash(input),planFingerprint:hash(plan),stage:'frozen',active:'baseline',events:[],canTrade:false,brokerConnected:false};atomicWrite(file,JSON.stringify(seal(s))+'\n');return seal(s);}
  function evaluate(expected){return mutate(expected,(s,input,plan)=>{if(s.evaluation)return null;s.evaluation=validation(input,plan);s.stage='validated';return s;});}
- function testHoldout(expected){return mutate(expected,(s,input,plan)=>{if(!s.evaluation)throw Error('先完成训练与验证');if(s.holdout)return null;if(hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');s.holdout=holdout(input,plan,s.evaluation);s.stage='holdout-tested';return s;});}
- function verify({replay=false}={}){const {s,input,plan}=load();if(replay){if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');if(s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('样本外结果复算不一致');}return {verified:true,replayed:replay,revision:s.revision,stage:s.stage,active:s.active,canTrade:false};}
+ function testHoldout(expected){return mutate(expected,(s,input,plan)=>{if(!s.evaluation)throw Error('先完成训练与验证');if(s.holdout)return null;if(hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');s.holdout=holdoutFromVerifiedEvaluation(input,plan,s.evaluation);s.stage='holdout-tested';return s;});}
+ function verify({replay=false}={}){const {s,input,plan}=load();if(replay){if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');if(s.holdout&&hash(holdoutFromVerifiedEvaluation(input,plan,s.evaluation))!==hash(s.holdout))throw Error('样本外结果复算不一致');}return {verified:true,replayed:replay,revision:s.revision,stage:s.stage,active:s.active,canTrade:false};}
  function promote(expected,{marketContext}={}){return mutate(expected,(s,input,plan)=>{
   if(!s.holdout?.eligible||!s.evaluation?.selectedId)throw Error('验证/冻结样本外门禁未通过');
-  if(hash(validation(input,plan))!==hash(s.evaluation)||hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('晋级前复算不一致');
+  if(hash(validation(input,plan))!==hash(s.evaluation)||hash(holdoutFromVerifiedEvaluation(input,plan,s.evaluation))!==hash(s.holdout))throw Error('晋级前复算不一致');
   // An already promoted profile is a no-op; market evidence is required only
   // when an actual immutable registry pointer would change.
   if(s.active===s.evaluation.selectedId)return null;
@@ -91,7 +115,7 @@ function createRegistry(root){
     ...(marketGate?{marketGate}:{})});return s;
  });}
  function rollback(expected){return mutate(expected,s=>{if(s.active==='baseline')return null;const from=s.active;s.active='baseline';s.events.push({type:'rollback',from,to:'baseline',revision:s.revision+1});return s;});}
- function activeProfile(expectedRevision){if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<1))throw Error("预期修订无效");return withAccountLock(file,()=>{const {s,input,plan}=load();if(expectedRevision!==undefined&&s.revision!==expectedRevision)throw Error("研究参数修订冲突");if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation)||s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('激活参数证据复算不一致');const parameters=s.active==='baseline'?baseline(input):s.evaluation.candidates.find(c=>c.id===s.active)?.parameters;if(!parameters)throw Error('激活参数不存在');return {id:s.active,parameters,registryRevision:s.revision,fingerprint:hash({input:s.inputFingerprint,plan:s.planFingerprint,id:s.active,parameters}),source:input.source,provider:input.provider,holdoutEnd:plan.holdoutEnd,executionContract:executionContract(input),learningCostBps:input.learningCostBps??41,costs:{feeBps:input.simulation.feeBps??8,slippageBps:input.simulation.slippageBps??10,sellTaxBps:input.simulation.sellTaxBps??5},canTrade:false};});}
+ function activeProfile(expectedRevision){if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<1))throw Error("预期修订无效");return withAccountLock(file,()=>{const {s,input,plan}=load();if(expectedRevision!==undefined&&s.revision!==expectedRevision)throw Error("研究参数修订冲突");if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation)||s.holdout&&hash(holdoutFromVerifiedEvaluation(input,plan,s.evaluation))!==hash(s.holdout))throw Error('激活参数证据复算不一致');const parameters=s.active==='baseline'?baseline(input):s.evaluation.candidates.find(c=>c.id===s.active)?.parameters;if(!parameters)throw Error('激活参数不存在');return {id:s.active,parameters,registryRevision:s.revision,fingerprint:hash({input:s.inputFingerprint,plan:s.planFingerprint,id:s.active,parameters}),source:input.source,provider:input.provider,holdoutEnd:plan.holdoutEnd,executionContract:executionContract(input),learningCostBps:input.learningCostBps??41,costs:{feeBps:input.simulation.feeBps??8,slippageBps:input.simulation.slippageBps??10,sellTaxBps:input.simulation.sellTaxBps??5},canTrade:false};});}
 
  return {freeze,evaluate,testHoldout,promote,rollback,verify,status:()=>seal(load().s),activeProfile};
 }
