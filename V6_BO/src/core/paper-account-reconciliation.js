@@ -7,7 +7,9 @@
  */
 const DEFAULT_TOLERANCE = 0.02;
 const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
-const finite = n => n !== null && n !== undefined && !(typeof n === 'string' && n.trim() === '') && typeof n !== 'boolean' && Number.isFinite(Number(n));
+// Validate raw evidence before conversion; keep explicitly supplied numeric strings.
+const finite = n => (typeof n === 'number' || typeof n === 'string' && n.trim() !== '') && Number.isFinite(Number(n));
+const numeric = n => finite(n) ? Number(n) : null;
 const sideOf = side => {
   const s = String(side ?? '').trim().toUpperCase();
   if (['BUY', 'B', '买', '买入'].includes(s)) return 'BUY';
@@ -17,7 +19,7 @@ const sideOf = side => {
 
 function reconcilePaperAccount(input = {}) {
   const errors = [];
-  const initialCash = Number(input.initialCash);
+  const initialCash = numeric(input.initialCash);
   const account = input.account || {};
   const trades = Array.isArray(input.trades) ? input.trades : null;
   const tolerance = finite(input.tolerance) ? Math.max(0, Number(input.tolerance)) : DEFAULT_TOLERANCE;
@@ -37,7 +39,7 @@ function reconcilePaperAccount(input = {}) {
   for (const { t, i } of ordered) {
     if (!t || typeof t !== 'object') { invalidTrades++; errors.push(`第${i + 1}笔流水无效`); continue; }
     const side = sideOf(t.side), code = String(t.code || '').trim();
-    const shares = Number(t.shares), amount = Number(t.amount), timestamp = t.t;
+    const shares = numeric(t.shares), amount = numeric(t.amount), timestamp = t.t;
     const tradeId = t.tradeId ?? t.trade_id ?? t.id;
     if (typeof timestamp !== 'number' || !Number.isSafeInteger(timestamp) || timestamp < 0) { invalidTrades++; errors.push(`第${i + 1}笔流水缺少有效非负整数时间戳`); continue; }
     if (tradeId !== undefined && tradeId !== null && String(tradeId).trim()) {
@@ -76,7 +78,7 @@ function reconcilePaperAccount(input = {}) {
     }
   }
 
-  const actualCash = Number(account.cash), actualRealized = Number(account.realized);
+  const actualCash = numeric(account.cash), actualRealized = numeric(account.realized);
   if (!finite(actualCash) || !finite(actualRealized)) errors.push('账户现金或已实现盈亏不是有限数值');
   const cashDiff = finite(actualCash) ? round2(cash - actualCash) : null;
   const realizedDiff = finite(actualRealized) ? round2(realized - actualRealized) : null;
@@ -87,12 +89,15 @@ function reconcilePaperAccount(input = {}) {
     const rebuiltLots = lots.get(symbol) || [];
     const expectedShares = rebuiltLots.reduce((n, lot) => n + lot.shares, 0);
     const expectedBasis = round2(rebuiltLots.reduce((n, lot) => n + lot.basis, 0));
-    const p = actualPositions[symbol];
-    const positionObjectValid = p === undefined || (p && typeof p === 'object' && !Array.isArray(p));
-    const actualShares = p ? Number(p.shares ?? p.qty) : 0;
-    const actualBasis = p ? Number(p.basis ?? p.costBasis) : 0;
-    const shareDiff = expectedShares - (finite(actualShares) ? actualShares : 0);
-    const basisDiff = round2(expectedBasis - (finite(actualBasis) ? actualBasis : 0));
+    const present = Object.hasOwn(actualPositions, symbol);
+    const p = present ? actualPositions[symbol] : undefined;
+    const positionObjectValid = !present || (p !== null && typeof p === 'object' && !Array.isArray(p));
+    const actualShares = !present ? 0 : positionObjectValid ? numeric(p.shares ?? p.qty) : null;
+    const actualBasis = !present ? 0 : positionObjectValid ? numeric(p.basis ?? p.costBasis) : null;
+    const shareDiff = finite(actualShares) ? expectedShares - actualShares : null;
+    const basisDiff = finite(actualBasis) ? round2(expectedBasis - actualBasis) : null;
+    if (!positionObjectValid || !finite(actualShares) || !Number.isSafeInteger(actualShares) || actualShares < 0 || !finite(actualBasis) || actualBasis < 0)
+      errors.push(`持仓 ${symbol} 缺少有效股数或成本证据`);
     if (!positionObjectValid || !finite(actualShares) || !Number.isSafeInteger(actualShares) || actualShares < 0 || !finite(actualBasis) || actualBasis < 0 || shareDiff !== 0 || Math.abs(basisDiff) > tolerance) {
       positionDiffs.push({ symbol, expectedShares, actualShares: finite(actualShares) ? actualShares : null, shareDiff, expectedBasis, actualBasis: finite(actualBasis) ? actualBasis : null, basisDiff });
     }
