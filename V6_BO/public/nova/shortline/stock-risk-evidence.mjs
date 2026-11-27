@@ -37,7 +37,10 @@ function visible(row,cutoff){
   // Legacy absent clocks remain descriptive; explicit unknown or reversed clocks do not.
   return ['knownAt','availableAt'].every(k=>{
     if(!Object.hasOwn(row,k))return true;
-    const v=row[k],at=planClock(v);
+    const v=row[k];
+    // Date-only daily availableAt is a declared availability day, not a receipt.
+    // Preserve the original CSV day-close convention; knownAt stays precise.
+    const at=k==='availableAt'&&validDay(row.date)&&validDay(v)?time(v):planClock(v);
     return (typeof v!=='string'||validDay(v.slice(0,10)))&&finite(at)&&at>=observed&&at<=cutoff;
   });
 }
@@ -101,6 +104,73 @@ export function selectFrozenRiskPlan(plans,code,day,cutoff){
   if(eligible.length!==1)return null;
   const {p}=eligible[0];
   return {code,strategy:p.strategy,holdUntil:p.holdUntil,entryPrice:p.entryMax,stopPrice:p.stop,targetPrice:p.target,expectedAuctionGap:p.expectedAuctionGap,frozenAt:p.frozenAt};
+}
+
+
+/** Read-only point-in-time diagnostics, not verified vendor evidence or order permission. */
+export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan}={}){
+  const out={basis:'historical-research-only',canTrade:false,priceRange:null,
+    relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null};
+  const cutoff=time(asOf??b?.date);
+  const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
+  const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
+    [r.open,r.high,r.low,r.close].every(positive)&&r.low<=Math.min(r.open,r.close)&&
+    r.high>=Math.max(r.open,r.close)&&r.low<=r.high;
+  if(!b||!validCode(b.code)||!sameSymbol(b,b)||!finite(cutoff)||!visible(b,cutoff)||!price(b))return out;
+  const day=b.date, clean=n=>finite(n)?n:null;
+  const rows=unambiguousAt((Array.isArray(history)?history:[]).filter(r=>sameSymbol(b,r)&&daily(r)&&r.date<day&&visible(r,cutoff)),
+    ['previousDay','period','open','high','low','close','priceBasis','corporateAction','noPriceLimit','ipoNoLimit','referencePriceConflict',
+      'amount','netActiveBuy','source','suspended','tradingStatus',...conflictFields]);
+  const byDay=new Map(rows.map(r=>[r.date,r])),prior=[];
+  let target=precedingDay(b);
+  while(target&&prior.length<20){
+    const r=byDay.get(target);
+    if(!price(r))break;
+    prior.push(r);target=precedingDay(r);
+  }
+  const prev=prior[0];
+  if(prior.length===20){
+    const high=Math.max(...prior.map(r=>r.high)),low=Math.min(...prior.map(r=>r.low));
+    const less=prior.filter(r=>r.close<b.close).length,equal=prior.filter(r=>r.close===b.close).length;
+    out.priceRange={count:20,from:prior.at(-1).date,to:prev.date,high,low,
+      closeRankPct:100*(less+equal/2)/20,rangePositionPct:high>low?clean(100*(b.close-low)/(high-low)):null,
+      aboveRange:b.close>high,belowRange:b.close<low,
+      continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified'};
+  }
+  if(prev){
+    const stockChange=clean(100*(b.close/prev.close-1));
+    const sameWindow=r=>r?.date===day&&r.previousDay===prev.date&&visible(r,cutoff)&&!rowConflict(r);
+    const validChange=n=>finite(n)&&n>=-100;
+    const indexChange=sameWindow(market)&&validChange(market.indexChange)?market.indexChange:null;
+    const sectorChange=known(b.sector)&&sameWindow(sector)&&(sector.sector||sector.code)===b.sector&&
+      (!sector.role||sector.role==='sector')&&validChange(sector.change)?sector.change:null;
+    if(stockChange!==null&&(indexChange!==null||sectorChange!==null)){
+      out.relativeStrength={from:prev.date,to:day,stockChange,indexChange,sectorChange,
+        versusIndexPctPoints:indexChange===null?null:clean(stockChange-indexChange),
+        versusSectorPctPoints:sectorChange===null?null:clean(stockChange-sectorChange),
+        basis:'same-declared-daily-window-not-source-certified'};
+    }
+    const active=r=>known(r.source)&&positive(r.amount)&&finite(r.netActiveBuy)&&Math.abs(r.netActiveBuy)<=r.amount;
+    if(active(b)&&active(prev)&&b.source===prev.source){
+      const now=100*(b.netActiveBuy/b.amount),before=100*(prev.netActiveBuy/prev.amount);
+      out.activeBuy={from:prev.date,to:day,source:b.source,currentNetCny:b.netActiveBuy,priorNetCny:prev.netActiveBuy,
+        currentSharePct:now,priorSharePct:before,deltaPctPoints:now-before,turnedNegative:prev.netActiveBuy>0&&b.netActiveBuy<0,
+        basis:'declared-net-active-buy-not-independent-fund-flow-verification'};
+    }
+  }
+  const range=b.high-b.low;
+  out.reversal={high:b.high,close:b.close,drawdownFromHighPct:clean(100*((b.high-b.close)/b.high)),
+    upperWickPctOfRange:range>0?clean(100*((b.high-Math.max(b.open,b.close))/range)):null,
+    closePositionPctOfRange:range>0?clean(100*((b.close-b.low)/range)):null,
+    basis:'daily-ohlc-not-intraday-path'};
+  if(frozenRiskPlanTime(plan,b.code,cutoff,day)!==null&&
+      [plan.entryPrice,plan.stopPrice,plan.targetPrice].every(positive)&&
+      plan.stopPrice<b.close&&b.close<plan.targetPrice&&b.close<=plan.entryPrice){
+    const reward=plan.targetPrice-b.close,loss=b.close-plan.stopPrice,ratio=clean(reward/loss);
+    if(ratio!==null)out.grossPayoff={assumedEntry:b.close,entryCap:plan.entryPrice,stop:plan.stopPrice,target:plan.targetPrice,
+      grossRewardRisk:ratio,breakEvenWinRatePct:clean(100/(1+ratio)),basis:'frozen-plan-price-only-no-fees-slippage-fill-or-probability'};
+  }
+  return out;
 }
 
 function priceRisks(b,h,f,m,sector,stage,add){
