@@ -402,7 +402,7 @@ function withinAuthorization(row,at) {
 function authorization(row) {
   const a=row.authorization;
   return !!(a&&a.status==='granted'&&a.provider===row.source&&text(a.evidenceId,256)&&
-    Array.isArray(a.scope)&&a.scope.length>0&&a.scope.length<=16&&a.scope.every(x=>text(x,80))&&
+    Array.isArray(a.scope)&&a.scope.length>0&&a.scope.length<=16&&Array.from(a.scope).every(x=>text(x,80))&&
     new Set(a.scope).size===a.scope.length&&a.scope.includes(row.granularity)&&
     time(a.validFrom)&&time(a.validUntil)&&a.validFrom<a.validUntil&&time(a.knownAt)&&
     time(row.receivedAt)&&a.knownAt<=row.receivedAt&&a.knownAt<=row.firstKnownAt&&
@@ -410,23 +410,23 @@ function authorization(row) {
     (a.market===undefined||a.market==='CN')&&
     (a.symbol===undefined||a.symbol===row.symbol)&&
     (a.symbols===undefined||Array.isArray(a.symbols)&&a.symbols.length>0&&a.symbols.length<=10000&&
-      a.symbols.every(symbol)&&new Set(a.symbols).size===a.symbols.length&&a.symbols.includes(row.symbol))&&
+      Array.from(a.symbols).every(symbol)&&new Set(a.symbols).size===a.symbols.length&&a.symbols.includes(row.symbol))&&
     withinAuthorization(row,row.quoteAt)&&withinAuthorization(row,row.receivedAt)&&depthRouteAllowsResearch(row));
 }
 function matchingDepthIdentity(child,row,eventAt) {
-  return child&&['code','symbol'].every(k=>child[k]===undefined||child[k]===row.symbol)&&
+  return child&&typeof child==='object'&&!Array.isArray(child)&&['code','symbol'].every(k=>child[k]===undefined||child[k]===row.symbol)&&
     ['source','quoteSource','provider'].every(k=>child[k]===undefined||child[k]===row.source)&&
     (child.currency===undefined||child.currency==='CNY')&&
     (child.priceBasis===undefined||child.priceBasis==='unadjusted')&&
     (child.volumeUnit===undefined||child.volumeUnit==='shares')&&
-    !['synthetic','fixture','simulated','mock','sourceConflict','conflict'].some(k=>child[k]===true)&&
+    !['synthetic','fixture','simulated','mock','testSample','sourceConflict','quoteSourceConflict','conflict'].some(k=>child[k]===true)&&
     (child.receivedAt===undefined||time(child.receivedAt)&&child.receivedAt>=eventAt&&child.receivedAt<=row.receivedAt)&&
     (child.knownAt===undefined||time(child.knownAt)&&child.knownAt>=(child.receivedAt??eventAt)&&child.knownAt<=row.firstKnownAt);
 }
 function depthMetrics(row) {
   const bids=row.bids, asks=row.asks;
   if (row.volumeUnit!=='shares'||!Array.isArray(bids)||!Array.isArray(asks)||!bids.length||!asks.length||bids.length>50||asks.length>50) return null;
-  const valid=(side,dir)=>side.every((p,i)=>matchingDepthIdentity(p,row,row.quoteAt)&&
+  const valid=(side,dir)=>Array.from(side).every((p,i)=>matchingDepthIdentity(p,row,row.quoteAt)&&
     (p.quoteAt===undefined||p.quoteAt===row.quoteAt)&&finite(p.price)&&p.price>0&&
     Number.isSafeInteger(p.quantity)&&p.quantity>0&&(!i||dir*(p.price-side[i-1].price)>0));
   if (!valid(bids,-1)||!valid(asks,1)||bids[0].price>=asks[0].price) return null;

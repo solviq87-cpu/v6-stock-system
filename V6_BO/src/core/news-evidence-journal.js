@@ -170,6 +170,11 @@ function providerInput(raw,last,{now=Date.now(),includeUnchanged=false}={}){
   securities:[...new Set((raw.stockList||[]).map(s=>/^[013]\.(\d{6})$/.exec(String(s))?.[1]).filter(Boolean))].sort(),
   publishedAt:sourceTime(raw.showTime),receivedAt:now,revisedAt:sourceTime(raw.revisedAt),
   kind:raw.retracted===true?'retracted':last?'revised':'original',supersedes:last?.eventHash||null};
+ // A first local capture cannot erase an explicitly impossible source revision
+ // clock. Preserve the existing first-observed edition format for valid input.
+ if(base.revisedAt!==null&&(base.revisedAt>now||
+    base.publishedAt!==null&&base.revisedAt<base.publishedAt))
+  throw Error('INVALID_OR_FUTURE_SOURCE_TIME');
  if(!last)base.revisedAt=null;
  const editionContent=(row,retracted)=>({title:row.title,body:row.body,url:row.url,securities:[...row.securities].sort(),
   publishedAt:row.publishedAt,revisedAt:row.revisedAt,retracted});
