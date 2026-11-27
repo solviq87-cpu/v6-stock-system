@@ -172,3 +172,44 @@ test('valid canonical weight bounds do not bypass the sealed model-output bindin
  const forged=seal({...m.reg,candidateWeights:{...m.reg.candidateWeights,[ids[0]]:weights[ids[0]]}});
  assert.throws(()=>verifyPreregisteredCandidate(forged,m.context),/权重绑定/);
 });
+
+const verifyPending=(x,reg=x.reg,sorted=x.context.sorted.slice(0,36))=>{
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ return verifyPendingCandidateRegistration(reg,{...x.context,sorted,freshTest:[]});
+};
+test('waiting registration shares the full prospective metadata and weight gate without opening a holdout',()=>{
+ const x=ordinary(),r=verifyPending(x);
+ assert.equal(r.status,'candidate-waiting-verified');assert.equal(r.canTrade,false);
+ assert.equal(Object.hasOwn(r,'holdoutFirstDay'),false);
+ assert.equal(verifyPending(x,x.reg,x.context.sorted).status,'candidate-waiting-verified');
+ assert.throws(()=>verifyPreregisteredCandidate(x.reg,{...x.context,sorted:x.context.sorted.slice(0,36),freshTest:[]}),/模型血缘不一致/);
+});
+test('waiting cannot conceal a resealed invalid weight or factor envelope',()=>{
+ const x=ordinary();
+ for(const reg of [seal({...x.reg,candidateWeights:{...x.reg.candidateWeights,[ids[0]]:99}}),
+  seal({...x.reg,factorDefinitions:defs.map(d=>({id:d.id,baseWeight:d.baseWeight*2}))}),
+  seal({...x.reg,canTrade:true}),seal({...x.reg,autoSourceFingerprint:'b'.repeat(64)})]){
+  assert.throws(()=>verifyPending(x,reg),/模型血缘不一致/);
+ }
+});
+test('waiting cannot conceal a replaced historical capture time or a capture outside the registered prefix',()=>{
+ const x=ordinary(),early=x.context.sorted.slice(0,36).map(r=>({...r}));early[0].featureCapturedAt=x.reg.registeredAt+1;
+ assert.throws(()=>verifyPending(x,x.reg,early),/模型血缘不一致/);
+ const late=x.context.sorted.map(r=>({...r}));late[36].featureCapturedAt=x.reg.registeredAt;
+ assert.throws(()=>verifyPending(x,x.reg,late),/模型血缘不一致/);
+ assert.throws(()=>verifyPending(x,x.reg,x.context.sorted.slice(0,35)),/模型血缘不一致/);
+});
+test('waiting model archive still checks the actual model response binding',()=>{
+ const x=ordinary(),m=modelRegistration(x);const y={...x,reg:m.reg,context:m.context};
+ assert.equal(verifyPending(y).status,'candidate-waiting-verified');
+ assert.throws(()=>verifyPending(y,seal({...m.reg,candidateWeights:{...m.reg.candidateWeights,[ids[0]]:weights[ids[0]]}})),/权重绑定/);
+});
+test('waiting seed keeps its original registration cutoff and is not counted as a holdout',()=>{
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ const now=Date.now(),reg=preregisterSeedCandidate({registeredAt:now,seedConfig:{schemaVersion:1,mode:'v6-fixed-shadow-seed-config-v1',researchOnly:true,canTrade:false,seedPolicy:SEED_POLICY,factorIds:ids}});
+ const context={sorted:[],ids,packFingerprint,oldWeights:weights,previousFingerprint:null,previousTrialFingerprint:null};
+ assert.equal(verifyPendingCandidateRegistration(reg,context).status,'candidate-waiting-verified');
+ const day=new Date(now+86400000).toISOString().slice(0,10);
+ assert.throws(()=>verifyPendingCandidateRegistration(reg,{...context,sorted:[{day,featureCapturedAt:reg.recordedAt,featureFingerprint:hash('too early')}]}),/固定种子预注册时点/);
+ assert.throws(()=>verifyPreregisteredCandidate(reg,{...context,freshTest:[]}),/固定种子预注册时点/);
+});
