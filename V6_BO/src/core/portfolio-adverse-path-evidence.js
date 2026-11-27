@@ -81,7 +81,8 @@ function grossRule(r,h,p){
  if(matches.length!==1)return null;
  const row=matches[0],used=percent(p.gross,h.equity);
  if(row.enabled!==true||row.configurationStatus!=='active'||row.evidenceStatus!=='available'||
-    !rate(row.limit)||!finite(row.used)||row.used<0||typeof row.exceeded!=='boolean'||Math.abs(used-row.used)>0.00001)return null;
+    !rate(row.limit)||!finite(row.used)||row.used<0||typeof row.exceeded!=='boolean'||Math.abs(used-row.used)>0.00001||
+    row.exceeded!==(p.gross/h.equity*100>row.limit+1e-9))return null;
  return {version:r.policyVersion,limitPct:row.limit,currentOriginalUsedPct:row.used,currentOriginalExceeded:row.exceeded};
 }
 function themeUnion(stress,h,asOf,day){
