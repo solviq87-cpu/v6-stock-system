@@ -19,6 +19,29 @@ const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&[Object.protot
 const validIds=ids=>Array.isArray(ids)&&ids.length>=2&&ids.length<=100&&new Set(ids).size===ids.length&&
  Array.from(ids).every(id=>typeof id==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$/.test(id)&&!['__proto__','constructor','prototype'].includes(id));
 const weightMap=(w,ids)=>record(w)&&Object.keys(w).length===ids.length&&ids.every(id=>Object.hasOwn(w,id)&&Number.isFinite(w[id])&&w[id]>0);
+// Preserve the original factor-pack absolute envelope alongside the model receipt.
+const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
+function declaredDefinitions(defs,ids){
+ if(!Array.isArray(defs)||defs.length!==ids.length||!validIds(ids)||
+    Array.from(defs).some((d,i)=>!record(d)||d.id!==ids[i]||!positive(d.baseWeight)))return null;
+ return defs;
+}
+function canonicalDefinitions(ids,packFingerprint){
+ if(packFingerprint!==hash(factorPack))return null;
+ return ids.map(id=>{const f=factorPack.factors.find(x=>x.id===id);
+  return f?{id,baseWeight:f.weight}:null;});
+}
+function weightsValid(candidate,accepted,ids,definitions=null){
+ if(!validIds(ids)||!weightMap(candidate,ids)||!weightMap(accepted,ids)||
+    definitions!==null&&!declaredDefinitions(definitions,ids))return false;
+ return ids.every((id,i)=>{
+  const c=candidate[id],a=accepted[id],base=definitions?.[i].baseWeight;
+  if(c<a*.92-1e-7||c>a*1.08+1e-7)return false;
+  if(base!==undefined&&(!positive(base*.5)||!positive(base*1.5)||
+     a<base*.5||a>base*1.5||c<base*.5||c>base*1.5))return false;
+  return true;
+ });
+}
 function modelCandidateBinding({autoSourceFingerprint,packFingerprint,latestFrozenSignalDay,factorDefinitionsFingerprint,factorIds,acceptedWeights,candidateWeights}){
  return hash({autoSourceFingerprint,packFingerprint,latestFrozenSignalDay,factorDefinitionsFingerprint,factorIds,
   acceptedWeights:factorIds.map(id=>acceptedWeights[id]),candidateWeights:factorIds.map(id=>candidateWeights[id])});
@@ -188,8 +211,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  if(!Array.isArray(features)||features.length<36||features.length>400||
     !Number.isSafeInteger(registeredAt)||registeredAt<=0||
     !/^[0-9a-f]{64}$/.test(packFingerprint||'')||
-    typeof candidateWeights!=='object'||!candidateWeights||
-    typeof acceptedWeights!=='object'||!acceptedWeights||
+    !record(candidateWeights)||!record(acceptedWeights)||
     (autoSourceFingerprint!==null&&(!seal(autoSourceFingerprint)||autoSourceFingerprint!==(parentTrialFingerprint??parentAcceptedFingerprint)))||
     (modelProvenance!==undefined&&autoSourceFingerprint===null))
   throw Error('候选预注册输入协议无效');
@@ -198,35 +220,33 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
   throw Error('候选预注册存在无效冻结信号日期');
  ordered.sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
  const latest=ordered.at(-1);
- const ids=ordered[0]?.factors?.map(x=>x.id);
- if(!validIds(ids)||!weightMap(candidateWeights,ids)||!weightMap(acceptedWeights,ids)||
+ const defs=ordered[0]?.factors;
+ const ids=Array.isArray(defs)?defs.map(x=>x?.id):null;
+ const canonical=validIds(ids)?canonicalDefinitions(ids,packFingerprint):null;
+ if(!validIds(ids)||!declaredDefinitions(defs,ids)||
+    !weightsValid(candidateWeights,acceptedWeights,ids,defs)||
+    (canonical!==null&&(!weightsValid(candidateWeights,acceptedWeights,ids,canonical)||
+      defs.some((d,i)=>d.baseWeight!==canonical[i]?.baseWeight)))||
     new Set(ordered.map(f=>f.fingerprint)).size!==ordered.length||
     ordered.some((f,i)=>!date(f?.signalDay)||
      (i>0&&ordered[i-1].signalDay===f.signalDay)||
      !/^[0-9a-f]{64}$/.test(f?.fingerprint||'')||
      f.packFingerprint!==packFingerprint||
-     hash(f.factors)!==hash(ordered[0].factors)||
-     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt)||
-    ids.some(id=>{
-     const candidate=candidateWeights[id],accepted=acceptedWeights[id],
-      base=ordered[0].factors.find(x=>x.id===id)?.baseWeight;
-     return !Number.isFinite(candidate)||!Number.isFinite(accepted)||
-      !Number.isFinite(base)||base<=0||!Number.isFinite(base*1.5)||base*.5<=0||
-      accepted<base*.5||accepted>base*1.5||candidate<base*.5||candidate>base*1.5||
-      candidate<accepted*.92-1e-7||candidate>accepted*1.08+1e-7;
-    }))
+     hash(f.factors)!==hash(defs)||
+     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt))
   throw Error('候选预注册冻结样本、权重边界或完整性无效');
  const payload={schemaVersion:1,mode:'v6-shadow-candidate-prereg-v1',
   registeredAt,latestFrozenSignalDay:latest.signalDay,
   lastFrozenCapturedAt:latest.capturedAt,
   frozenPrefixFingerprints:ordered.map(x=>x.fingerprint),
   factorIds:ids,packFingerprint,algorithmFingerprint:currentResearchCodeFingerprint(),
-  acceptedWeights,candidateWeights,
+  factorDefinitions:defs.map(d=>({id:d.id,baseWeight:d.baseWeight})),
+  acceptedWeights:{...acceptedWeights},candidateWeights:{...candidateWeights},
   parentAcceptedFingerprint,parentTrialFingerprint,
   ...(autoSourceFingerprint===null?{}:{
    candidateOrigin:'sealed-historical-training-reliability-v1',
    autoSourceFingerprint}),
-  ...(modelProvenance===undefined?{}:{factorDefinitionsFingerprint:hash(ordered[0].factors),modelProvenance}),
+  ...(modelProvenance===undefined?{}:{factorDefinitionsFingerprint:hash(defs),modelProvenance}),
   sealedBeforeFutureSignals:true,
   canTrade:false,productionWeightsChanged:false};
  if(modelProvenance!==undefined)verifyModelCandidateProvenance(payload);
@@ -235,12 +255,15 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
 function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
  oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={}){
  if(!reg||typeof reg!=='object'||!Array.isArray(sorted)||
-    !Array.isArray(ids)||!Array.isArray(freshTest))
+    !validIds(ids)||!Array.isArray(freshTest))
   throw Error('缺少不可变候选预注册，拒绝事后试验');
  if(reg.mode===SEED_MODE)return verifySeedCandidate(reg,{
   sorted,ids,packFingerprint,oldWeights,previousFingerprint,previousTrialFingerprint,freshTest});
  const {fingerprint,...payload}=reg;
  const first=freshTest[0],prefix=reg.frozenPrefixFingerprints;
+ const canonical=canonicalDefinitions(ids,packFingerprint);
+ const sealedDefinitions=Object.hasOwn(reg,'factorDefinitions')?declaredDefinitions(reg.factorDefinitions,ids):null;
+ const envelope=canonical??sealedDefinitions;
  if(fingerprint!==hash(payload)||reg.mode!=='v6-shadow-candidate-prereg-v1'||
     reg.schemaVersion!==1||reg.canTrade!==false||
     reg.productionWeightsChanged!==false||
@@ -256,8 +279,11 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
     !Array.isArray(prefix)||prefix.length<36||
     !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt)||
-    !validIds(ids)||!weightMap(reg.acceptedWeights,ids)||!weightMap(reg.candidateWeights,ids)||
-    ids.some(id=>reg.candidateWeights[id]<oldWeights[id]*.92-1e-7||reg.candidateWeights[id]>oldWeights[id]*1.08+1e-7))
+    (Object.hasOwn(reg,'factorDefinitions')&&!sealedDefinitions)||
+    (canonical!==null&&sealedDefinitions!==null&&hash(canonical)!==hash(sealedDefinitions))||
+    !weightsValid(reg.candidateWeights,reg.acceptedWeights,ids,envelope)||
+    !weightMap(oldWeights,ids)||
+    Object.hasOwn(reg,'modelProvenance')!==Object.hasOwn(reg,'factorDefinitionsFingerprint'))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
  if(Object.hasOwn(reg,'modelProvenance'))verifyModelCandidateProvenance(reg);
  return {status:'candidate-committed-before-new-signal',
