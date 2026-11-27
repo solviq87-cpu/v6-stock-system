@@ -191,3 +191,45 @@ EX增强方向交叉证据（局部；其余细则/运行证据仍需原台账�
 - 回退仅针对相关独立提交，保留历史/失败和后续新增记录；不能以旧账本覆盖新数据或重写模型历史。真实授权、足够成熟样本及实际节点缺失均记录阻塞。
 
 结论：原30项专项开发覆盖及对应21个独立CI已经核对齐全；本次关闭已定位的旧夹具源码修正工作，但新全量复测未认证。**未达到A组全部原任务最终验收完成的证据标准。** 无需继续按批次数量扩张功能；按原验收剩余、实际A组失败和交付证据推进。
+
+## 8. 收尾复验及去重更新（2026-11-27，后续核对点）
+
+本节优先于上文的历史快照，不改写历史结果。用户明确要求只完成A组原任务，不继续扩大需求。仍不修改生产代码、原策略、权重、权限、其他组、公共工作流或总管分支。
+
+### 8.1 原六项回归修正的进一步实际复测与唯一纳入方案
+
+中断后的原PR更新及独立复测分支针对相同六项缺口，**不是新增六项功能，不同时纳入两个修复版本**。已读取两侧四个测试文件的精确blob并比较内容；以下以有原生Node复测证据的独立候选为推荐交接输入。总管可按已应用版本做等价合并，但须保留原断言，不能重复cherry-pick。
+
+| 原PR（旧失败版本） | 已更新原PR头（历史保留） | 推荐的独立复测候选（固定HEAD） | 实际差异和复测 |
+| --- | --- | --- | --- |
+| #463 / `3f631c4943c83d968569b60fca0cf2625c1afe6d` | `d5af4c3c0cb8370e5f429e0c99daeee8741675c0` | [#512](https://github.com/solviq87-cpu/v6-stock-system/pull/512) / `2db4639638525847dfbf2f1041e380108609a3f3` | 两侧均补合成输入和报告身份、时点，差异为字段排列。推荐测试blob `7066c02cedda2695c188b7962311a4b8f75ef956`。Node22.16真实原monitor/archive、磁盘、flock及renameat2，四个原容量用例修前1/4、修后4/4（原3失败修正）；完整原测试文件和新全量仍待CI。 |
+| #474 / `4c387a13cf0fa0ad3c8aa9f1a61e0446086322c8` | `4708cc2e3399b27bd61c268f7bad81ab6f04903d` | [#515](https://github.com/solviq87-cpu/v6-stock-system/pull/515) / `574803177a85f5545e9f722bce72d3c423807a35` | 两侧原测试blob完全一致 `a9c6c434c56277ab2c3a511040a0ec284c53fc98`，只补首轮血缘；Node22.16真实预算与提取的原读取逻辑、临时文件，原失败0/1→1/1，篡改拒绝断言保留；完整worker、旧真实档案兼容待验。 |
+| #480 / `3c1a37d42e713bba2b4f27bf3888c51da8ede119` | `3f734c0b5f2a7116dd656d57e9e06852e74516ae` | [#516](https://github.com/solviq87-cpu/v6-stock-system/pull/516) / `2900158b2c72cd2a067670a0dc8153eab148701c` | 种子时间均改北京时间；代理夹具优先采用仅含注册所需身份/因子/时点的显式合成数据，避免复制其他当日数据。推荐blob `e25b6cbd98e45da598cbe4016466abbc90c8978e`、`46f7aa74592cab8d2ceafbc05e4d2772b6e3284d`。Node22.16原13个预注册测试加1个代理注册子步骤修前12/14、修后14/14。代码指纹依赖有固定占位夹具；未运行完整代理端到端。 |
+
+三组隔离复测19/19（4+1+14），0失败0跳过；这只证明本地原容量、预算与预注册反例/子步骤修正，不替代新精确head的原生全量CI。三个独立候选PR正文包含原失败run、真实测试范围和日志SHA256。保留原PR，不额外关闭或合并。按上述推荐输入，#512包含#463旧生产补丁、#515包含#474旧生产补丁、#516包含#480旧生产补丁且以#427为父；如果旧父补丁已组合，仅纳入其修正增量。
+
+### 8.2 新取得的真实CI回执
+
+- **#501 精确 `d9c483c142c238893cb94e916e1e6c314620fbd8`：** [V6 CI 45957789087](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45957789087) 成功；verify job 140368193843 的全量Node回归 **6142/6142，0失败0跳过**，另三批20/20、40/40、24/24，不与全量重叠相加。12个CI job均成功。[浏览器 45957789073](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45957789073) 成功。#501接续#486和#488，二者不重复应用。[逐提交覆盖 45957789075](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45957789075) 失败；实读job 140368193336，十个SHA缺少smoke状态（c21ed4164d28、2dc6e3389d6f、e44beb0cc923、d7164968f69f、370d3a520630、eaada9b0d53f、e1cb11c83c27、9fda45f2b0a8、047c9c130697、d9c483c142c2）。未伪造状态、不绕过门槛。
+- **#491** 真实6564/6571，7个失败的测试名称和文件行号逐个与#427的6546/6553核对一致：paper-conditional-http.test.js:86/116/133/146/160/177 和 paper-decision-plan-http.test.js:31。浏览器失败与#504一样触发候选现价毛赔率不足的原规则断言。属于共享组合验收缺口，不宣称#491全部通过，不改其他组及共同门禁。
+- **#504 精确 `f41611be042aca1f40e481e044023386d3c09822`：** [CI 45958509667](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45958509667)运行中；[UI 45958509776](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45958509776)失败（实读job 140370507570，原现价赔率低于1:2）；[覆盖 45958509681](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45958509681)失败。最终CI未取得，不预判其失败内容。
+
+| 候选 | V6 CI | UI | 逐提交覆盖 |
+| --- | --- | --- | --- |
+| #463更新头 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964146634) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964146721) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964146629) |
+| #474更新头 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964204519) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964204642) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964204574) |
+| #480更新头 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964273900) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964273812) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964273802) |
+| #512 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964538222) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964538389) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964538271) |
+| #515 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964802190) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964802275) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45964802207) |
+| #516 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45965150510) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45965150569) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45965150529) |
+| #505 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45960022427) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45960022408) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45960022495) |
+| #510 | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45962914694) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45962914869) | [排队](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/45962914704) |
+
+#454覆盖仍排队，#488独立run未取得但其后继#501已通过后端及UI。以第3/4节原51个候选的逐个读取快照更新本节已变化状态，**非同时刻全量刷新**：后端成功42、失败2、待结果6、未取得1；UI成功43、失败2、待结果5、未取得1；覆盖成功22、失败22、待结果6、未取得1。三个替代复测PR不新增任务；若单列所有54个历史/活动业务候选，分别增加3个待结果。任何上述统计不得作完成百分比或代替最终组合验证。
+
+### 8.3 结项交付及停止条件
+
+- 第2节依据原PR编号声明及#426交接确认11月26日30项的专项映射，原21个精确头三类CI已查实成功。尚未取得11月26日全部30项逐字原文，不能把映射当完整细则认证。11月27日16页任务书原20大模块及52个EX方向已按第6节列出局部证据/待核；它不是追加52个已确认缺陷，也不把01—20整项标为完成。
+- 本附件为本组结项输入，#514仅文档提交；总管负责合并、公共工作流、共享接口和最终上线。本组不建立新功能/第二总表，不重复已修事项。只在新精确CI或原验收出现明确归属本组的缺陷时再修。
+- 当前待关闭：#512/#515/#516/#504/#505/#510的真实CI结论、#501等逐提交覆盖、原档案及算法指纹兼容、实际A组联合回归。总管原7项条件单/计划HTTP及UI共享阻塞只交接。真实行情授权、成熟样本、设备/私有卷、连续5/20/60交易日观测无新回执，保持阻塞或待验。无任何合并、部署、真实交易或通知操作。
+- 原30项已有专项开发覆盖，不表示最终验收100%；本组真实环境及更广任务书剩余细则不可凭新增PR数量完成。该记录用于明确下一步验收，而非无限追加批次。
