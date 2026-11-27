@@ -153,7 +153,7 @@
 
 原报价边界候选 `ac7b96fbc0bb69ad09dd845521a18620291c4cd2` 的 8,033 项独立原生回归、23 项报价专项及 72 项相关兼容通过。六个账户阶段各用两种 Chromium 视口读取，账户事件按原执行时间显示；历史日期记录保留原精度。恢复交易后仅按合成可供量成交 100 股，余 200 股和未完成委托保留。[原服务、权限、账本及截图证据](https://github.com/solviq87-cpu/v6-stock-system/tree/ac7b96fbc0bb69ad09dd845521a18620291c4cd2/docs/validation/fayo-limit-quote-20261127)
 
-历史制度候选 `f9bd9bd97da890a823d28ec3c7726e347745284e` 已在原鉴权完整实验线程和两种浏览器视口处理三种合成输入。普通历史行产生对应形态规则证据，未知限幅及无限幅时保留模型限制。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/f9bd9bd97da890a823d28ec3c7726e347745284e/docs/validation/fayo-dated-rules-20261127)
+历史制度候选 `0f5f24dfe86ec36e0163ccdc2b3f24966a36192a` 已在原鉴权完整实验线程和两种浏览器视口处理三种合成输入。普通历史行产生对应形态规则证据，未知限幅及无限幅时保留模型限制。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/0f5f24dfe86ec36e0163ccdc2b3f24966a36192a/docs/validation/fayo-dated-rules-20261127)
 
 ## 跨专项执行约束 · 高效率开发与系统性能
 
