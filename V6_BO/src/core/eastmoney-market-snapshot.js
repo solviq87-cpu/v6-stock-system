@@ -48,6 +48,7 @@ async function fetchEastmoneySnapshot(options={}){
  // is also supplied. Live requests use a real clock to detect session rollover.
  const clock=options.clock ?? (Object.hasOwn(options,'now')?()=>now:Date.now);
  if(typeof clock!=='function')throw Error('行情时钟无效');
+ if(!Number.isSafeInteger(now)||now<=0)throw Error('行情采样开始时钟无效');
  if(typeof fetchImpl!=='function')throw Error('缺少网络请求实现');
  if(!Number.isInteger(pageSize)||pageSize<1||pageSize>1000||!Number.isInteger(maxPages)||maxPages<1||maxPages>30)throw Error('分页参数无效');
  if(!Number.isInteger(timeoutMs)||timeoutMs<100||timeoutMs>60000)throw Error('行情请求超时时间无效');
@@ -55,11 +56,15 @@ async function fetchEastmoneySnapshot(options={}){
  const physicalFetch=options.fetchImpl===undefined||fetchImpl===globalThis.fetch;
  const governor=options.requestGovernor??(physicalFetch?marketRequests:createMarketRequestGovernor());
  const date=aShareCalendarDate(now),seen=new Set(),stocks=[];
+ // Compare every sampled wall-clock reading, not just the initial request.
+ // A backwards step within the span is still causally invalid.
+ let lastSampleAt=now;
  const verifyClock=()=>{
-  const instant=new Date(clock()).getTime();
-  if(!Number.isFinite(instant)||instant<now)throw Error('行情采样时间无效或倒退');
+  const instant=clock();
+  if(!Number.isSafeInteger(instant)||instant<lastSampleAt)throw Error('行情采样时间无效或倒退');
   if(instant-now>maxSamplingMs)throw Error('行情分页采样跨度超过限制，拒绝混合快照');
   if(aShareCalendarDate(instant)!==date)throw Error('行情分页跨越A股市场日期，拒绝混合快照');
+  lastSampleAt=instant;
   return instant;
  };
  verifyClock();
