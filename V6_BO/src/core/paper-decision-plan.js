@@ -57,6 +57,10 @@ function bindAuthoritativePlan(plan,card) {
 
 function currentDecisionAllows(plan,card) {
   const p=card?.plan;
+  // A negative risk assessment on the current server authority card is a
+  // one-way veto only. Absence or a favorable opinion never grants authority
+  // and cannot bypass the existing candidate, quote or account gates.
+  if(card?.riskAssessment?.status==='blocked'||card?.riskAssessment?.canOpenRisk===false)return false;
   // A current authority card cannot silently revise frozen protection.
   // Legacy internal receipts without optional completeness metadata remain
   // readable; explicit negative or inconsistent evidence cannot open risk.
@@ -118,12 +122,13 @@ function planFill(book, planId, {plan=null, now=Date.now()}={}) {
 
 function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDate(now), replica,
   continuous, candidate, eligiblePick, systemPickDay, poolDay, newsBlocked,
-  account, policy, equity, quote, authoritative, readBook, buy, clock=()=>Date.now()}) {
+  account, policy, equity, quote, authoritative, readBook, buy, clock=()=>Date.now(), requireEntryBinding=false}) {
   if (replica) throw Error('当前为副本，请在原主实例确认模拟计划');
   if (!input || input.account !== 'pool' || !planIdOk(input.planId) || input.planId !== plan?.id ||
       Object.keys(input).some(k => !['action','account','planId','token'].includes(k))) throw Error('模拟计划请求无效');
   validatePlan(plan, now);
-  const previous = planFill(readBook(), plan.id, {plan,now});
+  const checkedBook=readBook();
+  const previous = planFill(checkedBook, plan.id, {plan,now});
   if (previous) return {ok:true,status:'already-executed',planId:plan.id,code:plan.code,
     eventId:previous.eventId,price:previous.price,shares:previous.quantity,msg:'该计划已有持久成交流水，未重复买入'};
   if (plan.intendedDate !== day || aShareCalendarDate(Date.parse(plan.frozenAt)) !== day)
@@ -161,7 +166,12 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   const allocationPct = Math.min(account.cash,equity/policy.maxPos*.98)/equity*100;
   if (allocationPct > Math.min(plan.maxPosition,authoritative.plan.positionPct)+1e-7)
     throw Error('原账户等权预算超出冻结计划或当前风险仓位，请重新核对；未修改账户分仓规则');
-  buy(candidate,reasonOf(plan));
+  // Bind the exact original account and quote on the real server plan path.
+  // Legacy read-only observers continue to use their existing callback.
+  if(requireEntryBinding===true){
+    const binding=require('./paper-plan-entry-binding').createPlanEntryBinding({plan,card:authoritative,book:checkedBook,quote,now});
+    buy(candidate,reasonOf(plan),binding);
+  }else buy(candidate,reasonOf(plan));
   // The original synchronous callback may commit a few milliseconds after
   // the entry check. Use the completion clock without changing quote provenance.
   const bookAfter=readBook(),finishedAt=clock();
