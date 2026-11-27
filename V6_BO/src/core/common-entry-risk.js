@@ -10,7 +10,23 @@ function validateEntryPolicy(p){
  for(const k of ['maxPositionPct','maxGrossExposurePct','maxSectorPct','maxStrategyPct','maxDrawdownPausePct','maxDailyLossPausePct'])if(p[k]!=null&&(!finite(p[k])||p[k]<=0||p[k]>100))throw Error('风控参数无效');
  if(p.maxConsecutiveLosses!=null&&(!Number.isSafeInteger(p.maxConsecutiveLosses)||p.maxConsecutiveLosses<1||p.maxConsecutiveLosses>1000))throw Error('连续亏损参数无效');
 }
-function consecutiveLosses(events=[]){let count=0;for(const e of events.slice().reverse()){if(e.side!=='sell')continue;if(!finite(e.realizedPnl))return null;if(e.realizedPnl>=0)break;count++;}return count;}
+function consecutiveLosses(events){
+ if(!Array.isArray(events))return null;
+ let count=0;
+ // Only an explicitly known buy can be skipped. Missing or unknown rows
+ // after the last non-loss exit could conceal a realized loss or reset.
+ for(let i=events.length-1;i>=0;i--){
+  if(!Object.hasOwn(events,i))return null;
+  const e=events[i],side=own(e,'side');
+  if(side==='buy')continue;
+  if(side!=='sell')return null;
+  const pnl=own(e,'realizedPnl');
+  if(!finite(pnl))return null;
+  if(pnl>=0)break;
+  count++;
+ }
+ return count;
+}
 function evaluateEntryRisk({policy=null,side='buy',symbol,strategyId,quantity,price,cash,positions=[],pending=[],marks={},sectors={},lossStreak=null,previousClose=null}={}){
  validateEntryPolicy(policy);if(!policy||side==='sell')return {allowed:true,reasonCodes:[],policyVersion:policy?.version||null};const reasons=[];const fail=code=>{if(!reasons.includes(code))reasons.push(code);};
  const needsExposure=['maxPositionPct','maxGrossExposurePct','maxSectorPct','maxStrategyPct'].some(k=>policy[k]!=null);
