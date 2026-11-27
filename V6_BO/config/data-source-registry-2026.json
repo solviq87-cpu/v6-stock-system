@@ -1013,9 +1013,9 @@
       "dataClass": "energy-macro",
       "market": "US",
       "access": "credentials-required",
-      "adapter": "candidate",
+      "adapter": "eia-spot-daily.js",
       "evidenceUrl": "https://www.eia.gov/opendata/documentation.php",
-      "note": "EIA API key required; no automatic acquisition"
+      "note": "Explicit credentialed daily oil spot research collector; no automatic acquisition, no real-time or execution permission"
     },
     {
       "id": "us-cftc-cot",

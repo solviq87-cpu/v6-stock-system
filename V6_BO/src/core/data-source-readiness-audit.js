@@ -29,7 +29,8 @@ const WIRING=Object.freeze({
  "choice":["generic-gateway-contract","V6_BO/src/core/parallel-market.js","V6_BO/scripts/parallel-market.js"],
  "sec-edgar":["manual-background-archive","V6_BO/src/core/sec-companyfacts.js","V6_BO/scripts/collect-sec-companyfact.js","V6_BO/src/core/market-data-evidence.js"],
  "worldbank":["manual-background-archive","V6_BO/src/core/worldbank-indicators.js","V6_BO/scripts/collect-worldbank-indicator.js","V6_BO/src/core/market-data-evidence.js"],
- "ecb":["manual-background-archive","V6_BO/src/core/ecb-fx-daily.js","V6_BO/scripts/collect-ecb-fx.js","V6_BO/src/core/market-data-evidence.js"],
+ "ecb":["manual-background-archive","V6_BO/src/core/ecb-fx-daily.js","V6_BO/scripts/collect-ecb-fx.js","V6_BO/src/core/market-data-evidence.js","V6_BO/src/core/ecb-cross-reference.js"],
+ "us-eia":["manual-background-archive","V6_BO/src/core/eia-spot-daily.js","V6_BO/scripts/collect-eia-spot.js","V6_BO/src/core/market-data-evidence.js"],
  "itick":["conditional-diagnostic-only","V6_BO/src/core/itick-stock-quote.js","V6_BO/src/core/multi-source-price-consensus.js","V6_BO/scripts/multi-source-quote.js"]
 });
 function integrationStage(source){
