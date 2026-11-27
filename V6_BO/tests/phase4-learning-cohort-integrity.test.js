@@ -80,3 +80,52 @@ test('selected and rejected outcomes partition the same mature denominator witho
  assert.equal(strategyCompetition(unknown,settings).commonSamples,3);
  assert.equal(strategyCompetition(unknown,settings).exclusions['unknown-verdict'],1);
 });
+
+test('known malformed versions cannot hide before common-candidate identity resolution',()=>{
+ const patches=[{version:null},{version:'native-v1 '},{recordedAt:null},{signalAt:'bad-clock'},
+  {recordedAt:at(1)},{outcomeKnownAt:null},{exitDate:'2025-02-30'},{priceBasis:'qfq'},
+  {costFingerprint:null},{regime:null}];
+ for(const patch of patches){
+  const good=cohort(),bad={...good[0],...patch};
+  for(const input of [[...good,bad],[bad,...good]]){
+   const before=JSON.stringify(input),c=commonCohorts(input,settings),s=strategyCompetition(input,settings),f=fusionStudy(input,settings);
+   assert.equal(s.commonSamples,0,JSON.stringify(patch));assert.equal(f.groups.length,0);
+   assert.equal(c.exclusions['invalid-time-source-or-contract'],1);
+   assert.equal(c.exclusions['invalid-member-of-common-candidate'],1);
+   assert.equal(JSON.stringify(input),before);
+  }
+ }
+});
+test('a genuinely later record does not contaminate the earlier cohort, but becomes a conflict once visible',()=>{
+ const input=cohort(),bad={...input[0],recordedAt:settings.asOf+1,version:null};
+ assert.equal(strategyCompetition([...input,bad],settings).commonSamples,1);
+ assert.equal(strategyCompetition([...input,bad],{...settings,asOf:settings.asOf+1}).commonSamples,0);
+});
+test('same-content retransmission is idempotent regardless of JSON key order',()=>{
+ const input=cohort(),same=Object.fromEntries(Object.entries(input[0]).reverse());
+ assert.equal(strategyCompetition([...input,same],settings).commonSamples,1);
+ assert.equal(fusionStudy([same,...input],settings).groups.length,1);
+});
+test('teaching aliases use the same strict-learning population without excluding real paper settlements',()=>{
+ for(const patch of [{sampleSet:'synthetic'},{sampleScope:'demo'},{fixture:true},{simulated:'true'},{mock:1}]){
+  const input=cohort().map(r=>({...r,...patch}));
+  assert.equal(strategyCompetition(input,settings).commonSamples,0);
+  assert.equal(fusionStudy(input,settings).groups.length,0);
+ }
+ const good=cohort().map(r=>({...r,source:'V6 模拟成交'}));
+ assert.equal(strategyCompetition([...good,{...good[0],sampleScope:'demo',netReturnPct:99}],settings).commonSamples,1);
+});
+test('a malformed member does not erase another provider or a separately dated common cohort',()=>{
+ const good=cohort(),other=cohort(7),bad={...good[0],version:null};
+ const alt=good.map(r=>({...r,provider:'eastmoney'}));
+ const out=strategyCompetition([...good,bad,...other,...alt],settings);
+ assert.equal(out.commonSamples,2);assert.equal(out.groups.length,2);
+});
+test('finite extreme outcomes do not produce a non-finite fusion correlation',()=>{
+ const input=[...cohort(0,1e200,1e200),...cohort(7,2e200,2e200),...cohort(14,0,0)];
+ for(const row of input)row.verdict=row.signalDate===day(14)?'fail':'pass';
+ const out=fusionStudy(input,settings).groups[0];
+ assert.equal(out.commonSamples,3);
+ assert.ok(out.pairs.every(p=>Number.isFinite(p.returnCorrelation)&&Math.abs(p.returnCorrelation-1)<1e-10));
+ assert.equal(out.equalWeight.canTrade,undefined);
+});
