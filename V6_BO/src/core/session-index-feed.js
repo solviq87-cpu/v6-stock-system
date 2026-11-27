@@ -41,10 +41,14 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     if(hadQuotes)onUpdate({at:validTime(at)?at:null,items:[]});
   }
   function sampleClock(){
-    const now=clock();
+    let now;try{now=clock();}catch{now=null;}
     if(!validTime(now)){reset(day);lastClock=null;return null;}
     if(lastClock!==null&&now<lastClock){reset(day,now);lastClock=now;return null;}
-    lastClock=now;return now;
+    lastClock=now;
+    // The actual China-market clock, not a stale caller's session, owns the epoch.
+    const actualDay=dayOf(now);
+    if(day!==null&&actualDay!==day)reset(actualDay,now);
+    return now;
   }
   function timed(row,now,startedAt){
     return codes.has(row?.code)&&validTime(row.quoteAt)&&validTime(row.receivedAt)&&
@@ -86,7 +90,13 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     channels.set(source,state);
     const forEpoch=epoch,forDay=day;
     state.nextAt=startedAt+interval;
-    state.pending=Promise.resolve().then(fetchRows).then(rows=>{
+    state.pending=Promise.resolve().then(()=>{
+      // A queued microtask must not dispatch after its original day/epoch ended.
+      if(epoch!==forEpoch||day!==forDay)return null;
+      const at=sampleClock();
+      if(at===null||epoch!==forEpoch||dayOf(at)!==forDay)return null;
+      return fetchRows();
+    }).then(rows=>{
       if(epoch!==forEpoch||day!==forDay)return;
       const asOf=sampleClock();
       if(asOf===null||epoch!==forEpoch||dayOf(asOf)!==forDay)return;
@@ -128,10 +138,12 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     }).finally(()=>{state.pending=null;});
   }
   function read(session){
-    if(day!==session.day)reset(session.day);
+    const requested=session?.day;
     const now=sampleClock();
-    if(now===null||dayOf(now)!==day)return {day:session.day,indices:[],channels:[]};
-    if(session.trading){
+    if(now===null||typeof requested!=='string'||dayOf(now)!==requested)
+      return {day:requested??null,indices:[],channels:[]};
+    if(day!==requested)reset(requested,now);
+    if(session.trading&&session.openDay!==false){
       pull('tencent-index',primary,5000,now);
       const primaryRows=books.get('tencent-index'),primaryState=channels.get('tencent-index');
       const primaryHealthy=primaryState?.status==='observed'&&primaryState.count===codes.size&&
