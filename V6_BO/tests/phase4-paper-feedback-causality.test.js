@@ -106,3 +106,37 @@ test('explicit simulated or manually researched fill evidence cannot certify the
   assert.equal(x.state.trades[0].snapshotVerified,linked);assert.equal(x.state.trades[0].pnlAmount,90);
  }
 });
+
+test('a previously verified link is quarantined when its original evidence fails and can only regain the same proof',()=>{
+ const x=fixture();assert.equal(x.run().imported,1);
+ const original=structuredClone(x.state.trades[0]),ledger=JSON.stringify(x.book);
+ x.plan.decisionEvidence.quoteBasis.mode='historical-replay';
+ const report=x.run();assert.equal(report.updated,1);assert.deepEqual(report.exitDays,['2026-11-05']);
+ let row=x.state.trades[0];assert.equal(row.snapshotVerified,false);assert.notEqual(row.planVerified,true);
+ assert.equal(row.planId,null);assert.deepEqual(row.factors,[]);assert.equal(row.pnlAmount,90);
+ assert.equal(row.sourceFingerprint,original.sourceFingerprint);assert.equal(row.firstCollectedAt,original.createdAt);
+ assert.equal(row.planEvidenceReview.status,'quarantined');
+ assert.deepEqual(row.planEvidenceReview.priorProjection,original);
+ const rejected=JSON.stringify(row);assert.equal(x.run().existing,1);assert.equal(JSON.stringify(x.state.trades[0]),rejected);
+ delete x.plan.decisionEvidence.quoteBasis.mode;
+ assert.equal(x.run().updated,1);row=x.state.trades[0];assert.equal(row.snapshotVerified,true);
+ assert.equal(row.planEvidenceReview.status,'revalidated');assert.deepEqual(row.planEvidenceReview.priorProjection,original);
+ assert.equal(x.run().existing,1);assert.equal(JSON.stringify(x.book),ledger);
+});
+test('same plan ID with altered frozen factors cannot overwrite an earlier verified learning link',()=>{
+ const x=fixture();x.run();const original=structuredClone(x.state.trades[0]);
+ x.plan.factors=['YZ-09'];assert.equal(x.run().updated,1);
+ const row=x.state.trades[0];assert.equal(row.snapshotVerified,false);assert.equal(row.planId,null);
+ assert.deepEqual(row.factors,[]);assert.equal(row.planEvidenceReview.reason,'frozen-link-changed');
+ assert.deepEqual(row.planEvidenceReview.priorProjection,original);
+ assert.equal(x.run().existing,1);assert.deepEqual(x.state.trades[0],row);
+ x.plan.factors=['YZ-08'];assert.equal(x.run().updated,1);assert.deepEqual(x.state.trades[0].factors,['YZ-08']);
+});
+test('an altered optional check cannot silently retain the older verified factors',()=>{
+ const x=fixture();x.plan.checkId='check-1';
+ x.state.checks=[{id:'check-1',code,createdAt:new Date(at-10000).toISOString(),sampleSet:'real',factorCodes:['YZ-09']}];
+ x.run();const original=structuredClone(x.state.trades[0]);x.state.checks[0].factorCodes=['YZ-10'];
+ assert.equal(x.run().updated,1);assert.equal(x.state.trades[0].snapshotVerified,false);
+ assert.deepEqual(x.state.trades[0].planEvidenceReview.priorProjection,original);
+ assert.equal(x.run().existing,1);assert.deepEqual(x.state.trades[0].factors,[]);
+});
