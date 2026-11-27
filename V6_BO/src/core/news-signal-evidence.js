@@ -6,6 +6,7 @@ const Journal=require('./news-evidence-journal');
 const LIMITS=Object.freeze({events:10000,bytes:128*1024*1024,candidates:256,versions:32,outputBytes:64*1024,caches:4,metadataCheckMs:1000});
 const eventKey=e=>JSON.stringify([e.source,e.eventId]);
 const validTime=t=>Number.isSafeInteger(t)&&t>=946684800000&&t<4102444800000;
+const hasContent=v=>typeof v==='string'&&/[^\s\u200b\u200c\u200d\u2060\ufeff]/.test(v);
 const freeze=x=>{if(x&&typeof x==='object'){Object.values(x).forEach(freeze);Object.freeze(x);}return x;};
 const stamp=s=>[s.dev,s.ino,s.mode,s.size,s.mtimeMs,s.ctimeMs].join(':');
 function visibleCount(events,at){
@@ -51,7 +52,8 @@ function reference(event,current,code,at){
  if(!validTime(e.receivedAt)||e.receivedAt>at||e.receivedAt>event.recordedAt)issues.push('UNKNOWN_OR_INVALID_RECEIPT_TIME');
  if(e.kind!=='original'&&(!validTime(e.revisedAt)||e.revisedAt>at))issues.push('UNKNOWN_OR_INVALID_REVISION_TIME');
  if(!e.url)issues.push('MISSING_ORIGINAL_LINK');
- if(!e.body)issues.push('MISSING_BODY');
+ if(!hasContent(e.title))issues.push('MISSING_TITLE');
+ if(!hasContent(e.body))issues.push('MISSING_BODY');
  if(e.bodyScope!=='declared-body')issues.push('SUMMARY_ONLY');
  return {sequence:event.sequence,eventHash:event.eventHash,previousHash:event.previousHash,recordedAt:event.recordedAt,
   source:e.source,eventId:e.eventId,sourceRevisionId:e.sourceRevisionId,kind:e.kind,supersedes:e.supersedes,
@@ -60,21 +62,38 @@ function reference(event,current,code,at){
   eligibleForResearchSupport:issues.length===0,issues,...Journal.FLAGS};
 }
 function createReader(){
- const caches=new Map();
+ const caches=new Map(),anchors=new Map();
+ // Bounded process-local anchors retain the last verified chain prefix and
+ // clock even when a corrupt archive invalidates the content cache. This is
+ // not an external trust anchor, nor does it authenticate a restored archive
+ // after a process restart or anchor eviction.
+ function remember(root,events,now){
+  if(!events.length)return;
+  anchors.delete(root);
+  anchors.set(root,{count:events.length,head:events.at(-1).eventHash,lastReadAt:now});
+  if(anchors.size>LIMITS.caches){const oldest=anchors.keys().next().value;anchors.delete(oldest);caches.delete(oldest);}
+ }
  function snapshot(root,now){
+  const anchor=anchors.get(root);
+  if(anchor&&now<anchor.lastReadAt)throw Error('NEWS_JOURNAL_CLOCK_ROLLBACK');
   const currentStamp=directoryStamp(root);
   let cached=caches.get(root);
-  if(currentStamp===null){caches.delete(root);return {events:[],bySecurity:new Map(),verifiedAt:now,stamp:null};}
+  if(currentStamp===null){
+   if(anchor)throw Error('NEWS_JOURNAL_HISTORY_ROLLBACK');
+   caches.delete(root);return {events:[],bySecurity:new Map(),verifiedAt:now,stamp:null};
+  }
   let files;
   // Full content validation is reused between appends. A bounded metadata sweep
   // also detects unrelated in-place changes; every emitted reference is always
   // reopened and hash checked below, including within this one-second window.
-  if(cached&&cached.stamp===currentStamp&&now>=cached.checkedAt&&now-cached.checkedAt<LIMITS.metadataCheckMs)return cached;
+  if(cached&&cached.stamp===currentStamp&&now>=cached.checkedAt&&now-cached.checkedAt<LIMITS.metadataCheckMs){remember(root,cached.events,now);return cached;}
   files=metadata(root);
-  if(cached&&cached.stamp===currentStamp&&JSON.stringify(files)===cached.files){cached.checkedAt=now;return cached;}
+  if(cached&&cached.stamp===currentStamp&&JSON.stringify(files)===cached.files){cached.checkedAt=now;remember(root,cached.events,now);return cached;}
   caches.delete(root);
   const events=Journal.readJournal(root,{now}),bySecurity=new Map(),chains=new Map();
   if(events.length>LIMITS.events)throw Error('NEWS_JOURNAL_CAPACITY');
+  if(anchor&&(events.length<anchor.count||events[anchor.count-1]?.eventHash!==anchor.head))
+   throw Error('NEWS_JOURNAL_HISTORY_ROLLBACK');
   for(const event of events){
    const key=eventKey(event.evidence);
    if(!chains.has(key))chains.set(key,[]);
@@ -87,7 +106,7 @@ function createReader(){
   if(directoryStamp(root)!==currentStamp||JSON.stringify(metadata(root))!==JSON.stringify(files))throw Error('NEWS_JOURNAL_CHANGED_DURING_BINDING');
   cached={events,bySecurity,chains,stamp:currentStamp,files:JSON.stringify(files),checkedAt:now,verifiedAt:now};
   if(caches.size>=LIMITS.caches)caches.delete(caches.keys().next().value);
-  caches.set(root,cached);return cached;
+  caches.set(root,cached);remember(root,events,now);return cached;
  }
  return function capture(root,{code,triggerAt,now=Date.now()}={}){
   const base={schemaVersion:1,mode:'signal-news-journal-reference',association:'same-security-context',

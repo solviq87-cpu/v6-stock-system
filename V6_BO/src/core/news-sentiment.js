@@ -2,7 +2,7 @@
 // Bounded, explainable heuristics over the provider text. No truth or return probability claim.
 const NEWS_BAD_KW = ['利空', '减持', '质押', '立案', '留置', '调查', '处罚', '罚款', '警示函', '监管函', '问询函', '退市', '预亏', '首亏', '亏损', '业绩变脸', '商誉减值', '减值', '终止上市', '退市风险', '违约', '爆雷', '暴雷', '诉讼', '仲裁', '冻结', '召回', '裁员', '关税', '制裁', '禁令', '跌停', '跌超', '大跌', '跳水', '流出', '做空', '沽空', '风险提示', '安全事故', '爆炸', '火灾', '失联', '被查', '被拘', '拘留', '通报批评', '失信', '被执行', '下调评级', '下调目标价', '解除合同', '失去', '到期违约'];
 const NEWS_GOOD_KW = ['利好', '中标', '签订', '签署', '合同', '订单', '预增', '扭亏', '净利润增', '获批', '获准', '核准', '收购', '并购', '重组', '回购', '增持', '分红', '派息', '战略合作', '框架协议', '涨价', '提价', '上调评级', '上调目标价', '超预期', '涨停', '大涨', '创新高', '试点', '政策支持', '扶持', '补贴', '减税', '降准', '降息', '突破', '景气', '大单', '里程碑'];
-const VERSION = 'news-context-v1';
+const VERSION = 'news-context-v2';
 const NEWS_BAD_PATTERNS = [
   /出售.{0,20}已?回购股份/,
   /回购股份.{0,6}(出售|减持|解禁)/,
@@ -25,9 +25,14 @@ const RELIEF = [
   /(?:不涉及|不存在|没有|未筹划)(?:重大资产)?(?:收购|并购|重组|回购|增持|分红|派息)/g
 ];
 const UNCERTAIN = /传闻|传言|网传|据传|谣言|辟谣|否认|澄清|尚未证实|未经证实|待核实|不属实|尚未获批|尚未批准/;
+// Explicitly unrealized positive events are not positive catalysts. Keep the
+// original cancellation and adverse-event rules active; only suppress uplift.
+const UNREALIZED_POSITIVE = /(?:尚未|暂未|并未|未曾|未能|未|没有|尚无|暂无|不会|不再|不进行|不实施)(?:正式|实际|成功|最终|确定|取得|获得|新增|重大|具体|明确|任何|签署|签订|完成|实施|宣布|达成|收到|开展|筹划|进行|推进|启动|落实|发布|公布|股份){0,4}(?:中标|签订|签署|合同|订单|预增|扭亏|获批|获准|核准|收购|并购|重组|回购|增持|分红|派息|战略合作|框架协议|补贴|政策支持|上调评级|上调目标价)/;
+const hasContent = v => typeof v === 'string' && /[^\s\u200b\u200c\u200d\u2060\ufeff]/.test(v);
 const PRICE_ONLY = new Set(['涨停','大涨','创新高','突破','大单','里程碑']);
 function assessNews(title, summary) {
-  if (typeof title !== 'string' || typeof summary !== 'string' || title.length > 1000 || summary.length > 50000)
+  if (typeof title !== 'string' || typeof summary !== 'string' || title.length > 1000 || summary.length > 50000 ||
+      (!hasContent(title) && !hasContent(summary)))
     return {version:VERSION,type:'neutral',status:'unknown',why:'待核实：新闻文本缺失或超出范围',matched:[],notes:['INVALID_TEXT']};
   const bad = new Set(), good = new Set(), notes = new Set();
   let reversal = false;
@@ -38,6 +43,7 @@ function assessNews(title, summary) {
     for (const re of RELIEF) {
       clause = clause.replace(re, () => { notes.add('RELIEVED_OR_NEGATED_EVENT'); return ' '; });
     }
+    if (UNREALIZED_POSITIVE.test(clause)) notes.add('UNCONFIRMED_OR_DENIED');
     if (NEWS_BAD_PATTERNS.some(re => re.test(clause))) { reversal = true; bad.add('出售已回购股份'); }
     const cancelled = clause.match(CANCEL_POSITIVE) || clause.match(FAILED_APPROVAL);
     if (cancelled) { reversal = true; bad.add(cancelled[0]); }
@@ -61,7 +67,9 @@ function assessNews(title, summary) {
 // Three China calendar days (today plus two prior days), not host-local dates
 // or receipt time. Unknown/future source timestamps cannot become live signals.
 function newsIsCurrent(publishedAt, now = Date.now()) {
-  if (!Number.isSafeInteger(now) || !Number.isSafeInteger(publishedAt) || publishedAt < 946684800000 || publishedAt > now) return false;
+  // Use the journal's original supported source-clock range for both clocks.
+  const validTime = t => Number.isSafeInteger(t) && t >= 946684800000 && t < 4102444800000;
+  if (!validTime(now) || !validTime(publishedAt) || publishedAt > now) return false;
   const day = t => Math.floor((t + 8 * 3600000) / 86400000);
   return day(publishedAt) >= day(now) - 2;
 }
