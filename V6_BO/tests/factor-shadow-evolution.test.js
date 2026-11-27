@@ -1103,6 +1103,23 @@ test('strict watch auto-handoff registers one unseen future candidate without re
  assert.equal(awaiting.status,'skipped-awaiting-post-prereg-signals');
  assert.equal(awaiting.preregistrationFingerprint,reg.fingerprint);
  assert.deepEqual(fs.readdirSync(outputDir),filesBefore);
+ // A sealed candidate is still a commitment even if this tick is not strict.
+ // Do not inspect any H5 return until there is a new eligible frozen signal.
+ const ordinaryAwaiting=runShadowWorker({manifestFile,outputDir,now:clock});
+ assert.equal(ordinaryAwaiting.status,'skipped-awaiting-post-prereg-signals');
+ assert.equal(ordinaryAwaiting.preregistrationFingerprint,reg.fingerprint);
+ assert.deepEqual(fs.readdirSync(outputDir),filesBefore);
+ const regFile=path.join(outputDir,'prereg-'+reg.fingerprint.slice(0,12)+'.json');
+ const good=fs.readFileSync(regFile),saved=JSON.parse(good);
+ const {fingerprint,...body}=saved;
+ body.candidateWeights={...body.candidateWeights,[Object.keys(body.candidateWeights)[0]]:999};
+ const forged={...body,fingerprint:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')};
+ const badFile=path.join(outputDir,'prereg-'+forged.fingerprint.slice(0,12)+'.json');
+ fs.unlinkSync(regFile);fs.writeFileSync(badFile,JSON.stringify(forged),{mode:0o600});
+ try{assert.throws(()=>runShadowWorker(strictAuto),/模型血缘不一致/);}
+ finally{fs.unlinkSync(badFile);fs.writeFileSync(regFile,good,{mode:0o600});}
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ assert.deepEqual(fs.readdirSync(outputDir).sort(),filesBefore.sort());
  fs.writeFileSync(invalidH5,oldReport);
  append(61,66);
  const evaluated=runShadowWorker({...strictAuto,
