@@ -1,0 +1,158 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "bought",
+    "shares": 300,
+    "sellStatus": null,
+    "remaining": null,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "bought",
+    "shares": 300,
+    "sellStatus": null,
+    "remaining": null,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "lower-limit-2026-11-17",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "lower-limit-2026-11-17",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "lower-limit-2026-11-18",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "lower-limit-2026-11-18",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "partial-exit",
+    "shares": 200,
+    "sellStatus": "partial",
+    "remaining": 200,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "partial-exit",
+    "shares": 200,
+    "sellStatus": "partial",
+    "remaining": 200,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "suspended",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "suspended",
+    "shares": 300,
+    "sellStatus": "pending",
+    "remaining": 300,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "stage": "unfilled",
+    "shares": 0,
+    "sellStatus": null,
+    "remaining": null,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "stage": "unfilled",
+    "shares": 0,
+    "sellStatus": null,
+    "remaining": null,
+    "readActions": 1,
+    "otherAccountActions": 0,
+    "errors": []
+  }
+]

@@ -1,0 +1,185 @@
+{
+  "scope": "Original authority ledger, editor HTTP read and native page; synthetic quotes and an explicit research calendar. No external orders or alerts.",
+  "sourceBaseline": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+  "candidateCodeSha256": "a19cedc3aed74be4972ee35f52b1d06033e5a96445cb0d5e898cc670d57942be",
+  "calendar": {
+    "source": "sse-szse-official-2026-explicit-research-calendar",
+    "firstObservedAt": "2026-11-12T20:05:22.551912Z",
+    "tradeEligible": false,
+    "sha256": "013dbddcd5b60175000d82c18051ccaebcf7476c72a13d9a6da7c48942d8e00f"
+  },
+  "rows": [
+    {
+      "stage": "limit-up-nearby-price",
+      "day": "2026-11-16",
+      "reason": "自动成交行情触及交易限制：原始报价必须在有效涨跌停价格内",
+      "reasonCodes": [
+        "AUTOMATIC_QUOTE_PRICE_LIMIT"
+      ],
+      "accountChanged": false
+    },
+    {
+      "stage": "limit-down-nearby-price",
+      "day": "2026-11-16",
+      "reason": "自动成交行情触及交易限制：原始报价必须在有效涨跌停价格内",
+      "reasonCodes": [
+        "AUTOMATIC_QUOTE_PRICE_LIMIT"
+      ],
+      "accountChanged": false
+    },
+    {
+      "stage": "unfilled",
+      "day": "2026-11-16",
+      "shares": 0,
+      "sellStatus": null,
+      "remaining": null,
+      "http": 200,
+      "revision": 1,
+      "cash": 100000,
+      "events": [],
+      "fingerprint": "a73b03e871e74ff0f97229c07dca04ff604cc860b3dbc839df75cdfa6d6460d6"
+    },
+    {
+      "stage": "bought",
+      "day": "2026-11-16",
+      "shares": 300,
+      "sellStatus": null,
+      "remaining": null,
+      "http": 200,
+      "revision": 2,
+      "cash": 96995,
+      "events": [
+        {
+          "side": "buy",
+          "quantity": 300,
+          "price": 10,
+          "fee": 5,
+          "tradeDate": "2026-11-16"
+        }
+      ],
+      "fingerprint": "082619b80af0e45da68ddd9e264b4d88056917a63758af16beab9e94380d0479"
+    },
+    {
+      "stage": "same-day-sale",
+      "day": "2026-11-16",
+      "reason": "可卖数量不足或T+1限制",
+      "reasonCodes": [],
+      "accountChanged": false
+    },
+    {
+      "stage": "exit-lower-limit-2026-11-17",
+      "day": "2026-11-17",
+      "reason": "行情过期、不完整或触及交易限制",
+      "reasonCodes": [],
+      "accountChanged": false
+    },
+    {
+      "stage": "lower-limit-2026-11-17",
+      "day": "2026-11-17",
+      "shares": 300,
+      "sellStatus": "pending",
+      "remaining": 300,
+      "http": 200,
+      "revision": 3,
+      "cash": 96995,
+      "events": [
+        {
+          "side": "buy",
+          "quantity": 300,
+          "price": 10,
+          "fee": 5,
+          "tradeDate": "2026-11-16"
+        }
+      ],
+      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+    },
+    {
+      "stage": "exit-lower-limit-2026-11-18",
+      "day": "2026-11-18",
+      "reason": "行情过期、不完整或触及交易限制",
+      "reasonCodes": [],
+      "accountChanged": false
+    },
+    {
+      "stage": "lower-limit-2026-11-18",
+      "day": "2026-11-18",
+      "shares": 300,
+      "sellStatus": "pending",
+      "remaining": 300,
+      "http": 200,
+      "revision": 3,
+      "cash": 96995,
+      "events": [
+        {
+          "side": "buy",
+          "quantity": 300,
+          "price": 10,
+          "fee": 5,
+          "tradeDate": "2026-11-16"
+        }
+      ],
+      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+    },
+    {
+      "stage": "suspended",
+      "day": "2026-11-19",
+      "reason": "行情过期、不完整或触及交易限制",
+      "reasonCodes": [],
+      "accountChanged": false
+    },
+    {
+      "stage": "suspended",
+      "day": "2026-11-19",
+      "shares": 300,
+      "sellStatus": "pending",
+      "remaining": 300,
+      "http": 200,
+      "revision": 3,
+      "cash": 96995,
+      "events": [
+        {
+          "side": "buy",
+          "quantity": 300,
+          "price": 10,
+          "fee": 5,
+          "tradeDate": "2026-11-16"
+        }
+      ],
+      "fingerprint": "cf4a30e89dbc8007ac6f4a9a7c302203a77ae475cd2e7144522e1d55f5b01db6"
+    },
+    {
+      "stage": "partial-exit",
+      "day": "2026-11-20",
+      "shares": 200,
+      "sellStatus": "partial",
+      "remaining": 200,
+      "http": 200,
+      "revision": 4,
+      "cash": 97809.59,
+      "events": [
+        {
+          "side": "buy",
+          "quantity": 300,
+          "price": 10,
+          "fee": 5,
+          "tradeDate": "2026-11-16"
+        },
+        {
+          "side": "sell",
+          "quantity": 100,
+          "price": 8.2,
+          "fee": 5.41,
+          "tradeDate": "2026-11-20"
+        }
+      ],
+      "fingerprint": "61c20091fbd36e2436b92e27fea9a4d2b85402fd52347964205d7e341a8c6c84"
+    }
+  ],
+  "viewerReturnedAccount": false,
+  "remainingShares": 200,
+  "remainingOrder": 200,
+  "feesCny": 10.41,
+  "finalCash": 97809.59,
+  "remainingCostCny": 2003.33,
+  "realizedPnlCny": -187.08
+}

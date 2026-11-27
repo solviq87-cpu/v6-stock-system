@@ -28,6 +28,13 @@ function requireCurrentAutomaticQuote(quote,now){
   const error=Error('自动成交行情缺失、过期或触及交易限制：原始报价必须在当前交易日15秒内');
   error.reasonCodes=['AUTOMATIC_QUOTE_NOT_CURRENT'];throw error;
  }
+ // Legacy fills may use a nearby rounded price. The actual source quote
+ // must also pass the original price-limit boundary before staging or commit.
+ if(![quote.price,quote.lowerLimit,quote.upperLimit].every(value=>Number.isFinite(value)&&value>0)||
+   quote.lowerLimit>=quote.upperLimit||quote.price<=quote.lowerLimit||quote.price>=quote.upperLimit){
+  const error=Error('自动成交行情触及交易限制：原始报价必须在有效涨跌停价格内');
+  error.reasonCodes=['AUTOMATIC_QUOTE_PRICE_LIMIT'];throw error;
+ }
  if(quote.canTrade===false||quote.readOnlyBackup===true){
   const error=Error('自动成交行情只读：该原始报价不允许用于自动成交');
   error.reasonCodes=['AUTOMATIC_QUOTE_READ_ONLY'];throw error;
