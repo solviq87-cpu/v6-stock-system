@@ -310,15 +310,21 @@ function createPaperApplicationService({file,clock=Date.now,maxParticipationPct=
   try{const accountFile=path.join(stage,'account.json');fs.writeFileSync(accountFile,JSON.stringify(s.account),{mode:0o600});s.account=createPaperAccountLedger(accountFile).transact(item.order,event,quote.tradeDate);s.account.events.at(-1).feeEvidence=feeEvidence;s.account.events.at(-1).entryRisk=entryRisk;s.account.events.at(-1).accountRevision=s.revision+1;s.account.fingerprint=ledgerHash(s.account);}finally{fs.rmSync(stage,{recursive:true,force:true});}
   item.events=events;item.state=state;s.lastTradeDate=quote.tradeDate;return {snapshot:s,validateBeforeWrite:()=>requireExecutionClock(s,now,clock())};});}
  function adoptLegacy(legacy){return mutate(s=>{if(s){if(!s.legacy)throw Error('同名账户不是历史迁入账户，拒绝覆盖');return {snapshot:s,noChange:true};}const account=openingAccount(legacy);return {snapshot:{schemaVersion:1,initialCash:account.cash,feePolicy:{version:'legacy-A-B',feeBps:2.5,minFee:5,sellTaxBps:5},account,orders:{},reconciliationOpening:openingReconciliationEvidence(account,{kind:'legacy-adoption',at:clock(),sourceFingerprint:hash(legacy)}),legacy,legacyOpeningTrades:legacy.trades,legacyOpeningRealized:legacy.realized||0,paperOnly:true,brokerConnected:false}};});}
- function saveLegacy(legacy,expectedRevision,{action='sync',quotes={}}={}){return mutate(s=>{
+ function saveLegacy(legacy,expectedRevision,{action='sync',quotes={},entryBinding=null}={}){return mutate(s=>{
   if(!s||!s.legacy)throw Error('历史账户尚未迁入权威账本');
   if(s.revision!==expectedRevision)throw Error('权威账户版本冲突，请重新读取');
+  if(entryBinding!==null&&action!=='sync')throw Error('原冻结计划绑定只能用于同次模拟买入');
   if(['reset','setInitial'].includes(action)){
    const previous={revision:s.revision,account:s.account,orders:s.orders,legacy:s.legacy,corporateEvents:s.corporateEvents||[],riskEvidence:s.riskEvidence||[],...(s.reconciliationOpening?{reconciliationOpening:s.reconciliationOpening}:{}),...(s.fillEvidenceVersion!==undefined?{fillEvidenceVersion:s.fillEvidenceVersion,legacyFillEvidenceCount:s.legacyFillEvidenceCount}:{})};
    s.archives=[...(s.archives||[]),previous];s.account=openingAccount(legacy);s.initialCash=s.account.cash;s.reconciliationOpening=openingReconciliationEvidence(s.account,{kind:'account-reset',at:clock(),sourceFingerprint:hash(legacy)});s.orders={};s.corporateEvents=[];s.riskEvidence=[];delete s.fillEvidenceVersion;delete s.legacyFillEvidenceCount;s.legacy=legacy;s.legacyOpeningTrades=legacy.trades;s.legacyOpeningRealized=legacy.realized||0;return {snapshot:s};
   }
   const known=new Set(s.legacy.trades.map(t=>hash(t)));
   const incoming=legacy.trades.filter(t=>!t.eventId&&!known.has(hash(t))).reverse();
+  // The original account lock is held here, before any cash/lot mutations.
+  if(entryBinding!==null){
+   if(incoming.length!==1)throw Error('原冻结计划只能绑定一笔新增模拟成交');
+   require('./paper-plan-entry-binding').assertPlanEntryBinding(entryBinding,{book:s,quote:quotes[entryBinding.symbol],now:clock(),trade:incoming[0]});
+  }
   const newExecutionQuotes=[];let latestExecutionAt=null;
   for(const t of incoming){
    const id='legacy_'+hash(t).slice(0,30);

@@ -30,7 +30,7 @@ async function setup(t,{quote=wire()}={}){
   const run=(patch={})=>executeDecisionPlan({input:{action:'executePlan',account:'pool',planId},plan:frozen,now,day,clock:()=>now,replica:false,continuous:true,
     candidate:wire(),eligiblePick:rules.eligiblePick,systemPickDay:rules.systemPickDay,poolDay:day,newsBlocked:false,
     account:context.PAPER.pool,policy:context.PAPER_CFG.pool,equity:10000,quote:context.paperAuthorityQuotes()['600000'],authoritative:card,
-    readBook:()=>app.read(),buy:(row,reason)=>context.paperBuy('pool',[row],new Map(),()=>reason),...patch});
+    readBook:()=>app.read(),requireEntryBinding:true,buy:(row,reason,binding)=>context.paperBuy('pool',[row],new Map(),()=>reason,binding),...patch});
   return {app,file,run,frozen,card,context,notices,skips};
 }
 test('confirmed plan uses the original buy and durable account; duplicate retry and restart cannot buy twice',async t=>{
@@ -101,4 +101,33 @@ test('durable conditional intent invokes the original paperBuy and original auth
   assert.equal(result.orders[0].fill.eventId,x.app.read().account.events[0].eventId);
   const before=fs.readFileSync(x.file);createConditionalOrderStore({root,clock:()=>now}).tick(run);
   assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.app.read().account.events.length,1);assert.equal(x.notices.length,1);
+});
+
+test('C20 bound original buy refuses a changed fresh quote before any account mutation',async t=>{
+ for(const price of [10.2,10]){
+  const x=await setup(t),before=fs.readFileSync(x.file),original=x.context.paperAuthorityQuotes;let reads=0;
+  x.context.paperAuthorityQuotes=()=>{if(++reads===2)x.context.ingestPx([wire({price,quoteAt:now-500,receivedAt:now-100})]);return original();};
+  assert.throws(()=>x.run(),/重新确认/);assert.equal(reads,2);assert.deepEqual(fs.readFileSync(x.file),before);
+  assert.equal(x.app.read().account.events.length,0);assert.equal(x.context.PAPER.pool.cash,10000);assert.equal(x.notices.length,0);
+ }
+});
+test('C20 bound plan refuses a newer original account revision after plan validation',async t=>{
+ const x=await setup(t);let changed=null;
+ x.context.refreshPaperAuthority=force=>{
+  if(!force&&!changed){x.app.configure({expectedRevision:x.app.read().revision,riskPolicy:{version:'c20-original-policy',maxPositionPct:50}});changed=fs.readFileSync(x.file);}
+  x.context.PAPER.pool=x.app.legacy();x.context._paperAuthorityRevision.pool=x.app.read().revision;
+ };
+ assert.throws(()=>x.run(),/重新确认/);assert.ok(changed);assert.deepEqual(fs.readFileSync(x.file),changed);
+ assert.equal(x.app.read().account.events.length,0);assert.equal(x.notices.length,0);
+});
+test('C20 original account lock rejects changed bound risk marks without committing or notifying',async t=>{
+ const x=await setup(t),before=fs.readFileSync(x.file),save=x.app.saveLegacy;let rejected=null;
+ x.app.saveLegacy=(legacy,revision,options)=>{
+  assert.ok(options.entryBinding);const q=options.quotes['600000'];
+  const changed={...q,riskContext:{...q.riskContext,marks:{...q.riskContext.marks,'600001':5}}};
+  try{return save(legacy,revision,{...options,quotes:{...options.quotes,'600000':changed}});}
+  catch(e){rejected=e.message;throw e;}
+ };
+ assert.throws(()=>x.run(),/未产生持久成交/);assert.match(rejected,/重新确认/);
+ assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.context.PAPER.pool.cash,10000);assert.equal(x.notices.length,0);
 });
