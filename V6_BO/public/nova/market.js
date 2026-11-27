@@ -1,5 +1,5 @@
 import {createResearchReplay} from './evidence-workbench.mjs';
-import {indexContinuityRows} from './index-continuity-view.mjs';
+import {indexContinuityRows,indexHistoryDisclosure} from './index-continuity-view.mjs';
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
 import {createRiskSummary} from './risk-workbench-view.mjs';
@@ -143,6 +143,7 @@ export function recoveryDisclosure(state){
    Number.isFinite(r?.nextRetryAt)&&r.nextRetryAt>0?'下次重试 '+dateTime(r.nextRetryAt):''];
  const sources=(Array.isArray(r?.sources)?r.sources:[]).filter(x=>x?.name);
  return h('details',{class:'fy-details fy-recovery-status'},h('summary',{},'行情来源与补采状态'),
+  indexHistoryDisclosure(state.indexWindowResearch?.history)?h('p',{},indexHistoryDisclosure(state.indexWindowResearch.history)):null,
   state.indexWindowResearch?.events?.filter(event=>event.validUntil>Date.now()).map(event=>h('p',{},
    event.code+' · '+event.windowMinutes+'分钟变动 '+format(event.returnPct)+'% · 超出此前 '+event.referenceDays+
    ' 个可比日同时段的绝对变动范围 · 原因待核 · '+indexProvider(event.source)+' '+dateTime(event.quoteAt)+

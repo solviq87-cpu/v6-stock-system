@@ -1,7 +1,7 @@
 'use strict';
 
 // Exploratory same-minute comparison on the session feed's reconciled prices.
-// Keep at most 21 observed days. A cold start has no historical reference.
+// Keep at most 21 observed days; optionally recover ended days from the original research journal.
 const MINUTE = 60000;
 const PRIOR_DAYS = 20;
 const WINDOWS = [1, 5, 15];
@@ -10,7 +10,11 @@ const SOURCES = new Set(['tencent-index', 'sina-index']);
 // Match the upstream session feed's clock domain before constructing a Date.
 const validTime = at => Number.isSafeInteger(at) && at > 0 && at <= 8e15;
 function validObservation(row, asOf) {
-  return row && SOURCES.has(row.quoteSource) && Number.isFinite(row.price) && row.price > 0 &&
+  return row && !['sourceConflict','conflict','simulated','synthetic','fixture','mock','imported','testSample'].some(k=>row[k]===true) &&
+    row.quoteStatus!=='conflict'&&row.evidenceStatus!=='conflict'&&
+    ![row.quoteMode,row.mode].some(v=>typeof v==='string'&&/simulat|synthetic|fixture|mock|imported|test-sample/i.test(v))&&
+    (row.vendorQuoteAt==null||row.vendorQuoteAt===row.quoteAt)&&
+    SOURCES.has(row.quoteSource) && Number.isFinite(row.price) && row.price > 0 &&
     validTime(row.quoteAt) && validTime(row.receivedAt) && row.quoteAt <= row.receivedAt && row.receivedAt <= asOf;
 }
 function uniqueIndices(rows) {
@@ -73,17 +77,37 @@ function continuityRevision(event, previous, slot, abnormal) {
   };
 }
 
-function createIndexWindowResearch({ investigate, reviewInvestigation } = {}) {
+function createIndexWindowResearch({ investigate, reviewInvestigation, historyRoot, clock=Date.now, canPersist, onHistoryError } = {}) {
   const days = new Map();
   let lastClock = 0;
   let active = [];
-  const continuity = new Map();
+  const continuity = new Map(),dayHashes=new Map();
+  const history=historyRoot?require('./index-window-history').createIndexDayHistory({root:historyRoot,clock,canPersist,onError:onHistoryError}):null;
+  if(history){
+    const restored=history.load();lastClock=restored.loadedAt;
+    for(const data of restored.days){
+      const codes=new Map();dayHashes.set(data.day,data.journalHash);
+      for(const p of data.points){if(!codes.has(p.code))codes.set(p.code,new Map());codes.get(p.code).set(p.minute,p.observation?{...p.observation,historyHash:data.journalHash}:null);}
+      days.set(data.day,codes);
+    }
+  }
+  function sealEndedDays(asOf,day){
+    if(!history)return;
+    const minute=(Math.floor(asOf/MINUTE)+480)%1440;
+    for(const [date,codes] of days){
+      if(date>day||date===day&&minute<900||dayHashes.has(date))continue;
+      if([...codes.values()].some(samples=>samples.size)){const hash=history.seal(date,()=>{
+        const points=[];for(const [code,samples] of codes)for(const [minute,observation] of samples)points.push({code,minute,observation});return points;
+      },asOf);if(typeof hash==='string'){dayHashes.set(date,hash);for(const samples of codes.values())for(const o of samples.values())if(o)o.historyHash=hash;}}
+    }
+  }
   function clearContinuity(code) {
     for (const width of WINDOWS) continuity.delete(code + '/' + width);
   }
   function observe(feed, session, asOf) {
     if (!validTime(asOf) || asOf < lastClock) {
-      days.clear();
+      days.clear();dayHashes.clear();
+      history?.invalidate();
       active = [];
       continuity.clear();
       lastClock = 0;
@@ -92,6 +116,7 @@ function createIndexWindowResearch({ investigate, reviewInvestigation } = {}) {
     lastClock = asOf;
     const day = new Date(asOf + 28800000).toISOString().slice(0, 10).replaceAll('-', '');
     const slot = sessionMinute(asOf);
+    sealEndedDays(asOf,day);
     if (!session?.trading || session.day !== day || feed?.day !== day || slot === null) {
       active = [];
       continuity.clear();
@@ -144,7 +169,8 @@ function createIndexWindowResearch({ investigate, reviewInvestigation } = {}) {
           const reference = data.has(code) && windowChange(data.get(code), slot, width);
           if (reference && reference.last.quoteSource === row.quoteSource && Number.isFinite(reference.returnPct)) {
             comparable.push({date, baseAt:reference.first.quoteAt, basePrice:reference.first.price,
-              quoteAt:reference.last.quoteAt, price:reference.last.price, returnPct:reference.returnPct});
+              quoteAt:reference.last.quoteAt, price:reference.last.price, returnPct:reference.returnPct,
+              ...(reference.first.historyHash&&reference.first.historyHash===reference.last.historyHash?{archiveHash:reference.last.historyHash}:{})});
           }
         }
         if (comparable.length < PRIOR_DAYS) {
@@ -190,7 +216,8 @@ function createIndexWindowResearch({ investigate, reviewInvestigation } = {}) {
   }
   return {observe, view(asOf) {
     return {mode:'experimental-same-minute-range', priorDaysRequired:PRIOR_DAYS,
-      priorDaysObserved:Math.max(0, days.size - 1),
+      priorDaysObserved:validTime(asOf)&&asOf>=lastClock?Math.min(PRIOR_DAYS,[...days.keys()].filter(day=>day<new Date(asOf+28800000).toISOString().slice(0,10).replaceAll('-','')).length):0,
+      ...(history?{history:history.status()}:{}),
       events:validTime(asOf) && asOf >= lastClock
         ? active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil).map(visibleEvent) : [],
       continuity:validTime(asOf) && asOf >= lastClock

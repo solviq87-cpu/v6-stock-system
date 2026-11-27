@@ -11518,6 +11518,8 @@ const investigateIndexNews=createIndexNewsInvestigator({
   readSectors:()=>S.sectors,explicitSectorMatch:explicitNewsSectorMatch
 });
 const indexWindowResearch=createIndexWindowResearch({
+  historyRoot:path.join(__dirname,'data','index-window-research'),canPersist:()=>!isReplica(),
+  onHistoryError:code=>console.error('['+code+'] 研究基准未恢复或保存，当前报价与原账户不变'),
   investigate:event=>investigateIndexNews(event),
   reviewInvestigation:event=>investigateIndexNews(event,event.investigation.evidenceHashes)
 });
@@ -11607,10 +11609,11 @@ function sharedMarketRead(kind,edit) {
   state.dabanke=sharedDabanke(session,day);
   state.auctionObservations=sessionAuctionDisplay(session,day,state.marketRecovery);
   const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+  // Reading existing research is independent of dispatching supplier requests.
+  if(edit&&session.trading&&(!day||day===today))state.indexWindowResearch=indexWindowResearch.view(Date.now());
   if((!day||day===today)&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
     const feed=sessionIndices.read(session);
     state.indexChannels=feed.channels;
-    if(edit && session.trading)state.indexWindowResearch=indexWindowResearch.view(Date.now());
     if(feed.indices.length){
       const {latestIndexObservations}=require('./src/core/closing-card-snapshot');
       const rows=latestIndexObservations([], [...feed.indices,...(state.dashboard.indices||[])],Date.now()).filter(r=>r.tradeDate===today);
