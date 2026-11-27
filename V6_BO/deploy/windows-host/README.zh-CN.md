@@ -37,6 +37,17 @@ bash install-node.sh
 
 机器学习环境另外使用独立 venv 按 `payload/tools/requirements-models.txt` 安装，并在后续模型配置中指定。此包的启动成功不代表 ML 训练已验证。
 
+### 基础研究工具的离线安装与恢复
+
+Ubuntu / WSL 的 Linux x86_64、CPython 3.12 和可用的 venv 模块可从本地介质恢复 scikit-learn 1.8.0 基础环境。在解压的宿主控制器目录运行以下命令。第一条列出该版本需要的七个原版 wheel 文件名、字节数及 SHA256。按各项目许可在可联网设备备齐这些文件，复制到同一目录，保留原文件名。
+
+```sh
+node fayo-model-tools.js --list-offline-wheels
+node fayo-model-tools.js --offline-dir /mnt/d/fayo/wheels
+```
+
+第二条返回本机可用解释器的绝对路径。可将该路径用作研究运行器的 `V6_MODEL_PYTHON`。原升级入口也会在需要准备回归工具时读取 `V6_MODEL_OFFLINE_DIR`；放在 WSL 用户的 `~/.fayo-upgrade-tools/offline-wheels/` 下的材料可自动发现。已有合格解释器可直接复用。新装时在用户私有目录校验全部材料后以 pip 的 `--no-index --require-hashes` 安装。介质缺件或损坏时退出，补齐后可重试。可选树模型和外部模型权重需要各自的许可和匹配材料。整机更新仍经原版本及 CI 复核。
+
 ## 2. 初始化和本机验证
 
 先核对 ZIP 的 SHA256。若 Windows 因下载来源阻止脚本，核对来源和哈希后在 ZIP 属性中解除锁定再解压；本包不修改全局 PowerShell 执行策略。

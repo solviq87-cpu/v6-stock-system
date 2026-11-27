@@ -25,3 +25,56 @@ test('pip bootstrap hash and size are checked before any executable wheel is ret
 test('a PATH-selected working interpreter is resolved before regression changes its own PATH',async t=>{
  const home=fixture(t);const python=await ensureModelPython({home,env:{PATH:'/selected/bin'}},{run:(exe,args)=>({status:0,stdout:args.at(-1).includes('sys.executable')?'/selected/bin/python3\n':''})});assert.equal(python,'/selected/bin/python3');assert.deepEqual(fs.readdirSync(home),[]);
 });
+test('an explicit offline medium with a missing bootstrap fails locally before any download', async t => {
+ const home = fixture(t);
+ const media = fixture(t);
+ let downloads = 0;
+ await assert.rejects(ensureModelPython({home,env:{V6_MODEL_OFFLINE_DIR:media}},{
+  run:(_exe,args)=>({status:args.includes('venv') || args.some(a=>a.includes('sys.implementation')) ? 0 : 1}),
+  downloadPip:()=>{ downloads++; throw Error('unexpected online fallback'); }
+ }),{code:'model-tools-offline-wheel-missing'});
+ assert.equal(downloads,0);
+ assert.deepEqual(fs.readdirSync(path.join(home,'.fayo-upgrade-tools')),[]);
+});
+test('the bundled wheel list pins the bootstrap and complete required research stack', () => {
+ const {execFileSync} = require('node:child_process');
+ const entry = require.resolve('../deploy/windows-host/fayo-model-tools');
+ const wheels = JSON.parse(execFileSync(process.execPath, [entry,'--list-offline-wheels'], {encoding:'utf8'}));
+ assert.deepEqual(wheels.map(w=>w.filename.split('-')[0]).sort(), ['cloudpickle','joblib','numpy','pip','scikit_learn','scipy','threadpoolctl']);
+ for (const wheel of wheels) {
+  assert.match(wheel.filename, /^[A-Za-z0-9_.-]+\.whl$/);
+  assert.match(wheel.sha256, /^[a-f0-9]{64}$/);
+  assert.ok(Number.isSafeInteger(wheel.size) && wheel.size > 0);
+ }
+});
+
+test('the standard private medium rejects an altered bootstrap or a link and cleans staging', async t => {
+ const home = fixture(t);
+ const base = path.join(home,'.fayo-upgrade-tools');
+ fs.mkdirSync(base,{mode:0o700});
+ const media = path.join(base,'offline-wheels');
+ fs.mkdirSync(media);
+ const wheel = path.join(media,'pip-25.3-py3-none-any.whl');
+ fs.writeFileSync(wheel,'incorrect');
+ const deps = {
+  run:(_exe,args)=>({status:args.includes('venv') || args.some(a=>a.includes('sys.implementation')) ? 0 : 1}),
+  downloadPip:()=>assert.fail('offline mode must stay offline')
+ };
+ await assert.rejects(ensureModelPython({home,env:{}},deps),{code:'model-tools-hash-mismatch'});
+ fs.unlinkSync(wheel);
+ fs.symlinkSync(path.join(home,'absent'),wheel);
+ await assert.rejects(ensureModelPython({home,env:{}},deps),{code:'model-tools-offline-wheel-unsafe'});
+ assert.deepEqual(fs.readdirSync(base),['offline-wheels']);
+});
+
+test('unsupported offline interpreter is reported without package execution or fallback', async t => {
+ const home = fixture(t);
+ const media = fixture(t);
+ const attempted=[];
+ await assert.rejects(ensureModelPython({home,env:{V6_MODEL_OFFLINE_DIR:media}},{
+  run:(_exe,args)=>{attempted.push(args);return {status:args.includes('venv')?0:1};},
+  downloadPip:()=>assert.fail('unsupported platform must not trigger network')
+ }),{code:'model-tools-offline-platform-unsupported'});
+ assert.equal(attempted.some(args=>args.includes('install')),false);
+ assert.deepEqual(fs.readdirSync(path.join(home,'.fayo-upgrade-tools')),[]);
+});
