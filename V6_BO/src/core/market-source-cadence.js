@@ -25,13 +25,20 @@ function createMarketSourceCadence(clock=Date.now){
    return Promise.resolve({...prior.result,reused:true});
   const slot={session,startedAt:now};
   slots.set(key,slot);
-  slot.pending=Promise.resolve().then(collect).then(
-   value=>({status:'fulfilled',value,reused:false}),
-   reason=>({status:'rejected',reason,reused:false})
-  ).then(result=>{
+  slot.pending=Promise.resolve().then(async()=>{
+   // Scheduling and the actual supplier attempt may be separated by a delay.
+   // Recheck immediately before dispatch and count cooldown from that attempt.
+   const dispatchedAt=readClock();
+   if(dispatchedAt===null)return clockFailure();
+   slot.startedAt=dispatchedAt;
+   let result;
+   try{result={status:'fulfilled',value:await collect(),reused:false};}
+   catch(reason){result={status:'rejected',reason,reused:false};}
    const finishedAt=readClock();
-   slot.result=finishedAt===null?clockFailure():{...result,finishedAt};slot.pending=null;
-   return slot.result;
+   return finishedAt===null?clockFailure():{...result,finishedAt};
+  }).then(result=>{
+   slot.result=result;slot.pending=null;
+   return result;
   });
   return slot.pending;
  }

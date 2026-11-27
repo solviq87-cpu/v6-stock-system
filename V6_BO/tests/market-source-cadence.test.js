@@ -88,3 +88,38 @@ test('跨来源共享时钟高水位，异常完成和抛出时钟错误均不�
  assert.equal(bad.status,'rejected');assert.equal(bad.finishedAt,null);
  throws=false;now=110000;assert.equal((await read('b','session',10000,()=>++calls)).value,3);
 });
+
+test('queued collection rechecks the clock at actual dispatch and shares rejection',async()=>{
+ let now=100000,calls=0;
+ const read=createMarketSourceCadence(()=>now),collect=()=>++calls;
+ const first=read('industry','session',10000,collect),peer=read('industry','session',10000,collect);
+ now=99999;
+ for(const result of await Promise.all([first,peer])){
+  assert.equal(result.status,'rejected');assert.equal(result.finishedAt,null);assert.equal(result.value,undefined);
+ }
+ assert.equal(calls,0);
+ now=100000;assert.equal((await read('industry','session',10000,collect)).status,'rejected');
+ now=110000;assert.equal((await read('industry','session',10000,collect)).value,1);
+});
+test('throwing dispatch clock does not invoke the queued collector',async()=>{
+ let bad=false,calls=0;
+ const read=createMarketSourceCadence(()=>{if(bad)throw Error('clock');return 100000;});
+ const first=read('seal','session',10000,()=>++calls);bad=true;
+ const result=await first;assert.equal(result.status,'rejected');assert.equal(result.finishedAt,null);assert.equal(calls,0);
+});
+test('delayed actual dispatch starts the success cooldown at the wire attempt',async()=>{
+ let now=100000,calls=0;
+ const read=createMarketSourceCadence(()=>now),collect=()=>++calls;
+ const first=read('industry','session',10000,collect);now=125000;
+ assert.equal((await first).value,1);
+ now=134999;const cached=await read('industry','session',10000,collect);assert.equal(cached.value,1);assert.equal(cached.reused,true);
+ now=135000;assert.equal((await read('industry','session',10000,collect)).value,2);
+});
+test('delayed failed dispatch also starts cooldown at the actual attempt',async()=>{
+ let now=100000,calls=0;
+ const read=createMarketSourceCadence(()=>now),collect=()=>{calls++;throw Error('503');};
+ const first=read('industry','session',10000,collect);now=125000;
+ assert.equal((await first).status,'rejected');
+ now=134999;const cached=await read('industry','session',10000,collect);assert.equal(cached.status,'rejected');assert.equal(cached.reused,true);assert.equal(calls,1);
+ now=135000;assert.equal((await read('industry','session',10000,collect)).reused,false);assert.equal(calls,2);
+});
