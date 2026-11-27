@@ -188,11 +188,13 @@ function catalogueLineage(rows){
   independentlyAuthenticatedPublishers:0,commonFailureRiskMeasured:false,
   providerIndependenceVerified:false,canTrade:false};
 }
-function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
+function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot,commercialLedger}={}){
  if(!validMs(asOf))throw Error('数据源审核时钟无效');
  const catalog=validateRegistry();
  const registered=registeredSourceRows();
  const routeById=new Map(registered.map(r=>[r.id,r]));
+ const commercial=commercialLedger===undefined?null:require('./source-commercial-evidence').auditSourceCommercialEvidence({asOf,ledger:commercialLedger,registeredRoutes:registered});
+ const commercialById=new Map((commercial?.routes??[]).map(r=>[r.routeId,r]));
  const lineage=catalogueLineage(registered);
  const groupSizes=new Map(lineage.groups.map(g=>[g.upstreamGroup,g.routeCount]));
  const {observations,report}=inspectProbe(snapshot,asOf,routeById);
@@ -242,7 +244,7 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
     runtimeSample:'unknown',businessAnalysis:'unknown',sustainedAvailability:'unknown',authorization:'unknown',productionActivation:'unknown'},
    sustainedAvailabilityVerified:null,observationWindow:null,effectiveObservationDays:null,
    licensedForLive:null,productionEnabled:null,exchangeVerified:false,canTrade:false,
-   activeByThisAudit:false};
+   activeByThisAudit:false,...(commercial?{commercialReview:commercialById.get(source.id)}:{})};
  });
  const reported=routes.filter(x=>x.reportedOnThisExactRoute);
  const probed=routes.filter(x=>x.observedOnThisExactRoute);
@@ -293,7 +295,7 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
    sustainedAvailabilitySourcesVerified:0,productionActiveSourcesVerified:0,
    guardedResearchRoutes:byAccess['guarded-research']||0,
    byAccess,byMarket,byEvidenceState,byDeclaredIntegrationKind},
-  probe:report,probeCoverage,routes,lineage,runtimeUsage:{status:'not-checked',scope:'last-qualified-runtime-quote-sample-per-day',
+  probe:report,probeCoverage,routes,lineage,...(commercial?{commercialEvidence:{schemaVersion:commercial.schemaVersion,mode:commercial.mode,registeredRouteCount:commercial.registeredRouteCount,reportedLicenseRouteCount:commercial.reportedLicenseRouteCount,reportedCostRouteCount:commercial.reportedCostRouteCount,actualAuthorizationVerifiedCount:0,actualCostVerifiedCount:0,note:commercial.note}}:{}),runtimeUsage:{status:'not-checked',scope:'last-qualified-runtime-quote-sample-per-day',
    reviewedDays:null,matchedSourceLabels:null,allRouteUsageVerified:false},canTrade:false,canNotify:false,canTrain:false,
   verifiedLive:false,providerIndependenceVerified:false,autoEnableNewProviders:false,
   qualityProvesPriceAccuracy:false,
@@ -303,8 +305,8 @@ function auditRegisteredSourceReadiness({asOf=Date.now(),snapshot}={}){
 // The last eligible sample per day is bounded to 10 symbols. An exact source
 // label proves only that the server observed such a quote in this local sample,
 // not which wrapper invoked the API, all calls, model consumption or licensing.
-async function auditRuntimeSourceUsage({asOf=Date.now(),snapshot,runtimeRoot}={}){
- const result=auditRegisteredSourceReadiness({asOf,snapshot});
+async function auditRuntimeSourceUsage({asOf=Date.now(),snapshot,runtimeRoot,commercialLedger}={}){
+ const result=auditRegisteredSourceReadiness({asOf,snapshot,commercialLedger});
  if(typeof runtimeRoot!=='string'||!require('node:path').isAbsolute(runtimeRoot))throw Error('运行证据须为绝对私有目录');
  const original=require('./runtime-acceptance').createRuntimeAcceptance({root:runtimeRoot,clock:()=>asOf,
   canWrite:()=>false,calendar:()=>null});
