@@ -77,3 +77,38 @@ test('integrated decision output preserves native GPT and Python and abstains wi
  assert.equal(r.decisionAssessment.support.includes('python'),true);
  assert.equal(r.decisionAssessment.unresolved.includes('fourteen'),true);
 });
+
+test('decision workspace refuses GPT children from a later receipt or another security',()=>{
+ for(const patch of [{knownAt:null},{sourceTimestamp:fixture().asOf+1},{symbol:'000001'},{date:'2025-01-01'}]){
+  for(const part of ['scores','market']){
+   const n=native();Object.assign(n.gptEvidence[part],patch);
+   assert.throws(()=>buildWorkspaceDecision(fixture(),n),/GPT子证据/);
+  }
+ }
+ const n=native();n.gptEvidence.knownAt-=1000;n.gptEvidence.market.knownAt=n.gptEvidence.knownAt+1;
+ assert.throws(()=>buildWorkspaceDecision(fixture(),n),/GPT子证据/);
+ const valid=native();valid.gptEvidence.market.knownAt=valid.gptEvidence.knownAt;
+ assert.equal(buildWorkspaceDecision(fixture(),valid).systems.find(x=>x.id==='gpt').verdict,'pass');
+});
+test('decision workspace refuses future or cross-security Python round metadata',()=>{
+ for(const patch of [{knownAt:null},{recordedAt:fixture().asOf+1},{symbol:'000001'},{date:'2025-01-01'}]){
+  const n=native();Object.assign(n.pythonEvidence.rounds[0],patch);
+  assert.throws(()=>buildWorkspaceDecision(fixture(),n),/Python轮次证据/);
+ }
+ const n=native();n.pythonEvidence.knownAt-=1000;n.pythonEvidence.rounds[0].knownAt=n.pythonEvidence.knownAt+1;
+ assert.throws(()=>buildWorkspaceDecision(fixture(),n),/Python轮次证据/);
+ const valid=native();valid.pythonEvidence.rounds[0].knownAt=valid.pythonEvidence.knownAt;
+ assert.equal(buildWorkspaceDecision(fixture(),valid).systems.find(x=>x.id==='python').verdict,'pass');
+});
+test('unrecognized regime and nonboolean linkage cannot imply complete alignment',()=>{
+ for(const opts of [{linked:'true',marketRegime:'index-up'},{linked:true,marketRegime:'invalid'},{linked:true,marketRegime:null}]){
+  assert.equal(assessResearchAlignment(groups(),opts).action,'defer');
+ }
+ assert.equal(assessResearchAlignment(groups(),options).action,'observe');
+});
+test('pre-close streak count cannot be frozen as a final closed-session fourteen-rule result',()=>{
+ const f=fixture(),date=f.stock.bars.at(-1).date,proof={symbol:f.stock.symbol,date,knownAt:Date.parse(date+'T14:59:59+08:00'),source:'provider:original',stock:{limitUpCount:0}};
+ assert.throws(()=>buildWorkspaceDecision(f,{fourteenEvidence:proof}),/连板证据早于/);
+ proof.knownAt=Date.parse(date+'T15:00:00+08:00');
+ assert.equal(buildWorkspaceDecision(f,{fourteenEvidence:proof}).conditions.find(x=>x.id==='fourteen:11').status,'pass');
+});

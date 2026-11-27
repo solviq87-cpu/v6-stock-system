@@ -25,6 +25,16 @@ function evidenceProblem(proof,symbol,at){
   return '证据记录早于可得时点';
  return null;
 }
+// A parent receipt cannot attest a child observation known only later.
+function nativeReceiptVisible(row,symbol,date,cutoff){
+ if(!row||typeof row!=='object'||Array.isArray(row)||![Object.prototype,null].includes(Object.getPrototypeOf(row)))return false;
+ if(evidenceProblem(row,symbol,cutoff))return false;
+ for(const k of ['symbol','code'])if(own(row,k)&&row[k]!==symbol)return false;
+ for(const k of ['date','tradeDate','observedThrough'])if(own(row,k)&&row[k]!==date)return false;
+ for(const k of ['sourceTimestamp','observedAt','knownAt','availableAt','receivedAt','recordedAt'])
+  if(own(row,k)&&!known(row[k],cutoff))return false;
+ return true;
+}
 const SYSTEMS=['fourteen','bazi','gpt','python'];
 function assessResearchAlignment(groups,{linked=false,marketRegime='unknown'}={}){
  const list=array(groups),rows=SYSTEMS.map(id=>{
@@ -40,12 +50,13 @@ function assessResearchAlignment(groups,{linked=false,marketRegime='unknown'}={}
  const opposition=rows.filter(x=>x.verdict==='fail').map(x=>x.system);
  const unresolved=rows.filter(x=>x.verdict==='unknown'||x.verdict==='watch'||!x.evidenceComplete).map(x=>x.system);
  const conflict=support.length>0&&opposition.length>0;
- const blockers=[...(!linked?['原归档证据未绑定']:[]),...(marketRegime==='unknown'?['同期市场环境未知']:[]),
+ const validRegime=['index-up','index-down','index-flat'].includes(marketRegime);
+ const blockers=[...(linked!==true?['原归档证据未绑定']:[]),...(!validRegime?['同期市场环境未知']:[]),
   ...(unresolved.length?['四体系存在未完成证据或观察结论']:[]),...(opposition.length?['存在原生体系反对或未满足条件']:[])];
  const status=conflict?'strategy-disagreement':opposition.length?'opposition-present':
   blockers.length?'insufficient-evidence':support.length===SYSTEMS.length?'aligned-research-only':'insufficient-evidence';
  return {schemaVersion:1,status,action:status==='aligned-research-only'?'observe':'defer',systems:rows,
-  support,opposition,unresolved,blockers,marketRegime,agreementIsIndependent:false,probability:null,combinedScore:null,
+  support,opposition,unresolved,blockers,marketRegime:validRegime?marketRegime:'unknown',agreementIsIndependent:false,probability:null,combinedScore:null,
   researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false,
   note:'仅比较原生体系结论，不将相关条件相加为独立票数；分歧、反对、未知均需复核，不授予交易资格'};
 }
@@ -105,6 +116,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  if(fourteenEvidence!==undefined){
   const e=fourteenEvidence,allowed=['symbol','date','knownAt','source','stock','sector','auction','aucTicks','lhb','profitRatio'];
   if(!e||Object.keys(e).some(k=>!allowed.includes(k))||e.symbol!==stock.symbol||e.date!==last.date||!known(e.knownAt,at)||typeof e.source!=='string'||!/^\w[\w./:-]{2,159}$/.test(e.source)||e.source.includes('://'))throw Error('十四条原生证据身份或时点无效');
+  if(own(e.stock,'limitUpCount')&&e.knownAt<Date.parse(last.date+'T15:00:00+08:00'))throw Error('十四条连板证据早于当日收盘');
   const fields={stock:['floatCap','limitUpCount','breakCount','sealAmount','amount','preClose'],sector:['name','ztCount','pct'],auction:['auctionAmount','auctionPct'],lhb:['whale','whaleNet','netBuy','why']};
   for(const [group,keys]of Object.entries(fields))if(e[group]!==undefined){const v=e[group];if(!v||Array.isArray(v)||Object.keys(v).some(k=>!keys.includes(k))||Object.entries(v).some(([k,x])=>['name','why'].includes(k)?typeof x!=='string'||x.length>500:k==='whale'?typeof x!=='boolean':!finite(x)))throw Error('十四条原生字段无效');}
   if(e.stock&&Object.values(e.stock).some(x=>x<0)||['limitUpCount','breakCount'].some(k=>e.stock?.[k]!==undefined&&!Number.isSafeInteger(e.stock[k]))||e.profitRatio!==undefined&&(!finite(e.profitRatio)||e.profitRatio<0||e.profitRatio>100))throw Error('十四条数值口径无效');
@@ -114,14 +126,20 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  let scores={},gptMarket=null;
  if(gptEvidence!==undefined){
   if(gptEvidence?.symbol!==stock.symbol||gptEvidence.date!==last.date||!known(gptEvidence.knownAt,at)||typeof gptEvidence.source!=='string'||!/^\w[\w./:-]{2,159}$/.test(gptEvidence.source)||gptEvidence.source.includes('://'))throw Error('GPT因子证据必须匹配股票、日期和已知时间');
+  if(!nativeReceiptVisible(gptEvidence,stock.symbol,last.date,at)||
+     gptEvidence.scores!=null&&!nativeReceiptVisible(gptEvidence.scores,stock.symbol,last.date,gptEvidence.knownAt)||
+     gptEvidence.market!=null&&!nativeReceiptVisible(gptEvidence.market,stock.symbol,last.date,gptEvidence.knownAt))
+   throw Error('GPT子证据身份或可知时点无效');
   scores=Object.fromEntries(Object.entries(gptEvidence.scores||{}).filter(([,v])=>finite(v)&&v>=0&&v<=100));
   const fields=['breadthScore','indexTrendScore','marketVolumeScore','riskScore','volatilityScore','sentimentScore'];
-  if(fields.every(k=>finite(gptEvidence.market?.[k])&&gptEvidence.market[k]>=0&&gptEvidence.market[k]<=100))gptMarket=Object.fromEntries(fields.map(k=>[k,gptEvidence.market[k]]));
+  if(fields.every(k=>own(gptEvidence.market,k)&&finite(gptEvidence.market?.[k])&&gptEvidence.market[k]>=0&&gptEvidence.market[k]<=100))gptMarket=Object.fromEntries(fields.map(k=>[k,gptEvidence.market[k]]));
  }
  let pythonResult;
  if(pythonEvidence!==undefined){
   if(!known(pythonEvidence.knownAt,at))throw Error('Python证据已知时点无效');
   const p=evaluatePythonEvidence(pythonEvidence,{symbol:stock.symbol,date:last.date});
+  if(!nativeReceiptVisible(pythonEvidence,stock.symbol,last.date,at)||!pythonEvidence.rounds.every(row=>nativeReceiptVisible(row,stock.symbol,last.date,pythonEvidence.knownAt)))
+   throw Error('Python轮次证据身份或可知时点无效');
   pythonResult={provenance:p.provenance,date:last.date,rules:p.rounds.map(x=>({id:'round-'+x.round,label:'第'+x.round+'轮',observed:x.verdict,status:x.verdict,reason:x.reason}))};
  }
  const comparison=compareRuleSystems({scores,myrulesInput:fourteen,
