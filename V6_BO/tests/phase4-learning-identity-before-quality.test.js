@@ -70,3 +70,32 @@ test('malformed secondary alias retains local ID for conflict audit',()=>{
  const out=uniqueEvidenceRows([good,bad],{requireIdentity:true,settlements:true});
  assert.equal(out.rows.length,0);assert.equal(out.conflicts,2);
 });
+
+for(const [name,patch] of [
+ ['missing finite net result',{pnl:null}],['verification revoked',{snapshotVerified:false}],
+ ['missing receipt',{createdAt:null}],['black swan quality',{blackSwan:true}],
+ ['nonrepeatable quality',{repeatable:false}],['malformed exit clock',{exitTime:'bad-clock'}],
+ ['extreme quality',{extreme:true}]
+])test('single known ineligible settlement blocks approval and scoring: '+name,()=>{
+ const s=state(),names=['训练集验证','时间外验证','样本外测试','成本压力校验','风险检查'];
+ const c={id:'candidate',createdAt:'2024-06-08T08:00:00Z',baseVersion:0,status:'待人工审批',sampleScope:'live',
+  sourceIds:[id],steps:names.map(name=>({name,status:'通过'})),weights:{'承接':2},threshold:0,strategyThresholds:{},minSupport:6};
+ s.candidates=[c];
+ assert.equal(candidateEvidenceReview(s,c,now).status,'no-known-revocation');
+ Object.assign(s.trades[0],patch);
+ assert.equal(rows(s).length,0);
+ const before=JSON.stringify(s);
+ assert.equal(candidateEvidenceReview(s,c,now).affectedSources,1);
+ assert.throws(()=>learningAction(s,'learn:decision',{id:c.id,decision:'approve',reviewer:'隔离验证',reason:'单条证据失效'}),/来源样本.*重新独立验证/);
+ assert.equal(JSON.stringify(s),before);
+ const v={number:1,candidateId:c.id,approvedAt:'2024-06-09T08:00:00Z',weights:c.weights,threshold:0,strategyThresholds:{},minSupport:6};
+ s.versions=[v];
+ const archived=JSON.stringify(s);
+ assert.equal(approvedModelEvidenceReview(s,v,now).status,'requires-revalidation');
+ assert.equal(predict(s,{asOf:now,factors:['承接']}).score,null);
+ assert.equal(JSON.stringify(s),archived);
+});
+test('historical K-line IDs absent from the settlement archive are not automatically revoked',()=>{
+ const s=state(),c={sourceIds:['historical-kline-id'],createdAt:'2024-06-08T08:00:00Z'};
+ assert.equal(candidateEvidenceReview(s,c,now).status,'no-known-revocation');
+});
