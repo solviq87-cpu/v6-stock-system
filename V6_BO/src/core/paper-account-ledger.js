@@ -19,6 +19,11 @@ const validDate = d => {
 };
 const validId = id => typeof id === 'string' && id.trim().length > 0;
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+// The existing corporate settlement writer creates lots on the explicit
+// availability day, with sourceActionId; ordinary purchase lots stay T+1.
+// The application snapshot independently validates the corporate source record.
+const corporateSameDay = lot => typeof lot.sourceActionId === 'string' && /^[A-Za-z0-9_.:-]{1,100}$/.test(lot.sourceActionId) && lot.sellableDate === lot.buyDate;
+const sellableOn = (lot, day) => lot.buyDate < day ? lot.sellableDate == null || lot.sellableDate <= day : lot.buyDate === day && corporateSameDay(lot);
 function validateAccount(account) {
   if (!plain(account) || account.schemaVersion !== 1 || !safeMoney(account.cash) || account.cash < 0 ||
       !plain(account.positions) || !Array.isArray(account.events) || !plain(account.eventHashes))
@@ -42,12 +47,12 @@ function validateAccount(account) {
     let quantity = 0;
     for (const lot of pos.lots) {
       if (!plain(lot) || !Number.isSafeInteger(lot.quantity) || lot.quantity <= 0 || !validDate(lot.buyDate) ||
-          (lot.sellableDate != null && (!validDate(lot.sellableDate) || lot.sellableDate <= lot.buyDate)) ||
+          (lot.sellableDate != null && (!validDate(lot.sellableDate) || lot.sellableDate < lot.buyDate || lot.sellableDate === lot.buyDate && !corporateSameDay(lot))) ||
           (lot.reserved != null && (!Number.isSafeInteger(lot.reserved) || lot.reserved < 0 || lot.reserved > lot.quantity))) throw new Error('账户持仓批次数量或交易日期无效');
       quantity += lot.quantity;
       if (!Number.isSafeInteger(quantity)) throw new Error('账户持仓数量超出安全范围');
     }
-    if (quantity !== pos.quantity) throw new Error('账户持仓数量与批次合计不一致');
+    if (quantity !== pos.quantity) throw new Error('LOT_QUANTITY_MISMATCH: 账户持仓数量与批次合计不一致');
   }
 }
 function atomicWrite(file, value, faultInjector) {
@@ -117,7 +122,7 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         const lots = pos.lots.map(x => ({ ...x }));
         for (const lot of lots) {
           if (remaining <= 0) break;
-          if (lot.buyDate >= tradeDate || (lot.sellableDate != null && lot.sellableDate > tradeDate)) continue; // strict T+1: same-day lots are not sellable
+          if (!sellableOn(lot, tradeDate)) continue; // ordinary purchases remain T+1; explicit corporate availability is separate
           const available = Number(lot.quantity) - Number(lot.reserved || 0);
           const take = Math.min(available, remaining);
           if (take > 0) { const basis=lot.cost == null ? numeric(lot.price)*lot.quantity : numeric(lot.cost);if(!safeMoney(basis)||basis<0)throw new Error('持仓批次成本无效');const consumed=money(basis*take/lot.quantity);costBasis+=consumed;lot.cost=money(basis-consumed);lot.fee=money(Number(lot.fee||0)*(lot.quantity-take)/lot.quantity);lot.quantity -= take; remaining -= take; }
@@ -127,11 +132,11 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         account.cash = money(account.cash + credit);
         pos.lots = lots.filter(x => x.quantity > 0);
         pos.quantity = pos.lots.reduce((s, x) => s + Number(x.quantity), 0);
-        pos.sellable = pos.lots.filter(x => x.buyDate < tradeDate && (x.sellableDate == null || x.sellableDate <= tradeDate)).reduce((s, x) => s + Number(x.quantity), 0);
+        pos.sellable = pos.lots.filter(x => sellableOn(x, tradeDate)).reduce((s, x) => s + Number(x.quantity), 0);
       }
       if(account.cash<0)throw new Error('成交费用超过现金余额，拒绝透支');
-      const fillEvidence=fillEvidenceOf({...fill,symbol,tradeDate});
-      const event = { eventId: fill.eventId, orderId: order.orderId, symbol, side: order.side, quantity: qty, price, fee, gross, costBasis:money(costBasis), realizedPnl:order.side==='sell'?money(gross-fee-costBasis):0, tradeDate, cashAfter: account.cash,
+      const fillEvidence=fillEvidenceOf({...fill,symbol:order.symbol,tradeDate});
+      const event = { eventId: fill.eventId, orderId: order.orderId, symbol: order.symbol, side: order.side, quantity: qty, price, fee, gross, costBasis:money(costBasis), realizedPnl:order.side==='sell'?money(gross-fee-costBasis):0, tradeDate, cashAfter: account.cash,
         ...(fillEvidence?{timestamp:fillEvidence.executionAt,fillEvidence:JSON.parse(JSON.stringify(fillEvidence))}:{}) };
       account.events.push(event); Object.defineProperty(account.eventHashes, fill.eventId, {value:eventHash, enumerable:true, configurable:true, writable:true});
       account.updatedAt = new Date().toISOString();
