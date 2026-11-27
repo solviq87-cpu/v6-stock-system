@@ -139,6 +139,14 @@ function reviewSourceIds(state,sourceIds,frozenAt,asOf){
  // Source IDs may also refer to historical K-line labels. Absence alone is
  // not revocation, but known conflicting/teaching-only trade IDs are.
  for(const row of scoped)if(ids.has(row.id)&&!retained.has(row.id))affected.add(row.id);
+ // A known settlement can become unusable without producing a second copy.
+ // Use the same quality and verified-receipt gates as strict learning.
+ // Explicit plan review history has its own as-of/restoration rules below:
+ // do not reinterpret a later quarantine as if it were known earlier.
+ for(const row of resolved.rows){
+  if(!ids.has(row.id)||row.planEvidenceReview!=null)continue;
+  if(!sampleMatches(row,'standard')||!verifiedLearningObservation(row,at))affected.add(row.id);
+ }
  if(state?.scope!=='demo')for(const row of visible)
   if(ids.has(row.id)&&isLearningTestSample(row)&&!scopedIds.has(row.id))affected.add(row.id);
  for(const row of state?.trades||[]){
