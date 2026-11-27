@@ -73,3 +73,102 @@ test('seed and ordinary verification share full holdout membership checks',()=>{
  context.freshTest[1].featureCapturedAt++;
  assert.throws(()=>verify({reg,context}),/固定种子预注册时点/);
 });
+
+test('resealed out-of-policy candidate cannot pass verification before opening holdout outcomes',()=>{
+ for(const change of [w=>{w.sector_heat=2;},w=>{w.sector_heat=1.3*1.081;},
+  w=>{w.sector_heat=1.3*.919;},w=>{w.extra=1;}]){
+  const x=ordinary(),w={...x.reg.candidateWeights};change(w);
+  x.reg=seal({...x.reg,candidateWeights:w});assert.throws(()=>verify(x),/时点、冻结前缀或模型血缘不一致/);
+ }
+});
+test('registered base envelope is tied to the actual factor pack, not invented definitions',()=>{
+ const x=ordinary();
+ const bad=structuredClone(x.prefix);
+ for(const f of bad)f.factors=f.factors.map(d=>({...d,baseWeight:d.baseWeight*2}));
+ const doubled=Object.fromEntries(defs.map(d=>[d.id,d.baseWeight*2]));
+ assert.throws(()=>preregisterCandidate({features:bad,candidateWeights:doubled,acceptedWeights:doubled,
+  registeredAt:x.registeredAt,packFingerprint}),/权重边界或完整性/);
+ const forged=structuredClone(x.reg);
+ forged.factorDefinitions=defs.map(d=>({id:d.id,baseWeight:d.baseWeight*2}));
+ assert.throws(()=>verify({reg:seal(forged),context:x.context}),/时点、冻结前缀或模型血缘不一致/);
+});
+test('candidate and accepted parent weights both obey the original absolute range',()=>{
+ const x=ordinary(),d=defs[0];
+ const accepted={...weights,[d.id]:d.baseWeight*1.55},candidate={...weights,[d.id]:d.baseWeight*1.45};
+ assert.throws(()=>preregisterCandidate({features:x.prefix,candidateWeights:candidate,acceptedWeights:accepted,
+  registeredAt:x.registeredAt,packFingerprint}),/权重边界或完整性/);
+ const reg=seal({...x.reg,acceptedWeights:accepted,candidateWeights:candidate});
+ assert.throws(()=>verifyPreregisteredCandidate(reg,{...x.context,oldWeights:accepted}),/时点、冻结前缀或模型血缘不一致/);
+});
+test('weight arrays and inherited entries cannot be accepted as exact candidate dictionaries',()=>{
+ const x=ordinary(),fake=Object.assign([],candidateWeights);
+ assert.throws(()=>preregisterCandidate({features:x.prefix,candidateWeights:fake,acceptedWeights:weights,
+  registeredAt:x.registeredAt,packFingerprint}),/输入协议无效|权重边界/);
+ const inherited=Object.create({[ids[0]]:candidateWeights[ids[0]]});
+ inherited[ids[1]]=candidateWeights[ids[1]];inherited.unrelated=1;
+ assert.throws(()=>preregisterCandidate({features:x.prefix,candidateWeights:inherited,acceptedWeights:weights,
+  registeredAt:x.registeredAt,packFingerprint}),/输入协议无效|权重边界/);
+});
+test('a registered candidate cannot claim an automatic source without its explicit origin',()=>{
+ const x=ordinary();
+ x.reg=seal({...x.reg,autoSourceFingerprint:'b'.repeat(64)});
+ assert.throws(()=>verify(x),/时点、冻结前缀或模型血缘不一致/);
+});
+test('ordinary registration preserves detached original weights and exact base definitions',()=>{
+ const x=ordinary(),candidate={...candidateWeights},accepted={...weights};
+ const reg=preregisterCandidate({features:x.prefix,candidateWeights:candidate,acceptedWeights:accepted,
+  registeredAt:x.registeredAt,packFingerprint});
+ candidate[ids[0]]=999;accepted[ids[0]]=999;
+ assert.equal(reg.candidateWeights[ids[0]],candidateWeights[ids[0]]);
+ assert.equal(reg.acceptedWeights[ids[0]],weights[ids[0]]);
+ assert.deepEqual(reg.factorDefinitions,defs.map(d=>({id:d.id,baseWeight:d.baseWeight})));
+ assert.equal(verify({reg,context:x.context}).status,'candidate-committed-before-new-signal');
+});
+test('legacy ordinary record without explicit definitions still checks canonical and step limits',()=>{
+ const x=ordinary(),reg={...x.reg};delete reg.factorDefinitions;
+ const legacy=seal(reg);
+ assert.equal(verify({reg:legacy,context:x.context}).status,'candidate-committed-before-new-signal');
+ const bad=seal({...legacy,candidateWeights:{...legacy.candidateWeights,[ids[0]]:99}});
+ assert.throws(()=>verify({reg:bad,context:x.context}),/时点、冻结前缀或模型血缘不一致/);
+});
+
+function modelReceipt(x,accepted,candidate){
+ const {modelCandidateBinding}=require('../src/core/factor-candidate-prereg');
+ const fs=require('node:fs'),path=require('node:path');
+ const source='b'.repeat(64),review={policy:'structured-reference-interval',rationaleVerified:false,sourceAuthenticated:false,trainingEligible:false,autoPromotion:false};
+ return {modelName:'synthetic-combined:1',digest:'c'.repeat(64),method:'ollama-native-structured',
+  algorithmFingerprint:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../src/core/local-model-learning-proposer.js'))).digest('hex'),
+  requestFingerprint:'d'.repeat(64),responseFingerprint:'e'.repeat(64),hypothesis:{label:'model-hypothesis',rationale:'synthetic fixture'},outputReview:review,
+  candidateBindingFingerprint:modelCandidateBinding({autoSourceFingerprint:source,packFingerprint:x.context.packFingerprint,latestFrozenSignalDay:x.prefix.at(-1).signalDay,
+   factorDefinitionsFingerprint:hash(x.prefix[0].factors),factorIds:ids,acceptedWeights:accepted,candidateWeights:candidate})};
+}
+function modelRegistration(x){
+ const source='b'.repeat(64);
+ const args={features:x.prefix,candidateWeights,acceptedWeights:weights,registeredAt:x.registeredAt,
+  packFingerprint,parentAcceptedFingerprint:source,autoSourceFingerprint:source,modelProvenance:modelReceipt(x,weights,candidateWeights)};
+ return {args,reg:preregisterCandidate(args),context:{...x.context,previousFingerprint:source}};
+}
+test('combined A40 and #417 preserve sealed base definitions and model provenance together',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ assert.deepEqual(m.reg.factorDefinitions,defs.map(d=>({id:d.id,baseWeight:d.baseWeight})));
+ assert.equal(m.reg.factorDefinitionsFingerprint,hash(defs));
+ assert.equal(verifyPreregisteredCandidate(m.reg,m.context).canTrade,false);
+ assert.deepEqual(m.reg.modelProvenance,m.args.modelProvenance);
+});
+test('a newly sealed model receipt cannot override canonical absolute weights',()=>{
+ const x=ordinary(),m=modelRegistration(x),accepted={...weights,[ids[0]]:defs[0].baseWeight*1.51},candidate={...accepted};
+ const forged=seal({...m.reg,acceptedWeights:accepted,candidateWeights:candidate,modelProvenance:modelReceipt(x,accepted,candidate)});
+ assert.throws(()=>verifyPreregisteredCandidate(forged,{...m.context,oldWeights:accepted}),/时点、冻结前缀或模型血缘不一致/);
+});
+test('model receipt and definition digest cannot be independently removed from the sealed record',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ for(const key of ['modelProvenance','factorDefinitionsFingerprint']){
+  const forged=structuredClone(m.reg);delete forged[key];
+  assert.throws(()=>verifyPreregisteredCandidate(seal(forged),m.context),/时点、冻结前缀或模型血缘不一致/);
+ }
+});
+test('valid canonical weight bounds do not bypass the sealed model-output binding',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ const forged=seal({...m.reg,candidateWeights:{...m.reg.candidateWeights,[ids[0]]:weights[ids[0]]}});
+ assert.throws(()=>verifyPreregisteredCandidate(forged,m.context),/权重绑定/);
+});
