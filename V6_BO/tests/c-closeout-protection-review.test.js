@@ -131,3 +131,37 @@ test('C31.5 bound account identity and existing current quote rules remain autho
  const q=planFixture();q.actions.items[0].constraints.price.quoteAt=now-15001;assert.equal(row(q).priceReview,null);
  const a=fixture();a.stress.equityEvidenceId='d'.repeat(64);assert.equal(paths(a).heldProtection,null);
 });
+
+test('C32.1 a filled plan with positive remaining shares is a contradiction, not a completed plan',()=>{
+ const f=stageFixture();f.actions.items[0].status='filled';
+ const r=odds(f);assert.equal(r.status,'unknown');assert.equal(r.rows.length,1);assert.equal(r.rows[0].stagedDefense,null);
+});
+test('C32.2 duplicate plan action cannot hide behind the completed first row',()=>{
+ const f=stageFixture(),closed=JSON.parse(JSON.stringify(f.actions.items[0]));
+ closed.status='filled';closed.constraints.remainingQuantity=0;
+ f.actions.items.unshift(closed);
+ const a=odds(f);assert.equal(a.status,'unknown');assert.equal(a.rows.length,1);assert.equal(a.rows[0].priceReview,null);
+ f.actions.items.reverse();assert.equal(odds(f).rows[0].status,'unknown');
+});
+test('C32.3 unrecognized held action state is not valid price geometry or staged defense',()=>{
+ const f=stageFixture();f.actions.items[0].status='invented';
+ const a=row(f);assert.equal(a.status,'unknown');assert.equal(a.priceReview,null);assert.equal(a.stagedDefense,null);
+});
+test('C32.4 competing unbound holding evidence blocks independent staged budget',()=>{
+ const f=stageFixture();f.actions.items.push({planId:null,code:'600000',entryEventId:null,constraints:{remainingQuantity:300}});
+ const a=row(f).stagedDefense;assert.equal(a.status,'unknown');assert.equal(a.scenarios.length,1);
+});
+function terminalOrderFixture(){
+ const f=stageFixture(),i=f.actions.items[0];i.orders=[{orderId:'exit-1',status:'canceled',side:'sell',source:'original-paper-order',association:'original-single-entry-lot',evidenceStatus:'available'}];i.orderIds=['exit-1'];return f;
+}
+test('C32.5 a terminal label alone cannot establish nonconflicting original exit evidence',()=>{
+ for(const edit of [o=>o.evidenceStatus='conflict',o=>delete o.evidenceStatus,o=>o.side='buy',o=>o.source='other',o=>o.association='other']){
+  const f=terminalOrderFixture();edit(f.actions.items[0].orders[0]);assert.equal(row(f).stagedDefense.status,'unknown');
+ }
+ const f=terminalOrderFixture();assert.equal(row(f).stagedDefense.status,'estimated-unverified');
+});
+test('C32.6 original order identity list must reconcile and must not duplicate terminal orders',()=>{
+ for(const edit of [i=>i.orderIds=['other'],i=>i.orderIds=[],i=>delete i.orderIds,i=>{i.orders.push({...i.orders[0]});i.orderIds.push('exit-1');},i=>{i.orders=[];i.orderIds=['exit-1'];}]){
+  const f=terminalOrderFixture();edit(f.actions.items[0]);const a=row(f).stagedDefense;assert.equal(a.status,'unknown');assert.equal(a.scenarios.length,1);
+ }
+});
