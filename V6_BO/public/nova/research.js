@@ -10,6 +10,7 @@ import {appendResearchExtensions} from './research-extensions.js';
 import {projectNewsEvents} from './event-research.mjs';
 import {renderEvolution} from './evolution-view.js';
 import {marketExpansionView} from './market-expansion-view.mjs';
+import {turnoverCrowdingView} from './turnover-crowding-view.mjs';
 
 const arr=value=>Array.isArray(value)?value:[];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
@@ -99,6 +100,8 @@ function renderReport(result,ctx){
   }
   const expansion=marketExpansionView(r.marketExpansion||r.market?.marketExpansion);
   if(expansion)el.append(box(expansion.title,expansion.description,expansion.metrics.length?metrics(expansion.metrics):null));
+  const crowding=turnoverCrowdingView(r.turnoverCrowding||r.market?.turnoverCrowding);
+  if(crowding)el.append(box(crowding.title,crowding.description,crowding.metrics.length?metrics(crowding.metrics):null));
   if(r.systems&&!Array.isArray(r.systems)&&typeof r.systems==='object')el.append(append(n('div',undefined,'fy-grid'),...Object.entries(r.systems).map(([key,system])=>box(system?.name||({fourteen:'十四条',bazi:'八字口诀',gpt:'GPT 五策略',python:'Python 三轮'}[key]||key),val(system?.status||system?.verdict),evidenceTree(system)))));
   const m=r.metrics||r.backtest?.metrics||r.report?.metrics;
   if(m)el.append(metrics([['期末研究资产',number(m.finalEquity)],['研究收益率',finite(m.returnPct)?number(m.returnPct)+'%':'未知'],['最大回撤',finite(m.maxDrawdownPct)?number(m.maxDrawdownPct)+'%':'未知'],['已平仓笔数',m.closedTrades??'未知']]));

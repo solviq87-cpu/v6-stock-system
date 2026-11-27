@@ -9,7 +9,9 @@ const {auditSnapshotQuoteTimes}=require('./market-snapshot-quote-time');
 const {bridgeExistingMarketSector}=require('./sector-breadth-market-bridge');
 const {createRecentMarketExpansion}=require('./recent-market-expansion');
 const liveExpansion=createRecentMarketExpansion();
-async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date.now(),scores,scoreSource,scoreDate,minCoverage=0.8,candidates=[],sectorMembership,expansionTracker}={}){
+const {createTurnoverCrowding}=require('./turnover-crowding');
+const liveCrowding=createTurnoverCrowding();
+async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date.now(),scores,scoreSource,scoreDate,minCoverage=0.8,candidates=[],sectorMembership,expansionTracker,crowdingTracker}={}){
  const snapshot=await fetchSnapshot({now,clock:Date.now});
  const options={asOf:now,minCoverage};
  const breadth=analyzeMarketBreadth(snapshot,options);
@@ -31,6 +33,8 @@ async function researchLiveMarket({fetchSnapshot=fetchEastmoneySnapshot,now=Date
   // Injected/replay readers never update the process-wide live baseline.
   marketExpansion:(expansionTracker??(fetchSnapshot===fetchEastmoneySnapshot?liveExpansion:createRecentMarketExpansion()))
    .observe(snapshot,Math.max(0.8,minCoverage)),
+  turnoverCrowding:(crowdingTracker??(fetchSnapshot===fetchEastmoneySnapshot?liveCrowding:createTurnoverCrowding()))
+   .observe(snapshot,{asOf:fetchSnapshot===fetchEastmoneySnapshot?Date.now():timingClock,membership:sectorMembership}),
   ...(sectorBreadth===undefined?{}:{sectorBreadth}),
   riskEvidence:assessCandidateEvidence(snapshot,breadth,regime,candidates,candidateIntersection,{requireOriginalQuoteTime:true}),
   note:'公开行情请求日期不等于逐股原始报价时点，缺f124原始时间不可判为近期可信行情；供应商自报时间也不是交易所认证'};
