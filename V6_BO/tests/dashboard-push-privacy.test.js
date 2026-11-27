@@ -28,18 +28,21 @@ test('real state and mobile routes hide private push history from viewers and pr
   for(const relative of ['src','strategies','public','package.json'])copy(relative);
   fs.mkdirSync(path.join(tmp,'config'));copy('config/data-source-catalog.json');copy('config/six-photo-sources.json');
   for(const relative of fs.readdirSync(source))if(relative.endsWith('.js'))copy(relative);
+  // This exercises restoration in a closed session. The same fixture must
+  // remain valid when CI runs during trading hours, weekends or holidays.
+  const fixtureNow=Date.parse('2026-11-22T10:00:00+08:00');
   const editor=crypto.randomBytes(32).toString('hex'),viewer=crypto.randomBytes(32).toString('hex');
   const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
   const account=()=>{const salt=crypto.randomBytes(16).toString('hex');return {salt,hash:crypto.scryptSync('fixture-password-only',salt,32).toString('hex'),devices:{}};};
   const access=account();access.view=account();
-  access.devices[digest(editor)]={role:'edit',name:'fixture editor',ts:Date.now()};
-  access.view.devices[digest(viewer)]={role:'view',name:'fixture viewer',ts:Date.now()};
+  access.devices[digest(editor)]={role:'edit',name:'fixture editor',ts:fixtureNow};
+  access.view.devices[digest(viewer)]={role:'view',name:'fixture viewer',ts:fixtureNow};
   fs.writeFileSync(path.join(tmp,'access.json'),JSON.stringify(access));
   const privateCode='600987',privateTitle='PRIVATE_HISTORY_FIXTURE_TITLE',privateNote='PRIVATE_HISTORY_FIXTURE_NOTE';
-  fs.writeFileSync(path.join(tmp,'pushlog.json'),JSON.stringify([{ts:Date.now()-1000,status:'✅ 已送达(私密)',title:privateTitle,note:privateNote,channel:'飞书·私密',extra:{codes:[privateCode]}}]));
+  fs.writeFileSync(path.join(tmp,'pushlog.json'),JSON.stringify([{ts:fixtureNow-1000,status:'✅ 已送达(私密)',title:privateTitle,note:privateNote,channel:'飞书·私密',extra:{codes:[privateCode]}}]));
   // A previous process retained public market cards. Exercise both real routes
   // without loading a stock universe or allowing an external network request.
-  const snapshotAt=Date.now()-14*86400000;
+  const snapshotAt=Date.parse('2026-11-20T14:55:00+08:00');
   const snapshotDay=new Date(snapshotAt+8*3600000).toISOString().slice(0,10).replaceAll('-','');
   fs.mkdirSync(path.join(tmp,'data'),{recursive:true});
   fs.writeFileSync(path.join(tmp,'data','market-display-snapshot.json'),JSON.stringify({schemaVersion:1,day:snapshotDay,capturedAt:snapshotAt,
@@ -47,7 +50,7 @@ test('real state and mobile routes hide private push history from viewers and pr
       candidatePool:[{code:'600001',name:'public-snapshot-fixture',price:10,score:60,quoteAt:snapshotAt,quoteSource:'fixture'}],
       sectors:[{name:'public-sector-fixture',pct:1}],trendPool:[{code:'600001',price:10,quoteAt:snapshotAt}]},mood:{upN:10,downN:5}}));
   // Boot mode skips collectors; this additional fixture guard rejects all egress.
-  fs.writeFileSync(path.join(tmp,'deny-network.cjs'),"for(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>{throw Error('fixture forbids outbound requests');};}global.fetch=()=>Promise.reject(Error('fixture forbids fetch'));\n");
+  fs.writeFileSync(path.join(tmp,'deny-network.cjs'),"require('node:test').mock.timers.enable({apis:['Date'],now:"+fixtureNow+"});\nfor(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>{throw Error('fixture forbids outbound requests');};}global.fetch=()=>Promise.reject(Error('fixture forbids fetch'));\n");
   const port=await freePort();
   child=spawn(process.execPath,['--require',path.join(tmp,'deny-network.cjs'),'server.js'],{
    cwd:tmp,env:{...process.env,PORT:String(port),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ISOLATED_BOOT_SMOKE:'1'},stdio:['ignore','pipe','pipe']
