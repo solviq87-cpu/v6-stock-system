@@ -76,6 +76,9 @@ function planFixture(heldPosition=false,mark=10){
  const item={id:'risk-action:pool:'+id,planId:id,code:symbol,entryEventId:heldPosition?'original-fill':null,status:kind?'condition-triggered':'observing',
   constraints:{remainingQuantity:heldPosition?100:0,price:{current:mark,stop:8,target:14,quoteAt:now-1000,source:'provider'}},
   condition:{status:kind?'triggered':'not-triggered',kind,price:mark,source:'provider',quoteAt:now-1000,observedAt:now}};
+ // Align held valuation to the same original quote used by its action.
+ if(heldPosition){const p=f.equity.positions[0];p.price=mark;p.marketValue=p.quantity*mark;p.quote.quoteAt=now-1000;
+  f.equity.marketValue=f.equity.positions.reduce((n,p)=>n+p.marketValue,0);f.equity.equity=f.equity.cash+f.equity.marketValue;}
  const actions={accountId:'pool',accountEpoch:epoch,authoritySnapshotFingerprint:fp,accountRevision:7,generatedAt:now,readOnly:true,canTrade:false,authorityStatus:'verified',items:[item]};
  return {equity:f.equity,actions,plans:[plan],now};
 }
