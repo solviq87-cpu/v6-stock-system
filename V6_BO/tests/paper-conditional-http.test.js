@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {createFixture}=require('./helpers/v6-studio-fixture');
 const day='2026-11-16',start=Date.parse(day+'T14:00:00+08:00');
 
-async function fixture(t,{price=10.4}={}){
+async function fixture(t,{price=10.4,chaseRisk=false}={}){
   const root=path.resolve(__dirname,'..'),clockDir=fs.mkdtempSync(path.join(os.tmpdir(),'condition-http-clock-')),clockFile=path.join(clockDir,'clock');
   fs.writeFileSync(clockFile,String(start));
   const original=fs.readFileSync(path.join(root,'server.js'),'utf8'),entry='function handle(req, res, u, body) {',projection="sharedMarketRead('state',includePrivate)";
@@ -11,13 +11,13 @@ async function fixture(t,{price=10.4}={}){
   const source=original.replace(entry,entry+`
     if(!S.conditionHttpSeeded){
       S.conditionHttpSeeded=true;const at=Date.now();
-      const scale=${price}/10.4;
-      const row={code:'600000',name:'条件链路隔离样本',price:${price},pct:4,preClose:10*scale,open:10.3*scale,high:10.6*scale,low:10.2*scale,
+      const scale=${price}/10.4,priorHigh=${chaseRisk?11:11.6}*scale;
+      const row={code:'600000',name:'条件链路隔离样本',price:${price},pct:4,preClose:10*scale,open:10.3*scale,high:${chaseRisk?10.6:10.4}*scale,low:10.2*scale,
         volume:1000000,amount:10400000*scale,score:88,paths:['横盘放量'],pathWhy:{横盘放量:'原策略量价条件'},poolDay:'${day}',
         sector:'芯片',quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,quoteAt:at-1000,receivedAt:at-500};
       S.stocks=[row];S.stocksAt=at-500;S.candidatePool=[row];ingestPx([row]);
       const rows=Array.from({length:30},(_,i)=>({date:new Date(Date.parse('${day}')-(29-i)*86400000).toISOString().slice(0,10),
-        open:10.2*scale,high:11*scale,low:10*scale,close:10.2*scale,volume:100000,amount:1020000*scale}));
+        open:10.2*scale,high:i===29?row.high:priorHigh,low:10*scale,close:10.2*scale,volume:100000,amount:1020000*scale}));
       klineSet(row.code,{rows,src:'tencent',adjust:'qfq',receivedAt:at-2000});
     }
   `).replace(projection,`({...sharedMarketRead('state',includePrivate),
@@ -71,6 +71,7 @@ async function fixture(t,{price=10.4}={}){
 async function prepare(f){
   const decision=await f.request('/api/decision-center');assert.equal(decision.body.ok,true);
   assert.equal(decision.body.cards.length,1,JSON.stringify(decision.body));const card=decision.body.cards[0];
+  assert.equal(card.plan.riskReward.status,'meets-gross-discipline');assert.ok(card.plan.riskReward.ratio>=2);
   const prepared=await f.request('/api/paper','POST',{action:'preparePlan',account:'pool',code:card.code,day:card.day,decisionId:card.decisionId});
   assert.equal(prepared.body.ok,true,JSON.stringify(prepared.body));return prepared.body.plan;
 }
@@ -196,4 +197,18 @@ test('original T+1 sale ends monitoring and a later same-stock round trip cannot
   const original=fs.readFileSync(f.book),again=await f.request('/__fixture/conditional-tick','GET',null,nextToken);
   assert.equal(again.body.result.orders[0].monitoringActive,false);assert.deepEqual(again.body.result.orders[0].observations,observations);
   assert.deepEqual(fs.readFileSync(f.book),original);
+});
+
+// Keep the actual low-upside OHLCV negative case that previously failed the
+// browser fixture. The real HTTP decision endpoint must withhold the card.
+test('real decision endpoint withholds a low reward-risk plan without writing an account or intent',{timeout:45000},async t=>{
+ const f=await fixture(t,{chaseRisk:true}),before=fs.readFileSync(f.book);
+ const decision=await f.request('/api/decision-center');
+ assert.equal(decision.body.ok,true);
+ assert.equal(decision.body.cards.length,0);
+ assert.match(decision.body.reasons.join(''),/低于原1:2纪律/);
+ assert.equal(decision.body.conclusions['600000'].label,'回避');
+ assert.equal(decision.body.conclusions['600000'].riskReward.status,'insufficient-gross-reward');
+ assert.deepEqual(fs.readFileSync(f.book),before);
+ assert.equal(fs.existsSync(f.queueFile),false);
 });

@@ -52,3 +52,21 @@ test('risk ratio and theoretical boundary are scenario arithmetic, not a loss ca
  assert.ok(Math.abs(risk.maxEntryAtMinimumRatio-(11+2*9.7)/3)<1e-10);
  assert.equal(risk.canTrade,false);assert.equal(risk.costBasis,'gross-before-fees-slippage-and-T+1-gap-risk');
 });
+
+test('real computeLevels and decision board agree for original negative and corrected positive HTTP/browser OHLCV fixtures',async()=>{
+ const {computeLevels}=require('../analysis'),{buildDecisionBoard}=await model;
+ for(const [price,offset,scale] of [[10.4,0,1],[11.4,1,1],[12.4,2,1],[1000,0,1000/10.4]]){
+  for(const allowed of [false,true]){
+   const s=state(),r=s.pool[0];r.price=price;
+   const todayHigh=allowed?price:(10.6+offset)*scale;
+   const bars=Array.from({length:30},(_,i)=>({date:new Date(Date.parse(day)-(29-i)*86400000).toISOString().slice(0,10),
+     open:(10.2+offset)*scale,close:(10.2+offset)*scale,low:(10+offset)*scale,
+     high:i===29?todayHigh:((allowed?11.6:11)+offset)*scale,volume:100000}));
+   r.levels=computeLevels(bars,r.price,todayHigh,(10.2+offset)*scale);
+   const out=buildDecisionBoard(s,{now}),ratio=(r.levels.t1-r.price)/(r.price-r.levels.stop);
+   assert.equal(ratio>=2,allowed,JSON.stringify({price,ratio,levels:r.levels}));
+   assert.equal(out.cards.length,allowed?1:0,JSON.stringify(out.reasons));
+   if(!allowed)assert.match(out.reasons.join(''),/低于原1:2纪律/);
+  }
+ }
+});
