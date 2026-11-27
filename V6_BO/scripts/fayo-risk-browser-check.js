@@ -271,7 +271,62 @@ async function main(){
         });
         for(const [kind,checks] of Object.entries(connectivityIsolation))for(const [name,passed] of Object.entries(checks))
           assert.equal(passed,true,kind+' '+name+' must not retain or revive stale private risk evidence');
-        views.push({...viewport,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
+        // Exercise the existing shared view at both desktop and mobile widths.
+        // All responses are local fixtures; a rejected old control never sends
+        // a request to the original notification endpoint.
+        const receiptIsolation=await page.evaluate(async()=>{
+          const {renderRiskWorkbench,createRiskSummary}=await import('/nova/risk-workbench-view.mjs');
+          const get=q=>fetch('/api/risk-workbench?'+q,{headers:{'X-Fixture-Role':'edit'}}).then(r=>r.json());
+          const [pool,pre,stock]=await Promise.all([get('account=pool'),get('account=pre'),get('account=pool&code=600000')]);
+          const flush=()=>new Promise(resolve=>setTimeout(resolve,0)),mount=document.getElementById('mount');
+          let requests=0;
+          const summary=createRiskSummary({role:'edit',navigate:()=>{},api:async()=>{requests++;return stock;}},{autoload:false});
+          mount.replaceChildren(summary);
+          await summary.refresh({code:'600001'});
+          const wrongCodeRejected=!summary.querySelector('[data-risk-id]')&&summary.textContent.includes('完整风险回执');
+          const scope=new AbortController();
+          await summary.refresh({code:'600000',signal:scope.signal});
+          const initial=!!summary.querySelector('[data-risk-id]');
+          scope.abort();const count=requests;window.dispatchEvent(new Event('online'));await flush();
+          const completedScopeCleared=initial&&summary.hidden&&!summary.querySelector('[data-risk-id]')&&requests===count;
+          summary.dispose();
+          const pending=[],posts=[];
+          const node=renderRiskWorkbench({role:'edit',navigate:()=>{},api:(url,options)=>{
+            if(options.method==='POST'){posts.push(options.body);return Promise.resolve({ok:true});}
+            return new Promise(resolve=>pending.push(resolve));
+          }});
+          mount.replaceChildren(node);await flush();pending.shift()(pool);await flush();
+          const oldButton=[...node.querySelectorAll('button')].find(x=>x.textContent==='关键风险静音30分钟'||x.textContent==='恢复关键风险通知');
+          const chooser=node.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));
+          pending.shift()(pre);await flush();oldButton?.click();await flush();
+          const oldControlRejected=!!oldButton&&posts.length===0;
+          node.dispose();
+          const stale=structuredClone(pool),r=stale.result;
+          // Use a small remaining source-age window to exercise the actual
+          // expiry timer without waiting 15 seconds per viewport.
+          const mark=r.equity?.positions?.find(p=>p.evidenceStatus==='available'&&p.quote);
+          if(!mark)throw Error('缺少隔离估值fixture');
+          mark.quote.quoteAt=r.generatedAt-14000;
+          const idle=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>stale});
+          mount.replaceChildren(idle);await flush();const visible=idle.textContent.includes('账户权益与观察回撤');
+          await new Promise(resolve=>setTimeout(resolve,1100));
+          const idleExpired=visible&&!idle.querySelector('[data-risk-id]')&&!idle.textContent.includes('账户权益与观察回撤')&&idle.textContent.includes('原风险未解除');
+          idle.dispose();
+          const wrong=structuredClone(pool),w=wrong.result,e=w.equity;
+          if(!w.stress||!e)throw Error('缺少隔离压力fixture');
+          const ext={protocol:'fayo-adverse-path-research-v1',accountId:'pre',accountEpoch:w.accountEpoch,
+            accountRevision:w.accountRevision,equityEvidenceId:e.fingerprint,authoritySnapshotFingerprint:e.source.snapshotFingerprint,
+            asOf:w.generatedAt,researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,accountMutated:false,
+            executionGuaranteed:false,maximumLossGuarantee:false,status:'estimated',paths:[],note:'C11-wrong-account-marker'};
+          w.stress.adversePaths=ext;
+          const projected=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>wrong});
+          mount.replaceChildren(projected);await flush();
+          const mixedResearchRejected=projected.textContent.includes('账户权益与观察回撤')&&!projected.textContent.includes('C11-wrong-account-marker');
+          projected.dispose();
+          return {wrongCodeRejected,completedScopeCleared,oldControlRejected,idleExpired,mixedResearchRejected};
+        });
+        for(const [name,passed] of Object.entries(receiptIsolation))assert.equal(passed,true,name+' must retain the original account/read scope');
+        views.push({...viewport,receiptIsolation,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
           categoryMuteRestored:true,failedReadClearsReport:true,viewerPrivateReads:0,realNetworkOffline:true,requestIsolation,privacyAndAccounts,unknownConfiguration,connectivityIsolation,stateVersion,
           fourDimensions:true,lastValidLevel:3,staleNeverCleared:true,omittedUpstreamKeepsHomeRisk:true});
       }finally{await page.close();}
