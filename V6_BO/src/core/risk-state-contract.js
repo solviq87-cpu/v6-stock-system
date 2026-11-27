@@ -39,6 +39,18 @@ function accumulated(proof,now){
  return independent||persistent;
 }
 
+// An observer check is an original runtime event, not a quote timestamp.
+ // Its time remains the actual account-specific check time even when the
+ // report is first projected after an observation gap.
+function observerHealthReceipt(row,now){
+ const a=row?.authorityEvidence;
+ return plain(a)&&a.kind==='risk-observer-health'&&a.source==='original-risk-observation-runtime'&&
+   ['pool','pre'].includes(a.accountId)&&row.rootCauseId==='system/risk-observer/'+a.accountId&&
+   row.object?.type==='account'&&row.object.id===a.accountId&&row.category==='system'&&
+   row.priceDependent!==true&&typeof a.detected==='boolean'&&time(a.observedAt)&&
+   a.observedAt<=now&&row.sourceAt===a.observedAt;
+}
+
 function riskState(row,now){
  const raw=row.evidenceStatus,sourceKnown=time(row.sourceAt)&&row.sourceAt<=now;
  const authority=row.authorityEvidence;
@@ -49,7 +61,8 @@ function riskState(row,now){
    authority.configurationStatus==='active'&&text(authority.ruleId)&&text(authority.ruleVersion);
  const authorityClear=authority==null||authorityKnown&&(
    authority.kind==='effective-rule'&&ruleKnown&&authority.exceeded===false||
-   ['authority-unavailable','quote-reader-failed'].includes(authority.kind)&&authority.detected===false);
+   ['authority-unavailable','quote-reader-failed'].includes(authority.kind)&&authority.detected===false||
+   observerHealthReceipt(row,now)&&authority.detected===false);
  const ruleBreach=ruleKnown&&authority.exceeded===true;
  const ruleTriggered=ruleBreach&&row.status==='active'&&raw==='available';
  const evidenceState=emergency?'complete':({available:'complete',partial:'partial',conflict:'conflict'})[raw]||'unverified';
@@ -130,6 +143,9 @@ function completeRisk(row){
    (row.dataState==='valid'||row.riskLevel===4)&&time(row.sourceAt);
 }
 function obligationAt(row,observedAt){
+ // Only a bound, actual failed observer check can use its earlier event
+ // time here. Ordinary missing/stale prices keep the discovery baseline.
+ if(observerHealthReceipt(row,observedAt)&&row.authorityEvidence.detected===true)return row.sourceAt;
  return completeRisk(row)?Math.max(row.sourceAt,time(row.riskContract?.dataAt)?row.riskContract.dataAt:0):observedAt;
 }
 function pendingRecoveryScopes(group){
@@ -188,6 +204,10 @@ function resolutionCheck(incoming,previous,now){
   const matching=rows.filter(next=>sameRecoveryScope(next,row));
   if(!matching.length)return {allowed:false,reason:'缺少同一原风险根因与对象的恢复证据'};
   const proof=row.authorityEvidence;
+  if(proof?.kind==='risk-observer-health'&&!matching.some(next=>observerHealthReceipt(next,now)&&
+    next.authorityEvidence.detected===false&&next.authorityEvidence.accountId===proof.accountId&&
+    freshRecoveryReceipt(next.authorityEvidence,next.authorityEvidence.observedAt,next,proof,oldTime,now)))
+   return {allowed:false,reason:'尚缺同一账户的原观察成功回执'};
   if(['authority-unavailable','quote-reader-failed'].includes(proof?.kind)){
    const expected=proof.kind==='authority-unavailable'?'account-reconciled':'original-quotes-restored';
    if(!matching.some(next=>next.recoveryEvidence?.kind===expected&&next.recoveryEvidence.confirmed===true&&
