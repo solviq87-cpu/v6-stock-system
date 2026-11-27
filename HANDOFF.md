@@ -1,5 +1,7 @@
 # 天枢智策 V6 交接入口
 
+CN08 已在无系统 Node 的 Linux x64 临时用户目录验证固定官方运行包、断网安装、复用与错误指纹拒绝。Windows 向导及本地模型权重仍需现场验证。
+
 PR #562 已补验禁出站正常初始化、两端 HTTP、规则计算、缺价风控，并取得一份真实 A 股历史日线回放。复现命令及尚待现场验证的范围见[大陆自主运行证据](docs/fayo-professional/README.md#七本轮可复核证据)。
 
 本轮已将三份要求对齐为[统一执行任务书](docs/fayo-professional/README.md)和[228项工作索引](docs/fayo-professional/TASKS.md)。研究候选代码 `74c03d8d8a6c8dd77b38edd56029422752ded5ee`，总管集成、长期前向、真机与大陆现场待验。
