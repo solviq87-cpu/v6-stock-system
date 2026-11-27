@@ -2519,3 +2519,11 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 .fy-reference-shell :is(button,a,summary,input,select,textarea):focus-visible {
  outline:2px solid var(--fy-action-focus);outline-offset:2px;
 }
+
+@media (max-width: 600px) {
+  .fy-etf-monthly .fy-table { width: 100%; min-width: 0; table-layout: fixed; }
+  .fy-etf-monthly .fy-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; padding: 8px 4px; }
+  .fy-etf-monthly .fy-table :is(th, td):first-child { width: 37%; }
+  .fy-etf-monthly .fy-table :is(th, td):nth-child(2) { width: 24%; }
+  .fy-etf-monthly .fy-table :is(th, td):last-child { text-align: right; font-variant-numeric: tabular-nums; }
+}

@@ -39,6 +39,14 @@ test('background archive view displays genuine zero and unknown separately with 
   records:[{period:'2023',value:0,unit:null},{period:'2024',value:null,unit:null}],observedAt:overview.asOf,availableAt:overview.asOf,firstKnownAt:overview.asOf,recordCount:2,missingValues:1,byteBasis:'response-body'};
  const text=render(t,{...overview,rows:[row]},renderBackgroundArchive);assert.match(text,/世界银行宏观指标/);assert.match(text,/2023 0 未知/);assert.match(text,/2024 未知 未知/);assert.match(text,/原始发布时间\s+未知/);assert.match(text,/不认证全部历史原文/);
 });
+test('ETF档案以月为单位，单列成交额、目标指数和未知归因',t=>{
+ const row={provider:'szse-fund',status:'verified-latest-receipt',scope:{month:'2025-04',documentId:'W020250513504907210876.html'},
+  sourcePublishedAt:null,sourceRevisedAt:null,byteBasis:'response-body',recordCount:2,missingValues:1,
+  records:[{symbol:'159915',name:'样本甲',trackingIndex:'399006',monthlyTurnoverWanCny:0},{symbol:'159919',name:'样本乙',trackingIndex:null,monthlyTurnoverWanCny:null}]};
+ const text=render(t,{...overview,rows:[row]},renderBackgroundArchive);
+ assert.match(text,/深交所ETF证券成交月报 · 2025-04/);assert.match(text,/净申购未知，交易主体未知/);
+ assert.match(text,/159915 样本甲 399006 0/);assert.match(text,/159919 样本乙 未知 未知/);
+});
 test('unverified background rows do not show a numeric value and archive absence remains explicit',t=>{
  const text=render(t,{...overview,status:'partial',rows:[{provider:'worldbank',status:'unavailable',scope:null,records:[{period:'2024',value:999999}]}]},renderBackgroundArchive);
  assert.match(text,/部分范围待校验/);assert.match(text,/尚无已复核数值/);assert.doesNotMatch(text,/999999/);

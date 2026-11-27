@@ -106,15 +106,15 @@ export function renderRuntimeObservationCoverage(observation){
 }
 
 export function renderBackgroundArchive(overview){
- const names={ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
+ const names={'szse-fund':'深交所ETF证券成交月报',ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
  const valid=overview?.mode==='official-background-archive-overview'&&overview.canTrade===false&&overview.pointInTimeBacktestReady===false;
  const state=valid?overview.status:'unavailable';
  const labels={unconfigured:'尚未配置原背景档案','missing-archive':'尚未取得原档案',empty:'该截点尚无背景记录',unavailable:'档案不可用，保留未知',partial:'部分范围待校验',available:'已核对显示范围的最新回执'};
  const rows=valid?arr(overview.rows).slice(0,12):[];
- const scopeLabel=r=>r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
+ const scopeLabel=r=>r.provider==='szse-fund'?r.scope.month:r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
   r.provider==='sec-edgar'?`CIK ${r.scope.cik} · ${r.scope.tag} · 截至 ${r.scope.asOf}`:
    `${r.scope.country} · ${r.scope.indicator} · ${r.scope.startYear} 至 ${r.scope.endYear}`;
- return section('官方背景档案','参考汇率、申报财报与宏观统计只用于研究背景；不作为实时价格、交易信号或历史外部可知性证明。',
+ return section('官方背景档案','列出本地已取得的历史资料、报告期和原文回执。',
   facts([['状态',labels[state]||labels.unavailable],['本地信息截止',valid?dateTime(overview.asOf):null],['可见数据范围',valid?overview.totalScopes:null],
    ['已复核最新回执',valid&&overview.totalScopes!=null?overview.checkedLatestReceipts:null],['待核范围',valid?overview.unverifiedScopes:null]]),
   rows.length?rows.map(r=>{
@@ -124,6 +124,11 @@ export function renderBackgroundArchive(overview){
      ['原始发布时间','未知'],['原始修订时间','未知'],['档案版本',r.version],['回执SHA-256',r.archiveHash],
      ['原响应SHA-256',r.dataVersion],['本次复核',ok?'原响应与投影哈希一致':r.status==='not-checked-budget'?'超过本次读取预算，未核验':'回执不可用']]),
     ok?facts([['记录数',r.recordCount],['明确缺值数',r.missingValues],['原始字节依据',r.byteBasis==='response-body'?'响应字节':'解码后的正文']]):null,
+    ok&&r.provider==='szse-fund'?h('div',{class:'fy-etf-monthly'},
+     note('报告期 '+r.scope.month+'。二级市场成交额以万元人民币计。净申购未知，交易主体未知。'),
+     r.records.length?table([{label:'观察基金（深市）',value:x=>x.symbol+' '+x.name},
+      {label:'目标指数',value:x=>x.trackingIndex??'未知'},{label:'当月成交额（万元）',value:x=>x.monthlyTurnoverWanCny==null?'未知':String(x.monthlyTurnoverWanCny)}],r.records):empty('本期未列入所选观察基金'),
+     /^W\d{21}\.html$/.test(r.scope.documentId)?h('a',{href:'https://docs.static.szse.cn/www/market/periodical/month/'+r.scope.documentId,target:'_blank',rel:'noopener noreferrer'},'深交所月报原表'):null):
     ok&&r.records.length?table([{label:'观察或报告期间',value:x=>x.period},{label:'数值',value:x=>x.value==null?'未知':value(x.value)},
      {label:'单位',value:x=>x.unit??'未知'},{label:'申报日期',value:x=>x.filedDate??'不适用'}],r.records.slice(0,5)):empty(ok?'暂无该范围的可见数值':'尚无已复核数值'));
   }):empty(labels[state]||labels.unavailable,'只读页面不会发起采集或创建档案。'),
