@@ -414,7 +414,8 @@ test('same decision travels from persisted trigger and private receipt to read-o
   assert.equal(moved.original.price,10);assert.equal(moved.current.price,10.5);
   assert.equal(moved.original.decisionId,x.plan.decisionId);assert.equal(moved.canTrade,false);
   const c=x.context;
-  Object.assign(c,{refreshPaperAuthority:()=>{},paperEquity:()=>x.book.account.cash,
+  Object.assign(c,{_paperAuthorityRevision:{pool:c._paperAuthority.pool.read().revision},
+    refreshPaperAuthority:()=>{},paperEquity:()=>x.book.account.cash,
     aShareCalendarDate:(value=x.now())=>serverRequire('./src/core/a-share-calendar').aShareCalendarDate(value),
     paperBuy:()=>assert.fail('out-of-range price must never reach the original buy callback')});
   vm.runInContext(section('function executePaperCenterPlan(','async function runPaperConditionalOrders('),c);
