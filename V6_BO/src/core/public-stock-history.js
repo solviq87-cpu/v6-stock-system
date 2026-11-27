@@ -21,7 +21,18 @@ const dateOK=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFin
 const numeric=x=>typeof x==='number'&&Number.isFinite(x)?x:typeof x==='string'&&/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(x)?Number(x):NaN;
 const market=s=>s.startsWith('6')?'sh':/^(?:0|3)/.test(s)?'sz':'bj';
 const failure=(code,message)=>Object.assign(new Error(message),{code});
-function checkedTime(clock){const t=clock();if(!Number.isSafeInteger(t)||t<=0)throw Error('采集时钟无效');return t;}
+function checkedTime(clock){const t=clock();if(!Number.isSafeInteger(t)||t<=0||!Number.isFinite(new Date(t+28800000).getTime()))throw failure('invalid-clock','采集时钟无效');return t;}
+// Shares are discrete: decimal lots are converted without binary rounding.
+function exactShares(value){
+ const text=typeof value==='number'&&Number.isFinite(value)?String(value):value;
+ if(typeof text!=='string'||text.length>64||!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(text))
+  throw failure('invalid-volume','成交量须为非负十进制');
+ const [whole,fraction='']=text.split('.');
+ if(/[^0]/.test(fraction.slice(2)))throw failure('invalid-volume','成交量不能换算为整股');
+ const shares=BigInt(whole||'0')*100n+BigInt((fraction+'00').slice(0,2));
+ if(shares>BigInt(Number.MAX_SAFE_INTEGER))throw failure('invalid-volume','成交量换算超出安全范围');
+ return Number(shares);
+}
 function targetFor(provider,symbol,days){
  const params=provider==='eastmoney'?{secid:(market(symbol)==='sh'?'1.':'0.')+symbol,klt:'101',fqt:'0',lmt:String(days),end:'20500101',fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'}:{param:`${market(symbol)}${symbol},day,,,${days},`};
  return ENDPOINTS[provider]+'?'+new URLSearchParams(params);
@@ -39,7 +50,11 @@ function responseHeaders(raw){
 function checkResponse(governor,target,response){
  try{governor.checkResponse(target,response?.status,response?.headers);}
  catch(error){error.response=response;throw error;}
- if(Number.isInteger(response?.status)&&(response.status<200||response.status>=300))throw Object.assign(failure('http-error','行情网关HTTP '+response.status),{response});
+ if(response?.status!==undefined&&response.status!==200)
+  throw Object.assign(failure('http-error','行情网关HTTP状态非200'),{response});
+ if(response?.ok!==undefined&&response.ok!==true||response?.redirected===true||response?.type==='opaqueredirect'||
+    typeof response?.url==='string'&&response.url&&response.url!==target)
+  throw Object.assign(failure('invalid-http-response','行情网关响应状态或最终地址无效'),{response});
  return response;
 }
 async function requestPublicStockJson(target,{requestGovernor=marketRequests}={}){
@@ -89,6 +104,20 @@ function rawResponse(returned){
  if(raw.length>MAX_BYTES)throw failure('response-too-large','响应超过2MiB');
  return {rawHash:createHash('sha256').update(raw).digest('hex'),rawByteLength:raw.length,raw};
 }
+function decodeHistory(returned,raw){
+ const headers=returned?.headers;
+ const get=name=>typeof headers?.get==='function'?headers.get(name):
+  Object.entries(headers||{}).find(([k])=>k.toLowerCase()===name)?.[1]??null;
+ const length=get('content-length'),encoding=get('content-encoding');
+ if(length!=null&&(typeof length!=='string'||!/^\d+$/.test(length)||!Number.isSafeInteger(Number(length))||Number(length)>MAX_BYTES))
+  throw failure('invalid-response-length','行情声明响应长度无效');
+ if(encoding!=null&&typeof encoding!=='string')throw failure('invalid-response-length','行情声明响应编码无效');
+ if(length!=null&&(!encoding||encoding.toLowerCase()==='identity')&&Number(length)!==raw.length)
+  throw failure('invalid-response-length','行情实际响应长度与声明不一致');
+ const text=raw.toString('utf8');
+ if(!Buffer.from(text,'utf8').equals(raw))throw failure('invalid-utf8','行情原始字节不是有效UTF-8');
+ return JSON.parse(text);
+}
 function rowsFor(json,provider,symbol){
  if(provider==='eastmoney'){
   const d=json?.data;
@@ -123,8 +152,7 @@ function normalize(rows,{provider,symbol,receivedAt,historyDays}){
   if(row[0]>date){futureCount++;continue;}
   if(row[0]===date&&chinaMinute<15*60+10){unclosedObservations.push({date:row[0],rawRow,receivedAt,knownAt:receivedAt,reason:'session-not-closed'});continue;}
   if(multiplier===null)continue;
-  const shares=volume*multiplier;
-  if(!Number.isFinite(shares)||shares>Number.MAX_SAFE_INTEGER)throw failure('invalid-volume','成交量换算超出安全范围');
+  const shares=exactShares(row[5]);
   const bar={date:row[0],open,high,low,close,volume:shares,knownAt:receivedAt};
   if(provider==='eastmoney'){const amount=numeric(row[6]);if(Number.isFinite(amount)&&amount>=0)bar.amount=amount;}
   bars.push(bar);
@@ -136,6 +164,8 @@ async function fetchPublicStockHistory({symbol,historyDays=120,provider='auto'}=
  if(!Number.isSafeInteger(historyDays)||historyDays<1||historyDays>500)throw Error('历史长度须为1至500');
  if(!['auto','eastmoney','tencent'].includes(provider))throw Error('历史供应商无效');
  const clock=typeof now==='function'?now:()=>now,startedAt=checkedTime(clock),errors=[],attempts=[];let lastObservedUnknown=null;
+ let highWater=startedAt,clockInvalid=false;
+ const readClock=()=>{try{const t=checkedTime(clock);if(t<highWater)throw failure('invalid-clock','采集时钟倒退');highWater=t;return t;}catch(e){clockInvalid=true;throw failure('invalid-clock','采集时钟无效或倒退');}};
  // Pure adapters do not cause physical requests. An explicit governor lets
  // replay/tests exercise the same shared budget with a deterministic clock.
  const governor=requestGovernor??(requestJson===requestPublicStockJson?marketRequests:createMarketRequestGovernor());
@@ -143,15 +173,15 @@ async function fetchPublicStockHistory({symbol,historyDays=120,provider='auto'}=
  for(const selected of provider==='auto'?['eastmoney','tencent']:[provider]){
   const target=targetFor(selected,symbol,historyDays);let receivedAt=null,proof=null,decoded=null;
   const capture=response=>{
-   receivedAt=checkedTime(clock);
-   if(receivedAt<startedAt)throw failure('invalid-clock','接收时钟早于请求');
+   receivedAt=readClock();
    decoded=rawResponse(response);proof={source:selected,provider:selected,requestUrl:target,endpoint:ENDPOINTS[selected],retrievedAt:receivedAt,firstObservedAt:receivedAt,sourceTimestamp:null,rawHash:decoded.rawHash,rawByteLength:decoded.rawByteLength,hashBasis:'raw-response-bytes',fieldMappingSource:REFERENCES[selected],unitMappingSource:REFERENCES[selected+'Units'],supplierFinalityConfirmed:false};
   };
   try{
+   if(attempts.length)readClock();
    const request=async()=>checkResponse(governor,target,await requestJson(target,{maxBytes:MAX_BYTES,timeoutMs:12000,requestGovernor:governor}));
    const response=await (requestJson!==requestPublicStockJson&&requestGovernor?governor.run(target,request):request());
    capture(response);
-   const {rows,name}=rowsFor(JSON.parse(decoded.raw.toString('utf8')),selected,symbol),normalized=normalize(rows,{provider:selected,symbol,receivedAt,historyDays});
+   const {rows,name}=rowsFor(decodeHistory(response,decoded.raw),selected,symbol),normalized=normalize(rows,{provider:selected,symbol,receivedAt,historyDays});
    attempts.push({provider:selected,status:normalized.unitSupported&&normalized.bars.length?'observed-unverified':'unknown',...proof});
    const result={...base,status:normalized.unitSupported&&normalized.bars.length?'observed-unverified':'unknown',source:selected,provider:selected,retrievedAt:receivedAt,rawHash:decoded.rawHash,rawEvidence:{encoding:'base64',data:decoded.raw.toString('base64'),sha256:decoded.rawHash,byteLength:decoded.rawByteLength},provenance:proof,units:normalized.units,stock:{symbol,name,source:selected,provider:selected,priceBasis:'unadjusted',observedAt:receivedAt,bars:normalized.bars},unclosedObservations:normalized.unclosedObservations,futureCount:normalized.futureCount,duplicateCount:normalized.duplicateCount,finality:'15:10-China-time-cutoff; supplier-finality-not-confirmed',metadataAvailability:{dailyStatus:'unknown',corporateActions:'unknown',priceLimits:'unknown'},completeness:'upstream-does-not-declare-complete-history'};
    if(!normalized.unitSupported){errors.push({provider:selected,code:'unsupported-unit',message:'此供应商端点的板种成交量单位未核验'});return result;}
@@ -166,8 +196,12 @@ async function fetchPublicStockHistory({symbol,historyDays=120,provider='auto'}=
    // Keep the same supplier's body, hash, identity and receipt time together,
    // including parseable responses rejected by identity/OHLCV validation.
    if(decoded&&proof)lastObservedUnknown={...base,source:selected,provider:selected,retrievedAt:receivedAt,rawHash:decoded.rawHash,rawEvidence:{encoding:'base64',data:decoded.raw.toString('base64'),sha256:decoded.rawHash,byteLength:decoded.rawByteLength},provenance:proof,stock:{...base.stock,source:selected,provider:selected,observedAt:receivedAt}};
+   if(clockInvalid)break;
   }
  }
- return lastObservedUnknown||{...base,retrievedAt:checkedTime(clock)};
+ if(clockInvalid)return {...(lastObservedUnknown||base),clockInvalid:true};
+ if(lastObservedUnknown)return lastObservedUnknown;
+ // No received raw bytes means no successful observation clock to publish.
+ return {...base,retrievedAt:null};
 }
 module.exports={fetchPublicStockHistory,requestPublicStockJson};
