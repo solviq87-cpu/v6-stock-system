@@ -4,7 +4,7 @@
 // caller of this module can submit an order, change a rule, or repair a ledger.
 const crypto = require('node:crypto');
 const {validateEquityEvidence} = require('./account-equity-evidence');
-const {riskState,copyStateEvidence,resolutionCheck,reductionCheck}=require('./risk-state-contract');
+const {riskState,copyStateEvidence,resolutionCheck,reductionCheck,recoveryBaseline}=require('./risk-state-contract');
 const VERSION = 'fayo-risk-workbench-20261126-v1';
 const list = value => Array.isArray(value) ? value : [];
 const finite = value => typeof value === 'number' && Number.isFinite(value);
@@ -409,12 +409,11 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     if(prior&&prior.status!=='resolved'){
       next.lastValidRisk=prior.lastValidRisk||null;
       if(next.status==='resolved'){
-        const check=resolutionCheck({risks:[next]},prior.lastValidRisk||{risks:prior.risks,
-          sourceAt:prior.resolutionBaselineAt||Math.max(0,...list(prior.risks).map(r=>time(r.sourceAt)&&r.sourceAt<=now?r.sourceAt:0))||prior.firstSeenAt},now);
+        const check=resolutionCheck({risks:[next]},recoveryBaseline(prior),now);
         if(!check.allowed)next={...next,status:'unknown',...riskState({...next,status:'unknown'},now),resolutionBlockedReason:check.reason};
       }
       if(next.status==='active'&&prior.lastValidRisk&&next.riskLevel!==null&&next.riskLevel<prior.lastValidRisk.riskLevel){
-        const check=reductionCheck({risks:[next]},prior.lastValidRisk,now);
+        const check=reductionCheck({risks:[next]},recoveryBaseline(prior),now);
         if(!check.allowed)next={...next,status:'unknown',...riskState({...next,status:'unknown'},now),
           resolutionBlockedReason:'不能确认风险降级：'+check.reason};
       }
