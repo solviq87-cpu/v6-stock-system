@@ -52,8 +52,12 @@ test('changed sealed preregistration lineage revisits even when source is unchan
  const {config}=setup(t);runAgent(config,{apply:true,now});
  fs.mkdirSync(config.cycle.modelDir);
  const frozen=JSON.parse(fs.readFileSync(path.join(config.cycle.captureDir,'features-2026-09-21.json'),'utf8'));
- const features=Array.from({length:36},(_,i)=>({...frozen,
-  signalDay:new Date(now-(36-i)*86400000).toISOString().slice(0,10),fingerprint:hash(i)}));
+ // Synthetic registration-only metadata, not rewritten historical market captures.
+ const features=Array.from({length:36},(_,i)=>{
+  const signalDay=new Date(now+28800000-(36-i)*86400000).toISOString().slice(0,10);
+  const payload={signalDay,capturedAt:Date.parse(signalDay+'T16:04:00+08:00'),factors:frozen.factors,packFingerprint:frozen.packFingerprint};
+  return {...payload,fingerprint:hash(payload)};
+ });
  const weights=Object.fromEntries(frozen.factors.map(f=>[f.id,f.baseWeight]));
  const prereg=preregisterCandidate({features,candidateWeights:weights,acceptedWeights:weights,
   registeredAt:now,packFingerprint:frozen.packFingerprint});
