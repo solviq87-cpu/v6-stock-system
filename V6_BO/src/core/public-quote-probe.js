@@ -1,11 +1,10 @@
 'use strict';
 // Explicit, bounded, account-free diagnostic. Never starts a poller or activates a production feed.
 const fs = require('node:fs');
-const { createPublicMarket } = require('./public-market');
+const { createPublicMarket,safeClock,quoteClock,summarizePublicQuoteFailure } = require('./public-market');
 const { validateSnapshot } = require('./parallel-market');
 const links = require('../../public/assets/stock-provider-links');
 const IDS = ['tencent', 'eastmoney', 'sina'];
-const finite = value => typeof value === 'number' && Number.isFinite(value);
 function options(code, providers) {
   if (typeof code !== 'string' || !/^(?:60|68|00|30)\d{4}$/.test(code) ||
       !Array.isArray(providers) || !providers.length || providers.length > 3 ||
@@ -18,9 +17,9 @@ function quote(q, code, now) {
   return validateSnapshot({ schemaVersion: 1, provider: 'probe', observedAt: q.timestamp, quotes: [q] }, 'probe', q.timestamp).quotes[0];
 }
 function projectProbe(input, now = Date.now()) {
-  if (!finite(now) || now <= 0 || !input || input.schemaVersion !== 1 || input.mode !== 'public-quote-probe' ||
+  if (!safeClock(now) || !input || input.schemaVersion !== 1 || input.mode !== 'public-quote-probe' ||
       input.probeOnly !== true || input.canTrade !== false || input.verifiedLive !== false || input.paidServicesUsed !== false ||
-      !finite(input.generatedAt) || input.generatedAt > now || input.generatedAt <= 0 ||
+      !safeClock(input.generatedAt) || input.generatedAt > now ||
       !Array.isArray(input.sources)) throw Error('公开报价检查协议无效');
   options(input.code, input.sources.map(s => s?.id));
   const sources = input.sources.map(s => {
@@ -28,8 +27,8 @@ function projectProbe(input, now = Date.now()) {
     let q = null;
     if (s.status === 'ok') {
       const snap = s.snapshot;
-      if (!snap || snap.provider !== s.id || snap.schemaVersion !== 1 || !finite(snap.observedAt) ||
-          snap.observedAt > input.generatedAt || snap.observedAt <= 0 || !Array.isArray(snap.quotes) || snap.quotes.length !== 1) throw Error('快照来源或数量无效');
+      if (!snap || snap.provider !== s.id || snap.schemaVersion !== 1 || !safeClock(snap.observedAt) ||
+          snap.observedAt > input.generatedAt || !Array.isArray(snap.quotes) || snap.quotes.length !== 1) throw Error('快照来源或数量无效');
       q = quote(snap.quotes[0], input.code, now);
       if (q.timestamp > snap.observedAt) throw Error('报价时间晚于采集');
     } else if (s.status === 'stale-or-invalid') {
@@ -39,12 +38,13 @@ function projectProbe(input, now = Date.now()) {
     // A recent vendor timestamp does not make a halted stock tradable.
     // Preserve the validated underlying trading state rather than masking it.
     const normalTrading = q?.status === 'normal';
-    const fresh = normalTrading && now - q.timestamp <= 15000;
+    const fresh = s.status==='ok' && normalTrading && now - q.timestamp <= 15000 && input.generatedAt-q.timestamp<=15000;
     const status = !q ? 'unavailable' : !normalTrading ? 'dated-snapshot' :
       fresh ? 'fresh-unverified' : 'dated-snapshot';
     return { id: s.id, status, quote: q ? { ...q,
       status: normalTrading ? 'market-state-unverified' : q.status, quoteAt: q.timestamp,
-      quoteTime: new Date(q.timestamp).toISOString(), freshness: fresh ? 'within-15-seconds-unverified' : 'not-realtime' } : null };
+      quoteTime: new Date(q.timestamp).toISOString(), freshness: fresh ? 'within-15-seconds-unverified' : 'not-realtime' } : null,
+      ...(!q ? summarizePublicQuoteFailure(s) : {}) };
   });
   return { schemaVersion: 1, status: now - input.generatedAt > 15000 ? 'check-expired' : sources.some(s => s.status === 'fresh-unverified') ? 'observed-unverified' : sources.some(s => s.quote) ? 'snapshot-only' : 'unavailable',
     code: input.code, checkedAt: input.generatedAt, canTrade: false, verifiedLive: false,
@@ -52,14 +52,14 @@ function projectProbe(input, now = Date.now()) {
 }
 async function probePublicQuotes({ code, providers = ['tencent', 'eastmoney'], timeoutMs = 8000, clock = Date.now, fetchImpl = globalThis.fetch } = {}) {
   options(code, providers);
-  if (typeof clock !== 'function' || !finite(clock()) || clock() <= 0) throw Error('检查时钟无效');
-  const first = await createPublicMarket({ code, providers, timeoutMs, clock, fetchImpl }).sync();
+  const timing=quoteClock(clock);timing.read();const checkedClock=()=>timing.read();
+  const first = await createPublicMarket({ code, providers, timeoutMs, clock:checkedClock, fetchImpl }).sync();
   const missing = first.sources.filter(s => s.status === 'unavailable').map(s => s.id);
   let retry = null;
   // Only a transport/format failure is retried once; redirects and HTTP denials are not followed or retried.
   const retryIds = missing.filter(id => {const error=first.sources.find(s => s.id === id).error;return error !== 'redirect-blocked' && !error?.startsWith('HTTP ');});
-  if (retryIds.length) retry = await createPublicMarket({ code, providers: retryIds, timeoutMs, clock, fetchImpl }).sync();
-  const generatedAt = clock();
+  if (retryIds.length) retry = await createPublicMarket({ code, providers: retryIds, timeoutMs, clock:checkedClock, fetchImpl }).sync();
+  const generatedAt = checkedClock();if(timing.failed)throw Error('检查时钟倒退或无效');
   const sources = first.sources.map(initial => {
     const s = retry?.sources.find(x => x.id === initial.id) || initial;
     if (s.status === 'unavailable') return s;
@@ -68,7 +68,7 @@ async function probePublicQuotes({ code, providers = ['tencent', 'eastmoney'], t
       const observedAt = s.snapshot?.observedAt ?? generatedAt;
       if (q.timestamp > observedAt || observedAt > generatedAt) throw Error('time');
       return s;
-    } catch { return { id: s.id, status: 'unavailable', error: '证券、原始时点或报价结构无效' }; }
+    } catch { return { id: s.id, status: 'unavailable', error: '证券、原始时点或报价结构无效', failureKind: 'invalid-quote-evidence' }; }
   });
   const result = { schemaVersion: 1, mode: 'public-quote-probe', code, generatedAt,
     probeOnly: true, canTrade: false, verifiedLive: false, paidServicesUsed: false,

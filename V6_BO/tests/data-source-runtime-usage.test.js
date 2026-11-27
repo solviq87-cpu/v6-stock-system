@@ -16,9 +16,16 @@ function fixture(t){
 }
 test('all existing registry routes retain a declaration stage without claiming actual use',()=>{
  const r=auditRegisteredSourceReadiness({asOf:start});
- assert.equal(r.routes.length,122);assert.deepEqual(r.summary.byDeclaredIntegrationKind,{'named-adapter':18,candidate:99,'operator-import':3,'authorized-gateway':2});
+ assert.equal(r.routes.length,122);assert.deepEqual(r.summary.byDeclaredIntegrationKind,{'named-adapter':19,candidate:98,'operator-import':3,'authorized-gateway':2});
  assert.ok(r.routes.every(x=>x.declaredAdapter&&x.runtimeUsage.status==='not-checked'&&x.runtimeUsage.adapterInvocationVerified===false));
  assert.equal(r.runtimeUsage.matchedSourceLabels,null);
+ const eia=route(r,'us-eia');
+ assert.equal(eia.declaredAdapter,'eia-spot-daily.js');
+ assert.equal(eia.declaredIntegrationKind,'named-adapter');
+ assert.equal(eia.access,'credentials-required');
+ assert.equal(eia.phases.authorization,'unknown');
+ assert.equal(eia.integration.productionEnabled,null);
+ assert.equal(eia.canTrade,false);
 });
 test('the original private journal proves only sampled exact labels, not wrappers or downstream trading',async t=>{
  const f=fixture(t);f.setQuotes([{source:'eastmoney'},{source:'tencent'},{source:'unregistered-label'}]);

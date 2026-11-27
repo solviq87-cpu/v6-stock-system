@@ -183,6 +183,7 @@ function saveSession(filename,session){
  return require('./account-process-lock').withAccountLock(target,()=>{
   const current=optionalSnapshot(target),saved=optionalSnapshot(backup);
   if(!current&&saved)throw Error('原账户缺失但备份存在，请先显式恢复，禁止初始化覆盖');
+  let backupStat=null;
   if(current){
    const previous=decodeSession(current.raw);
    if(session.revision<=previous.revision)throw Error('账户版本必须递增');
@@ -197,8 +198,13 @@ function saveSession(filename,session){
     if(old.revision<previous.revision)assertAppend(old.history,previous.history);
    }
    writeAtomic(backup,current.raw,{beforeRename:()=>{assertUnchanged(target,current.stat);assertUnchanged(backup,saved?.stat??null);}});
+   // Verify the newly published recovery bytes, then bind the final primary
+   // commit to that exact backup snapshot (or its absence on initialization).
+   const published=readSnapshot(backup);
+   if(!published.raw.equals(current.raw))throw Error('账户备份文件已变化，拒绝覆盖');
+   backupStat=published.stat;
   }
-  writeAtomic(target,raw,{beforeRename:()=>assertUnchanged(target,current?.stat??null)});
+  writeAtomic(target,raw,{beforeRename:()=>{assertUnchanged(target,current?.stat??null);assertUnchanged(backup,backupStat);}});
  });
 }
 function recoverSession(filename,{dryRun=true}={}){

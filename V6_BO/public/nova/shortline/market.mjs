@@ -339,10 +339,59 @@ function catalogView(el,rows){
   find(el,'input.mk-search').oninput=e=>{query=e.target.value;draw()};
   draw();
 }
-function exportRows(ui,records){
-  const header=['交易日','标的代码','标的名称','题材','情绪阶段','规则一致率','符合战法','可执行战法','开仓提示','新增仓位上限%','风险证据','认定因子','规则版本','识别方式','识别依据','缺失证据'];
+// Present the frozen historical research projection without recomputing or
+// treating unknown metrics as zero, or research as an entry permission.
+const pathSessions=[5,10,20];
+function pathQualityView(quality,day){
+  const empty=()=>pathSessions.map(sessions=>({sessions,recent:null,preceding:null,acceleration:null}));
+  if(!quality||quality.canTrade!==false||quality.actualChaseRiskLevel!==null||
+    quality.priceBasis!=='unadjusted'||!validDate(quality.day)||day!=null&&quality.day!==day||
+    typeof quality.source!=='string'||!quality.source.trim()||
+    quality.basis!=='same-declared-source-and-sample-family-daily-close-path-not-intraday-or-calibrated-risk'||
+    !Array.isArray(quality.windows)||quality.windows.length!==pathSessions.length||
+    !pathSessions.every(n=>quality.windows.filter(w=>w?.sessions===n).length===1))
+    return {source:null,day:null,windows:empty()};
+  const valid=(r,end)=>r&&validDate(r.from)&&validDate(r.to)&&r.from<r.to&&r.to===end;
+  return {source:quality.source.slice(0,120),day:quality.day,windows:pathSessions.map(sessions=>{
+    const w=quality.windows.find(w=>w.sessions===sessions);
+    const recent=w.status==='observed-research'&&valid(w.recent,quality.day)?w.recent:null;
+    const preceding=recent&&valid(w.preceding,recent.from)?w.preceding:null;
+    return {sessions,recent,preceding,acceleration:preceding&&w.acceleration&&typeof w.acceleration==='object'?w.acceleration:null};
+  })};
+}
+const pathNumber=(value,suffix='',min=-Infinity,max=Infinity)=>typeof value==='number'&&Number.isFinite(value)&&value>=min&&value<=max?
+  value.toFixed(2)+suffix:'未取得';
+function pathWindowFacts(w){
+  const r=w.recent;
+  if(!r)return ['连续历史不足或证据未核验'];
+  const facts=['区间 '+r.from+' 至 '+r.to,
+    '累计涨跌 '+pathNumber(r.netReturnPct,'%',-100),
+    '日对数波动 '+pathNumber(r.dailyLogVolatilityPct,'%',0),
+    '最大收盘回撤 '+pathNumber(r.maxCloseDrawdownPct,'%',0,100),
+    '方向效率 '+pathNumber(r.directionEfficiency,'',0,1),
+    '单日最大上涨贡献 '+pathNumber(r.largestGainSharePct,'%',0,100)];
+  if(w.acceleration)facts.push('相邻等长窗口净对数收益变化 '+pathNumber(w.acceleration.netLogReturnDeltaPctPoints,'百分点'),
+    '日波动变化 '+pathNumber(w.acceleration.dailyLogVolatilityDeltaPctPoints,'百分点'),
+    '收盘回撤变化 '+pathNumber(w.acceleration.maxCloseDrawdownDeltaPctPoints,'百分点',-100,100));
+  else facts.push('相邻等长窗口比较未取得');
+  return facts;
+}
+export function pathQualityHTML(quality,day){
+  const view=pathQualityView(quality,day);
+  return '<details><summary>上涨路径质量与加速风险（研究）</summary>'+
+    '<p class="mk-sub">历史日收盘路径，不是盘中轨迹、风险等级、预测胜率或开仓许可；原交易门禁独立保留。</p>'+
+    '<p class="mk-sub">'+esc(view.source?'声明来源：'+view.source+' · '+view.day:'未取得可核验的路径研究记录')+'</p>'+
+    '<div class="mk-grid" style="margin-top:12px">'+view.windows.map(w=>'<div class="mk-note"><h4>'+w.sessions+'日窗口</h4><div class="mk-evidence">'+
+      pathWindowFacts(w).map(f=>'<div>'+esc(f)+'</div>').join('')+'</div></div>').join('')+'</div></details>';
+}
+function pathQualityExport(quality,day){
+  const view=pathQualityView(quality,day);
+  return [view.source?view.source+' · '+view.day:'未取得',...view.windows.map(w=>pathWindowFacts(w).join('；'))];
+}
+export function exportRows(ui,records){
+  const header=['交易日','标的代码','标的名称','题材','情绪阶段','规则一致率','符合战法','可执行战法','开仓提示','新增仓位上限%','风险证据','认定因子','规则版本','识别方式','识别依据','缺失证据','路径研究来源及日期','5日路径研究','10日路径研究','20日路径研究'];
   const quote=x=>'"'+String(x??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
-  const rows=records.map(r=>[r.date,r.code,r.name,r.theme,r.emotion?.stage,r.emotion?.confidence,r.strategy,r.eligible?.join('、'),r.status,r.position,r.risks?.join('；'),r.factors?.join('、'),r.version,r.method||'历史记录',r.recognition?.evidence?.join('；'),r.recognition?.missing?.join('；')]);
+  const rows=records.map(r=>[r.date,r.code,r.name,r.theme,r.emotion?.stage,r.emotion?.confidence,r.strategy,r.eligible?.join('、'),r.status,r.position,r.risks?.join('；'),r.factors?.join('、'),r.version,r.method||'历史记录',r.recognition?.evidence?.join('；'),r.recognition?.missing?.join('；'),...pathQualityExport(r.recognition?.chaseRiskResearch?.pathQuality,r.date)]);
   ui.download('战法校验记录.csv','\ufeff'+[header,...rows].map(row=>row.map(quote).join(',')).join('\r\n'),'text/csv;charset=utf-8');
 }
 
@@ -358,14 +407,14 @@ function resultHTML(r){
   '<details><summary>情绪判定证据 <span>规则一致率 '+esc(r.emotion?.confidence??0)+'%</span></summary>'+evidenceHTML(r.emotion||{})+'</details>'+
   '<details><summary>历史同类样本 <span>'+esc(p.n??0)+' 笔</span></summary><div class="mk-evidence"><div>'+esc(p.risk||'')+'</div><div>历史胜率 · '+(p.winRate==null?'样本不足':esc(p.winRate)+'%')+'</div><div>历史盈亏比 · '+esc(p.payoff??'样本不足')+'</div><div>估计收益 · '+(p.expectedReturn==null?'样本不足':esc(p.expectedReturn)+'%')+'</div><div>参数版本 · '+esc(r.version||'基准规则')+'</div></div></details></div>';
 }
-function recognitionHTML(rec){
+export function recognitionHTML(rec,day){
   if(!rec)return '';
   const evidence=rec.evidence||[],missing=rec.missing||[],candidates=rec.candidates||[];
   const list=(items,empty)=>items.length?'<ul style="margin:0;padding-left:1.4em">'+items.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':esc(empty);
   const partial=candidates.filter(c=>(c.missing?.length||c.failed?.length)&&
     (Array.isArray(c.matched)?c.matched.length>0:Number(c.matched)>0));
   return '<section class="mk-panel mk-spaced"><h3>自动识别依据</h3><details open><summary>观测证据 <span>'+evidence.length+' 项</span></summary><div class="mk-evidence">'+list(evidence,'暂无可核实的观测')+'</div></details>'+
-    '<details><summary>缺失证据 <span>'+missing.length+' 项</span></summary><div class="mk-evidence">'+list(missing,'已提供系统列出的观测字段')+'</div></details>'+
+    '<details><summary>缺失证据 <span>'+missing.length+' 项</span></summary><div class="mk-evidence">'+list(missing,'已提供系统列出的观测字段')+'</div></details>'+pathQualityHTML(rec.chaseRiskResearch?.pathQuality,day)+
     '<details><summary>接近匹配的战法 <span>'+partial.length+' 组</span></summary><div class="mk-evidence">'+(partial.length?partial.map(c=>{
       const matched=Array.isArray(c.matched)?c.matched.length:c.matched;
       return '<details><summary>'+esc(c.name)+'<span>已命中 '+esc(matched)+' 项</span></summary><div class="mk-evidence">'+(Array.isArray(c.matched)?'<div>已命中 · '+esc(c.matched.join('、'))+'</div>':'')+(c.missing?.length?'<div>待补证 · '+esc(c.missing.join('、'))+'</div>':'')+(c.failed?.length?'<div>未满足 · '+esc(c.failed.join('、'))+'</div>':'')+'</div></details>';
@@ -398,7 +447,7 @@ function newCheck(ui,mount=ui.root,embedded=false){
     if(loadedKey!==key(p)||!ready(p))return;
     try{
       visibleResult=autoValidate(ui.state,p);
-      out.innerHTML='<div class="mk-spaced"><section class="mk-panel"><div class="mk-head" style="margin-bottom:15px"><div><h3>'+esc(visibleResult.name)+' <span class="mk-sub">'+esc(p.code)+'</span></h3><p class="mk-sub">'+esc(visibleResult.asOf||p.date)+' 观测快照</p></div><span class="tag">行情自动识别</span></div>'+resultHTML(visibleResult)+'</section>'+recognitionHTML(visibleResult.recognition)+'</div>';
+      out.innerHTML='<div class="mk-spaced"><section class="mk-panel"><div class="mk-head" style="margin-bottom:15px"><div><h3>'+esc(visibleResult.name)+' <span class="mk-sub">'+esc(p.code)+'</span></h3><p class="mk-sub">'+esc(visibleResult.asOf||p.date)+' 观测快照</p></div><span class="tag">行情自动识别</span></div>'+resultHTML(visibleResult)+'</section>'+recognitionHTML(visibleResult.recognition,p.date)+'</div>';
       save.disabled=false;
     }catch(err){showNote(err.message)}
   }
@@ -461,7 +510,7 @@ export function renderMarket(ui,mode='check'){
   }
   table.onclick=e=>{
     const row=filtered[e.target.closest('button')?.dataset.mk];if(!row)return;
-    const detail=find(root,'[data-detail]');detail.innerHTML='<section class="mk-panel mk-spaced"><div class="mk-head"><h3>'+esc(row.name)+' · '+esc(row.date)+'</h3>'+button('收起','close')+'</div>'+resultHTML(row)+recognitionHTML(row.recognition)+'<details><summary>校验当时认定的因子</summary><div class="mk-badges">'+(row.factors||[]).map(v=>'<span class="mk-pill">'+esc(v)+'</span>').join('')+'</div></details></section>';
+    const detail=find(root,'[data-detail]');detail.innerHTML='<section class="mk-panel mk-spaced"><div class="mk-head"><h3>'+esc(row.name)+' · '+esc(row.date)+'</h3>'+button('收起','close')+'</div>'+resultHTML(row)+recognitionHTML(row.recognition,row.date)+'<details><summary>校验当时认定的因子</summary><div class="mk-badges">'+(row.factors||[]).map(v=>'<span class="mk-pill">'+esc(v)+'</span>').join('')+'</div></details></section>';
     find(detail,'button').onclick=()=>detail.replaceChildren();
     detail.scrollIntoView({behavior:'smooth',block:'nearest'});
   };

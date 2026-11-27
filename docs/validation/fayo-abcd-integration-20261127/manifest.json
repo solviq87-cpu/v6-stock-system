@@ -1,0 +1,4269 @@
+{
+  "schemaVersion": 1,
+  "stage": "initial-integration-candidate",
+  "refs": {
+    "old": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+    "dev": "8c90f77f58f90d98d348a5d8c3d9bca4d0121928",
+    "A": "796974991ab33eba7ce36dbd0679d016746ac155",
+    "B": "71c9c13406589b7a429673f4b89bfac8f5a64c7b",
+    "C": "2119555300f0f9353f6729ca363cdf976d884e6f",
+    "D": "b41d5d7ff88bb29c495aaffb8d793c1bfa39a1cc"
+  },
+  "trees": {
+    "old": "733aa43966e839d698bc540cb6a8f86312107acc",
+    "dev": "f582888c668917c0955640bb5bd6d50195d1d54c",
+    "A": "e6d9c06b1ad5dc01e21751e30ae35b71f7dab537",
+    "B": "ee3dd8767e8fd6c48736711ab0905aa167912683",
+    "C": "d6fca44d61bfed6ee3fa20c5b388a686b9d30f3c",
+    "D": "0e370db9ee4de2a29a125daac51eaff26f46d09b"
+  },
+  "originalPRs": {
+    "base": 526,
+    "A": [
+      561,
+      549
+    ],
+    "B": [
+      407
+    ],
+    "C": [
+      557,
+      559
+    ],
+    "D": [
+      558,
+      560
+    ]
+  },
+  "directPaths": 393,
+  "reviewedDivergentPaths": 14,
+  "BPathsAlreadyInDev": 51,
+  "sourceDeltaUnion": 407,
+  "expectedSourceChangedPaths": 402,
+  "additionalJointTest": "V6_BO/tests/fayo-abcd-integration-public-quote.test.js",
+  "sourcePaths": [
+    {
+      "path": ".github/workflows/v6-public-quote-diagnostic.yml",
+      "sourceBlobs": {
+        "B": "4866948201fa7c56dea07d1b5c1e517665492606"
+      },
+      "dev": "804326aa05045518c499c6c7c19a203b64cc2f51",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4866948201fa7c56dea07d1b5c1e517665492606"
+    },
+    {
+      "path": "DEPLOYMENT.md",
+      "sourceBlobs": {
+        "D": "af2257d308827ae8290a76ae334662662e6717b9"
+      },
+      "dev": "02ed47d1a6eb5228b85335d8b218212829875b37",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "af2257d308827ae8290a76ae334662662e6717b9"
+    },
+    {
+      "path": "HANDOFF.md",
+      "sourceBlobs": {
+        "D": "2cc9f3b05aeac8d254a10ac995305434efe7dc55"
+      },
+      "dev": "810fc825147b485c00d89b8350b4a1403c6d73d0",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2cc9f3b05aeac8d254a10ac995305434efe7dc55"
+    },
+    {
+      "path": "V6_BO/config/data-source-registry-2026.json",
+      "sourceBlobs": {
+        "D": "b82e98d35cd950cdd1fa86ef9b457a6b0da25a8a"
+      },
+      "dev": "460ff80ad5e80931ef6903b7855d64bf668854ab",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b82e98d35cd950cdd1fa86ef9b457a6b0da25a8a"
+    },
+    {
+      "path": "V6_BO/em.js",
+      "sourceBlobs": {
+        "D": "64b77c4d8a01fe6b2a7b5a2dd6859a5b8b2dc263"
+      },
+      "dev": "12b122af41173302ab61eb8ce3d9df6c1b7920e0",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "64b77c4d8a01fe6b2a7b5a2dd6859a5b8b2dc263"
+    },
+    {
+      "path": "V6_BO/external_data.js",
+      "sourceBlobs": {
+        "D": "30ffcdfd5e37b9471da2dd2fb5560020ae7771cd"
+      },
+      "dev": "ba252ba3da75e0727bc889b54bbedd910afa5823",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "30ffcdfd5e37b9471da2dd2fb5560020ae7771cd"
+    },
+    {
+      "path": "V6_BO/holdings.js",
+      "sourceBlobs": {
+        "B": "9c6e1c1c93a4ee0148d6d80123fc436b188a165e"
+      },
+      "dev": "9c6e1c1c93a4ee0148d6d80123fc436b188a165e",
+      "resolution": "already-in-dev",
+      "final": "9c6e1c1c93a4ee0148d6d80123fc436b188a165e"
+    },
+    {
+      "path": "V6_BO/public/nova/client.js",
+      "sourceBlobs": {
+        "B": "66d16eaaa11baa5fc4948b0240510577b522a950"
+      },
+      "dev": "66d16eaaa11baa5fc4948b0240510577b522a950",
+      "resolution": "already-in-dev",
+      "final": "66d16eaaa11baa5fc4948b0240510577b522a950"
+    },
+    {
+      "path": "V6_BO/public/nova/decision-mini-kline.mjs",
+      "sourceBlobs": {
+        "B": "d75a61ac2ecc12b11c978793391c30691d400d8d"
+      },
+      "dev": "d75a61ac2ecc12b11c978793391c30691d400d8d",
+      "resolution": "already-in-dev",
+      "final": "d75a61ac2ecc12b11c978793391c30691d400d8d"
+    },
+    {
+      "path": "V6_BO/public/nova/decision-model.mjs",
+      "sourceBlobs": {
+        "B": "494a432041d26f270ddd14694397673e14acd44b"
+      },
+      "dev": "e9658c715240e39804e76dc55471536eaee7b762",
+      "resolution": "dev",
+      "reason": "保留原60项新增1:2风险收益独立展示门禁；B较旧版本无该逻辑。",
+      "final": "e9658c715240e39804e76dc55471536eaee7b762"
+    },
+    {
+      "path": "V6_BO/public/nova/fayo.css",
+      "sourceBlobs": {
+        "B": "a13e1ca253db5ef0f8d066ca7944bd4c2bb2ab44"
+      },
+      "dev": "a13e1ca253db5ef0f8d066ca7944bd4c2bb2ab44",
+      "resolution": "already-in-dev",
+      "final": "a13e1ca253db5ef0f8d066ca7944bd4c2bb2ab44"
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-read-scope.mjs",
+      "sourceBlobs": {
+        "C": "a6c668622e59764342ebf485fcfbc9298f77f41c"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a6c668622e59764342ebf485fcfbc9298f77f41c"
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "sourceBlobs": {
+        "C": "9e3d9e12a33de8a07f86ad438af14568833e56e6"
+      },
+      "dev": "e02ac6037ca218bc9b60b0eb0cbe635a8f649ff2",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9e3d9e12a33de8a07f86ad438af14568833e56e6"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/backtest.mjs",
+      "sourceBlobs": {
+        "C": "9bc831be98ce64fc2fb17f972faf124bd5ac721b"
+      },
+      "dev": "73ffaa48a0d84ce7ef019386d8542d6674030e7c",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9bc831be98ce64fc2fb17f972faf124bd5ac721b"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/market.mjs",
+      "sourceBlobs": {
+        "C": "7a21f73164dcb6e32e76555a03d336c76bbf5274"
+      },
+      "dev": "2dfb17a936c9bce7e8e0e736e0dde74be5054a14",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7a21f73164dcb6e32e76555a03d336c76bbf5274"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/pressure.mjs",
+      "sourceBlobs": {
+        "C": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+      },
+      "dev": "4cfd2d5d6315fbd47cc117c307105c2c09378d5b",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/stock-risk-evidence.mjs",
+      "sourceBlobs": {
+        "C": "3e30c1e1df0e6deaaa5a3b95a49a430b4b98b876"
+      },
+      "dev": "facf80c489db4f6ddc23fa71d14dbeb13e35ca9e",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3e30c1e1df0e6deaaa5a3b95a49a430b4b98b876"
+    },
+    {
+      "path": "V6_BO/public/nova/ui.js",
+      "sourceBlobs": {
+        "B": "b857757839a48939829d3c02098c8061940634ea"
+      },
+      "dev": "b857757839a48939829d3c02098c8061940634ea",
+      "resolution": "already-in-dev",
+      "final": "b857757839a48939829d3c02098c8061940634ea"
+    },
+    {
+      "path": "V6_BO/public/sw.js",
+      "sourceBlobs": {
+        "C": "19186bbe3513f8926505a936b397ed63de710ced"
+      },
+      "dev": "0ea87dc3737125f8465b13d4a756e1680e5aeacd",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "19186bbe3513f8926505a936b397ed63de710ced"
+    },
+    {
+      "path": "V6_BO/scripts/audit-data-source-readiness.js",
+      "sourceBlobs": {
+        "D": "d2a8306cf6ed3cf552fa31f4679b7362519d5e3c"
+      },
+      "dev": "94ceb7d4b8e7797e2fc75ba3ea0b2c7393540e40",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d2a8306cf6ed3cf552fa31f4679b7362519d5e3c"
+    },
+    {
+      "path": "V6_BO/scripts/collect-eia-spot.js",
+      "sourceBlobs": {
+        "D": "75109bd49d1dd4749a9ef9956fcdb08aff6917a9"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "75109bd49d1dd4749a9ef9956fcdb08aff6917a9"
+    },
+    {
+      "path": "V6_BO/scripts/disaster-recovery.js",
+      "sourceBlobs": {
+        "B": "2ce561672dcecf9eb5522ec4fd507b3e2bcae560"
+      },
+      "dev": "2ce561672dcecf9eb5522ec4fd507b3e2bcae560",
+      "resolution": "already-in-dev",
+      "final": "2ce561672dcecf9eb5522ec4fd507b3e2bcae560"
+    },
+    {
+      "path": "V6_BO/scripts/factor-shadow-worker.js",
+      "sourceBlobs": {
+        "A": "8d5aeb86957903ad20a69e21a5a87dc0e53fffd3"
+      },
+      "dev": "4f05b0a0688f58f16f0abc91768f896f50a8c673",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8d5aeb86957903ad20a69e21a5a87dc0e53fffd3"
+    },
+    {
+      "path": "V6_BO/scripts/fayo-risk-browser-check.js",
+      "sourceBlobs": {
+        "C": "d20aa8023d642a01d0e1ed684c4728c2770274cd"
+      },
+      "dev": "1ae70cd04db85ebbb33cb5bc39a7030f64947f5b",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d20aa8023d642a01d0e1ed684c4728c2770274cd"
+    },
+    {
+      "path": "V6_BO/scripts/global-stock-quote.js",
+      "sourceBlobs": {
+        "D": "f26b4d610e7b7e0ec5a8210bfacfb0c9be462ccc"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f26b4d610e7b7e0ec5a8210bfacfb0c9be462ccc"
+    },
+    {
+      "path": "V6_BO/scripts/quote-source-window-quality.js",
+      "sourceBlobs": {
+        "D": "6db2c622eb262ba02c0b0dbe2996c30a7a77c8f6"
+      },
+      "dev": "897b93321aafc0ff3f1e13c81c180c7123971169",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6db2c622eb262ba02c0b0dbe2996c30a7a77c8f6"
+    },
+    {
+      "path": "V6_BO/scripts/read-security-lifecycle.js",
+      "sourceBlobs": {
+        "D": "c9812ac466a2f75b479581874b69e78f7ba0794e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c9812ac466a2f75b479581874b69e78f7ba0794e"
+    },
+    {
+      "path": "V6_BO/scripts/research-cross-source-history.js",
+      "sourceBlobs": {
+        "D": "76e4200d4a4a5bd603bcabd4e20d549cc166f230"
+      },
+      "dev": "845479d40a299cdf25a62ec966d8e9bc0b986820",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "76e4200d4a4a5bd603bcabd4e20d549cc166f230"
+    },
+    {
+      "path": "V6_BO/scripts/ui-model-forecast-check.js",
+      "sourceBlobs": {
+        "A": "2411478fd2d33754cb4443a5b6788f780bd01cfe"
+      },
+      "dev": "0caa9964579352521c5a690cfce8c36f3180e8de",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2411478fd2d33754cb4443a5b6788f780bd01cfe"
+    },
+    {
+      "path": "V6_BO/src/core/a-share-session-coverage.js",
+      "sourceBlobs": {
+        "D": "309c31df9dcf462bd20268ede59169d5a7f8fa3f"
+      },
+      "dev": "68c612ace187980f42eb74c657ca6c674251a8c2",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "309c31df9dcf462bd20268ede59169d5a7f8fa3f"
+    },
+    {
+      "path": "V6_BO/src/core/account-safety-state.js",
+      "sourceBlobs": {
+        "B": "80df1eb9d24c4ffd3d59ca00eddf0da1f8d708f1"
+      },
+      "dev": "e7784ad36b030b52eecdb078e8d3aa1e3f191dcb",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "80df1eb9d24c4ffd3d59ca00eddf0da1f8d708f1"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-account-risk.js",
+      "sourceBlobs": {
+        "C": "f68b16b40a2d5fdd343d49a4ceb71c3150b4b2ad"
+      },
+      "dev": "a4663edc6b75eefe4af673a0c0609816227d561a",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f68b16b40a2d5fdd343d49a4ceb71c3150b4b2ad"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-evidence.js",
+      "sourceBlobs": {
+        "C": "36343ec30cc9af4cf683a119d93193d6b979c2a5"
+      },
+      "dev": "5180ffb6082c03e3000b053f6f0d81d0104d8c03",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "36343ec30cc9af4cf683a119d93193d6b979c2a5"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "sourceBlobs": {
+        "C": "bd161a60fdf76b5d4d9aac902c20836b8f1e44f7"
+      },
+      "dev": "42eae4b6d0bc5eaeb1cdbfacac5b104a8afc3f91",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bd161a60fdf76b5d4d9aac902c20836b8f1e44f7"
+    },
+    {
+      "path": "V6_BO/src/core/auction-resonance-basis.js",
+      "sourceBlobs": {
+        "D": "1a027d0b74438f6feb1ff7ae09f86cb30a9f82ce"
+      },
+      "dev": "d509fd4aa0496ad0f8366535ed1a47c46a8645d6",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1a027d0b74438f6feb1ff7ae09f86cb30a9f82ce"
+    },
+    {
+      "path": "V6_BO/src/core/baostock-historical-normalizer.js",
+      "sourceBlobs": {
+        "D": "4ab157da33d4236d06df1dc47314a79064effdc3"
+      },
+      "dev": "9f748831c3e97a071b40001beb1afbf709e280ff",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4ab157da33d4236d06df1dc47314a79064effdc3"
+    },
+    {
+      "path": "V6_BO/src/core/close-review-evidence.js",
+      "sourceBlobs": {
+        "D": "093f833789eb818a057d5e18d2e77eb4b2b63f00"
+      },
+      "dev": "0fed58d6e606d67766740675adca8205b182bca0",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "093f833789eb818a057d5e18d2e77eb4b2b63f00"
+    },
+    {
+      "path": "V6_BO/src/core/cls-limit-up-pool.js",
+      "sourceBlobs": {
+        "D": "c31778c58edfb8a1e7bec0a9f5b23f67b251f449"
+      },
+      "dev": "cf87872052467476377fbf11d636c3662553f65a",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c31778c58edfb8a1e7bec0a9f5b23f67b251f449"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "sourceBlobs": {
+        "B": "23a6108d6d60c556a808d4001f19dfbf1385bc84"
+      },
+      "dev": "d58f39e685d145b313723a66e2459b468d01d56b",
+      "resolution": "B",
+      "reason": "保留原门禁并增强自有数据属性、损失事件及持仓输入核验。",
+      "final": "23a6108d6d60c556a808d4001f19dfbf1385bc84"
+    },
+    {
+      "path": "V6_BO/src/core/crowding-close-path-evidence.js",
+      "sourceBlobs": {
+        "C": "684f2d3dbd00391e3d501eb800d2d027a8ca3d92"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "684f2d3dbd00391e3d501eb800d2d027a8ca3d92"
+    },
+    {
+      "path": "V6_BO/src/core/crowding-risk-replay-audit.js",
+      "sourceBlobs": {
+        "C": "14f821724c08e851df5d49a402ce954159b04f46"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "14f821724c08e851df5d49a402ce954159b04f46"
+    },
+    {
+      "path": "V6_BO/src/core/crowding-shadow-review.js",
+      "sourceBlobs": {
+        "C": "f781f4713c917a590753278c8aa1bad1c58a0c89"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f781f4713c917a590753278c8aa1bad1c58a0c89"
+    },
+    {
+      "path": "V6_BO/src/core/data-source-lineage.js",
+      "sourceBlobs": {
+        "D": "e2688532c1b2d35f3763181c5a2be29204101cc3"
+      },
+      "dev": "817048838ad9ba6abe02a1e308ac11a8bd695a98",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e2688532c1b2d35f3763181c5a2be29204101cc3"
+    },
+    {
+      "path": "V6_BO/src/core/data-source-readiness-audit.js",
+      "sourceBlobs": {
+        "D": "e897d8d1243ce37ddc227fa66998b63296fbd250"
+      },
+      "dev": "775739ff1dce167dd2aecc72104a5b855b176128",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e897d8d1243ce37ddc227fa66998b63296fbd250"
+    },
+    {
+      "path": "V6_BO/src/core/deep-decision-research.js",
+      "sourceBlobs": {
+        "B": "de0ea8d11f1330faf895239641ccd7bee02da565"
+      },
+      "dev": "de0ea8d11f1330faf895239641ccd7bee02da565",
+      "resolution": "already-in-dev",
+      "final": "de0ea8d11f1330faf895239641ccd7bee02da565"
+    },
+    {
+      "path": "V6_BO/src/core/deep-research-evidence.js",
+      "sourceBlobs": {
+        "C": "93c8c7e2017ebaf63cf0ec3538374c230b343baf",
+        "D": "733eb97186e95d6aea7ec34e0ae0b08fa6fd1a7c"
+      },
+      "dev": "2af42b5eafc52f942ed2b8b62c88c9aee0f98c35",
+      "resolution": "semantic-merge",
+      "reason": "C组风险证据与D组数据契约不同代码区间，基于相同原文件无重叠合并。"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-current-board-members.js",
+      "sourceBlobs": {
+        "D": "090649f40bcf59a76aaecaec96f1d0ee4b35cb97"
+      },
+      "dev": "2af89f50e86f4270d5004f76ce3f9bf96919e107",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "090649f40bcf59a76aaecaec96f1d0ee4b35cb97"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-historical-feed.js",
+      "sourceBlobs": {
+        "D": "727b8df933346a6efd5d9108d5e694d118942be9"
+      },
+      "dev": "a809320dd1544e9afbeebbf2ac272953ba19ea06",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "727b8df933346a6efd5d9108d5e694d118942be9"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-market-snapshot.js",
+      "sourceBlobs": {
+        "D": "1a85fb1b58f84712eb90cf2a6032ad779f3db14c"
+      },
+      "dev": "ead86eb15c59c2d3b11ecd2763689ceca6f6a8d2",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1a85fb1b58f84712eb90cf2a6032ad779f3db14c"
+    },
+    {
+      "path": "V6_BO/src/core/ecb-cross-reference.js",
+      "sourceBlobs": {
+        "D": "9e384480573a8f4b2d3eb4410f709bd512caa48a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9e384480573a8f4b2d3eb4410f709bd512caa48a"
+    },
+    {
+      "path": "V6_BO/src/core/ecb-fx-daily.js",
+      "sourceBlobs": {
+        "D": "e625a28b14ce79f72a25640aa85d80546812814f"
+      },
+      "dev": "fc5bba99a8379e456726c90c57006e4f3180ae59",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e625a28b14ce79f72a25640aa85d80546812814f"
+    },
+    {
+      "path": "V6_BO/src/core/effective-risk-evidence.js",
+      "sourceBlobs": {
+        "B": "3f5ec3897ee40fbcb8b74ad605b879cb7a976ad1"
+      },
+      "dev": "182e2cf2b580fa67aa21d0e80718660837065c65",
+      "resolution": "B",
+      "reason": "原逻辑保留，新增溢出/非有限风险数值拒绝。",
+      "final": "3f5ec3897ee40fbcb8b74ad605b879cb7a976ad1"
+    },
+    {
+      "path": "V6_BO/src/core/eia-spot-daily.js",
+      "sourceBlobs": {
+        "D": "c65c132032f5264ac613b9d1b41407d27e1d99f5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c65c132032f5264ac613b9d1b41407d27e1d99f5"
+    },
+    {
+      "path": "V6_BO/src/core/evolution-research-statistics.js",
+      "sourceBlobs": {
+        "A": "6f16f0690c6d087208526cf56b3fe6571666153b"
+      },
+      "dev": "433bf92f7ca2288300ea797f03560aa4eab74f3f",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6f16f0690c6d087208526cf56b3fe6571666153b"
+    },
+    {
+      "path": "V6_BO/src/core/execution-risk.js",
+      "sourceBlobs": {
+        "B": "a7027f8ae0d1c0b1481dc8e5cfae0c3bcb22aed2"
+      },
+      "dev": "a7027f8ae0d1c0b1481dc8e5cfae0c3bcb22aed2",
+      "resolution": "already-in-dev",
+      "final": "a7027f8ae0d1c0b1481dc8e5cfae0c3bcb22aed2"
+    },
+    {
+      "path": "V6_BO/src/core/factor-candidate-prereg.js",
+      "sourceBlobs": {
+        "A": "be622022324ef3c10d84bec056e91e3333d5a556"
+      },
+      "dev": "0893e913339f7ee5655fc3db36203a326f7e4a39",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "be622022324ef3c10d84bec056e91e3333d5a556"
+    },
+    {
+      "path": "V6_BO/src/core/factor-global-trial-budget.js",
+      "sourceBlobs": {
+        "A": "d0bb6e379c6e8924dadc36b6e287ac741735cfb6"
+      },
+      "dev": "fd77afee9389de2237c5376312d802325c9990d4",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d0bb6e379c6e8924dadc36b6e287ac741735cfb6"
+    },
+    {
+      "path": "V6_BO/src/core/factor-shadow-candidate-proposer.js",
+      "sourceBlobs": {
+        "A": "e6fe369f48b1bc2917fb7de4b9c10063a41b5fad"
+      },
+      "dev": "7d07537cbee21ee180e293916167b1a134cd042f",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e6fe369f48b1bc2917fb7de4b9c10063a41b5fad"
+    },
+    {
+      "path": "V6_BO/src/core/factor-shadow-evolution.js",
+      "sourceBlobs": {
+        "A": "25f7bef37533313002cf615096a788b77cd2707d"
+      },
+      "dev": "df212cc6f25b918e13205701b82a3500ea9c104c",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "25f7bef37533313002cf615096a788b77cd2707d"
+    },
+    {
+      "path": "V6_BO/src/core/fund-history-cache.js",
+      "sourceBlobs": {
+        "B": "9104e859c835b61b47c1a88ce2c82556b31e3ebf",
+        "D": "3c0b0bcf3af228df3fd08681c6ce51f1aa557d5a"
+      },
+      "dev": "9104e859c835b61b47c1a88ce2c82556b31e3ebf",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3c0b0bcf3af228df3fd08681c6ce51f1aa557d5a"
+    },
+    {
+      "path": "V6_BO/src/core/historical-universe.js",
+      "sourceBlobs": {
+        "D": "314c8f2dcd31931736972e29199bdefcba3856a4"
+      },
+      "dev": "a1f367eb6487efdef45f9a0cd382ffc328c23e86",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "314c8f2dcd31931736972e29199bdefcba3856a4"
+    },
+    {
+      "path": "V6_BO/src/core/itick-stock-quote.js",
+      "sourceBlobs": {
+        "D": "638c2fb8de0bd68a98fa525f6b0e76cee72edbf8"
+      },
+      "dev": "51b66c561f7597e1850f369129ace61b869139c0",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "638c2fb8de0bd68a98fa525f6b0e76cee72edbf8"
+    },
+    {
+      "path": "V6_BO/src/core/learning-profile-registry.js",
+      "sourceBlobs": {
+        "A": "ee70e69de37fdc27391d7b5be8f13e19102f9573"
+      },
+      "dev": "f6622697083a7363c90bf561cbf41c8e1baa0d06",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ee70e69de37fdc27391d7b5be8f13e19102f9573"
+    },
+    {
+      "path": "V6_BO/src/core/lhb-evidence.js",
+      "sourceBlobs": {
+        "D": "d969633f840dbd1abec3389fbea1343ee60c17e5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d969633f840dbd1abec3389fbea1343ee60c17e5"
+    },
+    {
+      "path": "V6_BO/src/core/limit-reason-evidence.js",
+      "sourceBlobs": {
+        "D": "f60fa5e59a17c1abff2c915b79c2b0e28172a888"
+      },
+      "dev": "9db2dc3cf5d3e5a42f1946028a58f56fe0c4ccde",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f60fa5e59a17c1abff2c915b79c2b0e28172a888"
+    },
+    {
+      "path": "V6_BO/src/core/limit-review-pool.js",
+      "sourceBlobs": {
+        "D": "32f24049b00d4ef5bb98bcaa2bc72c9780080101"
+      },
+      "dev": "c3753094eca58a60eaa2b981320d44782eb6e2a8",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "32f24049b00d4ef5bb98bcaa2bc72c9780080101"
+    },
+    {
+      "path": "V6_BO/src/core/live-candidate-bridge.js",
+      "sourceBlobs": {
+        "B": "361895d5485b46d5a0408272c45322fe2ae3d944",
+        "D": "47fb82ba7a0984f033ce8c954bd0f3a9390ddb25"
+      },
+      "dev": "361895d5485b46d5a0408272c45322fe2ae3d944",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "47fb82ba7a0984f033ce8c954bd0f3a9390ddb25"
+    },
+    {
+      "path": "V6_BO/src/core/local-model-learning-proposer.js",
+      "sourceBlobs": {
+        "A": "79141ce63999f5051c400d08c8e655242d0134be"
+      },
+      "dev": "e4a39918e5cd528d59f56ff40c8afcf4bb72f912",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "79141ce63999f5051c400d08c8e655242d0134be"
+    },
+    {
+      "path": "V6_BO/src/core/market-breadth.js",
+      "sourceBlobs": {
+        "D": "85b62978a328ed95238842dfda399efe72f3d71a"
+      },
+      "dev": "3fedf7b2d0ad8384843465524199c2ef52397096",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "85b62978a328ed95238842dfda399efe72f3d71a"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-center.js",
+      "sourceBlobs": {
+        "D": "9aec2ccf9565268e7027c4ad64fe055dd772f086"
+      },
+      "dev": "98c6dbcc26764a9aae45482398837c2e8d28203e",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9aec2ccf9565268e7027c4ad64fe055dd772f086"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "sourceBlobs": {
+        "D": "aa7b1cd66de7aa35901235e41e353af4899a393d"
+      },
+      "dev": "8604b6a86b23be8f5c7b9e35aec28f7665a5014c",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "aa7b1cd66de7aa35901235e41e353af4899a393d"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-quality.js",
+      "sourceBlobs": {
+        "D": "eeff663943a803823868be86542dc50f6a8153b1"
+      },
+      "dev": "c8d8089c74256228d79db8fcca8d51e46e5acb3d",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "eeff663943a803823868be86542dc50f6a8153b1"
+    },
+    {
+      "path": "V6_BO/src/core/market-display-snapshot.js",
+      "sourceBlobs": {
+        "D": "91ebe6c8c7a219ae5d570d0b0f20ce2d6e24d11d"
+      },
+      "dev": "9fba19227a6804bf32cf5c775fc6fb98e22e3e9a",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "91ebe6c8c7a219ae5d570d0b0f20ce2d6e24d11d"
+    },
+    {
+      "path": "V6_BO/src/core/market-evidence-quality.js",
+      "sourceBlobs": {
+        "D": "5620f5b2bd8049d1b3d9cf076e91defd486ccefd"
+      },
+      "dev": "9b678f381125aebbaf9f27fc82d6b2c3d5fda959",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5620f5b2bd8049d1b3d9cf076e91defd486ccefd"
+    },
+    {
+      "path": "V6_BO/src/core/market-failover.js",
+      "sourceBlobs": {
+        "B": "1f69dfe916e8ff409ff3dfbf6f70147d06eeb4de",
+        "D": "f1ad7102f6d650728f7ca697c29de9800cfe6a53"
+      },
+      "dev": "1f69dfe916e8ff409ff3dfbf6f70147d06eeb4de",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f1ad7102f6d650728f7ca697c29de9800cfe6a53"
+    },
+    {
+      "path": "V6_BO/src/core/market-request-governor.js",
+      "sourceBlobs": {
+        "B": "228aba3c9dd469003896ed39540dd75c59689627",
+        "D": "d151fb42a44074ad6bd29cf4fea3bb17a34770e9"
+      },
+      "dev": "228aba3c9dd469003896ed39540dd75c59689627",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d151fb42a44074ad6bd29cf4fea3bb17a34770e9"
+    },
+    {
+      "path": "V6_BO/src/core/market-response-snapshot.js",
+      "sourceBlobs": {
+        "D": "a31af18b8ea97cc1c7284b313fea3071d8345ef4"
+      },
+      "dev": "c3794f1f604972ecabcdc4ca055b039570a7911f",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a31af18b8ea97cc1c7284b313fea3071d8345ef4"
+    },
+    {
+      "path": "V6_BO/src/core/market-snapshot-quote-time.js",
+      "sourceBlobs": {
+        "D": "1eb14423cf3a0e997bcd1e72a1fa8d19e0939a42"
+      },
+      "dev": "3cd7f7e1f223413199087c860d39f512f06d5610",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1eb14423cf3a0e997bcd1e72a1fa8d19e0939a42"
+    },
+    {
+      "path": "V6_BO/src/core/market-source-cadence.js",
+      "sourceBlobs": {
+        "D": "1c01c1d1c54b75a6f3874838dce1902cab4bae84"
+      },
+      "dev": "9655871aba59d037a60ca5a5bf85b01dcaf83ce6",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1c01c1d1c54b75a6f3874838dce1902cab4bae84"
+    },
+    {
+      "path": "V6_BO/src/core/model-forward-evaluation.js",
+      "sourceBlobs": {
+        "A": "0729e879b73173ba9d593c11de1949c247141a64"
+      },
+      "dev": "fcf4e7ecf70222d92e8c679bea595709c9ee5b8c",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0729e879b73173ba9d593c11de1949c247141a64"
+    },
+    {
+      "path": "V6_BO/src/core/multi-source-price-consensus.js",
+      "sourceBlobs": {
+        "D": "38915120d0a8251af547556f45b318055c7912c9"
+      },
+      "dev": "5efc4b1e0606a9b3402e1be6f07440b2d6fcbd59",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "38915120d0a8251af547556f45b318055c7912c9"
+    },
+    {
+      "path": "V6_BO/src/core/native-strategy-daily-runner.js",
+      "sourceBlobs": {
+        "A": "64f53600dd686bd067c2761ae70f8d07a0caff65",
+        "D": "a818c7f3c47b47f3c4400f89a119d86e34a69681"
+      },
+      "dev": "48e737e6f147b445665e5474eef2df45b07c1bf1",
+      "resolution": "semantic-merge",
+      "reason": "保留A组父子回执/同日身份门禁，以及D组递归来源、时点、数据准入与拒绝诊断。"
+    },
+    {
+      "path": "V6_BO/src/core/news-evidence-journal.js",
+      "sourceBlobs": {
+        "D": "77e4d4a34085bce8e63c92ffff942bf1f62c1a1b"
+      },
+      "dev": "239041d9ced09ef67b7f7fe70cb444a5d3a849b6",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "77e4d4a34085bce8e63c92ffff942bf1f62c1a1b"
+    },
+    {
+      "path": "V6_BO/src/core/observed-market-regime.js",
+      "sourceBlobs": {
+        "D": "70b8ddea39327436771acd99aefcb479c9d2b400"
+      },
+      "dev": "a00a49081a28a9176555024c8e5ffad025670cb8",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "70b8ddea39327436771acd99aefcb479c9d2b400"
+    },
+    {
+      "path": "V6_BO/src/core/paper-account-ledger.js",
+      "sourceBlobs": {
+        "B": "4fa0473edb4d2b6775ef9372acfeffdb4c23014b"
+      },
+      "dev": "e2594fbb13d66012c406ea2f222b14d49afd8eca",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4fa0473edb4d2b6775ef9372acfeffdb4c23014b"
+    },
+    {
+      "path": "V6_BO/src/core/paper-account-reconciliation.js",
+      "sourceBlobs": {
+        "B": "1ed820b293e5e1740cd18d1e096e6f6f78e34a91"
+      },
+      "dev": "59f1a39641986a389232958fb4451a04ed67733d",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1ed820b293e5e1740cd18d1e096e6f6f78e34a91"
+    },
+    {
+      "path": "V6_BO/src/core/paper-application-service.js",
+      "sourceBlobs": {
+        "B": "fca8d557484c023436440391d85a908bbae03c04"
+      },
+      "dev": "fca8d557484c023436440391d85a908bbae03c04",
+      "resolution": "already-in-dev",
+      "final": "fca8d557484c023436440391d85a908bbae03c04"
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "sourceBlobs": {
+        "B": "9f86485246c43124188ba6ad18bf92a7c2390b58"
+      },
+      "dev": "4026f46decc8948875d9c04785d97046a10b0528",
+      "resolution": "dev",
+      "reason": "保留原60项更严格的成交身份、账户期次及确认时钟核验。",
+      "final": "4026f46decc8948875d9c04785d97046a10b0528"
+    },
+    {
+      "path": "V6_BO/src/core/paper-execution-preflight.js",
+      "sourceBlobs": {
+        "C": "b988a51dfbe2d62bb6375e557eb162eacaef3f06"
+      },
+      "dev": "f967b3bf45f56e4c4df65ab609f96224b41904ec",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b988a51dfbe2d62bb6375e557eb162eacaef3f06"
+    },
+    {
+      "path": "V6_BO/src/core/paper-fill-evidence.js",
+      "sourceBlobs": {
+        "D": "f446832851a5a499b06f320f17a160502dbf901e"
+      },
+      "dev": "724f5f5d1c44713406640ca1f8b4a474fda8bb06",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f446832851a5a499b06f320f17a160502dbf901e"
+    },
+    {
+      "path": "V6_BO/src/core/paper-intent-simulator.js",
+      "sourceBlobs": {
+        "C": "803c5a66996542d094f45b1170b86689558e01d7"
+      },
+      "dev": "af7a1389a248b65adb3172efd83ad6f396cf0926",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "803c5a66996542d094f45b1170b86689558e01d7"
+    },
+    {
+      "path": "V6_BO/src/core/paper-ledger-reconciliation.js",
+      "sourceBlobs": {
+        "B": "ddf4ece5e76f8b8390e49cd5dc57837918590d28"
+      },
+      "dev": "024bf2824dc63f43266db91ccf8c743a85a07473",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ddf4ece5e76f8b8390e49cd5dc57837918590d28"
+    },
+    {
+      "path": "V6_BO/src/core/paper-order-state-machine.js",
+      "sourceBlobs": {
+        "B": "a5b9351ab929131d2fd999748274d84fa167a0bc"
+      },
+      "dev": "1f6b30469dc0b6fa663f3ba54ee88164fe943352",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a5b9351ab929131d2fd999748274d84fa167a0bc"
+    },
+    {
+      "path": "V6_BO/src/core/paper-order-store.js",
+      "sourceBlobs": {
+        "B": "4a65eb4a678d4014fe92109f15e1dd2cc18bb0f3"
+      },
+      "dev": "34796d41034d39f0b1bb2b00145590e0c3544c82",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4a65eb4a678d4014fe92109f15e1dd2cc18bb0f3"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-entry-check.js",
+      "sourceBlobs": {
+        "B": "06c714c0c336686a754bd909f2fa89f029ebe2d7"
+      },
+      "dev": "06c714c0c336686a754bd909f2fa89f029ebe2d7",
+      "resolution": "already-in-dev",
+      "final": "06c714c0c336686a754bd909f2fa89f029ebe2d7"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "sourceBlobs": {
+        "B": "bb9974b6e90961c0a3761ff1530c88c4f9e94702"
+      },
+      "dev": "bb9974b6e90961c0a3761ff1530c88c4f9e94702",
+      "resolution": "already-in-dev",
+      "final": "bb9974b6e90961c0a3761ff1530c88c4f9e94702"
+    },
+    {
+      "path": "V6_BO/src/core/paper-session.js",
+      "sourceBlobs": {
+        "B": "4a1685489d8b49dc448f47133c3982df49b201dd"
+      },
+      "dev": "1c3fc7ddc9896763fea5221dfd40aaa003b8913a",
+      "resolution": "B",
+      "reason": "原逻辑保留，新增备份字节绑定与提交前状态检查。",
+      "final": "4a1685489d8b49dc448f47133c3982df49b201dd"
+    },
+    {
+      "path": "V6_BO/src/core/paper-shadow-reconciliation.js",
+      "sourceBlobs": {
+        "B": "7a2df04864600b627bb7d510f6b90309158e6843"
+      },
+      "dev": "093c05ba10046e708d7e6c87459ba08766d0b5ea",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7a2df04864600b627bb7d510f6b90309158e6843"
+    },
+    {
+      "path": "V6_BO/src/core/paper-transaction-coordinator.js",
+      "sourceBlobs": {
+        "B": "925560e82b62997ef96d208661b61b8e7aaaed33"
+      },
+      "dev": "19c6810f0bcc8b3303f5554c583c911f66fa08ee",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "925560e82b62997ef96d208661b61b8e7aaaed33"
+    },
+    {
+      "path": "V6_BO/src/core/parallel-market.js",
+      "sourceBlobs": {
+        "D": "d01a8b7bb6ce78f6592ccbb6fdae6ef371b7f769"
+      },
+      "dev": "a43da3446e2518dee9559fbea1de2a7ce47518ca",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d01a8b7bb6ce78f6592ccbb6fdae6ef371b7f769"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+      "sourceBlobs": {
+        "C": "9e518d19b7cbf1c641c26b649d48c6c53aee5e68"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9e518d19b7cbf1c641c26b649d48c6c53aee5e68"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-defense-evidence.js",
+      "sourceBlobs": {
+        "C": "ddb555b6f14100b9f89d201078bded31a5921a2d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ddb555b6f14100b9f89d201078bded31a5921a2d"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "sourceBlobs": {
+        "B": "1c295345557800fd1cbd282473ff1c3f92b55924"
+      },
+      "dev": "df22848143147ed3b26a4d0588c2ea7b53471714",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1c295345557800fd1cbd282473ff1c3f92b55924"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-stress-evidence.js",
+      "sourceBlobs": {
+        "C": "5dfe78738bb0c60d67826884ee8bf8cd16d3486a"
+      },
+      "dev": "89a72c6b1fc125ef9ebdbb20eaff16c85fa98837",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5dfe78738bb0c60d67826884ee8bf8cd16d3486a"
+    },
+    {
+      "path": "V6_BO/src/core/private-risk-feishu-delivery.js",
+      "sourceBlobs": {
+        "B": "977a126d76680f82a6f1215f160210a1fe3a18ae"
+      },
+      "dev": "977a126d76680f82a6f1215f160210a1fe3a18ae",
+      "resolution": "already-in-dev",
+      "final": "977a126d76680f82a6f1215f160210a1fe3a18ae"
+    },
+    {
+      "path": "V6_BO/src/core/probability-reliability.js",
+      "sourceBlobs": {
+        "A": "cce87e7bc9f54d925ce257298dac55fd265b2076"
+      },
+      "dev": "1b85d1d7bc807f9e2a979d755ba59d7506ccb765",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "cce87e7bc9f54d925ce257298dac55fd265b2076"
+    },
+    {
+      "path": "V6_BO/src/core/public-market.js",
+      "sourceBlobs": {
+        "B": "455b9f25043e8bec1a55d929a8e5c9ae1807957d",
+        "D": "043e8c2867fbf8cafa4943a03521e88bc1ed4e02"
+      },
+      "dev": "c4c1abc854072e1ca14af714764094e62a304e89",
+      "resolution": "semantic-merge",
+      "reason": "保留B组脱敏传输失败分类及D组严格字节/解码/时钟/未来报价门禁；本地大小异常使用独立类型。"
+    },
+    {
+      "path": "V6_BO/src/core/public-quote-endpoint-health.js",
+      "sourceBlobs": {
+        "B": "aeb78d3d0ba15623b90385567f0811c561272fc2",
+        "D": "23b45dbce813f421f59a5b6d57c153e92d6505eb"
+      },
+      "dev": "7a39987ab3f8265d5c83795a4791684f398888e1",
+      "resolution": "semantic-merge",
+      "reason": "保留B组HTTP和传输诊断，D组跨响应及发布时钟回拨处理。"
+    },
+    {
+      "path": "V6_BO/src/core/public-quote-probe.js",
+      "sourceBlobs": {
+        "B": "58823e7aa66f56c1e10e03b47425838c0ae9f1f5",
+        "D": "8383fb9ee3a02a148eacb74d020027b3a8d2ec85"
+      },
+      "dev": "77f300cf45b87ae2236aa8b463a674593225f711",
+      "resolution": "semantic-merge",
+      "reason": "保留B组失败类别投影、D组时钟及过期/无效报价不得升格约束。"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-financials.js",
+      "sourceBlobs": {
+        "D": "c594efb3b1a23d4c2fa871db3f8a523b61771587"
+      },
+      "dev": "92ab5692963f71a7efcd1667316fb2e4eb7039a3",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c594efb3b1a23d4c2fa871db3f8a523b61771587"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-history.js",
+      "sourceBlobs": {
+        "D": "156bbacd54923de57a43eedd01f280ce18d6dd97"
+      },
+      "dev": "3110c24b3918596075b2593cfeb327c003878a06",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "156bbacd54923de57a43eedd01f280ce18d6dd97"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-status-evidence.js",
+      "sourceBlobs": {
+        "D": "f5414988511212868b092272deed0d107ef21792"
+      },
+      "dev": "aa215e4e4ff202923c7b5ac520ee827cd8990317",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f5414988511212868b092272deed0d107ef21792"
+    },
+    {
+      "path": "V6_BO/src/core/quote-cross-check.js",
+      "sourceBlobs": {
+        "D": "67e62ff3cfd46f551d265fc43ff0a4833603af72"
+      },
+      "dev": "d2a9e4cceee7661abbdd27484192902ccce4b674",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "67e62ff3cfd46f551d265fc43ff0a4833603af72"
+    },
+    {
+      "path": "V6_BO/src/core/quote-dual-source-diagnostic.js",
+      "sourceBlobs": {
+        "D": "38905f38eba98035ab2662a56b5d9c8f5d40462c"
+      },
+      "dev": "a065fbf31a9f1763efff6f397a687bf99f45240b",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "38905f38eba98035ab2662a56b5d9c8f5d40462c"
+    },
+    {
+      "path": "V6_BO/src/core/quote-source-window-quality.js",
+      "sourceBlobs": {
+        "D": "3c51013453f9597c7dee218ba1c9b0694162fc0e"
+      },
+      "dev": "f6ee67b2aff870c5db8ef769e51f7f1930886ec5",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3c51013453f9597c7dee218ba1c9b0694162fc0e"
+    },
+    {
+      "path": "V6_BO/src/core/research-calendar-source.js",
+      "sourceBlobs": {
+        "D": "ebab0f5968e70098dc47a11433e4a870fa073f2b"
+      },
+      "dev": "d0a534729c174b8e24c210eee58c84bc21928eb3",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ebab0f5968e70098dc47a11433e4a870fa073f2b"
+    },
+    {
+      "path": "V6_BO/src/core/research-risk-gate.js",
+      "sourceBlobs": {
+        "D": "1deb42ba73b47e9674edfe2b72fc6242077d1f0c"
+      },
+      "dev": "dbe60cb1b50b5a483315817db891bc73b1b1dcfc",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1deb42ba73b47e9674edfe2b72fc6242077d1f0c"
+    },
+    {
+      "path": "V6_BO/src/core/research-validation-suite.js",
+      "sourceBlobs": {
+        "B": "b37c0a5d30e25d8e2c731ccde8cf555033eb0388"
+      },
+      "dev": "b37c0a5d30e25d8e2c731ccde8cf555033eb0388",
+      "resolution": "already-in-dev",
+      "final": "b37c0a5d30e25d8e2c731ccde8cf555033eb0388"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-decision.js",
+      "sourceBlobs": {
+        "A": "bd65d3f4c54fb3a2c6dd91eb235401fd0e8c709e"
+      },
+      "dev": "8938bb016b8f8c65d99562685e06cbb180154ba2",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bd65d3f4c54fb3a2c6dd91eb235401fd0e8c709e"
+    },
+    {
+      "path": "V6_BO/src/core/risk-action-evidence.js",
+      "sourceBlobs": {
+        "B": "b316452420b7233c2570c7f63833717f7a86a910"
+      },
+      "dev": "b316452420b7233c2570c7f63833717f7a86a910",
+      "resolution": "already-in-dev",
+      "final": "b316452420b7233c2570c7f63833717f7a86a910"
+    },
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "sourceBlobs": {
+        "C": "c5286c866a45c1c703c92b7a213497a27feb9abc"
+      },
+      "dev": "a2a5abfa935c4de9e6249e5e266c30611dd9aaaf",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c5286c866a45c1c703c92b7a213497a27feb9abc"
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "sourceBlobs": {
+        "C": "dcf73e6fab72a99351b2f4e3289b2953fb42cc79"
+      },
+      "dev": "90c7e834a54cee25551f494887719cb6c4053982",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "dcf73e6fab72a99351b2f4e3289b2953fb42cc79"
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sourceBlobs": {
+        "C": "673af739ed3ac7ef60bc961771458d7b46ed3988"
+      },
+      "dev": "71d9eea4b904715bcbe6a6d0162a2d56c49d0f6b",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "673af739ed3ac7ef60bc961771458d7b46ed3988"
+    },
+    {
+      "path": "V6_BO/src/core/runtime-trace.js",
+      "sourceBlobs": {
+        "B": "6af5812f1abb0e6172ad8c456291f0c1585990e1"
+      },
+      "dev": "6af5812f1abb0e6172ad8c456291f0c1585990e1",
+      "resolution": "already-in-dev",
+      "final": "6af5812f1abb0e6172ad8c456291f0c1585990e1"
+    },
+    {
+      "path": "V6_BO/src/core/sec-companyfacts.js",
+      "sourceBlobs": {
+        "D": "00e94883ac5baddc38135436dd2efbfefbe7680c"
+      },
+      "dev": "88219b07205326a3b87ffa3a8e0fc74cbd225f65",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "00e94883ac5baddc38135436dd2efbfefbe7680c"
+    },
+    {
+      "path": "V6_BO/src/core/sector-breadth-market-bridge.js",
+      "sourceBlobs": {
+        "D": "6182ef862aba81a5e7541f6b8d76830a7ddb4b89"
+      },
+      "dev": "4d001ece85a940c90d1c1e8b59f0b3a596588bec",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6182ef862aba81a5e7541f6b8d76830a7ddb4b89"
+    },
+    {
+      "path": "V6_BO/src/core/sector-dual-adjusted-source-audit.js",
+      "sourceBlobs": {
+        "D": "3ead99b7187f1b8d1f2a6984b2bd15708b72ef47"
+      },
+      "dev": "14c04a6e76058594bfd2532ed92b1068142c621a",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3ead99b7187f1b8d1f2a6984b2bd15708b72ef47"
+    },
+    {
+      "path": "V6_BO/src/core/security-lifecycle-evidence.js",
+      "sourceBlobs": {
+        "D": "050f1f38935c28332917218b208f7b3cf75f9029"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "050f1f38935c28332917218b208f7b3cf75f9029"
+    },
+    {
+      "path": "V6_BO/src/core/session-index-feed.js",
+      "sourceBlobs": {
+        "D": "8de57584982d7136ccd10d9642a89b8ebac92dac"
+      },
+      "dev": "ad513b09af98c11d9eb8b2d033f3ceec0d5bc6af",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8de57584982d7136ccd10d9642a89b8ebac92dac"
+    },
+    {
+      "path": "V6_BO/src/core/source-commercial-evidence.js",
+      "sourceBlobs": {
+        "D": "d331fafa0d8d251b1584f8b67821701b85ff77d7"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d331fafa0d8d251b1584f8b67821701b85ff77d7"
+    },
+    {
+      "path": "V6_BO/src/core/strategy-portfolio-lab.js",
+      "sourceBlobs": {
+        "B": "b85733a8dd6e87d7ea1125a97df942eb71f8af4f"
+      },
+      "dev": "b85733a8dd6e87d7ea1125a97df942eb71f8af4f",
+      "resolution": "already-in-dev",
+      "final": "b85733a8dd6e87d7ea1125a97df942eb71f8af4f"
+    },
+    {
+      "path": "V6_BO/src/core/system-readiness.js",
+      "sourceBlobs": {
+        "D": "50acf2030fba419f27977197584bbbaefa53a501"
+      },
+      "dev": "f6a2e7519c41c114f446a59263dcef0d11858aae",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "50acf2030fba419f27977197584bbbaefa53a501"
+    },
+    {
+      "path": "V6_BO/src/core/worldbank-indicators.js",
+      "sourceBlobs": {
+        "D": "5de563853836d9cccf625d28408dda604dd7d75d"
+      },
+      "dev": "a1db12e210c6d2940ea718481d4818c54796e4fc",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5de563853836d9cccf625d28408dda604dd7d75d"
+    },
+    {
+      "path": "V6_BO/src/research/drawer-minutes.js",
+      "sourceBlobs": {
+        "D": "044c8d5e0a576f003d75f90ff2e6722b9f355351"
+      },
+      "dev": "866e68e15d9a1cd8528404535ceb2aded705898b",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "044c8d5e0a576f003d75f90ff2e6722b9f355351"
+    },
+    {
+      "path": "V6_BO/src/research/shortline-paper-import.js",
+      "sourceBlobs": {
+        "B": "abc2a66220da9e27eb57775176baa417b74519e4"
+      },
+      "dev": "abc2a66220da9e27eb57775176baa417b74519e4",
+      "resolution": "already-in-dev",
+      "final": "abc2a66220da9e27eb57775176baa417b74519e4"
+    },
+    {
+      "path": "V6_BO/src/research/shortline-quote-fallback.js",
+      "sourceBlobs": {
+        "D": "f6217eef243f5f457c5557537aad129107bbbd51"
+      },
+      "dev": "4dbe2f5b59b0d6d399e684d5328d77a1253a5fa4",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f6217eef243f5f457c5557537aad129107bbbd51"
+    },
+    {
+      "path": "V6_BO/src/server/request-security.js",
+      "sourceBlobs": {
+        "B": "8950130ee013739d57f3c1bde07d9f1acd203eb4"
+      },
+      "dev": "8950130ee013739d57f3c1bde07d9f1acd203eb4",
+      "resolution": "already-in-dev",
+      "final": "8950130ee013739d57f3c1bde07d9f1acd203eb4"
+    },
+    {
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "sourceBlobs": {
+        "C": "db71ceda1d811bf5e38ac0490710ebfd25c3c462"
+      },
+      "dev": "fdb4177bef8e6905b339689db71ef9494ba8242a",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "db71ceda1d811bf5e38ac0490710ebfd25c3c462"
+    },
+    {
+      "path": "V6_BO/src/strategy/feed-quality.js",
+      "sourceBlobs": {
+        "A": "4bae33953cafc02575ddd34275af8cee3f3026bc"
+      },
+      "dev": "113dccb201da2451199b665e2b14895facb03c86",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4bae33953cafc02575ddd34275af8cee3f3026bc"
+    },
+    {
+      "path": "V6_BO/src/strategy/historical-session.js",
+      "sourceBlobs": {
+        "B": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab"
+      },
+      "dev": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab",
+      "resolution": "already-in-dev",
+      "final": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab"
+    },
+    {
+      "path": "V6_BO/src/strategy/issuer-event-linkage.js",
+      "sourceBlobs": {
+        "A": "4a1da0ee28a05a3b3541113c76d62e9e1c120a11"
+      },
+      "dev": "4f321178637cb6202da14b4c18a50af9abb6e936",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4a1da0ee28a05a3b3541113c76d62e9e1c120a11"
+    },
+    {
+      "path": "V6_BO/src/strategy/model-experiment.js",
+      "sourceBlobs": {
+        "B": "268c640ec3ae871e67dd019781430d33ad2b113c"
+      },
+      "dev": "268c640ec3ae871e67dd019781430d33ad2b113c",
+      "resolution": "already-in-dev",
+      "final": "268c640ec3ae871e67dd019781430d33ad2b113c"
+    },
+    {
+      "path": "V6_BO/tests/c-adverse-path-odds.test.js",
+      "sourceBlobs": {
+        "C": "a429cc067684295e8f92e847146dc6626b896280"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a429cc067684295e8f92e847146dc6626b896280"
+    },
+    {
+      "path": "V6_BO/tests/c-adverse-path-runtime.test.js",
+      "sourceBlobs": {
+        "C": "d0d819ec1cf59392a8e81f70bcdea6b1697a4e4b"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d0d819ec1cf59392a8e81f70bcdea6b1697a4e4b"
+    },
+    {
+      "path": "V6_BO/tests/c-batch-budget-exit.test.js",
+      "sourceBlobs": {
+        "C": "4e65d8792d85d30d98f6277b46add6bc552fc129"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4e65d8792d85d30d98f6277b46add6bc552fc129"
+    },
+    {
+      "path": "V6_BO/tests/c-batch-budget-runtime.test.js",
+      "sourceBlobs": {
+        "C": "c66face8b6e5f767aa66b4141bac1d5e85c0dad5"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c66face8b6e5f767aa66b4141bac1d5e85c0dad5"
+    },
+    {
+      "path": "V6_BO/tests/c-chase-risk-research.test.js",
+      "sourceBlobs": {
+        "C": "39e6dde61a1513987953125f9350473f8675c399"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "39e6dde61a1513987953125f9350473f8675c399"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-account-stress.test.js",
+      "sourceBlobs": {
+        "C": "e36dad5c2eccf489dbf19b81768dc79e77c9bab1"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e36dad5c2eccf489dbf19b81768dc79e77c9bab1"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-lifecycle-baseline.test.js",
+      "sourceBlobs": {
+        "C": "fa0901e500b061dd92d23ff254a77d003cd01d6f"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "fa0901e500b061dd92d23ff254a77d003cd01d6f"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-notification-integration.test.js",
+      "sourceBlobs": {
+        "C": "68d42c0397ec3177e3b71b70a8b0421d861a912b"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "68d42c0397ec3177e3b71b70a8b0421d861a912b"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-path-quality-view.test.js",
+      "sourceBlobs": {
+        "C": "d2cf7aca798c245c882f41686f26d223b5176fa8"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d2cf7aca798c245c882f41686f26d223b5176fa8"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-path-quality.test.js",
+      "sourceBlobs": {
+        "C": "0abc7b40bdf6ecdca7b20ba3324b0981f0f89124"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0abc7b40bdf6ecdca7b20ba3324b0981f0f89124"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-position-risk.test.js",
+      "sourceBlobs": {
+        "C": "a707dcd67f21c9862d98bcfd72fbdb26387033e8"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a707dcd67f21c9862d98bcfd72fbdb26387033e8"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-protection-review.test.js",
+      "sourceBlobs": {
+        "C": "ae5faa73ec3034a3585c6db73dd5b116311290e0"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ae5faa73ec3034a3585c6db73dd5b116311290e0"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-structure-review.test.js",
+      "sourceBlobs": {
+        "C": "c2ceb6be310f3ae25c548974d3827c6cf15ba3fe"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c2ceb6be310f3ae25c548974d3827c6cf15ba3fe"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-theme-persistence.test.js",
+      "sourceBlobs": {
+        "C": "89acfb1ea8c78ab2261e89652687b7eeb66b04d6"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "89acfb1ea8c78ab2261e89652687b7eeb66b04d6"
+    },
+    {
+      "path": "V6_BO/tests/c-closeout-workbench-integrity.test.js",
+      "sourceBlobs": {
+        "C": "25ecffb9099f525c8a50a421767fa36b24b967ac"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "25ecffb9099f525c8a50a421767fa36b24b967ac"
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-close-path-integration.test.js",
+      "sourceBlobs": {
+        "C": "14bdba2fcc2ee3afa3aa4cbea6aa9053b09734b1"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "14bdba2fcc2ee3afa3aa4cbea6aa9053b09734b1"
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-close-path.test.js",
+      "sourceBlobs": {
+        "C": "49b1378fa10407e3a59bd488f3d01c18f1caec40"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "49b1378fa10407e3a59bd488f3d01c18f1caec40"
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-exit-research.test.js",
+      "sourceBlobs": {
+        "C": "ba1eec4c48255aa785405c92db855659c169ed1e"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ba1eec4c48255aa785405c92db855659c169ed1e"
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-risk-replay-audit.test.js",
+      "sourceBlobs": {
+        "C": "f96a8a2a76c1e4ec0f427d43da4addb43bb803e0"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f96a8a2a76c1e4ec0f427d43da4addb43bb803e0"
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-shadow-review.test.js",
+      "sourceBlobs": {
+        "C": "ab01b90241d35b986c533e42002e9eef3b97c240"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ab01b90241d35b986c533e42002e9eef3b97c240"
+    },
+    {
+      "path": "V6_BO/tests/c-exit-scope-integrity.test.js",
+      "sourceBlobs": {
+        "C": "368cf4ca8bb2320497127d110af6caf6462d8aba"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "368cf4ca8bb2320497127d110af6caf6462d8aba"
+    },
+    {
+      "path": "V6_BO/tests/c-exit-scope-runtime.test.js",
+      "sourceBlobs": {
+        "C": "87599c15e1e56a03090ac21f50f682a2cf2ff6c4"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "87599c15e1e56a03090ac21f50f682a2cf2ff6c4"
+    },
+    {
+      "path": "V6_BO/tests/c-frozen-intent-price-integrity.test.js",
+      "sourceBlobs": {
+        "C": "0fb74e41c2007c51a31c8e539b3ab28f09c665ac"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0fb74e41c2007c51a31c8e539b3ab28f09c665ac"
+    },
+    {
+      "path": "V6_BO/tests/c-hidden-risk-recovery-integrity.test.js",
+      "sourceBlobs": {
+        "C": "6eb05161584f7ced2ab3da69ee6839ffe1804f7d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6eb05161584f7ced2ab3da69ee6839ffe1804f7d"
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-defense-runtime.test.js",
+      "sourceBlobs": {
+        "C": "b7061ad53b03c6a5ee1036882a2d602db5c61604"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b7061ad53b03c6a5ee1036882a2d602db5c61604"
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-defense.test.js",
+      "sourceBlobs": {
+        "C": "3e49888845d08cd1f8daab2a7bbff015b02f2802"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3e49888845d08cd1f8daab2a7bbff015b02f2802"
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-stress-integrity.test.js",
+      "sourceBlobs": {
+        "C": "446272fb4d9b5f11419f328a47fd4e302d8f1962"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "446272fb4d9b5f11419f328a47fd4e302d8f1962"
+    },
+    {
+      "path": "V6_BO/tests/c-pressure-revisions-integrity.test.js",
+      "sourceBlobs": {
+        "C": "d80842bd90408c44ee5c47bad752afda83f1d874"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d80842bd90408c44ee5c47bad752afda83f1d874"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-delivery-review.test.js",
+      "sourceBlobs": {
+        "C": "a494c5f66597a4f9304aa990d6ea9a74ae8a5bae"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a494c5f66597a4f9304aa990d6ea9a74ae8a5bae"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-notification-history.test.js",
+      "sourceBlobs": {
+        "C": "3256b4deb843417d9a2622e1807df6ffbfd146ac"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3256b4deb843417d9a2622e1807df6ffbfd146ac"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-recovery-receipt-integrity.test.js",
+      "sourceBlobs": {
+        "C": "3a7bdf2d0232b197616270ea7495838390df724f"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3a7bdf2d0232b197616270ea7495838390df724f"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-view-ci-integrity.test.js",
+      "sourceBlobs": {
+        "C": "3cc9388b8e9d8cc4c2d8d69f64a640c1eec53d3d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3cc9388b8e9d8cc4c2d8d69f64a640c1eec53d3d"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-view-replay-and-actions.test.js",
+      "sourceBlobs": {
+        "C": "0be095c3ae4aeebf77614cb800a1a7878cf14bee"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0be095c3ae4aeebf77614cb800a1a7878cf14bee"
+    },
+    {
+      "path": "V6_BO/tests/c-risk-workbench-read-scope.test.js",
+      "sourceBlobs": {
+        "C": "90c453e02a48eb0ae0810548a3072bc82ff8f700"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "90c453e02a48eb0ae0810548a3072bc82ff8f700"
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-five-boundaries.test.js",
+      "sourceBlobs": {
+        "C": "d7172a88732e3bb2f475f70726bc2b356e6e3169"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d7172a88732e3bb2f475f70726bc2b356e6e3169"
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-precise-observation.test.js",
+      "sourceBlobs": {
+        "C": "1959c07b10a54e9ffcf54a4ec2fbf4305b308085"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1959c07b10a54e9ffcf54a4ec2fbf4305b308085"
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-source-integrity.test.js",
+      "sourceBlobs": {
+        "C": "2bbdae53eeed1a068c165e1bb672feb639b9a1f4"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2bbdae53eeed1a068c165e1bb672feb639b9a1f4"
+    },
+    {
+      "path": "V6_BO/tests/common-entry-risk-input-integrity.test.js",
+      "sourceBlobs": {
+        "B": "ac27904e9e8cab40602eca2710d2bf00f6d8eaa3"
+      },
+      "dev": "ac27904e9e8cab40602eca2710d2bf00f6d8eaa3",
+      "resolution": "already-in-dev",
+      "final": "ac27904e9e8cab40602eca2710d2bf00f6d8eaa3"
+    },
+    {
+      "path": "V6_BO/tests/complete-development.test.js",
+      "sourceBlobs": {
+        "D": "1154858cb8eafa06686eaee96e624d1dd8ab2eae"
+      },
+      "dev": "98e51e31efe27b1f4c0ba24c8998843c85704adb",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1154858cb8eafa06686eaee96e624d1dd8ab2eae"
+    },
+    {
+      "path": "V6_BO/tests/crowding-member-time-integrity.test.js",
+      "sourceBlobs": {
+        "C": "74deac5022530f0d5342bf5868bec364bb6dffb2"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "74deac5022530f0d5342bf5868bec364bb6dffb2"
+    },
+    {
+      "path": "V6_BO/tests/data-source-readiness-audit.test.js",
+      "sourceBlobs": {
+        "D": "541980162f420631e4d14cba135d5caff6bfbceb"
+      },
+      "dev": "07bff7792bc848f97d2246ab7a3ce0759c6107a0",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "541980162f420631e4d14cba135d5caff6bfbceb"
+    },
+    {
+      "path": "V6_BO/tests/data-source-runtime-usage.test.js",
+      "sourceBlobs": {
+        "D": "8138ceba2bb283f6a63c9ba24f881754564c0f19"
+      },
+      "dev": "f964da902eb5283f4b9e35184ef2eb91c9fea045",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8138ceba2bb283f6a63c9ba24f881754564c0f19"
+    },
+    {
+      "path": "V6_BO/tests/deep-decision-research.test.js",
+      "sourceBlobs": {
+        "B": "fd1a49f930a0fc1c375095ec9068e58878366db2"
+      },
+      "dev": "fd1a49f930a0fc1c375095ec9068e58878366db2",
+      "resolution": "already-in-dev",
+      "final": "fd1a49f930a0fc1c375095ec9068e58878366db2"
+    },
+    {
+      "path": "V6_BO/tests/eastmoney-snapshot-clock-integrity.test.js",
+      "sourceBlobs": {
+        "D": "8c10a1f4e879a0c55519a128d721283a2314f590"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8c10a1f4e879a0c55519a128d721283a2314f590"
+    },
+    {
+      "path": "V6_BO/tests/ecb-fx-daily.test.js",
+      "sourceBlobs": {
+        "D": "088321f2b181b482806df38e858a1fd120374e92"
+      },
+      "dev": "b3dff963e3a6bda5917825be962939c019ccac90",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "088321f2b181b482806df38e858a1fd120374e92"
+    },
+    {
+      "path": "V6_BO/tests/effective-risk-evidence.test.js",
+      "sourceBlobs": {
+        "B": "12acf027fe244278cf06d4893a55644df5ef4600"
+      },
+      "dev": "12acf027fe244278cf06d4893a55644df5ef4600",
+      "resolution": "already-in-dev",
+      "final": "12acf027fe244278cf06d4893a55644df5ef4600"
+    },
+    {
+      "path": "V6_BO/tests/factor-prereg-window-integrity.test.js",
+      "sourceBlobs": {
+        "A": "a01f6ffeaf83c812d8c6e7113168dfb647ade8da"
+      },
+      "dev": "5de99bd0f3e50acac57c1f16ba1b23edc703262c",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a01f6ffeaf83c812d8c6e7113168dfb647ade8da"
+    },
+    {
+      "path": "V6_BO/tests/factor-shadow-evolution.test.js",
+      "sourceBlobs": {
+        "A": "403df8f9075b46029d652b6c99c1ac6d86069f26"
+      },
+      "dev": "b49f58b7d197493db33d088be3a680577ad12396",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "403df8f9075b46029d652b6c99c1ac6d86069f26"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-forecast-concurrency.test.js",
+      "sourceBlobs": {
+        "A": "ca9d0f0e9b14b5f979c4e34abda5c39793692e0a"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ca9d0f0e9b14b5f979c4e34abda5c39793692e0a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-forecast-feedback-evidence.test.js",
+      "sourceBlobs": {
+        "A": "48f860d3dde7d1433100471b3f654a8ca3599ec4"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "48f860d3dde7d1433100471b3f654a8ca3599ec4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-forecast-learning-feedback.test.js",
+      "sourceBlobs": {
+        "A": "d89635f367846f1ff998a40d66680edbc415ddb4"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d89635f367846f1ff998a40d66680edbc415ddb4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-forecast-storage-replay.test.js",
+      "sourceBlobs": {
+        "A": "2014328535b6039af1b3b801067481a59f4f4bf8"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2014328535b6039af1b3b801067481a59f4f4bf8"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-global-trial-integrity.test.js",
+      "sourceBlobs": {
+        "A": "36f8e7aa055858e06f90a9ac766eafd4f27a0c95"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "36f8e7aa055858e06f90a9ac766eafd4f27a0c95"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-learning-registry-history.test.js",
+      "sourceBlobs": {
+        "A": "0e09e8376a6a0a5d04844b0c7531959408a05d82"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0e09e8376a6a0a5d04844b0c7531959408a05d82"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-learning-registry-publication.test.js",
+      "sourceBlobs": {
+        "A": "b80776e305e470f26d3da37eeb041e0ba2c9c1f8"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b80776e305e470f26d3da37eeb041e0ba2c9c1f8"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-local-model-output.test.js",
+      "sourceBlobs": {
+        "A": "040389a430c24aac12ef63a99e915feb14fd0ec4"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "040389a430c24aac12ef63a99e915feb14fd0ec4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-model-prereg-binding.test.js",
+      "sourceBlobs": {
+        "A": "b9591b8f7cac4ed624561c86852215af83642ac6"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b9591b8f7cac4ed624561c86852215af83642ac6"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-prior-learning-evidence.test.js",
+      "sourceBlobs": {
+        "A": "20d02c38a9ff8489a667d4792e5ce66ef866762d"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "20d02c38a9ff8489a667d4792e5ce66ef866762d"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-adjusted-source-evidence.test.js",
+      "sourceBlobs": {
+        "D": "ebd67ab46a0149b454b4799c9bb96adb3d18ffea"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ebd67ab46a0149b454b4799c9bb96adb3d18ffea"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-candidate-quote-causality.test.js",
+      "sourceBlobs": {
+        "D": "abe05d9cf9945999d01befa28cb2f147bc2e4bee"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "abe05d9cf9945999d01befa28cb2f147bc2e4bee"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-capture-window-integrity.test.js",
+      "sourceBlobs": {
+        "D": "2fc2397bf32571aeeec9a7aa72a840e96ee7baa9"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2fc2397bf32571aeeec9a7aa72a840e96ee7baa9"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-clist-transport-identity.test.js",
+      "sourceBlobs": {
+        "D": "dd99f1b5f42bd806aa6d30932cb211ba3622d104"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "dd99f1b5f42bd806aa6d30932cb211ba3622d104"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-cross-check-cache-integrity.test.js",
+      "sourceBlobs": {
+        "D": "8fdb367fee4f1fd1a3efdcd96dd7f82c2e393a32"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8fdb367fee4f1fd1a3efdcd96dd7f82c2e393a32"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-cross-session-recovery.test.js",
+      "sourceBlobs": {
+        "D": "9b000f28d42531583d99f081bd2ff44fe55cf518"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9b000f28d42531583d99f081bd2ff44fe55cf518"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-daily-calendar-integrity.test.js",
+      "sourceBlobs": {
+        "D": "bd3ebe5fd36b057f2f3aa7e512fd91bebccd6c13"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bd3ebe5fd36b057f2f3aa7e512fd91bebccd6c13"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-daily-close-reconciliation.test.js",
+      "sourceBlobs": {
+        "D": "ad30fa0d6d390d1082d0593bace31e294c00296a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ad30fa0d6d390d1082d0593bace31e294c00296a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-daily-history-integrity.test.js",
+      "sourceBlobs": {
+        "D": "5eb68a92e5e60d678304fd84aa1e9ecb372945f7"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5eb68a92e5e60d678304fd84aa1e9ecb372945f7"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-depth-authorization-evidence.test.js",
+      "sourceBlobs": {
+        "D": "aae540993de9feee6c0cc634c56ee4e2e859b6d4"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "aae540993de9feee6c0cc634c56ee4e2e859b6d4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-dual-snapshot-integrity.test.js",
+      "sourceBlobs": {
+        "D": "46d8bfd5bbd55db661e7d7c92624d1b5fd7b83a4"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "46d8bfd5bbd55db661e7d7c92624d1b5fd7b83a4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-ecb-transport-boundaries.test.js",
+      "sourceBlobs": {
+        "D": "995a086e5b788ed3c4765f803fe5fe573ebd9778"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "995a086e5b788ed3c4765f803fe5fe573ebd9778"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-eia-transport-boundaries.test.js",
+      "sourceBlobs": {
+        "D": "fc7ca3700b9167e5c20ccb7fd97f3d0dc092b59b"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "fc7ca3700b9167e5c20ccb7fd97f3d0dc092b59b"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-evidence-boundaries-16.test.js",
+      "sourceBlobs": {
+        "D": "ba070cd2bd6f1c012f79b67dd44673d7b26c5640"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ba070cd2bd6f1c012f79b67dd44673d7b26c5640"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-external-pool-integrity.test.js",
+      "sourceBlobs": {
+        "D": "9fc341de13218b3d2ecc943a55065ddbaba1f6dd"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9fc341de13218b3d2ecc943a55065ddbaba1f6dd"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-failover-archive-binding.test.js",
+      "sourceBlobs": {
+        "D": "e25afb0f7f764d465c1c986fa952b1825ac594fa"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e25afb0f7f764d465c1c986fa952b1825ac594fa"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-failover-recovery-integrity.test.js",
+      "sourceBlobs": {
+        "D": "1278068c1ad93dc9a245142109b868967d9cd61d"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1278068c1ad93dc9a245142109b868967d9cd61d"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-calendar-combined.test.js",
+      "sourceBlobs": {
+        "D": "b35d0e5dd90d5b10a87c93326d19f15365b76ee6"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b35d0e5dd90d5b10a87c93326d19f15365b76ee6"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-history-original-evidence.test.js",
+      "sourceBlobs": {
+        "D": "164ff31868d9a364947edbda3ae6e392ca1fff37"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "164ff31868d9a364947edbda3ae6e392ca1fff37"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-history-recovery.test.js",
+      "sourceBlobs": {
+        "D": "58d07982f3dbef0ced1ea261fe0f018cc6d5ad5c"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "58d07982f3dbef0ced1ea261fe0f018cc6d5ad5c"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-gateway-input-integrity.test.js",
+      "sourceBlobs": {
+        "D": "c00be74b74e98ad174bf857ad18bdd9085948b3a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c00be74b74e98ad174bf857ad18bdd9085948b3a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-global-stock-boundaries.test.js",
+      "sourceBlobs": {
+        "D": "34a7f913b5fbf527ca9fd154561136e2ab4b756a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "34a7f913b5fbf527ca9fd154561136e2ab4b756a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-global-stock-reference.test.js",
+      "sourceBlobs": {
+        "D": "14e08e5b65dfa3940ef43aa58add083d1cfc77b4"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "14e08e5b65dfa3940ef43aa58add083d1cfc77b4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-governor-process-recovery.test.js",
+      "sourceBlobs": {
+        "D": "de20519ee0fbbc8155d8289eb74f785c837a84e1"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "de20519ee0fbbc8155d8289eb74f785c837a84e1"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-history-archive-combination.test.js",
+      "sourceBlobs": {
+        "D": "7606abcff1879bab28d1eb0119f01b87d4dcfc3d"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7606abcff1879bab28d1eb0119f01b87d4dcfc3d"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-history-import-integrity.test.js",
+      "sourceBlobs": {
+        "D": "10ed2c17112a36c8ef875b0a70b23adf57d52da2"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "10ed2c17112a36c8ef875b0a70b23adf57d52da2"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-lhb-evidence-integrity.test.js",
+      "sourceBlobs": {
+        "D": "62b7efe6a97da20e754190b214e239b89fab8238"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "62b7efe6a97da20e754190b214e239b89fab8238"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-causality-quality.test.js",
+      "sourceBlobs": {
+        "D": "3f7777ed7c2ae1bf661ea9f1b1e487d025c800a4"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3f7777ed7c2ae1bf661ea9f1b1e487d025c800a4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-context-input.test.js",
+      "sourceBlobs": {
+        "D": "869dc8a40b683570ad1e51b680145ad50c403e0d"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "869dc8a40b683570ad1e51b680145ad50c403e0d"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-disclosure-integrity.test.js",
+      "sourceBlobs": {
+        "D": "27ab1c52f32b396953bbb9137a9f3848c3bdc183"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "27ab1c52f32b396953bbb9137a9f3848c3bdc183"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-receipt-integrity.test.js",
+      "sourceBlobs": {
+        "D": "0a50ce15c80888fe32a15680e5c15c09a60b8dd2"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0a50ce15c80888fe32a15680e5c15c09a60b8dd2"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-minute-cache-evidence.test.js",
+      "sourceBlobs": {
+        "D": "935ebd2f81ff51ed306624a7c6207043c4d452a6"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "935ebd2f81ff51ed306624a7c6207043c4d452a6"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-native-archive-recovery.test.js",
+      "sourceBlobs": {
+        "D": "8eedb30e8de624398cb65ec0e5db13478e16530e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8eedb30e8de624398cb65ec0e5db13478e16530e"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-pit-macro-source-integrity.test.js",
+      "sourceBlobs": {
+        "D": "b63a178e3a5ddd21f65228b9cdf304b2cf6d0547"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b63a178e3a5ddd21f65228b9cdf304b2cf6d0547"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-public-source-health-integrity.test.js",
+      "sourceBlobs": {
+        "D": "b47db74aeb0b2fa3573f06e3f05dcc76772820aa"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b47db74aeb0b2fa3573f06e3f05dcc76772820aa"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-quote-class-integrity.test.js",
+      "sourceBlobs": {
+        "D": "8f5a573d06adb8400e37d4707edef08ab71b4574"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8f5a573d06adb8400e37d4707edef08ab71b4574"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-readiness-coverage-integrity.test.js",
+      "sourceBlobs": {
+        "D": "fc8ffbfbd790d367a1e929d63e45aa854258abcb"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "fc8ffbfbd790d367a1e929d63e45aa854258abcb"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-restored-batch2-boundaries.test.js",
+      "sourceBlobs": {
+        "D": "521ed4e6c2a0520102e9bbe7febfd458bc6a9526"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "521ed4e6c2a0520102e9bbe7febfd458bc6a9526"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-restored-final-boundaries.test.js",
+      "sourceBlobs": {
+        "D": "0f58e361b7f5325f9dbc6e494325d9cd7b91d883"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0f58e361b7f5325f9dbc6e494325d9cd7b91d883"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-route-commercial-ledger.test.js",
+      "sourceBlobs": {
+        "D": "bb22fde221a5ad2fcec6f7ecfacdef50683feaca"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bb22fde221a5ad2fcec6f7ecfacdef50683feaca"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-sector-provenance.test.js",
+      "sourceBlobs": {
+        "D": "2e18143066ff69da3ad19cf3b07ee9db589f7cd3"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2e18143066ff69da3ad19cf3b07ee9db589f7cd3"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-security-lifecycle-evidence.test.js",
+      "sourceBlobs": {
+        "D": "020ee98afde127135199c06a71d7033b8f011032"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "020ee98afde127135199c06a71d7033b8f011032"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-session-coverage-integrity.test.js",
+      "sourceBlobs": {
+        "D": "a29065ceba884fdad6955573273af78b060229ea"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a29065ceba884fdad6955573273af78b060229ea"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-source-catalog-integrity.test.js",
+      "sourceBlobs": {
+        "D": "d2d2d7efee32f0317adbd731aac83f89cf1af014"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d2d2d7efee32f0317adbd731aac83f89cf1af014"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-source-quality-history.test.js",
+      "sourceBlobs": {
+        "D": "f0ed023d5d9cd5bc0e7d0dbf85160249b1113587"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f0ed023d5d9cd5bc0e7d0dbf85160249b1113587"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d06-d07-batch-source-integrity.test.js",
+      "sourceBlobs": {
+        "D": "3ee5c5f2f05147ce1664c46ffef356832ebd2fc5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3ee5c5f2f05147ce1664c46ffef356832ebd2fc5"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d24-reference-market.test.js",
+      "sourceBlobs": {
+        "D": "d5f7229f6f64e7e391b0f410ef08782820a7ab29"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d5f7229f6f64e7e391b0f410ef08782820a7ab29"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d42-native-input-admission.test.js",
+      "sourceBlobs": {
+        "D": "2fa015e0e1ddc07f4525c6a5e6e3eff827386439"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2fa015e0e1ddc07f4525c6a5e6e3eff827386439"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d69-qualified-market-coverage.test.js",
+      "sourceBlobs": {
+        "D": "79b6cb8d2bd95eaf530d54792329a746e0b6a277"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "79b6cb8d2bd95eaf530d54792329a746e0b6a277"
+    },
+    {
+      "path": "V6_BO/tests/fayo-third-batch-session-index.test.js",
+      "sourceBlobs": {
+        "D": "fc5305d8c087abf29fd686b9f09897e7d7d9f7be"
+      },
+      "dev": "3ad3fcaf6585f8abb68538c1255c3938577b2bab",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "fc5305d8c087abf29fd686b9f09897e7d7d9f7be"
+    },
+    {
+      "path": "V6_BO/tests/issuer-event-linkage.test.js",
+      "sourceBlobs": {
+        "A": "65766454698c6f06c7fd81a6641d92d23a96f478"
+      },
+      "dev": "2a92005bf4a3769944e5bab8435a2f4d9eb605ba",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "65766454698c6f06c7fd81a6641d92d23a96f478"
+    },
+    {
+      "path": "V6_BO/tests/itick-stock-quote.test.js",
+      "sourceBlobs": {
+        "D": "3e38660ef4db3d7f2cd57c56ac82d7898102afd3"
+      },
+      "dev": "08fff72344ebc0ca3546e2c120d9fa9eaca527bf",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3e38660ef4db3d7f2cd57c56ac82d7898102afd3"
+    },
+    {
+      "path": "V6_BO/tests/market-data-quality-gates.test.js",
+      "sourceBlobs": {
+        "D": "7742437715ea1308474181b9246fed54bba7db80"
+      },
+      "dev": "4c9d5f03078418bc92e214db26434f78363f1cb3",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7742437715ea1308474181b9246fed54bba7db80"
+    },
+    {
+      "path": "V6_BO/tests/market-feed-input-integrity.test.js",
+      "sourceBlobs": {
+        "A": "f45130e62ada46338f6d7ec7998468b84bd1d109"
+      },
+      "dev": "1c2ad7bc3ce1ddde96fb0209d444da8b434c3741",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f45130e62ada46338f6d7ec7998468b84bd1d109"
+    },
+    {
+      "path": "V6_BO/tests/market-source-cadence.test.js",
+      "sourceBlobs": {
+        "D": "5140d1ff469a8b4a1f2c7c629fb07980d0301dea"
+      },
+      "dev": "7d3a5d58a82f89cbc75a01deb4c3a1bd04be1dd1",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5140d1ff469a8b4a1f2c7c629fb07980d0301dea"
+    },
+    {
+      "path": "V6_BO/tests/model-forward-evaluation.test.js",
+      "sourceBlobs": {
+        "A": "5f562e5db62c899d0cd8dc007a6e59c269d4f637"
+      },
+      "dev": "d943396e3f66f8b1167fa7e679e12c664d97ed7c",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5f562e5db62c899d0cd8dc007a6e59c269d4f637"
+    },
+    {
+      "path": "V6_BO/tests/news-evidence-journal.test.js",
+      "sourceBlobs": {
+        "D": "e8a0d9a012b452c6c0460718298d90940f1d6037"
+      },
+      "dev": "f5ab289302ac97af50424b3f79e2b8bccb8f512a",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e8a0d9a012b452c6c0460718298d90940f1d6037"
+    },
+    {
+      "path": "V6_BO/tests/phase4-authoritative-ledger-boundaries.test.js",
+      "sourceBlobs": {
+        "B": "c2988c09b0f7d439d080fb47ace34963cbe87283"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c2988c09b0f7d439d080fb47ace34963cbe87283"
+    },
+    {
+      "path": "V6_BO/tests/phase4-backup-restore-byte-integrity.test.js",
+      "sourceBlobs": {
+        "B": "0596fa1558b7d34fe62448da9a684ad6f3c5efd6"
+      },
+      "dev": "0596fa1558b7d34fe62448da9a684ad6f3c5efd6",
+      "resolution": "already-in-dev",
+      "final": "0596fa1558b7d34fe62448da9a684ad6f3c5efd6"
+    },
+    {
+      "path": "V6_BO/tests/phase4-client-identity-integrity.test.js",
+      "sourceBlobs": {
+        "B": "5e540c1f1349fc269ba7ff84fc251746608c886e"
+      },
+      "dev": "5e540c1f1349fc269ba7ff84fc251746608c886e",
+      "resolution": "already-in-dev",
+      "final": "5e540c1f1349fc269ba7ff84fc251746608c886e"
+    },
+    {
+      "path": "V6_BO/tests/phase4-decision-display-integrity.test.mjs",
+      "sourceBlobs": {
+        "B": "4f23730f9648addf04a17c5058eede53336dff62"
+      },
+      "dev": "2dd2c3445944995ad7e822b0a1ce192a97f060f5",
+      "resolution": "dev",
+      "reason": "保留原60项风险收益及兼容性断言。",
+      "final": "2dd2c3445944995ad7e822b0a1ce192a97f060f5"
+    },
+    {
+      "path": "V6_BO/tests/phase4-defensive-corporate-integrity.test.js",
+      "sourceBlobs": {
+        "B": "9e035d4e45327c9b21cee15de92cfe1f71a3d6e0"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9e035d4e45327c9b21cee15de92cfe1f71a3d6e0"
+    },
+    {
+      "path": "V6_BO/tests/phase4-execution-limit-integrity.test.js",
+      "sourceBlobs": {
+        "B": "7fc6e03fd798de2eeea25b4a61da6e0f9a890ed3"
+      },
+      "dev": "7fc6e03fd798de2eeea25b4a61da6e0f9a890ed3",
+      "resolution": "already-in-dev",
+      "final": "7fc6e03fd798de2eeea25b4a61da6e0f9a890ed3"
+    },
+    {
+      "path": "V6_BO/tests/phase4-frozen-confirmation-quote.test.js",
+      "sourceBlobs": {
+        "B": "5ac7f29928c62ebf1972206fc2f7eb63f2fadb14"
+      },
+      "dev": "5ac7f29928c62ebf1972206fc2f7eb63f2fadb14",
+      "resolution": "already-in-dev",
+      "final": "5ac7f29928c62ebf1972206fc2f7eb63f2fadb14"
+    },
+    {
+      "path": "V6_BO/tests/phase4-fund-cache-request-coalescing.test.js",
+      "sourceBlobs": {
+        "B": "a9cf57f5518a7dc54f1de8f91a48f40a4e560c9f"
+      },
+      "dev": "a9cf57f5518a7dc54f1de8f91a48f40a4e560c9f",
+      "resolution": "already-in-dev",
+      "final": "a9cf57f5518a7dc54f1de8f91a48f40a4e560c9f"
+    },
+    {
+      "path": "V6_BO/tests/phase4-holdings-add-risk.test.js",
+      "sourceBlobs": {
+        "B": "29a9256accc1a7b6516e35db73be129bf346d6d6"
+      },
+      "dev": "29a9256accc1a7b6516e35db73be129bf346d6d6",
+      "resolution": "already-in-dev",
+      "final": "29a9256accc1a7b6516e35db73be129bf346d6d6"
+    },
+    {
+      "path": "V6_BO/tests/phase4-independent-portfolio-integrity.test.js",
+      "sourceBlobs": {
+        "B": "0be65f16f7a2d28690713800b706f1c1f264b16e"
+      },
+      "dev": "0be65f16f7a2d28690713800b706f1c1f264b16e",
+      "resolution": "already-in-dev",
+      "final": "0be65f16f7a2d28690713800b706f1c1f264b16e"
+    },
+    {
+      "path": "V6_BO/tests/phase4-issuer-news-integrity.test.js",
+      "sourceBlobs": {
+        "A": "f377347f844642980b79dcfe05adc053bcc363dc"
+      },
+      "dev": "1d6fd29cea183243dc53281b7a2b00387e5ee4e9",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f377347f844642980b79dcfe05adc053bcc363dc"
+    },
+    {
+      "path": "V6_BO/tests/phase4-learning-cohort-integrity.test.js",
+      "sourceBlobs": {
+        "A": "5b491d396de8b9247244d8080b4a9b00f160f911"
+      },
+      "dev": "e9054042c67febcbdb8f50107dcbdb54efc92d24",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5b491d396de8b9247244d8080b4a9b00f160f911"
+    },
+    {
+      "path": "V6_BO/tests/phase4-ledger-original-contract.test.js",
+      "sourceBlobs": {
+        "B": "54fd9a28928a3fcf3de99d7c5270ddf77cea3602"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "54fd9a28928a3fcf3de99d7c5270ddf77cea3602"
+    },
+    {
+      "path": "V6_BO/tests/phase4-live-candidate-receipt-integrity.test.js",
+      "sourceBlobs": {
+        "B": "799b399102334ddef5cb2e1a3e4643ab28148d74"
+      },
+      "dev": "799b399102334ddef5cb2e1a3e4643ab28148d74",
+      "resolution": "already-in-dev",
+      "final": "799b399102334ddef5cb2e1a3e4643ab28148d74"
+    },
+    {
+      "path": "V6_BO/tests/phase4-loss-risk-evidence-integrity.test.js",
+      "sourceBlobs": {
+        "B": "83881d197475b74518fe54e828d6731ada17ad1f"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "83881d197475b74518fe54e828d6731ada17ad1f"
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-failover-recovery.test.js",
+      "sourceBlobs": {
+        "B": "23b3ffac8c02c40515e50e1f3a2f84c835657d34"
+      },
+      "dev": "23b3ffac8c02c40515e50e1f3a2f84c835657d34",
+      "resolution": "already-in-dev",
+      "final": "23b3ffac8c02c40515e50e1f3a2f84c835657d34"
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-queue-clock.test.js",
+      "sourceBlobs": {
+        "B": "eeeca69b96196bf68a8e086101581153048d543c",
+        "D": "ccefc5f8e4188c1ef5adc054ed1a9d7f4f2b6d58"
+      },
+      "dev": "eeeca69b96196bf68a8e086101581153048d543c",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ccefc5f8e4188c1ef5adc054ed1a9d7f4f2b6d58"
+    },
+    {
+      "path": "V6_BO/tests/phase4-mini-kline-receipt-integrity.test.mjs",
+      "sourceBlobs": {
+        "B": "407e168dcc38cb19a85f771f41f59e246c1b4fd1"
+      },
+      "dev": "407e168dcc38cb19a85f771f41f59e246c1b4fd1",
+      "resolution": "already-in-dev",
+      "final": "407e168dcc38cb19a85f771f41f59e246c1b4fd1"
+    },
+    {
+      "path": "V6_BO/tests/phase4-model-input-causality.test.js",
+      "sourceBlobs": {
+        "B": "1f0bfad496b431de1c5c4dc6a7b985ff01a5d46a"
+      },
+      "dev": "1f0bfad496b431de1c5c4dc6a7b985ff01a5d46a",
+      "resolution": "already-in-dev",
+      "final": "1f0bfad496b431de1c5c4dc6a7b985ff01a5d46a"
+    },
+    {
+      "path": "V6_BO/tests/phase4-native-daily-evidence.test.js",
+      "sourceBlobs": {
+        "A": "122f7fdeb4e371d8ed87e4e00df717aa97d82fa8",
+        "D": "14c53631bc4bed0cc40de76495f5ba531df93b65"
+      },
+      "dev": "6e6edf56babcf2803cd0d2803e3f4d2adcccb230",
+      "resolution": "semantic-merge",
+      "reason": "保留A组嵌套回执测试及D组资金拒绝诊断断言。"
+    },
+    {
+      "path": "V6_BO/tests/phase4-order-journal-integrity.test.js",
+      "sourceBlobs": {
+        "B": "3a669fa2561ebc827d6a5c823d689ca1c3769fd7"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3a669fa2561ebc827d6a5c823d689ca1c3769fd7"
+    },
+    {
+      "path": "V6_BO/tests/phase4-order-state-input-boundaries.test.js",
+      "sourceBlobs": {
+        "B": "0f50fa4b87b7c6d1f23d4ea95461ca3550563152"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0f50fa4b87b7c6d1f23d4ea95461ca3550563152"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-execution-clock.test.js",
+      "sourceBlobs": {
+        "B": "fee8ed9db59bbec0643887a1afa30a77fb9e2f4f"
+      },
+      "dev": "fee8ed9db59bbec0643887a1afa30a77fb9e2f4f",
+      "resolution": "already-in-dev",
+      "final": "fee8ed9db59bbec0643887a1afa30a77fb9e2f4f"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-feedback-causality.test.js",
+      "sourceBlobs": {
+        "B": "b5111b82be305f8ec202e64bcc9a1832eadb7590"
+      },
+      "dev": "b5111b82be305f8ec202e64bcc9a1832eadb7590",
+      "resolution": "already-in-dev",
+      "final": "b5111b82be305f8ec202e64bcc9a1832eadb7590"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-reconciliation-boundaries.test.js",
+      "sourceBlobs": {
+        "B": "9c1088e93c08555f3a5d9613dc985e64f6175347"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9c1088e93c08555f3a5d9613dc985e64f6175347"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-reconciliation-cent-conservation.test.js",
+      "sourceBlobs": {
+        "B": "4d05c90619c48c3b226e188ead63f84752248421"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4d05c90619c48c3b226e188ead63f84752248421"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-reconciliation-evidence.test.js",
+      "sourceBlobs": {
+        "B": "88eb9024c7c8ac30a1ae503beda3e691b500d5e9"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "88eb9024c7c8ac30a1ae503beda3e691b500d5e9"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-reconciliation-identity-integrity.test.js",
+      "sourceBlobs": {
+        "B": "a0f18aa9da6865a8f61331a9edb3784457791f9e"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a0f18aa9da6865a8f61331a9edb3784457791f9e"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-session-backup-commit.test.js",
+      "sourceBlobs": {
+        "B": "5e974b669e845c60a62c148a85d1d4a234558681"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5e974b669e845c60a62c148a85d1d4a234558681"
+    },
+    {
+      "path": "V6_BO/tests/phase4-paper-session-recovery-integrity.test.js",
+      "sourceBlobs": {
+        "B": "0d260f6f877318a43dc1a451a0b694de243e2a4f"
+      },
+      "dev": "0d260f6f877318a43dc1a451a0b694de243e2a4f",
+      "resolution": "already-in-dev",
+      "final": "0d260f6f877318a43dc1a451a0b694de243e2a4f"
+    },
+    {
+      "path": "V6_BO/tests/phase4-plan-execution-window.test.js",
+      "sourceBlobs": {
+        "B": "2652b0b2d3fa2a653aa1708a7a1df74a50405c19"
+      },
+      "dev": "0ae4880f0bde0c0f7f283e725ea5a30181031dea",
+      "resolution": "dev",
+      "reason": "保留原60项成交身份与确认时钟测试。",
+      "final": "0ae4880f0bde0c0f7f283e725ea5a30181031dea"
+    },
+    {
+      "path": "V6_BO/tests/phase4-private-notification-freshness.test.js",
+      "sourceBlobs": {
+        "B": "f67b9d893d772d33f3c75739302025bf3748dcf3"
+      },
+      "dev": "f67b9d893d772d33f3c75739302025bf3748dcf3",
+      "resolution": "already-in-dev",
+      "final": "f67b9d893d772d33f3c75739302025bf3748dcf3"
+    },
+    {
+      "path": "V6_BO/tests/phase4-public-quote-body-transport.test.js",
+      "sourceBlobs": {
+        "B": "d7834e2d0e057508bbdb62f46b802b5be186ad17"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d7834e2d0e057508bbdb62f46b802b5be186ad17"
+    },
+    {
+      "path": "V6_BO/tests/phase4-public-quote-interface-diagnostics.test.js",
+      "sourceBlobs": {
+        "B": "f1a54c89c21fd8700889cb95fe3ac2e1cffd7d24"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f1a54c89c21fd8700889cb95fe3ac2e1cffd7d24"
+    },
+    {
+      "path": "V6_BO/tests/phase4-readout-control-refresh.test.js",
+      "sourceBlobs": {
+        "B": "262c02e714795daf3f59ef05e5ce5a18cfcfe2ab"
+      },
+      "dev": "262c02e714795daf3f59ef05e5ce5a18cfcfe2ab",
+      "resolution": "already-in-dev",
+      "final": "262c02e714795daf3f59ef05e5ce5a18cfcfe2ab"
+    },
+    {
+      "path": "V6_BO/tests/phase4-request-authority-integrity.test.js",
+      "sourceBlobs": {
+        "B": "798da06c4dadddd6bc41b9a1af600678ef7f61ac"
+      },
+      "dev": "798da06c4dadddd6bc41b9a1af600678ef7f61ac",
+      "resolution": "already-in-dev",
+      "final": "798da06c4dadddd6bc41b9a1af600678ef7f61ac"
+    },
+    {
+      "path": "V6_BO/tests/phase4-reserved-cash-completeness.test.js",
+      "sourceBlobs": {
+        "B": "b407449e04d729a4d7d56a03802c880b52a68b12"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b407449e04d729a4d7d56a03802c880b52a68b12"
+    },
+    {
+      "path": "V6_BO/tests/phase4-risk-projection-numeric-boundaries.test.js",
+      "sourceBlobs": {
+        "B": "40c84c713465faf58e8b65de706cad751e61e554"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "40c84c713465faf58e8b65de706cad751e61e554"
+    },
+    {
+      "path": "V6_BO/tests/phase4-runtime-summary-resource.test.js",
+      "sourceBlobs": {
+        "B": "4836ddfe78fcd3bb6292b5db4efbad8addb737c2"
+      },
+      "dev": "4836ddfe78fcd3bb6292b5db4efbad8addb737c2",
+      "resolution": "already-in-dev",
+      "final": "4836ddfe78fcd3bb6292b5db4efbad8addb737c2"
+    },
+    {
+      "path": "V6_BO/tests/phase4-shadow-audit-chain-integrity.test.js",
+      "sourceBlobs": {
+        "B": "2e231486863292f7d9d3fef421af8015af7838be"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2e231486863292f7d9d3fef421af8015af7838be"
+    },
+    {
+      "path": "V6_BO/tests/phase4-shared-pink-controls.test.js",
+      "sourceBlobs": {
+        "B": "8d59e3d2dc42218887dd7ba41313e8f493b3d276"
+      },
+      "dev": "8d59e3d2dc42218887dd7ba41313e8f493b3d276",
+      "resolution": "already-in-dev",
+      "final": "8d59e3d2dc42218887dd7ba41313e8f493b3d276"
+    },
+    {
+      "path": "V6_BO/tests/phase4-transaction-recovery-integrity.test.js",
+      "sourceBlobs": {
+        "B": "ae0d37d612378afa0585f128ffa2e3bc4e35e3c6"
+      },
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ae0d37d612378afa0585f128ffa2e3bc4e35e3c6"
+    },
+    {
+      "path": "V6_BO/tests/phase4-workspace-decision-evidence.test.js",
+      "sourceBlobs": {
+        "A": "4262f6885f927aac782f9ad56f8e2a7204d03a4a"
+      },
+      "dev": "481e15536827ed108a31c14f7ba44ca2f1b3d864",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4262f6885f927aac782f9ad56f8e2a7204d03a4a"
+    },
+    {
+      "path": "V6_BO/tests/probability-reliability.test.js",
+      "sourceBlobs": {
+        "A": "57ac7555e4688d41782f4b07b06231ee6af15bbd"
+      },
+      "dev": "27d9e4949acd8c998614bd6bee20b72f8dfdc18e",
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "57ac7555e4688d41782f4b07b06231ee6af15bbd"
+    },
+    {
+      "path": "V6_BO/tests/quote-cross-check.test.js",
+      "sourceBlobs": {
+        "D": "60014d9dba0560852399ceaf63e72c45c5f4b100"
+      },
+      "dev": "39c7109b1dd01d0ca521ebe0cb0ce285c441c74a",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "60014d9dba0560852399ceaf63e72c45c5f4b100"
+    },
+    {
+      "path": "V6_BO/tests/research-validation-suite.test.js",
+      "sourceBlobs": {
+        "B": "6bf800b7d41cc6384712394eef6cd105ed32f37b"
+      },
+      "dev": "6bf800b7d41cc6384712394eef6cd105ed32f37b",
+      "resolution": "already-in-dev",
+      "final": "6bf800b7d41cc6384712394eef6cd105ed32f37b"
+    },
+    {
+      "path": "V6_BO/tests/risk-action-evidence.test.js",
+      "sourceBlobs": {
+        "B": "298380d74e7f7f55c37fa30dd90aa5e525e6ed27"
+      },
+      "dev": "298380d74e7f7f55c37fa30dd90aa5e525e6ed27",
+      "resolution": "already-in-dev",
+      "final": "298380d74e7f7f55c37fa30dd90aa5e525e6ed27"
+    },
+    {
+      "path": "V6_BO/tests/risk-workbench-account-safety-integration.test.js",
+      "sourceBlobs": {
+        "B": "7c2666a67798938198d1ade830c4a103f4f2c681"
+      },
+      "dev": "ba86c721a91df2d1bbe11f296f7f246a5ee6d8af",
+      "resolution": "B",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7c2666a67798938198d1ade830c4a103f4f2c681"
+    },
+    {
+      "path": "V6_BO/tests/shortline-breadth-fallback.test.js",
+      "sourceBlobs": {
+        "D": "9dccae016027308d8a0b03b32fa20b7d2f08e56e"
+      },
+      "dev": "22f4cc42fa0c805f63246eb1f0a8e83e4671d4be",
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9dccae016027308d8a0b03b32fa20b7d2f08e56e"
+    },
+    {
+      "path": "V6_BO/tests/shortline-paper-import.test.js",
+      "sourceBlobs": {
+        "B": "4720ad28bcb2e59e1138523a8a5a2b9719fa16fc"
+      },
+      "dev": "44aabd36b95ca33e4571050834086ab6c1f7e72e",
+      "resolution": "dev",
+      "reason": "保留原60项新增的结算及学习隔离测试。",
+      "final": "44aabd36b95ca33e4571050834086ab6c1f7e72e"
+    },
+    {
+      "path": "V6_BO/tests/v6-terminal-workbench.test.js",
+      "sourceBlobs": {
+        "C": "177bc340daef9e02d5f2ef485fdbee254eb23fd7"
+      },
+      "dev": "dc5a327ad37d43b19d6ac10827e8fdb369133174",
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "177bc340daef9e02d5f2ef485fdbee254eb23fd7"
+    },
+    {
+      "path": "V6_WEB/dist/assets/analysis.bundle.js",
+      "sourceBlobs": {
+        "B": "797645ce0d1c128a97a8d6017cd0976feba57e3d"
+      },
+      "dev": "797645ce0d1c128a97a8d6017cd0976feba57e3d",
+      "resolution": "already-in-dev",
+      "final": "797645ce0d1c128a97a8d6017cd0976feba57e3d"
+    },
+    {
+      "path": "V6_WEB/src/vendor/historical-session.js",
+      "sourceBlobs": {
+        "B": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab"
+      },
+      "dev": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab",
+      "resolution": "already-in-dev",
+      "final": "69d8fb8cc96851e9945f8b4ef1f3860255a63bab"
+    },
+    {
+      "path": "docs/FAYO_C_ADVERSE_PATH_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "440cbfe302d3339d8499583fbe061a3a61282b85"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "440cbfe302d3339d8499583fbe061a3a61282b85"
+    },
+    {
+      "path": "docs/FAYO_C_BATCH_BUDGET_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "ef2b816092745cc6b02c7eeccd60bd268a617709"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ef2b816092745cc6b02c7eeccd60bd268a617709"
+    },
+    {
+      "path": "docs/FAYO_C_CHASE_RESEARCH_EVIDENCE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "48ee314bde7a5534819be0238f030819451b883b"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "48ee314bde7a5534819be0238f030819451b883b"
+    },
+    {
+      "path": "docs/FAYO_C_CI16_EXIT_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "97319d05dbbfa3c999b3c7bbd61122cddf8f7756"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "97319d05dbbfa3c999b3c7bbd61122cddf8f7756"
+    },
+    {
+      "path": "docs/FAYO_C_CI16_UI_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "1031667189627558acf020a212bdf38493f2595d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1031667189627558acf020a212bdf38493f2595d"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_ACTION_INTEGRITY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "75763dc2d183a33f5ce9f25068cdde9dcd3d4fab"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "75763dc2d183a33f5ce9f25068cdde9dcd3d4fab"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_COMBINATION_20261127.md",
+      "sourceBlobs": {
+        "C": "77da6d77cf1f69c6bfce306979ad0be33231dedd"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "77da6d77cf1f69c6bfce306979ad0be33231dedd"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_LIFECYCLE_BASELINE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "9d0bca0c973773a34b1623794e9a9dda2b9d23e4"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9d0bca0c973773a34b1623794e9a9dda2b9d23e4"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_PATH_QUALITY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "5ec58c7e84abe7b4337e4d2da8867631b2d8a243"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5ec58c7e84abe7b4337e4d2da8867631b2d8a243"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_PATH_QUALITY_VIEW_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "7afce2f7a718489192c42ec8e9f2fced6de5c2b9"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7afce2f7a718489192c42ec8e9f2fced6de5c2b9"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_POSITION_RISK_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "6a84f8b6b8a0a2f88b52ed65e7950357db4e28ef"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6a84f8b6b8a0a2f88b52ed65e7950357db4e28ef"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_PROTECTION_REVIEW_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "c303ff121467efa43ff1c6530fa839825813e9b4"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c303ff121467efa43ff1c6530fa839825813e9b4"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_REAL_CI_REOPEN_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "8ec4e1dbe4dace968143fdbf28764208cb8ec555"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8ec4e1dbe4dace968143fdbf28764208cb8ec555"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_RECOVERY_MONOTONICITY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "56fcffc8fadd08e3d65408b4bf8d7b1f1dc011b8"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "56fcffc8fadd08e3d65408b4bf8d7b1f1dc011b8"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_SHADOW_REENTRY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "903629bfb2ba5305eb71ec428ad8b920c5d34c9d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "903629bfb2ba5305eb71ec428ad8b920c5d34c9d"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_STRUCTURE_REVIEW_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "0bfcd738bf98c4f1931a772b274262409a3ced6b"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0bfcd738bf98c4f1931a772b274262409a3ced6b"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_TASK_LEDGER_20261127.md",
+      "sourceBlobs": {
+        "C": "f14d3a5cb249346bf2fe5995df34f93954d3813e"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f14d3a5cb249346bf2fe5995df34f93954d3813e"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_THEME_PERSISTENCE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "6ed724a22a178e55a9bd59f3a0cfb9796301a506"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6ed724a22a178e55a9bd59f3a0cfb9796301a506"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSEOUT_WORKBENCH_INTEGRITY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "80967361f5e31c492ff73fbd2af6217b156dd344"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "80967361f5e31c492ff73fbd2af6217b156dd344"
+    },
+    {
+      "path": "docs/FAYO_C_CLOSE_PATH_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "883610884a3ca8f55d4d7b2187a14dcf66a2fc66"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "883610884a3ca8f55d4d7b2187a14dcf66a2fc66"
+    },
+    {
+      "path": "docs/FAYO_C_CROWDING_EXIT_RESEARCH_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "5375b8801171a63f867bd820acd1004d8d89361d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5375b8801171a63f867bd820acd1004d8d89361d"
+    },
+    {
+      "path": "docs/FAYO_C_CROWDING_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "84e4b043e703ce022ffd5f992113935e113c0bdf"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "84e4b043e703ce022ffd5f992113935e113c0bdf"
+    },
+    {
+      "path": "docs/FAYO_C_DEFENSE_BINDING_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "b8a7e866e02dcfae51c166c126ae42fedd956226"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b8a7e866e02dcfae51c166c126ae42fedd956226"
+    },
+    {
+      "path": "docs/FAYO_C_DEFENSE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "897c6cbc4fb0d8818606f0b58018b7ed1929d172"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "897c6cbc4fb0d8818606f0b58018b7ed1929d172"
+    },
+    {
+      "path": "docs/FAYO_C_DELIVERY_REVIEW_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "6c83e1c45dc836ace7502dfee961ca22bbf95407"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6c83e1c45dc836ace7502dfee961ca22bbf95407"
+    },
+    {
+      "path": "docs/FAYO_C_EXIT_SCOPE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "46f58c7f2f05d37118d2819088100c0c75ac16ed"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "46f58c7f2f05d37118d2819088100c0c75ac16ed"
+    },
+    {
+      "path": "docs/FAYO_C_FIVE_RISK_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "4e7b660cf4ffef1582b0ae76b4886da452c23600"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4e7b660cf4ffef1582b0ae76b4886da452c23600"
+    },
+    {
+      "path": "docs/FAYO_C_FROZEN_INTENT_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "23e5f8b9a0cf66da0d667f9877ff7966051a8fab"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "23e5f8b9a0cf66da0d667f9877ff7966051a8fab"
+    },
+    {
+      "path": "docs/FAYO_C_HIDDEN_RISK_RECOVERY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "06ba5d94c1b12580b5da9e0c271e9af540edc590"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "06ba5d94c1b12580b5da9e0c271e9af540edc590"
+    },
+    {
+      "path": "docs/FAYO_C_NOTIFICATION_HISTORY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "a748155077b5c24326ef5a361dfe9d5cf963dc67"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a748155077b5c24326ef5a361dfe9d5cf963dc67"
+    },
+    {
+      "path": "docs/FAYO_C_PORTFOLIO_STRESS_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "3c7b741fcdc44dab56925969e2a772f617707409"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3c7b741fcdc44dab56925969e2a772f617707409"
+    },
+    {
+      "path": "docs/FAYO_C_PRECISE_RISK_OBSERVATION_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "da84e2eb9de48eeffe18c78d6f13744f25ffa82a"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "da84e2eb9de48eeffe18c78d6f13744f25ffa82a"
+    },
+    {
+      "path": "docs/FAYO_C_PRESSURE_REVISIONS_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "030986ab80ea41cfb2b9f9c548b1c48f6456ac4c"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "030986ab80ea41cfb2b9f9c548b1c48f6456ac4c"
+    },
+    {
+      "path": "docs/FAYO_C_RECOVERY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "d8be2de8d5afa5f17ea58488c7e45021db10bff7"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d8be2de8d5afa5f17ea58488c7e45021db10bff7"
+    },
+    {
+      "path": "docs/FAYO_C_RISK_READ_SCOPE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "f5219b602754990dbf9821013121f7ecfb075965"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f5219b602754990dbf9821013121f7ecfb075965"
+    },
+    {
+      "path": "docs/FAYO_C_RISK_REPLAY_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "c1f1f8b820894c1c721618e8de59b25aa1aa250e"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c1f1f8b820894c1c721618e8de59b25aa1aa250e"
+    },
+    {
+      "path": "docs/FAYO_C_RISK_REPLAY_SCOPE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "c6850d3e9302256b3fc02b3731e1b51ce38c48f3"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c6850d3e9302256b3fc02b3731e1b51ce38c48f3"
+    },
+    {
+      "path": "docs/FAYO_C_SHADOW_REVIEW_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "7e238499a7c3c9bcbf9e061ebca1438441a34bef"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7e238499a7c3c9bcbf9e061ebca1438441a34bef"
+    },
+    {
+      "path": "docs/FAYO_C_STOCK_RISK_SOURCE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "C": "e9c072cccc751caed9ccef46680cee7c145f095b"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e9c072cccc751caed9ccef46680cee7c145f095b"
+    },
+    {
+      "path": "docs/FAYO_D_80_TASK_REGISTER_20261127.md",
+      "sourceBlobs": {
+        "D": "a9ab7b73b50e5f5350f3f46fb6c1cc9683c5f20a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a9ab7b73b50e5f5350f3f46fb6c1cc9683c5f20a"
+    },
+    {
+      "path": "docs/FAYO_D_DATA_CADENCE_HANDOFF_20261127.md",
+      "sourceBlobs": {
+        "D": "3fb4cc9e7daec70633f91189d22471f7de5d77c5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3fb4cc9e7daec70633f91189d22471f7de5d77c5"
+    },
+    {
+      "path": "docs/validation/fayo-a-forecast-authority-integrity-20261127.md",
+      "sourceBlobs": {
+        "A": "708f3a0b1ea263afdbd032168f1ff4e4b262f626"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "708f3a0b1ea263afdbd032168f1ff4e4b262f626"
+    },
+    {
+      "path": "docs/validation/fayo-a-forecast-concurrency-20261127.md",
+      "sourceBlobs": {
+        "A": "929f9d56fbb8eef4f672ee9eca06e5e93f9acee6"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "929f9d56fbb8eef4f672ee9eca06e5e93f9acee6"
+    },
+    {
+      "path": "docs/validation/fayo-a-forecast-feedback-evidence-20261127.md",
+      "sourceBlobs": {
+        "A": "1b0275f687c795c87cebf4a6dff0c52858994a84"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1b0275f687c795c87cebf4a6dff0c52858994a84"
+    },
+    {
+      "path": "docs/validation/fayo-a-forecast-learning-feedback-20261127.md",
+      "sourceBlobs": {
+        "A": "da255889a8ec351dbb2616704fc325670403b4e4"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "da255889a8ec351dbb2616704fc325670403b4e4"
+    },
+    {
+      "path": "docs/validation/fayo-a-forecast-storage-replay-20261127.md",
+      "sourceBlobs": {
+        "A": "a9f3f37ddbbb915743f1f5017ac8032b6183dc8d"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a9f3f37ddbbb915743f1f5017ac8032b6183dc8d"
+    },
+    {
+      "path": "docs/validation/fayo-a-global-trial-integrity-20261127.md",
+      "sourceBlobs": {
+        "A": "f28764a4b05648bf8e6c7ecae48f6e0e767ea6b7"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f28764a4b05648bf8e6c7ecae48f6e0e767ea6b7"
+    },
+    {
+      "path": "docs/validation/fayo-a-learning-registry-history-20261127.md",
+      "sourceBlobs": {
+        "A": "b3acb357d7e823b1817725ef415e946cff769d0e"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b3acb357d7e823b1817725ef415e946cff769d0e"
+    },
+    {
+      "path": "docs/validation/fayo-a-learning-registry-publication-20261127.md",
+      "sourceBlobs": {
+        "A": "a933d1a896ddfbc5d855d4744f389ab9edf2fc8e"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a933d1a896ddfbc5d855d4744f389ab9edf2fc8e"
+    },
+    {
+      "path": "docs/validation/fayo-a-local-model-output-20261127.md",
+      "sourceBlobs": {
+        "A": "c1418d6aa986c0e3a0634a39c66e8bdcb378a255"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c1418d6aa986c0e3a0634a39c66e8bdcb378a255"
+    },
+    {
+      "path": "docs/validation/fayo-a-model-prereg-binding-20261127.md",
+      "sourceBlobs": {
+        "A": "55e0d3ad72e3e7547329e12b89e3371a0fa31970"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "55e0d3ad72e3e7547329e12b89e3371a0fa31970"
+    },
+    {
+      "path": "docs/validation/fayo-a-prior-learning-evidence-20261127.md",
+      "sourceBlobs": {
+        "A": "62ade220a5e48bf0e880a48de5284d37bd846170"
+      },
+      "resolution": "A",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "62ade220a5e48bf0e880a48de5284d37bd846170"
+    },
+    {
+      "path": "docs/validation/fayo-c-adverse-path-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "298c30f937296ac2c59191b8e6f475910bec0f23"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "298c30f937296ac2c59191b8e6f475910bec0f23"
+    },
+    {
+      "path": "docs/validation/fayo-c-batch-budget-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "1750f48ab02bc5b609d748bbdaf159131d575b34"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1750f48ab02bc5b609d748bbdaf159131d575b34"
+    },
+    {
+      "path": "docs/validation/fayo-c-chase-research-evidence-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "bbf6dc7ee04e137144e15951dc7e25fd4dbd5ff1"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bbf6dc7ee04e137144e15951dc7e25fd4dbd5ff1"
+    },
+    {
+      "path": "docs/validation/fayo-c-ci16-exit-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "7d310abd81dfc8fdbd51e4767b3f4ccc7a290fd2"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7d310abd81dfc8fdbd51e4767b3f4ccc7a290fd2"
+    },
+    {
+      "path": "docs/validation/fayo-c-ci16-ui-20261127/combined.spec.log",
+      "sourceBlobs": {
+        "C": "b751bba9c3291b7aae1f0116d279cc677aad9966"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b751bba9c3291b7aae1f0116d279cc677aad9966"
+    },
+    {
+      "path": "docs/validation/fayo-c-close-path-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "e5b38ea87d805dc4fe4706077036dfa189ae80eb"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e5b38ea87d805dc4fe4706077036dfa189ae80eb"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-20261127/combined-manifest.json",
+      "sourceBlobs": {
+        "C": "3ca295a4424fff8f425c9e306321a9c6a3ac88e7"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3ca295a4424fff8f425c9e306321a9c6a3ac88e7"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-account-stress-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "ea81fee1aef8896776c2698b53d7c337aacea4de"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ea81fee1aef8896776c2698b53d7c337aacea4de"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-notification-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "45888a5e8b2095ef819a906cf141eefc08b6050f"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "45888a5e8b2095ef819a906cf141eefc08b6050f"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-position-risk-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "7d422535f411acbb9c8cc07095009b70ac28d8b6"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7d422535f411acbb9c8cc07095009b70ac28d8b6"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-protection-review-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "b0b3b2219ba1a61da4aff2c800e500f5583f3c2d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b0b3b2219ba1a61da4aff2c800e500f5583f3c2d"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-structure-review-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "36e6cf3ecc0550146a821a67b0a1d6e2b67f71ed"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "36e6cf3ecc0550146a821a67b0a1d6e2b67f71ed"
+    },
+    {
+      "path": "docs/validation/fayo-c-closeout-theme-persistence-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "5301e5e0ea5e0f7862ece7e62e7324badfc2fdcc"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5301e5e0ea5e0f7862ece7e62e7324badfc2fdcc"
+    },
+    {
+      "path": "docs/validation/fayo-c-crowding-exit-research-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "9125dbc42019121dc7531e544d655f428f818751"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9125dbc42019121dc7531e544d655f428f818751"
+    },
+    {
+      "path": "docs/validation/fayo-c-defense-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "5a8e99c989f379b88449e9e6f75f25096c9ca1fc"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5a8e99c989f379b88449e9e6f75f25096c9ca1fc"
+    },
+    {
+      "path": "docs/validation/fayo-c-defense-binding-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "94514da96311d2458aa5f70fd5fb5e9d2378ce9c"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "94514da96311d2458aa5f70fd5fb5e9d2378ce9c"
+    },
+    {
+      "path": "docs/validation/fayo-c-delivery-review-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "77962d438b9e85291869332961f7472bc8f5de60"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "77962d438b9e85291869332961f7472bc8f5de60"
+    },
+    {
+      "path": "docs/validation/fayo-c-exit-scope-20261127/after.tap",
+      "sourceBlobs": {
+        "C": "851baf2febbdbee212e652d82ea89fca8856c0a5"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "851baf2febbdbee212e652d82ea89fca8856c0a5"
+    },
+    {
+      "path": "docs/validation/fayo-c-five-risk-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "e5238c2e085c2f3ad19081f68524e48060ef4019"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e5238c2e085c2f3ad19081f68524e48060ef4019"
+    },
+    {
+      "path": "docs/validation/fayo-c-frozen-intent-20261127/combined.tap",
+      "sourceBlobs": {
+        "C": "9f816a8d0fd59abf0c6f587eff4f26b0a6430feb"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9f816a8d0fd59abf0c6f587eff4f26b0a6430feb"
+    },
+    {
+      "path": "docs/validation/fayo-c-home-visibility-ci-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "f7550ed72dade1a608ca23e500274bfcee5d1603"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f7550ed72dade1a608ca23e500274bfcee5d1603"
+    },
+    {
+      "path": "docs/validation/fayo-c-notification-history-20261127/combined.spec.log",
+      "sourceBlobs": {
+        "C": "d2d580e66894de4f610b7f53f9f5c9242639dc1d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d2d580e66894de4f610b7f53f9f5c9242639dc1d"
+    },
+    {
+      "path": "docs/validation/fayo-c-precise-risk-observation-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "a2c6e85247984efefd34a292cec5e32edd8bc2bd"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a2c6e85247984efefd34a292cec5e32edd8bc2bd"
+    },
+    {
+      "path": "docs/validation/fayo-c-pressure-revisions-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "a9110301e45729c393a138249d7031e07f84c5ba"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a9110301e45729c393a138249d7031e07f84c5ba"
+    },
+    {
+      "path": "docs/validation/fayo-c-recovery-20261127/after.tap",
+      "sourceBlobs": {
+        "C": "92bd26268621f560d6ccb9fe23e0f0850eb8abd8"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "92bd26268621f560d6ccb9fe23e0f0850eb8abd8"
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-read-scope-20261127/after.tap",
+      "sourceBlobs": {
+        "C": "d129e52214ae90a6a92e6598cf526d14dd932fbd"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d129e52214ae90a6a92e6598cf526d14dd932fbd"
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-20261127/after.tap",
+      "sourceBlobs": {
+        "C": "99e80a1b923733661c549834b78a505851b94013"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "99e80a1b923733661c549834b78a505851b94013"
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-scope-20261127/chromium-helper.json",
+      "sourceBlobs": {
+        "C": "4473910f9e28bc816a4f12583ee4dfa5e9cd1198"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4473910f9e28bc816a4f12583ee4dfa5e9cd1198"
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-scope-20261127/node.spec.log",
+      "sourceBlobs": {
+        "C": "1800dd8c26ee7942a905950896e348ae71d1db0d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1800dd8c26ee7942a905950896e348ae71d1db0d"
+    },
+    {
+      "path": "docs/validation/fayo-c-shadow-review-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "ac986249e1ad6e1f63c9e7b65fb3201ac1b4970d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "ac986249e1ad6e1f63c9e7b65fb3201ac1b4970d"
+    },
+    {
+      "path": "docs/validation/fayo-c-stock-risk-source-20261127/isolated-results.json",
+      "sourceBlobs": {
+        "C": "c5d1d01251353edd67294a1ea86c07a1ec18877d"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c5d1d01251353edd67294a1ea86c07a1ec18877d"
+    },
+    {
+      "path": "docs/validation/fayo-c-stress-20261127/isolated-node-after.tap",
+      "sourceBlobs": {
+        "C": "115e50e7073020aabcecd493a4ee89f4230bb177"
+      },
+      "resolution": "C",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "115e50e7073020aabcecd493a4ee89f4230bb177"
+    },
+    {
+      "path": "docs/validation/fayo-d-cadence-dispatch-20261127/README.md",
+      "sourceBlobs": {
+        "D": "2b4fe0cfc0e3e7ca3183736a11fce6f7598ed214"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "2b4fe0cfc0e3e7ca3183736a11fce6f7598ed214"
+    },
+    {
+      "path": "docs/validation/fayo-d-candidate-quote-causality-20261127/README.md",
+      "sourceBlobs": {
+        "D": "3bf130b8a8dcd49050a430c21c34744a3c20d084"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3bf130b8a8dcd49050a430c21c34744a3c20d084"
+    },
+    {
+      "path": "docs/validation/fayo-d-capture-window-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "34fe7860c246ad10c606670b23bce1de654debca"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "34fe7860c246ad10c606670b23bce1de654debca"
+    },
+    {
+      "path": "docs/validation/fayo-d-clist-transport-identity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "5259a06014e9dc2c655a9932bb3f526940758060"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5259a06014e9dc2c655a9932bb3f526940758060"
+    },
+    {
+      "path": "docs/validation/fayo-d-combined-acceptance-20261127/README.md",
+      "sourceBlobs": {
+        "D": "6c7e4e0e881a6562508beebfd67969ddfcc7bde3"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6c7e4e0e881a6562508beebfd67969ddfcc7bde3"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-check-cache-20261127/CI_FOLLOWUP.md",
+      "sourceBlobs": {
+        "D": "8010bb77ba39c3160d425fa7524dfb2001667cc8"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8010bb77ba39c3160d425fa7524dfb2001667cc8"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-check-cache-20261127/README.md",
+      "sourceBlobs": {
+        "D": "310d2f51a1482909361b17dc2c1f72098310871e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "310d2f51a1482909361b17dc2c1f72098310871e"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-session-recovery-20261127/README.md",
+      "sourceBlobs": {
+        "D": "09b07a3735ab24606085bc162d18e1aa58791dae"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "09b07a3735ab24606085bc162d18e1aa58791dae"
+    },
+    {
+      "path": "docs/validation/fayo-d-daily-calendar-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "0a282d8adcbf9c218a2a97910d2e56173ff77b76"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0a282d8adcbf9c218a2a97910d2e56173ff77b76"
+    },
+    {
+      "path": "docs/validation/fayo-d-daily-close-reconciliation-20261127/README.md",
+      "sourceBlobs": {
+        "D": "64f5daee6f9482043b7a898cbf41c3ef30f5b6f7"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "64f5daee6f9482043b7a898cbf41c3ef30f5b6f7"
+    },
+    {
+      "path": "docs/validation/fayo-d-daily-history-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "caa3d23262753364e5f40bad664e78298814e9ea"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "caa3d23262753364e5f40bad664e78298814e9ea"
+    },
+    {
+      "path": "docs/validation/fayo-d-depth-authorization-evidence-20261127/README.md",
+      "sourceBlobs": {
+        "D": "a3a67ed40f418fad62cddf5184fe0eaaebf116b1"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a3a67ed40f418fad62cddf5184fe0eaaebf116b1"
+    },
+    {
+      "path": "docs/validation/fayo-d-dual-snapshot-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "60e5d545edb863408968049e219bfe19d0674096"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "60e5d545edb863408968049e219bfe19d0674096"
+    },
+    {
+      "path": "docs/validation/fayo-d-ecb-transport-boundaries-20261127/README.md",
+      "sourceBlobs": {
+        "D": "e077e99c4aa71f43b4a911f93e4857893b543b2a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e077e99c4aa71f43b4a911f93e4857893b543b2a"
+    },
+    {
+      "path": "docs/validation/fayo-d-eia-transport-boundaries-20261127/README.md",
+      "sourceBlobs": {
+        "D": "918b1ae12527b9eceef4cdff6203d6d8a0a145d7"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "918b1ae12527b9eceef4cdff6203d6d8a0a145d7"
+    },
+    {
+      "path": "docs/validation/fayo-d-evidence-boundaries-16-20261127/README.md",
+      "sourceBlobs": {
+        "D": "d0e2ae1056df041459157c8dece0815c3176c07a"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d0e2ae1056df041459157c8dece0815c3176c07a"
+    },
+    {
+      "path": "docs/validation/fayo-d-external-pool-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "f65ee90b61dbdfcf80fa10f804bcee6735095320"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f65ee90b61dbdfcf80fa10f804bcee6735095320"
+    },
+    {
+      "path": "docs/validation/fayo-d-failover-archive-binding-20261127/README.md",
+      "sourceBlobs": {
+        "D": "c3b85af014bdb3a09d68b1716b855c8ba1a3076e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c3b85af014bdb3a09d68b1716b855c8ba1a3076e"
+    },
+    {
+      "path": "docs/validation/fayo-d-failover-recovery-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "a3e2ecec31a5d4ec1f13b9e8fe788af198b497ae"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a3e2ecec31a5d4ec1f13b9e8fe788af198b497ae"
+    },
+    {
+      "path": "docs/validation/fayo-d-fund-history-recovery-20261127/README.md",
+      "sourceBlobs": {
+        "D": "e0a8d6701f8c57ee043fef7b5a9ef32f9ed2e118"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e0a8d6701f8c57ee043fef7b5a9ef32f9ed2e118"
+    },
+    {
+      "path": "docs/validation/fayo-d-gateway-input-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "8a8dd34b2ad438799317b6902859c51eae34c2dd"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8a8dd34b2ad438799317b6902859c51eae34c2dd"
+    },
+    {
+      "path": "docs/validation/fayo-d-global-stock-boundaries-20261127/README.md",
+      "sourceBlobs": {
+        "D": "9127eb06d59a0d9bc832b61dd9d9267014ddbb74"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9127eb06d59a0d9bc832b61dd9d9267014ddbb74"
+    },
+    {
+      "path": "docs/validation/fayo-d-global-stock-reference-20261127/README.md",
+      "sourceBlobs": {
+        "D": "22376dffb10e6cb8c0973ab6af862cf49cd47faf"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "22376dffb10e6cb8c0973ab6af862cf49cd47faf"
+    },
+    {
+      "path": "docs/validation/fayo-d-governor-clock-acceptance-20261127/D25_NATIVE_PROCESS_ACCEPTANCE.md",
+      "sourceBlobs": {
+        "D": "7f69f6bd1dd76e096c4db7f6f38d743b81fd50c1"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7f69f6bd1dd76e096c4db7f6f38d743b81fd50c1"
+    },
+    {
+      "path": "docs/validation/fayo-d-governor-clock-acceptance-20261127/README.md",
+      "sourceBlobs": {
+        "D": "49f55f920dda6669b1f19b6f2e4c30b6cf09dfeb"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "49f55f920dda6669b1f19b6f2e4c30b6cf09dfeb"
+    },
+    {
+      "path": "docs/validation/fayo-d-history-archive-combination-20261127/README.md",
+      "sourceBlobs": {
+        "D": "a6e08e67f9f7591191b8c5a698fbf8c95d91e3c6"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a6e08e67f9f7591191b8c5a698fbf8c95d91e3c6"
+    },
+    {
+      "path": "docs/validation/fayo-d-history-import-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "c274c1163bb4eabdaca83e4c573eef0b00268567"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c274c1163bb4eabdaca83e4c573eef0b00268567"
+    },
+    {
+      "path": "docs/validation/fayo-d-index-dispatch-20261127/README.md",
+      "sourceBlobs": {
+        "D": "4052cb7f4b10cc230d223b555a368a346b581435"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "4052cb7f4b10cc230d223b555a368a346b581435"
+    },
+    {
+      "path": "docs/validation/fayo-d-lhb-evidence-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "5e41e2f4cd7363dd4fe92cc68e6af5c883d8d82e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5e41e2f4cd7363dd4fe92cc68e6af5c883d8d82e"
+    },
+    {
+      "path": "docs/validation/fayo-d-major-integration-20261127/manifest-stage2.json",
+      "sourceBlobs": {
+        "D": "84bf1e79bf7a20fc9930d6b1f344e8f4376661b6"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "84bf1e79bf7a20fc9930d6b1f344e8f4376661b6"
+    },
+    {
+      "path": "docs/validation/fayo-d-major-integration-20261127/manifest-stage3.json",
+      "sourceBlobs": {
+        "D": "914754c84176bcecf69428f76e85443be4789dbb"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "914754c84176bcecf69428f76e85443be4789dbb"
+    },
+    {
+      "path": "docs/validation/fayo-d-major-integration-20261127/manifest.json",
+      "sourceBlobs": {
+        "D": "c4a937c2cc0eae5c6f105c4a78fceef5fc354b39"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "c4a937c2cc0eae5c6f105c4a78fceef5fc354b39"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-causality-quality-20261127/README.md",
+      "sourceBlobs": {
+        "D": "1c5cdcc0acbea44548eb3f9f914c6be8723fd654"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "1c5cdcc0acbea44548eb3f9f914c6be8723fd654"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-context-input-20261127/README.md",
+      "sourceBlobs": {
+        "D": "3840a3d261a778e64bb949975273b727468acd42"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3840a3d261a778e64bb949975273b727468acd42"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-disclosure-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "a9425180e74ade21c690ff376e633d5b90f3ffde"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "a9425180e74ade21c690ff376e633d5b90f3ffde"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-receipt-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "63aa28e8a3554fe0e9167347c05c87cedb76e0e8"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "63aa28e8a3554fe0e9167347c05c87cedb76e0e8"
+    },
+    {
+      "path": "docs/validation/fayo-d-minute-cache-evidence-20261127/README.md",
+      "sourceBlobs": {
+        "D": "8d93a3a29a59bde271b417e89907642a3064d704"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8d93a3a29a59bde271b417e89907642a3064d704"
+    },
+    {
+      "path": "docs/validation/fayo-d-news-security-identity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "f0a0886636653c9996854a73092e1600153de1f5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f0a0886636653c9996854a73092e1600153de1f5"
+    },
+    {
+      "path": "docs/validation/fayo-d-overall-closeout-20261127/README.md",
+      "sourceBlobs": {
+        "D": "9c689e29bca76f42160249af6f8f3eb6bb52d523"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "9c689e29bca76f42160249af6f8f3eb6bb52d523"
+    },
+    {
+      "path": "docs/validation/fayo-d-pit-macro-source-integrity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "09d0976d35dcf1e58e4c0e78d5e084f915646d16"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "09d0976d35dcf1e58e4c0e78d5e084f915646d16"
+    },
+    {
+      "path": "docs/validation/fayo-d-public-source-health-20261127/README.md",
+      "sourceBlobs": {
+        "D": "156d9d8389e87ff6682d0c16fb5cfbee20012584"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "156d9d8389e87ff6682d0c16fb5cfbee20012584"
+    },
+    {
+      "path": "docs/validation/fayo-d-quality-cross-window-20261127/README.md",
+      "sourceBlobs": {
+        "D": "8def3da010a5932a5e71cf52ae72e964f3bba7e9"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "8def3da010a5932a5e71cf52ae72e964f3bba7e9"
+    },
+    {
+      "path": "docs/validation/fayo-d-quality-sample-identity-20261127/README.md",
+      "sourceBlobs": {
+        "D": "abcd24d802763dc31ab0c4a8ea1f8b57de880a30"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "abcd24d802763dc31ab0c4a8ea1f8b57de880a30"
+    },
+    {
+      "path": "docs/validation/fayo-d-quote-class-20261127/README.md",
+      "sourceBlobs": {
+        "D": "f332e1e9f79c1c235b41178b30ab8ff1254ab58b"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f332e1e9f79c1c235b41178b30ab8ff1254ab58b"
+    },
+    {
+      "path": "docs/validation/fayo-d-readiness-coverage-20261127/README.md",
+      "sourceBlobs": {
+        "D": "87e68d34fdc06b28331cc8e01fbacba16eacb7c6"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "87e68d34fdc06b28331cc8e01fbacba16eacb7c6"
+    },
+    {
+      "path": "docs/validation/fayo-d-restored-batch1-20261127/README.md",
+      "sourceBlobs": {
+        "D": "6063a800c4edc108e105161be9a2d02a5213a422"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6063a800c4edc108e105161be9a2d02a5213a422"
+    },
+    {
+      "path": "docs/validation/fayo-d-restored-batch1-reconcile-20261127/README.md",
+      "sourceBlobs": {
+        "D": "7004804950a97e8f2ca302dfcb9ca33dc93b7aa5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "7004804950a97e8f2ca302dfcb9ca33dc93b7aa5"
+    },
+    {
+      "path": "docs/validation/fayo-d-restored-batch2-20261127/README.md",
+      "sourceBlobs": {
+        "D": "bd21dda9d75db11b9a51057b517a197f37d887b1"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "bd21dda9d75db11b9a51057b517a197f37d887b1"
+    },
+    {
+      "path": "docs/validation/fayo-d-restored-final-boundaries-20261127/README.md",
+      "sourceBlobs": {
+        "D": "b930432683b11c80c0b9253304b35540f42ef0c8"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "b930432683b11c80c0b9253304b35540f42ef0c8"
+    },
+    {
+      "path": "docs/validation/fayo-d-route-commercial-ledger-20261127/README.md",
+      "sourceBlobs": {
+        "D": "021302563116b1b875fc01fd379b49d49214bb47"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "021302563116b1b875fc01fd379b49d49214bb47"
+    },
+    {
+      "path": "docs/validation/fayo-d-sector-provenance-20261127/README.md",
+      "sourceBlobs": {
+        "D": "f1f2b1be28f3a6e806b529e5ad9ceeb4522f08a5"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "f1f2b1be28f3a6e806b529e5ad9ceeb4522f08a5"
+    },
+    {
+      "path": "docs/validation/fayo-d-session-coverage-reconcile-20261127/README.md",
+      "sourceBlobs": {
+        "D": "e4f047f07217d2468ec661ecd398b0ec52173ef1"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "e4f047f07217d2468ec661ecd398b0ec52173ef1"
+    },
+    {
+      "path": "docs/validation/fayo-d-snapshot-clock-20261127/README.md",
+      "sourceBlobs": {
+        "D": "5588869b2839c8e4006846afaa96e0453ea32613"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "5588869b2839c8e4006846afaa96e0453ea32613"
+    },
+    {
+      "path": "docs/validation/fayo-d-source-catalog-20261127/README.md",
+      "sourceBlobs": {
+        "D": "3f5cb7d31bd723eb33581ed26e935fee052dd0ea"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "3f5cb7d31bd723eb33581ed26e935fee052dd0ea"
+    },
+    {
+      "path": "docs/validation/fayo-d-source-quality-history-20261127/README.md",
+      "sourceBlobs": {
+        "D": "d84267dd98bba3c8feff62e81607de08dd75b009"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "d84267dd98bba3c8feff62e81607de08dd75b009"
+    },
+    {
+      "path": "docs/validation/fayo-d22-lifecycle-evidence-20261127/README.md",
+      "sourceBlobs": {
+        "D": "6cab01efa308d11658a9afc64e296ce7ec101a42"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "6cab01efa308d11658a9afc64e296ce7ec101a42"
+    },
+    {
+      "path": "docs/validation/fayo-d24-fx-energy-reference-20261127/README.md",
+      "sourceBlobs": {
+        "D": "424bd90f359ef29750904cded6bc8056543a33bf"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "424bd90f359ef29750904cded6bc8056543a33bf"
+    },
+    {
+      "path": "docs/validation/fayo-d39-native-fund-rejection-closeout-20261127/README.md",
+      "sourceBlobs": {
+        "D": "0fc881821148b032276c7f38be43d3730b77ff7e"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "0fc881821148b032276c7f38be43d3730b77ff7e"
+    },
+    {
+      "path": "docs/validation/fayo-d42-native-input-admission-20261127/README.md",
+      "sourceBlobs": {
+        "D": "34323ca8055ed9000f44a29ebeb0ab00e275a251"
+      },
+      "resolution": "D",
+      "reason": "不重叠或相同版本，精确采用来源Git blob。",
+      "final": "34323ca8055ed9000f44a29ebeb0ab00e275a251"
+    }
+  ],
+  "notes": [
+    "每组原提交及PR保持不变。A/C/D以dev为各自基线，B以旧dev为基线。",
+    "原D组编号D01—D80以D最终任务台账为准；80项映射不代表80项现场验收。",
+    "合并路径中的原始blob及选取原因保留，合并后blob以最终Git tree为准。",
+    "候选未通过统一CI及跨组业务验收前不得合入dev或生产发布。"
+  ]
+}

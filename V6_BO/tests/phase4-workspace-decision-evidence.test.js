@@ -77,3 +77,60 @@ test('integrated decision output preserves native GPT and Python and abstains wi
  assert.equal(r.decisionAssessment.support.includes('python'),true);
  assert.equal(r.decisionAssessment.unresolved.includes('fourteen'),true);
 });
+
+test('decision workspace refuses GPT children from a later receipt or another security',()=>{
+ for(const patch of [{knownAt:null},{sourceTimestamp:fixture().asOf+1},{symbol:'000001'},{date:'2025-01-01'}]){
+  for(const part of ['scores','market']){
+   const n=native();Object.assign(n.gptEvidence[part],patch);
+   assert.throws(()=>buildWorkspaceDecision(fixture(),n),/GPT子证据/);
+  }
+ }
+ const n=native();n.gptEvidence.knownAt-=1000;n.gptEvidence.market.knownAt=n.gptEvidence.knownAt+1;
+ assert.throws(()=>buildWorkspaceDecision(fixture(),n),/GPT子证据/);
+ const valid=native();valid.gptEvidence.market.knownAt=valid.gptEvidence.knownAt;
+ assert.equal(buildWorkspaceDecision(fixture(),valid).systems.find(x=>x.id==='gpt').verdict,'pass');
+});
+test('decision workspace refuses future or cross-security Python round metadata',()=>{
+ for(const patch of [{knownAt:null},{recordedAt:fixture().asOf+1},{symbol:'000001'},{date:'2025-01-01'}]){
+  const n=native();Object.assign(n.pythonEvidence.rounds[0],patch);
+  assert.throws(()=>buildWorkspaceDecision(fixture(),n),/Python轮次证据/);
+ }
+ const n=native();n.pythonEvidence.knownAt-=1000;n.pythonEvidence.rounds[0].knownAt=n.pythonEvidence.knownAt+1;
+ assert.throws(()=>buildWorkspaceDecision(fixture(),n),/Python轮次证据/);
+ const valid=native();valid.pythonEvidence.rounds[0].knownAt=valid.pythonEvidence.knownAt;
+ assert.equal(buildWorkspaceDecision(fixture(),valid).systems.find(x=>x.id==='python').verdict,'pass');
+});
+test('unrecognized regime and nonboolean linkage cannot imply complete alignment',()=>{
+ for(const opts of [{linked:'true',marketRegime:'index-up'},{linked:true,marketRegime:'invalid'},{linked:true,marketRegime:null}]){
+  assert.equal(assessResearchAlignment(groups(),opts).action,'defer');
+ }
+ assert.equal(assessResearchAlignment(groups(),options).action,'observe');
+});
+test('pre-close streak count cannot be frozen as a final closed-session fourteen-rule result',()=>{
+ const f=fixture(),date=f.stock.bars.at(-1).date,proof={symbol:f.stock.symbol,date,knownAt:Date.parse(date+'T14:59:59+08:00'),source:'provider:original',stock:{limitUpCount:0}};
+ assert.throws(()=>buildWorkspaceDecision(f,{fourteenEvidence:proof}),/连板证据早于/);
+ proof.knownAt=Date.parse(date+'T15:00:00+08:00');
+ assert.equal(buildWorkspaceDecision(f,{fourteenEvidence:proof}).conditions.find(x=>x.id==='fourteen:11').status,'pass');
+});
+
+test('eight-word workspace funds require the latest three complete same-stock sessions',()=>{
+ const f=fixture(),days=f.stock.bars.slice(-3).map(b=>b.date);
+ const flow={symbol:f.stock.symbol,source:'eastmoney',unit:'CNY',fundsMethod:'vendor-order-size-estimate',
+  retrievedAt:f.asOf,records:days.map(tradeDate=>({tradeDate,mainNetInflow:1e8,dailyResearchEligible:true}))};
+ const original=JSON.parse(JSON.stringify(flow)),fund=r=>r.conditions.find(x=>x.id==='bazi:fund');
+ const build=proof=>{const x=fixture();x.marketContext={funds:{stock:proof}};return fund(buildWorkspaceDecision(x));};
+ const noFunds=build(null),good=build(flow);
+ assert.equal(noFunds.status,'unknown');
+ assert.equal(good.status,'pass');
+ assert.ok(good.value>0);
+ for(const patch of [{partial:true},{unit:'USD'},{simulated:true},{retrievedAt:Date.parse(days.at(-1)+'T14:59:00+08:00')}])
+  assert.deepEqual(build({...flow,...patch}),noFunds);
+ for(const patch of [{dailyResearchEligible:false},{closed:false},{symbol:'000001'},{sourceTimestamp:Date.parse(days.at(-1)+'T14:59:00+08:00')},{mainInflow:999}]){
+  const records=flow.records.map((r,i)=>i===2?{...r,...patch}:r);
+  assert.deepEqual(build({...flow,records}),noFunds);
+ }
+ assert.deepEqual(build({...flow,records:[flow.records[0],flow.records[0],flow.records[2]]}),noFunds);
+ assert.deepEqual(build({...flow,records:[{tradeDate:f.stock.bars.at(-4).date,mainNetInflow:1e8},...flow.records.slice(0,2)]}),noFunds);
+ assert.equal(build({...flow,records:flow.records.map(r=>({...r,mainNetInflow:0}))}).status,'pass');
+ assert.deepEqual(flow,original);
+});

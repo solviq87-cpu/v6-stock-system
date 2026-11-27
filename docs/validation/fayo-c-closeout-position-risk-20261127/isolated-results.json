@@ -1,0 +1,554 @@
+{
+  "base": "7601009664c4dc74a0cbe457b64d50ae724103bc",
+  "sourceBlobBefore": "7f7c24855b7acbaf58d6f3e7f10a8e3cd8e27f42",
+  "sourceBlobAfter": "e3cd88f74ea717ad270e5870d4648b5d0e4ef5e5",
+  "sourceTestHead": "1e5e6de250756d466869a81a160d86977d0a383b",
+  "environment": "Full original/new stock-risk-evidence.mjs actual V8 execution with ESM and test/assert adapters. Integration tests pending. Prior 60-row consumer limit is unchanged. All fixtures synthetic; old source lacks new feature, not 9 independent defects.",
+  "before": {
+    "total": 9,
+    "pass": 0,
+    "results": [
+      {
+        "name": "C28.1 exact 1/5/10/20 session returns and prior-endpoint percentiles exclude current day",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C28.1 own-history rank treats all ties as midpoint not a probability or a risk score",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'returns')"
+      },
+      {
+        "name": "C28.1 observed returns and the fixed sample are separate when history is short",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C28.2 ordinary simple moving averages include current close and ATR uses prior close",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'movingAverages')"
+      },
+      {
+        "name": "C28.3 one source, explicit unadjusted prices and sample family are necessary for the new continuous history",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C28.3 conflicting same-day history is a gap; equal duplicate and late correction do not rewrite the observation",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C28.3 no weekend/calendar guessing beyond existing declared chain; missing predecessor stops the window",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C28.4 large finite prices and arithmetic overflow cannot generate infinite display metrics",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'movingAverages')"
+      },
+      {
+        "name": "C28.5 historical position research cannot change existing risk evidence or add trading authority",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'canTrade')"
+      }
+    ],
+    "skipped": [
+      "C28.integration original recognition and historical observations retain identical position metrics"
+    ]
+  },
+  "after": {
+    "total": 9,
+    "pass": 9,
+    "results": [
+      {
+        "name": "C28.1 exact 1/5/10/20 session returns and prior-endpoint percentiles exclude current day",
+        "ok": true
+      },
+      {
+        "name": "C28.1 own-history rank treats all ties as midpoint not a probability or a risk score",
+        "ok": true
+      },
+      {
+        "name": "C28.1 observed returns and the fixed sample are separate when history is short",
+        "ok": true
+      },
+      {
+        "name": "C28.2 ordinary simple moving averages include current close and ATR uses prior close",
+        "ok": true
+      },
+      {
+        "name": "C28.3 one source, explicit unadjusted prices and sample family are necessary for the new continuous history",
+        "ok": true
+      },
+      {
+        "name": "C28.3 conflicting same-day history is a gap; equal duplicate and late correction do not rewrite the observation",
+        "ok": true
+      },
+      {
+        "name": "C28.3 no weekend/calendar guessing beyond existing declared chain; missing predecessor stops the window",
+        "ok": true
+      },
+      {
+        "name": "C28.4 large finite prices and arithmetic overflow cannot generate infinite display metrics",
+        "ok": true
+      },
+      {
+        "name": "C28.5 historical position research cannot change existing risk evidence or add trading authority",
+        "ok": true
+      }
+    ],
+    "skipped": [
+      "C28.integration original recognition and historical observations retain identical position metrics"
+    ]
+  },
+  "reg": {
+    "total": 79,
+    "pass": 79,
+    "results": [
+      {
+        "name": "C6.1 conflicting daily observations cannot create a high-mark warning by input order",
+        "ok": true
+      },
+      {
+        "name": "C6.1 equivalent visible daily duplicates do not destroy a genuine sequence",
+        "ok": true
+      },
+      {
+        "name": "C6.1 conflicting earlier volume interrupts the consecutive shrinking sequence",
+        "ok": true
+      },
+      {
+        "name": "C6.1 explicit invalid previous-day reference cannot be silently replaced by a weekday guess",
+        "ok": true
+      },
+      {
+        "name": "C6.2 negative assist count is unknown, not observed collapse",
+        "ok": true
+      },
+      {
+        "name": "C6.2 real zero assists remains a verified adverse observation",
+        "ok": true
+      },
+      {
+        "name": "C6.2 leader name or stock code must identify a real distinct stock",
+        "ok": true
+      },
+      {
+        "name": "C6.2 unique valid leader and numeric code still verify while ambiguous or late evidence stays unknown",
+        "ok": true
+      },
+      {
+        "name": "C6.3 late explicit plan receipts cannot cause hindsight stop, target or regime mismatch",
+        "ok": true
+      },
+      {
+        "name": "C6.3 malformed, unknown or reversed freeze receipt cannot become a known plan",
+        "ok": true
+      },
+      {
+        "name": "C6.3 valid original receipt preserves research facts; fractional holding cannot assert position",
+        "ok": true
+      },
+      {
+        "name": "C6.3 actual backtest selector excludes late and same-second future freeze, retains unique visible plan",
+        "ok": true
+      },
+      {
+        "name": "C6.4 conflict flags block unsupported bid-ask spread evidence",
+        "ok": true
+      },
+      {
+        "name": "C6.4 original suspension cannot be erased or replaced by contradictory quotes",
+        "ok": true
+      },
+      {
+        "name": "C6.5 conflicting duplicate minute and alias of same timestamp cannot generate a repeated plunge",
+        "ok": true
+      },
+      {
+        "name": "C6.5 explicit invalid duplicate value cannot be filtered away before conflict detection",
+        "ok": true
+      },
+      {
+        "name": "C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges",
+        "ok": true
+      },
+      {
+        "name": "C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible",
+        "ok": true
+      },
+      {
+        "name": "C6.5 late conflicting minute cannot rewrite earlier visible history",
+        "ok": true
+      },
+      {
+        "name": "风险仅由有时点的个股与标的上下文触发；情绪和助攻缺失保持未知",
+        "ok": true
+      },
+      {
+        "name": "高位低开与放量滞涨、缩量连板兑现及前日一字开板使用连续交易日",
+        "ok": true
+      },
+      {
+        "name": "基本面需有同标的披露来源和可知时间，金融企业不套用普通工商偿债口径",
+        "ok": true
+      },
+      {
+        "name": "停牌、实时报价价差与全成分板块断层分开判定，封板数不充当全板块上涨数",
+        "ok": true
+      },
+      {
+        "name": "自述动机、已有持仓、冻结止损分别有独立证据，不以盈亏或价格触达推断执行",
+        "ok": true
+      },
+      {
+        "name": "连续剧烈跳水缺少连续成交分钟时保持未知；利空叠加按独立事实计数",
+        "ok": true
+      },
+      {
+        "name": "C21.1 explicit unknown or reversed daily receipt cannot establish historical high mark",
+        "ok": true
+      },
+      {
+        "name": "C21.1 legacy absent receipt differs from future or malformed current receipt",
+        "ok": true
+      },
+      {
+        "name": "C21.2 current conflict or adjusted price cannot create price-based high position or holding evidence",
+        "ok": true
+      },
+      {
+        "name": "C21.2 visible contradictory prior price flag breaks sequence; future revision cannot rewrite history",
+        "ok": true
+      },
+      {
+        "name": "C21.2 explicit special session cannot treat opening gap as ordinary decline",
+        "ok": true
+      },
+      {
+        "name": "C21.3 unrelated declared sector cannot provide held-profit weakness evidence",
+        "ok": true
+      },
+      {
+        "name": "C21.3 conflicting leader observation or malformed member list cannot produce leader-specific high risk",
+        "ok": true
+      },
+      {
+        "name": "C21.4 duplicate market reports deduplicate, same-day conflict cannot count as a consecutive market decline",
+        "ok": true
+      },
+      {
+        "name": "C21.4 visible same-day market value mismatch or explicit invalid current market receipt is not a verified decline",
+        "ok": true
+      },
+      {
+        "name": "C21.5 latest visible withdrawn or explicitly corrected original event cannot keep old warning active",
+        "ok": true
+      },
+      {
+        "name": "C21.5 same-event same-clock conflicts, explicit unknown and same-id conflicting disclosure days are not independent notices",
+        "ok": true
+      },
+      {
+        "name": "C21.5 wrong-symbol or late correction does not erase the original independent disclosure",
+        "ok": true
+      },
+      {
+        "name": "C21.3 visible conflicting leader copy cannot be discarded beside a valid copy",
+        "ok": true
+      },
+      {
+        "name": "C21.2 conflicted or retracted minute does not establish repeated observed plunge",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only quote and receipt cannot impersonate real observation clocks",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only holding and current receipt are not precise observation evidence",
+        "ok": true
+      },
+      {
+        "name": "C22.1 rolled civil dates cannot become frozen decisions",
+        "ok": true
+      },
+      {
+        "name": "C22.1 date-only announcement receipt cannot establish a third precise notice",
+        "ok": true
+      },
+      {
+        "name": "C22.2 conflicted holding snapshots never establish held-profit or stop facts",
+        "ok": true
+      },
+      {
+        "name": "C22.2 conflicted or wrong-date plans cannot govern current held-position exits",
+        "ok": true
+      },
+      {
+        "name": "C22.2 withdrawn self-report and conflicting frozen plan rejected",
+        "ok": true
+      },
+      {
+        "name": "C22.3 explicitly invalid market cannot assert stage mismatch",
+        "ok": true
+      },
+      {
+        "name": "C22.3 invalid market does not turn holding profit into divergence exit",
+        "ok": true
+      },
+      {
+        "name": "C22.4 malformed theme arrays and members do not crash or assert reversal",
+        "ok": true
+      },
+      {
+        "name": "C22.4 conflicted theme or members and invalid first-board level rejected",
+        "ok": true
+      },
+      {
+        "name": "C22.5 next-session date must be real and calendar receipt precise",
+        "ok": true
+      },
+      {
+        "name": "C23.0 declared daily CSV availability preserves suspension; precise knownAt remains required",
+        "ok": true
+      },
+      {
+        "name": "C23.1 real 20-row window exposes rank and range position separately",
+        "ok": true
+      },
+      {
+        "name": "C23.1 missing weekday, duplicate conflict and adjusted prior cannot produce full range",
+        "ok": true
+      },
+      {
+        "name": "C23.1 future revision does not rewrite original range; explicit corporate action breaks it",
+        "ok": true
+      },
+      {
+        "name": "C23.1 range breakout is not clamped to a fake percentile; flat range stays unknown",
+        "ok": true
+      },
+      {
+        "name": "C23.2 only same-date same-prior-window market and sector returns are compared",
+        "ok": true
+      },
+      {
+        "name": "C23.2 conflict, late market, missing return and wrong role cannot supply relative return",
+        "ok": true
+      },
+      {
+        "name": "C23.3 signed active-buy share distinguishes withdrawal, zero and different turnover",
+        "ok": true
+      },
+      {
+        "name": "C23.3 missing or incomparable declared flow cannot be treated as a real outflow",
+        "ok": true
+      },
+      {
+        "name": "C23.4 daily reversal is a price-only observation, not a fabricated intraday path",
+        "ok": true
+      },
+      {
+        "name": "C23.5 frozen plan gross payoff and break-even are not actual costs or predicted probabilities",
+        "ok": true
+      },
+      {
+        "name": "C24.0 visible same-date duplicate conflicts suppress the new research projection rather than pick the first",
+        "ok": true
+      },
+      {
+        "name": "C24.1 comparable close breadth and seal-assist decline remain separate observations",
+        "ok": true
+      },
+      {
+        "name": "C24.1 missing, wrong-time, wrong-source and changing denominator do not certify breadth",
+        "ok": true
+      },
+      {
+        "name": "C24.1 visible contradictory previous theme count does not inherit one duplicate; late edit is not hindsight",
+        "ok": true
+      },
+      {
+        "name": "C24.2 explicit unchanged leader identity and original paired returns show co-decline, not causality",
+        "ok": true
+      },
+      {
+        "name": "C24.2 leader rotation, wrong sector, wrong stock and conflicting copies cannot establish co-decline",
+        "ok": true
+      },
+      {
+        "name": "C24.2 a real non-declining leader or follower stays non-co-declining, not unknown",
+        "ok": true
+      },
+      {
+        "name": "C24.3 high-board relay differentiates touched-and-failed, never-touched and sealed",
+        "ok": true
+      },
+      {
+        "name": "C24.3 special session, missing/inconsistent limit and visible prior streak conflict rejected",
+        "ok": true
+      },
+      {
+        "name": "C24.4 three-day negative flow and turnover-weighted share use original signed amounts",
+        "ok": true
+      },
+      {
+        "name": "C24.4 real zero, missing day, mixed source and conflicted amounts cannot imitate persistent outflow",
+        "ok": true
+      },
+      {
+        "name": "C24.4 future correction does not rewrite visible three-day flow",
+        "ok": true
+      },
+      {
+        "name": "C24.5 stop or target review never infers T+1 sellability or authorizes liquidation",
+        "ok": true
+      },
+      {
+        "name": "C24.5 invalid holding, late or wrong-day frozen plan, impossible declared sellability remain unknown",
+        "ok": true
+      },
+      {
+        "name": "C24.5 weakness review distinct from frozen stop and target, no sell recommendation",
+        "ok": true
+      },
+      {
+        "name": "C24.3 sealed high board with explicit contradictory streak does not invent a continuation",
+        "ok": true
+      },
+      {
+        "name": "C24.4 bounded individual flow ratios stay finite even if aggregate turnover overflows",
+        "ok": true
+      }
+    ],
+    "skipped": [
+      "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+      "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
+      "C24.integration existing automatic recognition derives leader comparison from original daily bars"
+    ]
+  },
+  "integration": {
+    "ref": "66370c494d82b9a48e7fef096a7b57e50c151a15",
+    "environment": "Complete 16 original shortline dependency modules and catalog; ESM namespace/live-binding adapter, UTF8 encoder adapter, node:test/assert and exact catalog fs/path adapters; actual code executed. Not native Node, real quotes, or full browser.",
+    "modules": [
+      {
+        "name": "backtest.mjs",
+        "blob": "43b9c66f4323f6f3f62807abbd3372178dd9193d"
+      },
+      {
+        "name": "market.mjs",
+        "blob": "2dfb17a936c9bce7e8e0e736e0dde74be5054a14"
+      },
+      {
+        "name": "settings.mjs",
+        "blob": "506e9c6f4f7a5ec6ecca9b9ea70b42b7caf86559"
+      },
+      {
+        "name": "signal-window.mjs",
+        "blob": "b71506d8cd9cbd5ad8251a6186f7431d9eea598b"
+      },
+      {
+        "name": "backtest-analytics.mjs",
+        "blob": "a6cd6342307f75b744c9bb37bba72f77a4cd282a"
+      },
+      {
+        "name": "sample-quality.mjs",
+        "blob": "cb6cb8f01a837064a4642bf69e9c53beb41a5924"
+      },
+      {
+        "name": "recognize.mjs",
+        "blob": "0d03c05a41e74e1f8dc290898b6a8cc5b3d2396c"
+      },
+      {
+        "name": "pattern-evidence.mjs",
+        "blob": "9d08dc2acfdbadfdab24d850ab97c72a2c91500a"
+      },
+      {
+        "name": "index-evidence.mjs",
+        "blob": "e2ace7bf00bbe157723eeec1ccd3e8e07102d3f3"
+      },
+      {
+        "name": "pressure.mjs",
+        "blob": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+      },
+      {
+        "name": "stock-risk-evidence.mjs",
+        "blob": "e3cd88f74ea717ad270e5870d4648b5d0e4ef5e5"
+      },
+      {
+        "name": "factor-dictionary.mjs",
+        "blob": "672860884918abcad9dee6f1653d624277571f52"
+      },
+      {
+        "name": "numeric-factors.mjs",
+        "blob": "806f990cc3799aa50655ea5f901bd6ad6009d0e8"
+      },
+      {
+        "name": "learning.mjs",
+        "blob": "c03c623cf3b7d17f450c138d6d02e80aabb80447"
+      },
+      {
+        "name": "numeric-factors.js",
+        "blob": "79c3a91420a87c958d45cd613a2ec1d439446c09"
+      },
+      {
+        "name": "factor-performance.mjs",
+        "blob": "13ae7c026ed741a160551245e52faa94982b6563"
+      }
+    ],
+    "catalog": "3ab3c64a40fc0d5a89f4426b76647aafd4d27b59",
+    "results": [
+      {
+        "name": "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
+        "blob": "39e6dde61a1513987953125f9350473f8675c399",
+        "ok": true
+      },
+      {
+        "name": "C24.integration existing automatic recognition derives leader comparison from original daily bars",
+        "blob": "ba1eec4c48255aa785405c92db855659c169ed1e",
+        "ok": true
+      },
+      {
+        "name": "C28.integration original recognition and historical observations retain identical position metrics",
+        "blob": "a707dcd67f21c9862d98bcfd72fbdb26387033e8",
+        "ok": true
+      },
+      {
+        "name": "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+        "blob": "4306d018147ce7169db9d3be2fc780e281e6a00a",
+        "ok": true
+      }
+    ],
+    "total": 4,
+    "pass": 4
+  },
+  "final": {
+    "newPass": 10,
+    "newTotal": 10,
+    "oldPass": 82,
+    "oldTotal": 82,
+    "totalPass": 92,
+    "total": 92,
+    "fail": 0,
+    "skipped": 0,
+    "fullCI": false
+  },
+  "design": {
+    "windows": [
+      1,
+      5,
+      10,
+      20
+    ],
+    "historicalPercentile": "20 earlier overlapping return endpoints, midrank, current excluded; only full finite sample counts, no risk threshold or probability",
+    "maximumPriorBars": 40,
+    "upstreamLimit": 60,
+    "average": "SMA5/10/20 including current close; scaled finite mean",
+    "atr": "simple mean of 14 true ranges including gap, not Wilder; zero ATR gives unknown distance",
+    "identity": "same declared source and sampleSet/sampleSource, explicit unadjusted daily bars, visible and nonconflicting; missing predecessor terminates",
+    "limits": "Synthetic fixture only, prior chain declared previousDay or weekday, not certified exchange calendar; no sector history percentiles, independent vendor certification, production factor/weights/threshold changes, formal riskAssessment or trade authority. Short 20-endpoint rank is descriptive and not validated predictive performance."
+  }
+}

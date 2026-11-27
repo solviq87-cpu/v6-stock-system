@@ -263,7 +263,14 @@ function createMarketRequestGovernor({
     try { result = item.task(); }
     catch (error) { result = Promise.reject(error); }
     Promise.resolve(result).then(
-      value => { bucket.active--; item.resolve(value); pump(bucket); },
+      value => {
+        bucket.active--;
+        // Successful wire completion is not publishable if the common clock
+        // or persisted restriction state failed while this request was active.
+        if(readClock()===null||!refreshState())item.reject(unavailableError(bucket.provider));
+        else item.resolve(value);
+        pump(bucket);
+      },
       error => { bucket.active--; item.reject(error); pump(bucket); }
     );
   }
@@ -328,7 +335,9 @@ function createMarketRequestGovernor({
     throw restrictionError(provider, status, bucket.cooldownUntil);
   }
   function state(target) {
-    const provider = providerFor(target), bucket = buckets.get(provider), at = readClock();
+    const provider = providerFor(target);
+    refreshState();
+    const at = readClock(), bucket = buckets.get(provider);
     // A detached, frozen snapshot contains no URL, query, credentials or headers.
     return Object.freeze({
       provider, active: bucket ? bucket.active : 0, queued: bucket ? bucket.queue.length : 0,

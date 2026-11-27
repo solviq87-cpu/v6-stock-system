@@ -1,0 +1,453 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "8c90f77f58f90d98d348a5d8c3d9bca4d0121928",
+  "baseTree": "f582888c668917c0955640bb5bd6d50195d1d54c",
+  "scope": "Independent D-group post-#526 integration candidate. No dev merge or deployment.",
+  "groups": [
+    {
+      "name": "授权网关与海外行情",
+      "prs": [
+        443,
+        547,
+        550
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "4ec47b6eaa226f0fd22c32c84761412630e56990",
+      "count": 10
+    },
+    {
+      "name": "公告、财务和证券生命周期",
+      "prs": [
+        453,
+        543
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "a20b2180e1bc859c7034333bff10c4687c82d936",
+      "count": 10
+    },
+    {
+      "name": "历史存证、主备恢复、外汇与能源",
+      "prs": [
+        495,
+        509,
+        517,
+        518,
+        538,
+        553,
+        555
+      ],
+      "base": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+      "head": "bbaab4eb6318a4672d5551480c15dae2b603ecc7",
+      "count": 30
+    },
+    {
+      "name": "四套策略数据准入",
+      "prs": [
+        541,
+        556
+      ],
+      "base": "e2a3b7b229099fa70f97430b2e7c8136fffae244",
+      "head": "b9a17f5f2fee14fdd3e65faada4b4cb84c6adf9a",
+      "count": 5
+    }
+  ],
+  "files": [
+    {
+      "path": "V6_BO/src/core/itick-stock-quote.js",
+      "before": "51b66c561f7597e1850f369129ace61b869139c0",
+      "after": "638c2fb8de0bd68a98fa525f6b0e76cee72edbf8",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/src/core/parallel-market.js",
+      "before": "a43da3446e2518dee9559fbea1de2a7ce47518ca",
+      "after": "d01a8b7bb6ce78f6592ccbb6fdae6ef371b7f769",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/tests/itick-stock-quote.test.js",
+      "before": "08fff72344ebc0ca3546e2c120d9fa9eaca527bf",
+      "after": "3e38660ef4db3d7f2cd57c56ac82d7898102afd3",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/scripts/global-stock-quote.js",
+      "before": null,
+      "after": "f26b4d610e7b7e0ec5a8210bfacfb0c9be462ccc",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-gateway-input-integrity.test.js",
+      "before": null,
+      "after": "c00be74b74e98ad174bf857ad18bdd9085948b3a",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-global-stock-boundaries.test.js",
+      "before": null,
+      "after": "34a7f913b5fbf527ca9fd154561136e2ab4b756a",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-global-stock-reference.test.js",
+      "before": null,
+      "after": "14e08e5b65dfa3940ef43aa58add083d1cfc77b4",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "docs/validation/fayo-d-gateway-input-integrity-20261127/README.md",
+      "before": null,
+      "after": "8a8dd34b2ad438799317b6902859c51eae34c2dd",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "docs/validation/fayo-d-global-stock-boundaries-20261127/README.md",
+      "before": null,
+      "after": "9127eb06d59a0d9bc832b61dd9d9267014ddbb74",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "docs/validation/fayo-d-global-stock-reference-20261127/README.md",
+      "before": null,
+      "after": "22376dffb10e6cb8c0973ab6af862cf49cd47faf",
+      "mode": "100644",
+      "group": "授权网关与海外行情"
+    },
+    {
+      "path": "V6_BO/external_data.js",
+      "before": "ba252ba3da75e0727bc889b54bbedd910afa5823",
+      "after": "a1169436aa7e620fc1654c8a0ae467520b87305b",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/src/core/cls-limit-up-pool.js",
+      "before": "cf87872052467476377fbf11d636c3662553f65a",
+      "after": "ccbb7e30ec235dbdd554ab705d8c2f519ac8ca31",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/src/core/news-evidence-journal.js",
+      "before": "239041d9ced09ef67b7f7fe70cb444a5d3a849b6",
+      "after": "437edc42023f1a8ab618d89a568247eb7f87c9c1",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-financials.js",
+      "before": "92ab5692963f71a7efcd1667316fb2e4eb7039a3",
+      "after": "c594efb3b1a23d4c2fa871db3f8a523b61771587",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/scripts/read-security-lifecycle.js",
+      "before": null,
+      "after": "c9812ac466a2f75b479581874b69e78f7ba0794e",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/src/core/security-lifecycle-evidence.js",
+      "before": null,
+      "after": "050f1f38935c28332917218b208f7b3cf75f9029",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-disclosure-integrity.test.js",
+      "before": null,
+      "after": "27ab1c52f32b396953bbb9137a9f3848c3bdc183",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-security-lifecycle-evidence.test.js",
+      "before": null,
+      "after": "020ee98afde127135199c06a71d7033b8f011032",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-disclosure-integrity-20261127/README.md",
+      "before": null,
+      "after": "a9425180e74ade21c690ff376e633d5b90f3ffde",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "docs/validation/fayo-d22-lifecycle-evidence-20261127/README.md",
+      "before": null,
+      "after": "6cab01efa308d11658a9afc64e296ce7ec101a42",
+      "mode": "100644",
+      "group": "公告、财务和证券生命周期"
+    },
+    {
+      "path": "V6_BO/src/core/ecb-fx-daily.js",
+      "before": "fc5bba99a8379e456726c90c57006e4f3180ae59",
+      "after": "e625a28b14ce79f72a25640aa85d80546812814f",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-center.js",
+      "before": "98c6dbcc26764a9aae45482398837c2e8d28203e",
+      "after": "9aec2ccf9565268e7027c4ad64fe055dd772f086",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "before": "8604b6a86b23be8f5c7b9e35aec28f7665a5014c",
+      "after": "aa7b1cd66de7aa35901235e41e353af4899a393d",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/market-failover.js",
+      "before": "1f69dfe916e8ff409ff3dfbf6f70147d06eeb4de",
+      "after": "f1ad7102f6d650728f7ca697c29de9800cfe6a53",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/market-request-governor.js",
+      "before": "228aba3c9dd469003896ed39540dd75c59689627",
+      "after": "d151fb42a44074ad6bd29cf4fea3bb17a34770e9",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/complete-development.test.js",
+      "before": "98e51e31efe27b1f4c0ba24c8998843c85704adb",
+      "after": "1154858cb8eafa06686eaee96e624d1dd8ab2eae",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/ecb-fx-daily.test.js",
+      "before": "b3dff963e3a6bda5917825be962939c019ccac90",
+      "after": "088321f2b181b482806df38e858a1fd120374e92",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/market-data-quality-gates.test.js",
+      "before": "4c9d5f03078418bc92e214db26434f78363f1cb3",
+      "after": "7742437715ea1308474181b9246fed54bba7db80",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/phase4-market-queue-clock.test.js",
+      "before": "eeeca69b96196bf68a8e086101581153048d543c",
+      "after": "ccefc5f8e4188c1ef5adc054ed1a9d7f4f2b6d58",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/scripts/collect-eia-spot.js",
+      "before": null,
+      "after": "75109bd49d1dd4749a9ef9956fcdb08aff6917a9",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/ecb-cross-reference.js",
+      "before": null,
+      "after": "9e384480573a8f4b2d3eb4410f709bd512caa48a",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/eia-spot-daily.js",
+      "before": null,
+      "after": "c65c132032f5264ac613b9d1b41407d27e1d99f5",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-ecb-transport-boundaries.test.js",
+      "before": null,
+      "after": "995a086e5b788ed3c4765f803fe5fe573ebd9778",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-eia-transport-boundaries.test.js",
+      "before": null,
+      "after": "fc7ca3700b9167e5c20ccb7fd97f3d0dc092b59b",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-failover-archive-binding.test.js",
+      "before": null,
+      "after": "e25afb0f7f764d465c1c986fa952b1825ac594fa",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-failover-recovery-integrity.test.js",
+      "before": null,
+      "after": "1278068c1ad93dc9a245142109b868967d9cd61d",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-governor-process-recovery.test.js",
+      "before": null,
+      "after": "de20519ee0fbbc8155d8289eb74f785c837a84e1",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-history-archive-combination.test.js",
+      "before": null,
+      "after": "7606abcff1879bab28d1eb0119f01b87d4dcfc3d",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-history-import-integrity.test.js",
+      "before": null,
+      "after": "10ed2c17112a36c8ef875b0a70b23adf57d52da2",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-receipt-integrity.test.js",
+      "before": null,
+      "after": "0a50ce15c80888fe32a15680e5c15c09a60b8dd2",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-native-archive-recovery.test.js",
+      "before": null,
+      "after": "8eedb30e8de624398cb65ec0e5db13478e16530e",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d24-reference-market.test.js",
+      "before": null,
+      "after": "d5f7229f6f64e7e391b0f410ef08782820a7ab29",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-ecb-transport-boundaries-20261127/README.md",
+      "before": null,
+      "after": "e077e99c4aa71f43b4a911f93e4857893b543b2a",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-eia-transport-boundaries-20261127/README.md",
+      "before": null,
+      "after": "918b1ae12527b9eceef4cdff6203d6d8a0a145d7",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-failover-archive-binding-20261127/README.md",
+      "before": null,
+      "after": "c3b85af014bdb3a09d68b1716b855c8ba1a3076e",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-failover-recovery-integrity-20261127/README.md",
+      "before": null,
+      "after": "a3e2ecec31a5d4ec1f13b9e8fe788af198b497ae",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-governor-clock-acceptance-20261127/D25_NATIVE_PROCESS_ACCEPTANCE.md",
+      "before": null,
+      "after": "7f69f6bd1dd76e096c4db7f6f38d743b81fd50c1",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-governor-clock-acceptance-20261127/README.md",
+      "before": null,
+      "after": "49f55f920dda6669b1f19b6f2e4c30b6cf09dfeb",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d-history-archive-combination-20261127/README.md",
+      "before": null,
+      "after": "a6e08e67f9f7591191b8c5a698fbf8c95d91e3c6",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "docs/validation/fayo-d24-fx-energy-reference-20261127/README.md",
+      "before": null,
+      "after": "424bd90f359ef29750904cded6bc8056543a33bf",
+      "mode": "100644",
+      "group": "历史存证、主备恢复、外汇与能源"
+    },
+    {
+      "path": "V6_BO/src/core/native-strategy-daily-runner.js",
+      "before": "48e737e6f147b445665e5474eef2df45b07c1bf1",
+      "after": "a818c7f3c47b47f3c4400f89a119d86e34a69681",
+      "mode": "100644",
+      "group": "四套策略数据准入"
+    },
+    {
+      "path": "V6_BO/tests/phase4-native-daily-evidence.test.js",
+      "before": "6e6edf56babcf2803cd0d2803e3f4d2adcccb230",
+      "after": "14c53631bc4bed0cc40de76495f5ba531df93b65",
+      "mode": "100644",
+      "group": "四套策略数据准入"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d42-native-input-admission.test.js",
+      "before": null,
+      "after": "2fa015e0e1ddc07f4525c6a5e6e3eff827386439",
+      "mode": "100644",
+      "group": "四套策略数据准入"
+    },
+    {
+      "path": "docs/validation/fayo-d39-native-fund-rejection-closeout-20261127/README.md",
+      "before": null,
+      "after": "0fc881821148b032276c7f38be43d3730b77ff7e",
+      "mode": "100644",
+      "group": "四套策略数据准入"
+    },
+    {
+      "path": "docs/validation/fayo-d42-native-input-admission-20261127/README.md",
+      "before": null,
+      "after": "34323ca8055ed9000f44a29ebeb0ab00e275a251",
+      "mode": "100644",
+      "group": "四套策略数据准入"
+    }
+  ],
+  "verification": {
+    "method": "Full Git blob SHA and mode exact three-way admission, all 55 adopted paths",
+    "candidateCI": "not yet run",
+    "runtimeTests": "not run for combined candidate",
+    "originalDTaskCoverage": "62/78 partial, 16 original definitions not recovered; no new original task closure",
+    "productionAcceptance": false
+  },
+  "limits": [
+    "Only these four chains selected; other D branches not included in this candidate yet.",
+    "No source edits beyond exact existing blobs; no deletion, workflow change, account or trading permission change.",
+    "Do not equate prior source branch tests with combined CI."
+  ]
+}

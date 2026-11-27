@@ -15,7 +15,9 @@ const quantity = n => Number.isSafeInteger(n) && n >= 0;
 const plain = x => x !== null && typeof x === 'object' && !Array.isArray(x);
 const hash = x => crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const unique = xs => [...new Set(xs)];
-const round = n => finite(n) ? Math.round(n * 1e6) / 1e6 : null;
+// Scaling a finite large number for display rounding can overflow. At that
+// magnitude the number already has no fractional digits at this precision.
+const round = n => !finite(n) ? null : finite(n * 1e6) ? Math.round(n * 1e6) / 1e6 : n;
 const RULES = [
   ['maxPositionPct', '单票集中度', '%'], ['maxGrossExposurePct', '总仓位', '%'],
   ['maxSectorPct', '行业集中度', '%'], ['maxStrategyPct', '策略集中度', '%'],
@@ -54,14 +56,20 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
     if (position.quantity === 0) continue;
     const mark = freshMark(quotes instanceof Map ? quotes.get(symbol) : quotes[symbol], symbol, now); quoteEvidence.push({symbol, ...mark});
     if (!mark.usable) { lotsKnown = false; missing.push(mark.reason); }
-    else { marks[symbol] = mark.price; heldValue += position.quantity * mark.price; }
+    else {
+      const value = position.quantity * mark.price;
+      if (!finite(value) || !finite(heldValue + value)) {
+        lotsKnown = false; missing.push(symbol + ' 持仓估值超出安全计算范围');
+      } else { marks[symbol] = mark.price; heldValue += value; }
+    }
     const lots = position.lots;
     if (!Array.isArray(lots) || lots.some(l => !quantity(l?.quantity)) ||
         lots.reduce((sum,l) => sum + l.quantity, 0) !== position.quantity) {
       lotsKnown = false; missing.push(symbol + ' 缺少可核对的原持仓批次'); continue;
     }
     for (const lot of lots) if (lot.quantity > 0) positions.push({symbol, quantity: lot.quantity,
-      value: mark.usable ? lot.quantity * mark.price : null, strategyId: strategyByEntry.get(lot.sourceEventId) || null});
+      value: mark.usable && finite(lot.quantity * mark.price) ? lot.quantity * mark.price : null,
+      strategyId: strategyByEntry.get(lot.sourceEventId) || null});
   }
   for (const [orderKey, item] of orderRows) {
     if (!plain(item?.order) || !plain(item.state) || typeof item.state.terminal !== 'boolean' ||
@@ -106,9 +114,11 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
   }
   const cash = known && finite(book.account.cash) && book.account.cash >= 0 ? book.account.cash : null;
   if (cash === null) missing.push('原账户现金未知');
-  const equity = lotsKnown && cash !== null ? cash + heldValue : null;
-  const exposureKnown = equity !== null && equity > 0 && ordersKnown;
-  const gross = lotsKnown && ordersKnown ? heldValue + pendingBuyValue : null;
+  const equity = lotsKnown && cash !== null && finite(cash + heldValue) ? cash + heldValue : null;
+  const gross = lotsKnown && ordersKnown && finite(heldValue + pendingBuyValue) ? heldValue + pendingBuyValue : null;
+  const exposureKnown = finite(equity) && equity > 0 && finite(gross) && ordersKnown;
+  if (lotsKnown && cash !== null && equity === null) missing.push('原账户权益合计超出安全计算范围');
+  if (lotsKnown && ordersKnown && gross === null) missing.push('原总敞口超出安全计算范围');
   const values = [...positions, ...pending];
   const imported = {}, importedMissing = {}, evidenceRefs = [];
   for (const [kind, needed, subset] of [
@@ -162,7 +172,7 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
         }
         if (groupingKnown) {
           rule.buckets = [...groups].map(([key,value]) => ({id: key, value: round(value), used: round(value / equity * 100),
-            remaining: round(Math.max(0, rule.limit - value / equity * 100)), remainingValue: round(Math.max(0, equity * rule.limit / 100 - value))}))
+            remaining: round(Math.max(0, rule.limit - value / equity * 100)), remainingValue: round(Math.max(0, equity * (rule.limit / 100) - value))}))
             .sort((a,b) => b.used - a.used || a.id.localeCompare(b.id));
           rule.used = groups.size ? Math.max(...groups.values()) / equity * 100 : 0;
         } else if (!rule.reasonCodes.length) rule.reasonCodes.push(id === 'maxSectorPct' ? 'MISSING_SECTOR_CLASSIFICATION' : 'MISSING_STRATEGY_ATTRIBUTION');
@@ -189,6 +199,11 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
       rule.exceeded = id.includes('Pct') && !id.includes('Pause') ? rule.used > rule.limit + 1e-9 : rule.used >= rule.limit;
       rule.remaining = round(Math.max(0, rule.limit - rule.used)); rule.used = round(rule.used);
       rule.evidenceStatus = 'available';
+    }
+    if (rule.used !== null && !finite(rule.used)) {
+      rule.used = null; rule.remaining = null; rule.exceeded = null; rule.buckets = [];
+      rule.evidenceStatus = 'missing'; rule.reasonCodes.push('INVALID_EXPOSURE_RANGE');
+      rule.missing.push('原风控占用比例超出安全计算范围');
     }
     rule.missing = unique(rule.missing); missing.push(...rule.missing); return rule;
   });

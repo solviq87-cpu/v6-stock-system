@@ -1,0 +1,37 @@
+{
+  "scope": "actual Chromium browser, exact new ES module plus test-only export reference, in-memory DOM and synthetic server reports; visibility events explicitly dispatched; not original complete workbench or live API",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800,
+      "checks": {
+        "initial": true,
+        "replayRejected": true,
+        "hiddenInvalidated": true,
+        "restored": true,
+        "disposed": true,
+        "oneInFlight": true,
+        "oldCannotUnlock": true,
+        "wrongAccountRejected": true,
+        "explicitUnknownRejected": true
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "checks": {
+        "initial": true,
+        "replayRejected": true,
+        "hiddenInvalidated": true,
+        "restored": true,
+        "disposed": true,
+        "oneInFlight": true,
+        "oldCannotUnlock": true,
+        "wrongAccountRejected": true,
+        "explicitUnknownRejected": true
+      }
+    }
+  ],
+  "browserVersion": "144.0.7559.96",
+  "passed": true
+}

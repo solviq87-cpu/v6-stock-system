@@ -1,7 +1,8 @@
 'use strict';
 /** Offline paper-intent simulator. Never connects to a broker or mutates inputs. */
 const crypto = require('node:crypto');
-const { preflightPaperExecution } = require('./paper-execution-preflight');
+const { preflightPaperExecution, priceWithinReference } = require('./paper-execution-preflight');
+const scalar = v => typeof v === 'number' || typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
 const round = n => Math.round((n + Number.EPSILON) * 100) / 100;
 const hash = x => crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 
@@ -21,15 +22,16 @@ function simulatePaperIntents(plan, snapshot, account, options = {}) {
   let cash = initialCash;
   const fills = [], blocked = [];
 
-  for (const decision of gate.decisions) {
-    const intent = plan.intents.find(x => x.system === decision.system && x.symbol === decision.symbol &&
-      x.executionDate === decision.executionDate && x.quantity === decision.quantity);
+  // Preflight produces exactly one decision per original intent, in input order.
+  // Display fields are not an identity: another intent can have a different frozen price.
+  for (const [index, decision] of gate.decisions.entries()) {
+    const intent = plan.intents[index];
     if (!intent) { blocked.push({ ...decision, reason: '无法定位原始委托意图' }); continue; }
     const intentId = hash({ fingerprint: plan.datasetFingerprint, intent });
     if (seen.has(intentId)) { blocked.push({ ...decision, reason: '重复意图，幂等保护拒绝重复撮合' }); continue; }
     if (decision.status !== 'preflight-pass') { blocked.push({ ...decision, reason: decision.reason || '预检未通过' }); continue; }
     const row = marketBySymbol.get(intent.symbol);
-    const open = Number(row.open ?? row.price), volume = Number(row.volume);
+    const open = scalar(row.open), volume = scalar(row.volume);
     if (!Number.isFinite(open) || open <= 0) { blocked.push({ ...decision, reason: '缺少有效开盘价' }); continue; }
     if (!Number.isFinite(volume) || volume <= 0) { blocked.push({ ...decision, reason: '缺少有效成交量' }); continue; }
     const maxQty = Math.floor(volume * cfg.maxParticipationPct / 100 / 100) * 100;
@@ -38,6 +40,9 @@ function simulatePaperIntents(plan, snapshot, account, options = {}) {
       blocked.push({ ...decision, reason: '撮合时行情状态不可交易' }); continue;
     }
     const price = round(open * (1 + cfg.slippageBps / 10000));
+    if (!priceWithinReference(open, intent.referencePrice) || !priceWithinReference(price, intent.referencePrice)) {
+      blocked.push({ ...decision, reason: '开盘价或计入滑点后的模拟成交价偏离计划价格超过3%，须重新核对' }); continue;
+    }
     const gross = round(price * intent.quantity);
     const fee = round(Math.max(cfg.minCommission, gross * cfg.feeBps / 10000));
     const total = round(gross + fee);

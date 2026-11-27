@@ -37,3 +37,33 @@ test('an explicitly conflicted quote, wrong provider and prior request receipt c
   feed.read(session);await flush();assert.equal(feed.read(session).indices.length,0,JSON.stringify(patch));
  }
 });
+
+test('delayed index dispatch rejects receipts predating actual invocation from either source',async()=>{
+ let now=at,updates=[];
+ const feed=createSessionIndexFeed({clock:()=>now,primary:async()=>[q('tencent-index',100,at+1000,at+2000)],backup:async()=>[q('sina-index',100,at+1000,at+2000)],onUpdate:v=>updates.push(v)});
+ feed.read(session);now=at+10000;await flush();
+ const view=feed.read(session);assert.equal(view.indices.length,0);assert.equal(updates.length,0);
+ assert.equal(view.channels.length,2);assert.ok(view.channels.every(c=>c.status==='no-session-quote'&&c.count===0));
+});
+test('successful delayed index invocation starts both source cooldowns at dispatch',async()=>{
+ let now=at,primary=0,backup=0;
+ const feed=createSessionIndexFeed({clock:()=>now,primary:async()=>{primary++;return [q('tencent-index',100,now-1000,now)];},backup:async()=>{backup++;return [];}});
+ feed.read(session);now=at+10000;await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+14999;const view=feed.read(session);assert.equal(view.indices[0].receivedAt,at+10000);assert.equal(view.indices[0].canTrade,false);await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+15000;feed.read(session);await flush();assert.deepEqual([primary,backup],[2,2]);
+});
+test('failed delayed index invocation is also cooled down from actual dispatch',async()=>{
+ let now=at,primary=0,backup=0;
+ const feed=createSessionIndexFeed({clock:()=>now,primary:async()=>{primary++;throw Error('503');},backup:async()=>{backup++;throw Error('429');}});
+ feed.read(session);now=at+10000;await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+14999;const view=feed.read(session);assert.ok(view.channels.every(c=>c.status==='unavailable'));await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+15000;feed.read(session);await flush();assert.deepEqual([primary,backup],[2,2]);
+});
+test('physical dispatch cooldown survives an epoch reset after a delayed invocation',async()=>{
+ let now=at,primary=0,backup=0;
+ const feed=createSessionIndexFeed({clock:()=>now,primary:async()=>{primary++;return [q('tencent-index',100,now-1000,now)];},backup:async()=>{backup++;return [];}});
+ feed.read(session);now=at+10000;await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+9999;assert.equal(feed.read(session).indices.length,0);
+ now=at+11000;feed.read(session);await flush();assert.deepEqual([primary,backup],[1,1]);
+ now=at+15000;feed.read(session);await flush();assert.deepEqual([primary,backup],[2,2]);
+});

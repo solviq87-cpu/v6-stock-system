@@ -89,3 +89,21 @@ test('freshness keeps exact age boundary and legacy historical modes',()=>{
  assert.equal(validateFeed(stock,{now}).usable,true);
  assert.equal(validateFeed(stock,{now,requireReal:true}).usable,false);
 });
+
+test('snapshot close accepts only finite numeric scalars, never coercible containers',()=>{
+ for(const close of [[10],['10'],{},new Number(10),true,'  ']){
+  const q=validateFeed({...live,close},{now,requireReal:true});
+  assert.equal(q.usable,false);assert.equal(q.fresh,false);
+ }
+ for(const close of [10,'10.00'])assert.equal(validateFeed({...live,close},{now,requireReal:true}).usable,true);
+});
+test('strict feed cannot launder explicit synthetic or read-only bar provenance through a live envelope',()=>{
+ for(const patch of [{simulated:true},{mode:'mock'},{source:'simulated'},{source:'imported'},{readOnlyBackup:true},{dataMode:'backtest'}]){
+  const rows=bars.map((b,i)=>i===0?{...b,...patch}:b);
+  const result=validateFeed({...live,bars:rows},{now,requireReal:true});
+  assert.equal(result.usable,false);assert.equal(result.fresh,false);
+  const legacy=validateFeed({...stock,bars:rows},{now});
+  assert.equal(legacy.usable,true);
+  assert.equal(legacy.simulated||legacy.historical,true);
+ }
+});

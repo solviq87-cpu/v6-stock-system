@@ -1,0 +1,17 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {reducePaperOrderEvents:reduce}=require('../src/core/paper-order-state-machine');
+const order=(patch={})=>({orderId:'ord-1',symbol:'600000',side:'buy',quantity:200,...patch});
+const fill=(patch={})=>({eventId:'fill-1',sequence:1,type:'fill',quantity:100,price:10,...patch});
+test('order quantity must be scalar, not a coerced array',()=>{for(const quantity of [[200],{valueOf:()=>200}])assert.throws(()=>reduce(order({quantity}),[]),/整数手/);});
+test('order identity is not a coerced object, array or whitespace-only ID',()=>{for(const orderId of [[],['ord-1'],{},true,'  '])assert.throws(()=>reduce(order({orderId}),[]),/标识/);});
+test('security code cannot be supplied as an array or arbitrary object',()=>{for(const symbol of [['600000'],{toString:()=> '600000'}])assert.throws(()=>reduce(order({symbol}),[]),/标识/);});
+test('event identity cannot be a coerced boolean, array, object or blank',()=>{for(const eventId of [true,['fill-1'],{},'  '])assert.throws(()=>reduce(order(),[fill({eventId})]),/eventId/);});
+test('sequence cannot be manufactured from a boolean or array',()=>{for(const sequence of [true,[1],{valueOf:()=>1}])assert.throws(()=>reduce(order(),[fill({sequence})]),/严格递增/);});
+test('filled quantity cannot come from an array or object',()=>{for(const quantity of [[100],{valueOf:()=>100}])assert.throws(()=>reduce(order(),[fill({quantity})]),/整数手/);});
+test('fill price rejects booleans, arrays and arbitrary value coercion',()=>{for(const price of [true,[10],{valueOf:()=>10}])assert.throws(()=>reduce(order(),[fill({price})]),/价格无效/);});
+test('explicit invalid fees cannot enter the order journal',()=>{for(const fee of [null,false,[0],{},'',-1,Infinity])assert.throws(()=>reduce(order(),[fill({fee})]),/费用无效/);});
+test('finite price whose value overflows must not produce a nonfinite average or fingerprint',()=>{assert.throws(()=>reduce(order(),[fill({price:1e308})]),/计算范围/);});
+test('a tiny price cannot create a zero settled average after the original precision rounding',()=>{assert.throws(()=>reduce(order(),[fill({price:0.00000001})]),/计算范围/);});
+test('legacy scalar numeric strings and missing fee stay compatible',()=>{const r=reduce(order({quantity:'200',symbol:600000,orderId:1}),[fill({eventId:1,sequence:'1',quantity:'100',price:'10',fee:'0'}),fill({eventId:2,sequence:'2',quantity:'100',price:'11'})]);assert.equal(r.averageFillPrice,10.5);assert.equal(r.status,'filled');assert.equal(r.fills.length,2);assert.equal(r.orderId,'1');});
+test('normal order arithmetic and replay stay immutable with the existing precision',()=>{const o=order({quantity:300}),a=fill({price:10.12345,fee:0}),b=fill({eventId:'fill-2',sequence:2,quantity:200,price:10.54321}),before=JSON.stringify([o,a,b]);const r=reduce(o,[a,b,{...b}]);const oldAvg=Math.round((a.price+Number.EPSILON)*10000)/10000;assert.equal(r.averageFillPrice,Math.round(((oldAvg*100+200*b.price)/300+Number.EPSILON)*10000)/10000);assert.equal(r.fills.length,2);assert.equal(JSON.stringify([o,a,b]),before);});

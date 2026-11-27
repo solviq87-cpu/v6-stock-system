@@ -1,0 +1,300 @@
+{
+  "base": "e57b3d5d3d87df01e538283f0ff15b345926cb7d",
+  "sourceTestHead": "199f01472d9214a91da7c135387c49374e6315db",
+  "sourceBlobBefore": "81ddbb1d056ca8a968faea8022b5f0a225653588",
+  "sourceBlobAfter": "12261625dcaf903e55615a222e0487f377208084",
+  "environment": "Full actual stock-risk-evidence.mjs in V8, ESM and node:test/assert adapters; synthetic fixtures. Old implementation lacks the feature, not 11 independently confirmed defects. Original regressions and integration pending.",
+  "before": {
+    "total": 11,
+    "pass": 0,
+    "results": [
+      {
+        "name": "C30.1 current frozen prior twenty range separates high touch, close return, boundary, and range floor",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'current')"
+      },
+      {
+        "name": "C30.1 present close breakout reconstructs prior range without current high or later data",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'anchor')"
+      },
+      {
+        "name": "C30.2 clean contracting retest holds the original ceiling and is not confirmed healthy or a buy instruction",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.2 volume missing, incomparable or not contracting is never inferred from the close",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.2 equality at frozen ceiling is distinct from a reclaimed or held-above close",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.3 break then reclaim then rebreak stays tied to the earliest anchor",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.3 reclaim after breach is not clean retest or confirmed recovery; boundary stays separate",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.4 insufficient prior window, changed source or missing predecessor cannot invent an anchor",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C30.4 later available historical rows may support present range but not earlier anchor selection",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'current')"
+      },
+      {
+        "name": "C30.4 price-identical conflicting volume versions remove contraction only, late conflicts do not rewrite",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.5 no healthy/failed label from guessed intraday order or uncertified actual outcomes",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      }
+    ]
+  },
+  "after": {
+    "total": 11,
+    "pass": 11,
+    "results": [
+      {
+        "name": "C30.1 current frozen prior twenty range separates high touch, close return, boundary, and range floor",
+        "ok": true
+      },
+      {
+        "name": "C30.1 present close breakout reconstructs prior range without current high or later data",
+        "ok": true
+      },
+      {
+        "name": "C30.2 clean contracting retest holds the original ceiling and is not confirmed healthy or a buy instruction",
+        "ok": true
+      },
+      {
+        "name": "C30.2 volume missing, incomparable or not contracting is never inferred from the close",
+        "ok": true
+      },
+      {
+        "name": "C30.2 equality at frozen ceiling is distinct from a reclaimed or held-above close",
+        "ok": true
+      },
+      {
+        "name": "C30.3 break then reclaim then rebreak stays tied to the earliest anchor",
+        "ok": true
+      },
+      {
+        "name": "C30.3 reclaim after breach is not clean retest or confirmed recovery; boundary stays separate",
+        "ok": true
+      },
+      {
+        "name": "C30.4 insufficient prior window, changed source or missing predecessor cannot invent an anchor",
+        "ok": true
+      },
+      {
+        "name": "C30.4 later available historical rows may support present range but not earlier anchor selection",
+        "ok": true
+      },
+      {
+        "name": "C30.4 price-identical conflicting volume versions remove contraction only, late conflicts do not rewrite",
+        "ok": true
+      },
+      {
+        "name": "C30.5 no healthy/failed label from guessed intraday order or uncertified actual outcomes",
+        "ok": true
+      }
+    ]
+  },
+  "followup": {
+    "initialIntegration": {
+      "total": 3,
+      "pass": 2,
+      "fail": 1,
+      "failure": "请填写六位 A 股代码和标的名称",
+      "cause": "new synthetic fixture omitted the original required stock name; not a production failure",
+      "explicitCsvVolumeUnit": null
+    },
+    "fix": "Complete synthetic stock name. Preserve explicit optional volumeUnit through original riskTextFields and Chinese CSV header; do not guess legacy units. Same original import conflict policy remains.",
+    "finalSourceTestHead": "022958bbcec957fa12766e4c8c2947f8c44be1f7"
+  },
+  "finalSourceBlobs": {
+    "stock": "37998d98f2174d2056ffa2904979e50985537bd5",
+    "backtest": "9bc831be98ce64fc2fb17f972faf124bd5ac721b"
+  },
+  "directRegression": {
+    "total": 110,
+    "pass": 110,
+    "fail": 0,
+    "newPass": 11,
+    "oldPass": 99,
+    "tests": [
+      {
+        "name": "c-stock-risk-five-boundaries.test.js",
+        "blob": "d7172a88732e3bb2f475f70726bc2b356e6e3169"
+      },
+      {
+        "name": "shortline-stock-risk-evidence.test.js",
+        "blob": "4306d018147ce7169db9d3be2fc780e281e6a00a"
+      },
+      {
+        "name": "c-stock-risk-source-integrity.test.js",
+        "blob": "2bbdae53eeed1a068c165e1bb672feb639b9a1f4"
+      },
+      {
+        "name": "c-stock-risk-precise-observation.test.js",
+        "blob": "1959c07b10a54e9ffcf54a4ec2fbf4305b308085"
+      },
+      {
+        "name": "c-chase-risk-research.test.js",
+        "blob": "39e6dde61a1513987953125f9350473f8675c399"
+      },
+      {
+        "name": "c-crowding-exit-research.test.js",
+        "blob": "ba1eec4c48255aa785405c92db855659c169ed1e"
+      },
+      {
+        "name": "c-closeout-position-risk.test.js",
+        "blob": "a707dcd67f21c9862d98bcfd72fbdb26387033e8"
+      },
+      {
+        "name": "c-closeout-theme-persistence.test.js",
+        "blob": "89acfb1ea8c78ab2261e89652687b7eeb66b04d6"
+      },
+      {
+        "name": "c-closeout-structure-review.test.js",
+        "blob": "c2ceb6be310f3ae25c548974d3827c6cf15ba3fe"
+      }
+    ]
+  },
+  "integration": {
+    "total": 7,
+    "pass": 7,
+    "fail": 0,
+    "environment": "Complete 16 fetched original shortline dependencies and catalog; actual V8 execution using ESM namespace/live binding, UTF8, node:test/assert and exact catalog fs/path adapters. Two bounded batches. Not native Node, full CI, real market, or real browser.",
+    "modules": [
+      {
+        "name": "backtest.mjs",
+        "blob": "9bc831be98ce64fc2fb17f972faf124bd5ac721b"
+      },
+      {
+        "name": "market.mjs",
+        "blob": "2dfb17a936c9bce7e8e0e736e0dde74be5054a14"
+      },
+      {
+        "name": "settings.mjs",
+        "blob": "506e9c6f4f7a5ec6ecca9b9ea70b42b7caf86559"
+      },
+      {
+        "name": "signal-window.mjs",
+        "blob": "b71506d8cd9cbd5ad8251a6186f7431d9eea598b"
+      },
+      {
+        "name": "backtest-analytics.mjs",
+        "blob": "a6cd6342307f75b744c9bb37bba72f77a4cd282a"
+      },
+      {
+        "name": "sample-quality.mjs",
+        "blob": "cb6cb8f01a837064a4642bf69e9c53beb41a5924"
+      },
+      {
+        "name": "recognize.mjs",
+        "blob": "0d03c05a41e74e1f8dc290898b6a8cc5b3d2396c"
+      },
+      {
+        "name": "pattern-evidence.mjs",
+        "blob": "9d08dc2acfdbadfdab24d850ab97c72a2c91500a"
+      },
+      {
+        "name": "index-evidence.mjs",
+        "blob": "e2ace7bf00bbe157723eeec1ccd3e8e07102d3f3"
+      },
+      {
+        "name": "pressure.mjs",
+        "blob": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+      },
+      {
+        "name": "stock-risk-evidence.mjs",
+        "blob": "37998d98f2174d2056ffa2904979e50985537bd5"
+      },
+      {
+        "name": "factor-dictionary.mjs",
+        "blob": "672860884918abcad9dee6f1653d624277571f52"
+      },
+      {
+        "name": "numeric-factors.mjs",
+        "blob": "806f990cc3799aa50655ea5f901bd6ad6009d0e8"
+      },
+      {
+        "name": "learning.mjs",
+        "blob": "c03c623cf3b7d17f450c138d6d02e80aabb80447"
+      },
+      {
+        "name": "numeric-factors.js",
+        "blob": "79c3a91420a87c958d45cd613a2ec1d439446c09"
+      },
+      {
+        "name": "factor-performance.mjs",
+        "blob": "13ae7c026ed741a160551245e52faa94982b6563"
+      }
+    ],
+    "catalog": "3ab3c64a40fc0d5a89f4426b76647aafd4d27b59",
+    "results": [
+      {
+        "name": "C29.integration existing recognition and historical replay consume original bounded sector and explicit index series",
+        "ok": true
+      },
+      {
+        "name": "C30.integration original recognition and historical observation consume the same frozen structure path",
+        "ok": true
+      },
+      {
+        "name": "C30.integration original CSV keeps explicit volume units without guessing units for legacy rows",
+        "ok": true
+      },
+      {
+        "name": "C28.integration original recognition and historical observations retain identical position metrics",
+        "ok": true
+      },
+      {
+        "name": "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+        "ok": true
+      },
+      {
+        "name": "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
+        "ok": true
+      },
+      {
+        "name": "C24.integration existing automatic recognition derives leader comparison from original daily bars",
+        "ok": true
+      }
+    ]
+  },
+  "final": {
+    "newPass": 13,
+    "newTotal": 13,
+    "oldPass": 104,
+    "oldTotal": 104,
+    "pass": 117,
+    "total": 117,
+    "fail": 0,
+    "skipped": 0,
+    "fullCI": false
+  },
+  "design": {
+    "range": "Prior 20 daily bars, excludes current endpoint. Separate strict break above/return below/equal, close and low below floor.",
+    "anchor": "Earliest strict close above each own preceding20 ceiling in fixed five-endpoint rolling search; each prior range visible at its endpoint; incomplete search unknown. Reconstruction, not a durable registered plan or older anchor.",
+    "path": "Original anchor ceiling unchanged in five endpoints; distinguish close below, boundary, reclaim, subsequent rebreak, retest touch and close. No inferred intraday path.",
+    "volume": "Only explicit same declared unit (shares/lots/手/股) and positive volumes compared to anchor and previous day; conflict/missing unknown, no guess or unit conversion. Explicit CSV field retained, no old archive rewrites.",
+    "limitations": "Unadjusted declared same-source synthetic daily data; not certified exchange calendar, true frozen plan, genuine healthy-pullback/false-breakout outcome, real market, model calibration, native Node, browser or production gate. No changed official thresholds, weights, trades, notifications or authority."
+  }
+}

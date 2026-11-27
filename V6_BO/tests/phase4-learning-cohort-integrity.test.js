@@ -129,3 +129,21 @@ test('finite extreme outcomes do not produce a non-finite fusion correlation',()
  assert.ok(out.pairs.every(p=>Number.isFinite(p.returnCorrelation)&&Math.abs(p.returnCorrelation-1)<1e-10));
  assert.equal(out.equalWeight.canTrade,undefined);
 });
+
+test('learning cohort digests must be literal SHA-256 strings, not coercible objects',()=>{
+ for(const key of ['scopeFingerprint','costFingerprint']){
+  for(const make of [x=>[x],x=>({toString:()=>x}),x=>new String(x)]){
+   const rows=cohort().map(row=>({...row,[key]:make(row[key])}));
+   const c=commonCohorts(rows,settings);
+   assert.equal(c.groups.length,0);
+   assert.equal(c.exclusions['invalid-time-source-or-contract'],4);
+   assert.equal(strategyCompetition(rows,settings).commonSamples,0);
+   assert.equal(fusionStudy(rows,settings).groups.length,0);
+  }
+ }
+ const rows=cohort(),bad={...rows[0],costFingerprint:[rows[0].costFingerprint]};
+ const c=commonCohorts([...rows,bad],settings);
+ assert.equal(c.exclusions['invalid-member-of-common-candidate'],1);
+ assert.equal(c.groups.length,0);
+ assert.equal(strategyCompetition(rows,settings).commonSamples,1);
+});

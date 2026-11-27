@@ -33,6 +33,8 @@ async function fetchSinaIndices(){
 function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,onUpdate=()=>{}}){
   let day=null,epoch=0,lastClock=null,quotes=new Map(),books=new Map(),channels=new Map(),nextCloseCheck=0;
   const providers=['tencent-index','sina-index'];
+  // Keep physical request cadence across a cache/epoch reset.
+  const requestNotBefore=new Map();
   const validTime=at=>Number.isSafeInteger(at)&&at>0&&at<=8e15;
   function reset(nextDay,at=null){
     const hadQuotes=quotes.size>0;
@@ -41,10 +43,16 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     if(hadQuotes)onUpdate({at:validTime(at)?at:null,items:[]});
   }
   function sampleClock(){
-    const now=clock();
-    if(!validTime(now)){reset(day);lastClock=null;return null;}
-    if(lastClock!==null&&now<lastClock){reset(day,now);lastClock=now;return null;}
-    lastClock=now;return now;
+    let now;try{now=clock();}catch{now=null;}
+    if(!validTime(now)){reset(day);return null;}
+    // Never lower the high-water clock on failure. Repeated reads below the
+    // last valid sample cannot restart a quote epoch or refresh its cache.
+    if(lastClock!==null&&now<lastClock){reset(day,now);return null;}
+    lastClock=now;
+    // The actual China-market clock, not a stale caller's session, owns the epoch.
+    const actualDay=dayOf(now);
+    if(day!==null&&actualDay!==day)reset(actualDay,now);
+    return now;
   }
   function timed(row,now,startedAt){
     return codes.has(row?.code)&&validTime(row.quoteAt)&&validTime(row.receivedAt)&&
@@ -81,12 +89,24 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
   }
   function pull(source,fetchRows,interval,startedAt){
     const slot=channels.get(source);
-    if(slot&&(slot.pending||startedAt<slot.nextAt))return;
+    if(startedAt<(requestNotBefore.get(source)||0)||slot&&(slot.pending||startedAt<slot.nextAt))return;
     const state=slot||{status:'reading',checkedAt:null,quoteAt:null,count:0};
     channels.set(source,state);
     const forEpoch=epoch,forDay=day;
+    let dispatchedAt=null;
     state.nextAt=startedAt+interval;
-    state.pending=Promise.resolve().then(fetchRows).then(rows=>{
+    requestNotBefore.set(source,state.nextAt);
+    state.pending=Promise.resolve().then(()=>{
+      // A queued microtask must not dispatch after its original day/epoch ended.
+      if(epoch!==forEpoch||day!==forDay)return null;
+      const at=sampleClock();
+      if(at===null||epoch!==forEpoch||dayOf(at)!==forDay)return null;
+      // Anchor the cooldown and receipt fence to invocation, not queue time.
+      dispatchedAt=at;
+      state.nextAt=at+interval;
+      requestNotBefore.set(source,state.nextAt);
+      return fetchRows();
+    }).then(rows=>{
       if(epoch!==forEpoch||day!==forDay)return;
       const asOf=sampleClock();
       if(asOf===null||epoch!==forEpoch||dayOf(asOf)!==forDay)return;
@@ -94,7 +114,7 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
       const unique=new Map(),book=books.get(source)||new Map();
       books.set(source,book);
       for(const row of rows){
-        if(!timed(row,asOf,startedAt))continue;
+        if(dispatchedAt===null||!timed(row,asOf,dispatchedAt))continue;
         const previous=unique.get(row.code),at=row.quoteAt;
         const good=valid(row,source,asOf);
         if(previous&&previous.at>at)continue;
@@ -128,10 +148,12 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     }).finally(()=>{state.pending=null;});
   }
   function read(session){
-    if(day!==session.day)reset(session.day);
+    const requested=session?.day;
     const now=sampleClock();
-    if(now===null||dayOf(now)!==day)return {day:session.day,indices:[],channels:[]};
-    if(session.trading){
+    if(now===null||typeof requested!=='string'||dayOf(now)!==requested)
+      return {day:requested??null,indices:[],channels:[]};
+    if(day!==requested)reset(requested,now);
+    if(session.trading&&session.openDay!==false){
       pull('tencent-index',primary,5000,now);
       const primaryRows=books.get('tencent-index'),primaryState=channels.get('tencent-index');
       const primaryHealthy=primaryState?.status==='observed'&&primaryState.count===codes.size&&

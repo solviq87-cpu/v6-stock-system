@@ -1,0 +1,136 @@
+{
+  "base": "7aa345c425b2eee6fbae10ef8e4e8f59a45dd1ad",
+  "engine": "V8 isolated JavaScript; complete target modules and four original dependency modules; test/assert harness; unused trading-fees and account-safety-state dependencies replaced by empty objects; not native Node or full CI",
+  "before": [
+    {
+      "name": "C13.4 multi-session cost is unknown, one-session conditional friction stays known",
+      "pass": false,
+      "error": "expected null got 6"
+    },
+    {
+      "name": "C13.4 explicit wrong currency unit never becomes CNY liquidity merely due to unadjusted prices",
+      "pass": false,
+      "error": "expected null got 100"
+    },
+    {
+      "name": "C13.5 same original time conflicting eligible prices are not a current exit mark regardless of order",
+      "pass": false,
+      "error": "expected true got undefined"
+    },
+    {
+      "name": "C13.5 distinct original quote times do not by themselves create a conflict, old wire cannot override current stock",
+      "pass": false,
+      "error": "expected \"original-rule-derived-unverified\" got undefined"
+    },
+    {
+      "name": "C13.5 explicit dated boundary mismatch, null or special session cannot generate confirmed limit classification",
+      "pass": false,
+      "error": "expected null got true"
+    },
+    {
+      "name": "C13.5 original distinct limit rule values and matching explicit boundary are not universally ten percent",
+      "pass": false,
+      "error": "expected 9.5 got undefined"
+    }
+  ],
+  "after": [
+    {
+      "name": "C13.1 independent candidate previews share original free cash only once",
+      "pass": true
+    },
+    {
+      "name": "C13.1 cash deficit and gross exposure become joint conditional conflicts, not separate approvals",
+      "pass": true
+    },
+    {
+      "name": "C13.1 missing or mismatched original authority and cash not treated as zero",
+      "pass": true
+    },
+    {
+      "name": "C13.2 repeated symbol, plan id, or original receipt is not a joint batch",
+      "pass": true
+    },
+    {
+      "name": "C13.2 original blocked or incomplete candidate remains unknown, not silently dropped from expected batch",
+      "pass": true
+    },
+    {
+      "name": "C13.3 common gross baseline conflict cannot manufacture available exposure",
+      "pass": true
+    },
+    {
+      "name": "C13.3 fee-adjusted individual cap remains relevant after every proposed fee",
+      "pass": true
+    },
+    {
+      "name": "C13.3 sector and strategy shared attribution never guessed from individual receipts",
+      "pass": true
+    },
+    {
+      "name": "C13.3 individually clear plans can have a conditional joint view, never an execution permission",
+      "pass": true
+    },
+    {
+      "name": "C13.4 multi-session cost is unknown, one-session conditional friction stays known",
+      "pass": true
+    },
+    {
+      "name": "C13.4 explicit wrong currency unit never becomes CNY liquidity merely due to unadjusted prices",
+      "pass": true
+    },
+    {
+      "name": "C13.5 same original time conflicting eligible prices are not a current exit mark regardless of order",
+      "pass": true
+    },
+    {
+      "name": "C13.5 distinct original quote times do not by themselves create a conflict, old wire cannot override current stock",
+      "pass": true
+    },
+    {
+      "name": "C13.5 explicit dated boundary mismatch, null or special session cannot generate confirmed limit classification",
+      "pass": true
+    },
+    {
+      "name": "C13.5 original distinct limit rule values and matching explicit boundary are not universally ten percent",
+      "pass": true
+    }
+  ],
+  "stats": {
+    "before": 6,
+    "beforePass": 0,
+    "beforeFail": 6,
+    "after": 15,
+    "afterPass": 15,
+    "afterFail": 0
+  },
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-evidence.js",
+      "blob": "e88aa70deb191e570415c2813a6af8eb88112671"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "blob": "a9f7eed29ff09ab8fa58894ccfe8eb2f8ddcbc71"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-account-risk.js",
+      "blob": "af99938af45af805508dcfe051c62d0a7251a0f8"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "blob": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    },
+    {
+      "path": "V6_BO/src/core/execution-risk.js",
+      "blob": "9184aef08f7237e6592b7e0b864cb41e3e72d027"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "blob": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "blob": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    }
+  ]
+}

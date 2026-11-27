@@ -14,6 +14,7 @@ const finite = x => typeof x === 'number' && Number.isFinite(x);
 const date = x => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x)) && new Date(x).toISOString().slice(0, 10) === x;
 const stamp = x => Number.isSafeInteger(x) && x >= 0 && x <= 8640000000000000 - 86400000;
 const hash = x => crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+const fingerprint = x => typeof x === 'string' && /^[a-f0-9]{64}$/.test(x);
 const mean = xs => { if (!xs.length) return null; const sum = xs.reduce((a, b) => a + b, 0); return finite(sum) ? sum / xs.length : xs.reduce((a, b) => a + b / xs.length, 0); };
 const variance = xs => { const m = mean(xs); return xs.length > 1 ? xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1) : null; };
 const flags = { researchOnly: true, canTrade: false, canNotify: false, productionWeightsChanged: false, autoPromotion: false };
@@ -59,7 +60,7 @@ function commonCohorts(rows, { asOf = Date.now(), horizon = 5 } = {}) {
   // Resolve an identifiable candidate before validating its mutable contract.
   // A known malformed version of the same candidate is not harmless absence.
   const candidateKey = r => typeof r.symbol === 'string' && /^\d{6}$/.test(r.symbol) && date(r.signalDate) &&
-    ['eastmoney', 'tencent', 'native-replay'].includes(r.provider) && /^[a-f0-9]{64}$/.test(r.scopeFingerprint || '') ?
+    ['eastmoney', 'tencent', 'native-replay'].includes(r.provider) && fingerprint(r.scopeFingerprint) ?
     JSON.stringify([r.symbol, r.signalDate, r.provider, r.scopeFingerprint, r.horizon]) : null;
   for (const r of rows) {
     if (!r || !SYSTEMS.includes(r.system) || r.horizon !== horizon) { skip('other-system-or-horizon'); continue; }
@@ -72,7 +73,7 @@ function commonCohorts(rows, { asOf = Date.now(), horizon = 5 } = {}) {
     const key = candidateKey(r);
     if (typeof r.symbol !== 'string' || !/^\d{6}$/.test(r.symbol) || !date(r.signalDate) || !date(r.entryDate) || !date(r.exitDate) || r.entryDate <= r.signalDate || r.exitDate <= r.entryDate ||
         !['eastmoney', 'tencent', 'native-replay'].includes(r.provider) || r.priceBasis !== 'unadjusted' || !validIdentityLabel(r.version, 256) ||
-        !validIdentityLabel(r.regime, 80) || !/^[a-f0-9]{64}$/.test(r.costFingerprint || '') || !/^[a-f0-9]{64}$/.test(r.scopeFingerprint || '') ||
+        !validIdentityLabel(r.regime, 80) || !fingerprint(r.costFingerprint) || !fingerprint(r.scopeFingerprint) ||
         !stamp(r.signalAt) || !stamp(r.recordedAt) || !stamp(r.outcomeKnownAt) || r.signalAt > r.recordedAt ||
         new Date(r.signalAt + 28800000).toISOString().slice(0, 10) !== r.signalDate || r.signalAt < Date.parse(r.signalDate + 'T15:00:00+08:00') ||
         r.recordedAt >= Date.parse(r.entryDate + 'T09:30:00+08:00') || r.outcomeKnownAt < Date.parse(r.exitDate + 'T15:10:00+08:00')) {
