@@ -44,6 +44,14 @@ function freezeWithCalendar(plan,p,input,calendar,now){
 const bin=x=>Math.min(POLICY.bins-1,Math.floor(x*POLICY.bins));
 const average=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
 function enough(rows){const pos=rows.filter(x=>x.y).length;return rows.length>=POLICY.minSamples&&new Set(rows.map(x=>x.signalDay)).size>=POLICY.minDays&&pos>=POLICY.minClass&&rows.length-pos>=POLICY.minClass;}
+// A matching opaque prediction ID is not permission to override its identity.
+// Legacy labels may omit these additive declarations, but cannot contradict them.
+function labelIdentityValid(y,f,p){
+ const expected={code:f.code,symbol:f.code,signalDay:f.signalDay,predictedAt:f.predictedAt,
+  modelVersion:f.modelVersion,modelFingerprint:f.modelFingerprint,planFingerprint:f.planFingerprint,
+  calendarFingerprint:f.calendarFingerprint,horizonTradingDays:p.horizonTradingDays};
+ return Object.entries(expected).every(([k,v])=>!Object.hasOwn(y,k)||y[k]===v);
+}
 function labelClockValid(y,f,now){
  const end=close(f.targetDay);
  if(!ms(y.availableAt)||y.availableAt<end||y.availableAt>now)return false;
@@ -67,7 +75,7 @@ function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
  for(const f of predictions){const x=verify(f);const recreated=freezeWithCalendar(plan,p,x,calendar,x.frozenAt);assert(recreated.fingerprint===f.fingerprint&&x.frozenAt<=now,'冻结预测合同不一致或在未来');const key=x.code+'/'+x.signalDay;assert(!byId.has(x.id)&&!keys.has(key),'重复预测或重复股票日信号');byId.set(x.id,f);keys.add(key);}
  for(const y of outcomes){assert(y&&byId.has(y.predictionId)&&!labels.has(y.predictionId),'孤立或重复标签');labels.set(y.predictionId,y);}
  for(const [id,f] of byId){const y=labels.get(id);if(!y){exclude('missing-label');continue;}
-  if(!sourceFor(y,p.scope)||!hex(y.sourceFingerprint)||y.predictionFingerprint!==f.fingerprint||y.target!==p.target||y.targetDay!==f.targetDay||typeof y.value!=='boolean'||!labelClockValid(y,f,now)){exclude('invalid-or-unmatured-label');continue;}
+  if(!sourceFor(y,p.scope)||!hex(y.sourceFingerprint)||y.predictionFingerprint!==f.fingerprint||y.target!==p.target||y.targetDay!==f.targetDay||typeof y.value!=='boolean'||!labelIdentityValid(y,f,p)||!labelClockValid(y,f,now)){exclude('invalid-or-unmatured-label');continue;}
   // Net profit requires the original ledger adapter. This generic export must not assert it.
   if(p.target==='netProfitAfterFill'){exclude('requires-original-verified-settlement-adapter');continue;}
   if(y.quality!=='standard'){exclude('nonstandard-label');continue;}

@@ -426,6 +426,9 @@ test('decay cooldown persists, needs ten subsequent recovered days, then five un
  const waiting=evolveShadowFactors(four,{now:finalClock,previous,previousCooldown:recovered});
  assert.equal(waiting.status,'paused-shadow-cooldown');
  assert.equal(waiting.postRecoveryHoldoutDays,4);
+ assert.equal(waiting.testDays,4);
+ assert.equal(waiting.holdout.stability.halfPeriodsConsistent,false);
+ assert.equal(waiting.trialAudit.status,'not-evaluated');
  assert.equal(waiting.factorMarginalContribution.factors[0].holdout.status,'insufficient');
  assert.equal(waiting.factorMarginalContribution.blocksPromotion,true);
  assert.equal(waiting.shadowWeightsChanged,false);
@@ -433,6 +436,10 @@ test('decay cooldown persists, needs ten subsequent recovered days, then five un
  const tested=evolveShadowFactors(five,{now:finalClock,previous,previousCooldown:waiting});
  assert.ok(['shadow-updated','shadow-retained'].includes(tested.status));
  assert.equal(tested.postRecoveryHoldoutDays,5);
+ assert.equal(tested.testDays,5);
+ assert.equal(tested.holdout.firstFreshDay,dates[71]);
+ assert.equal(tested.trialAudit.firstHoldoutDay,tested.holdout.firstFreshDay);
+ assert.equal(tested.trialAudit.holdoutDays,tested.testDays);
  assert.equal(tested.pausedForShadowDecay,false);
  assert.equal(tested.productionWeightsChanged,false);
 });
@@ -1103,8 +1110,37 @@ test('strict watch auto-handoff registers one unseen future candidate without re
  assert.equal(awaiting.status,'skipped-awaiting-post-prereg-signals');
  assert.equal(awaiting.preregistrationFingerprint,reg.fingerprint);
  assert.deepEqual(fs.readdirSync(outputDir),filesBefore);
+ // A sealed candidate is still a commitment even if this tick is not strict.
+ // Do not inspect any H5 return until there is a new eligible frozen signal.
+ const ordinaryAwaiting=runShadowWorker({manifestFile,outputDir,now:clock});
+ assert.equal(ordinaryAwaiting.status,'skipped-awaiting-post-prereg-signals');
+ assert.equal(ordinaryAwaiting.preregistrationFingerprint,reg.fingerprint);
+ assert.deepEqual(fs.readdirSync(outputDir),filesBefore);
+ const regFile=path.join(outputDir,'prereg-'+reg.fingerprint.slice(0,12)+'.json');
+ const good=fs.readFileSync(regFile),saved=JSON.parse(good);
+ const {fingerprint,...body}=saved;
+ body.candidateWeights={...body.candidateWeights,[Object.keys(body.candidateWeights)[0]]:999};
+ const forged={...body,fingerprint:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex')};
+ const badFile=path.join(outputDir,'prereg-'+forged.fingerprint.slice(0,12)+'.json');
+ fs.unlinkSync(regFile);fs.writeFileSync(badFile,JSON.stringify(forged),{mode:0o600});
+ try{assert.throws(()=>runShadowWorker(strictAuto),/模型血缘不一致/);}
+ finally{fs.unlinkSync(badFile);fs.writeFileSync(regFile,good,{mode:0o600});}
+ assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+ assert.deepEqual(fs.readdirSync(outputDir).sort(),filesBefore.sort());
+ // One to four mature post-registration dates do not constitute a complete
+ // holdout. Keep the unreadable old report missing in both modes.
+ append(61,65);
+ const shortClock=at(dates[70],'16:05:00');
+ for(const strict of [false,true]){
+  const short=runShadowWorker({manifestFile,outputDir,now:shortClock,requirePreRegistration:strict});
+  assert.equal(short.status,'skipped-awaiting-post-prereg-matured-days');
+  assert.equal(short.maturedPostRegistrationDays,4);
+  assert.equal(short.requiredPostRegistrationDays,5);
+  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+  assert.deepEqual(fs.readdirSync(outputDir).sort(),filesBefore.sort());
+ }
  fs.writeFileSync(invalidH5,oldReport);
- append(61,66);
+ append(65,66);
  const evaluated=runShadowWorker({...strictAuto,
   now:at(dates[70],'16:05:00')});
  assert.ok(['shadow-updated','shadow-retained','paused-shadow-decay']
@@ -1316,16 +1352,32 @@ test('local model auto-registration writes audited candidate once while holding 
  for(let i=0;i<56;i++){const e=episode(i),ff=path.join(dir,'f'+i+'.json'),rf=path.join(dir,'r'+i+'.json');fs.writeFileSync(ff,JSON.stringify(e.features));fs.writeFileSync(rf,JSON.stringify(e.report));entries.push({featuresFile:ff,reportFile:rf});}
  fs.writeFileSync(manifestFile,JSON.stringify({schemaVersion:1,episodes:entries}));const now=at(dates[60],'16:05:00');
  assert.equal(runShadowWorker({manifestFile,outputDir,now}).status,'shadow-updated');
- let calls=0,locked=false;const model='qwen3:4b',digest='a'.repeat(64);
- const server=http.createServer((req,res)=>{calls++;let body='';req.on('data',x=>body+=x);req.on('end',()=>{locked=fs.existsSync(path.join(outputDir,'.shadow-worker.lock'));res.setHeader('content-type','application/json');if(req.url==='/api/tags')return res.end(JSON.stringify({models:[{name:model,digest}]}));const p=JSON.parse(body),f=JSON.parse(p.messages[1].content).factors;const candidateWeights=Object.fromEntries(f.map((x,i)=>[x.id,x.acceptedWeight*(i===0?1.01:.99)]));res.end(JSON.stringify({model,done:true,message:{role:'assistant',content:JSON.stringify({candidateWeights,rationale:'research'})}}));});});
+ let calls=0,locked=false,onInference=null;const model='qwen3:4b',digest='a'.repeat(64);
+ const server=http.createServer((req,res)=>{calls++;let body='';req.on('data',x=>body+=x);req.on('end',()=>{locked=fs.existsSync(path.join(outputDir,'.shadow-worker.lock'));res.setHeader('content-type','application/json');if(req.url==='/api/tags')return res.end(JSON.stringify({models:[{name:model,digest}]}));const p=JSON.parse(body),f=JSON.parse(p.messages[1].content).factors;const candidateWeights=Object.fromEntries(f.map(x=>[x.id,x.referenceCandidateWeight]));onInference?.();res.end(JSON.stringify({model,done:true,message:{role:'assistant',content:JSON.stringify({candidateWeights,rationale:'research'})}}));});});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>server.close());
  const keys=['V6_LOCAL_LEARNING_MODEL','V6_LOCAL_LEARNING_ENDPOINT','V6_LOCAL_LEARNING_DIGEST'],old=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
  t.after(()=>{for(const k of keys)if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];});
  process.env.V6_LOCAL_LEARNING_MODEL=model;process.env.V6_LOCAL_LEARNING_ENDPOINT='http://127.0.0.1:'+server.address().port;process.env.V6_LOCAL_LEARNING_DIGEST='b'.repeat(64);
  await assert.rejects(()=>runRegisterAuto({manifestFile,outputDir,now}));assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')).length,0);assert.ok(latestAccepted(outputDir));
  process.env.V6_LOCAL_LEARNING_DIGEST=digest;calls=0;
+ // A model response must not publish using configuration or feature evidence
+ // that changed while the asynchronous request held the original worker lock.
+ const noPublication=()=>{
+  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
+  assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')||x.startsWith('model-review-')).length,0);
+  assert.ok(latestAccepted(outputDir));
+ };
+ onInference=()=>{process.env.V6_LOCAL_LEARNING_DIGEST='b'.repeat(64);};
+ try{await assert.rejects(()=>runRegisterAuto({manifestFile,outputDir,now}),/配置或代码发生变化/);}
+ finally{process.env.V6_LOCAL_LEARNING_DIGEST=digest;onInference=null;}
+ assert.equal(calls,3);noPublication();
+ const featurePath=entries[0].featuresFile,originalFeature=fs.readFileSync(featurePath);
+ calls=0;onInference=()=>{const changed=JSON.parse(originalFeature);changed.fingerprint='f'.repeat(64);fs.writeFileSync(featurePath,JSON.stringify(changed));};
+ try{await assert.rejects(()=>runRegisterAuto({manifestFile,outputDir,now}));}
+ finally{fs.writeFileSync(featurePath,originalFeature);onInference=null;}
+ assert.equal(calls,3);noPublication();calls=0;
  const result=await runRegisterAuto({manifestFile,outputDir,now});assert.equal(result.candidateMethod,'ollama-native-structured');assert.equal(locked,true);assert.equal(calls,3);assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);
- const registration=latestCandidateRegistration(outputDir,latestAccepted(outputDir),null);assert.equal(registration.modelProvenance.method,'ollama-native-structured');assert.equal(registration.modelProvenance.digest,digest);assert.equal(registration.modelProvenance.hypothesis.label,'model-hypothesis');assert.equal(registration.modelProvenance.hypothesis.rationale,'research');assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),/已存在预注册候选/);assert.equal(calls,3);
+ const registration=latestCandidateRegistration(outputDir,latestAccepted(outputDir),null);assert.equal(registration.modelProvenance.method,'ollama-native-structured');assert.equal(registration.modelProvenance.digest,digest);assert.equal(registration.modelProvenance.hypothesis.label,'model-hypothesis');assert.equal(registration.modelProvenance.hypothesis.rationale,'research');assert.match(registration.modelProvenance.candidateBindingFingerprint,/^[a-f0-9]{64}$/);assert.equal(registration.modelProvenance.outputReview.autoPromotion,false);assert.throws(()=>runRegisterAuto({manifestFile,outputDir,now}),/已存在预注册候选/);assert.equal(calls,3);
 });
 test('unchanged local review is sealed once and reused without inference or a trial',async t=>{
  const http=require('node:http'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-local-model-retain-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const outputDir=path.join(dir,'private'),manifestFile=path.join(dir,'manifest.json'),entries=[];

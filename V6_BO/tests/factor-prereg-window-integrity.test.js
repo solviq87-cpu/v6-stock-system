@@ -131,3 +131,100 @@ test('legacy ordinary record without explicit definitions still checks canonical
  const bad=seal({...legacy,candidateWeights:{...legacy.candidateWeights,[ids[0]]:99}});
  assert.throws(()=>verify({reg:bad,context:x.context}),/时点、冻结前缀或模型血缘不一致/);
 });
+
+function modelReceipt(x,accepted,candidate){
+ const {modelCandidateBinding}=require('../src/core/factor-candidate-prereg');
+ const fs=require('node:fs'),path=require('node:path');
+ const source='b'.repeat(64),review={policy:'structured-reference-interval',rationaleVerified:false,sourceAuthenticated:false,trainingEligible:false,autoPromotion:false};
+ return {modelName:'synthetic-combined:1',digest:'c'.repeat(64),method:'ollama-native-structured',
+  algorithmFingerprint:crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../src/core/local-model-learning-proposer.js'))).digest('hex'),
+  requestFingerprint:'d'.repeat(64),responseFingerprint:'e'.repeat(64),hypothesis:{label:'model-hypothesis',rationale:'synthetic fixture'},outputReview:review,
+  candidateBindingFingerprint:modelCandidateBinding({autoSourceFingerprint:source,packFingerprint:x.context.packFingerprint,latestFrozenSignalDay:x.prefix.at(-1).signalDay,
+   factorDefinitionsFingerprint:hash(x.prefix[0].factors),factorIds:ids,acceptedWeights:accepted,candidateWeights:candidate})};
+}
+function modelRegistration(x){
+ const source='b'.repeat(64);
+ const args={features:x.prefix,candidateWeights,acceptedWeights:weights,registeredAt:x.registeredAt,
+  packFingerprint,parentAcceptedFingerprint:source,autoSourceFingerprint:source,modelProvenance:modelReceipt(x,weights,candidateWeights)};
+ return {args,reg:preregisterCandidate(args),context:{...x.context,previousFingerprint:source}};
+}
+test('combined A40 and #417 preserve sealed base definitions and model provenance together',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ assert.deepEqual(m.reg.factorDefinitions,defs.map(d=>({id:d.id,baseWeight:d.baseWeight})));
+ assert.equal(m.reg.factorDefinitionsFingerprint,hash(defs));
+ assert.equal(verifyPreregisteredCandidate(m.reg,m.context).canTrade,false);
+ assert.deepEqual(m.reg.modelProvenance,m.args.modelProvenance);
+});
+test('a newly sealed model receipt cannot override canonical absolute weights',()=>{
+ const x=ordinary(),m=modelRegistration(x),accepted={...weights,[ids[0]]:defs[0].baseWeight*1.51},candidate={...accepted};
+ const forged=seal({...m.reg,acceptedWeights:accepted,candidateWeights:candidate,modelProvenance:modelReceipt(x,accepted,candidate)});
+ assert.throws(()=>verifyPreregisteredCandidate(forged,{...m.context,oldWeights:accepted}),/时点、冻结前缀或模型血缘不一致/);
+});
+test('model receipt and definition digest cannot be independently removed from the sealed record',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ for(const key of ['modelProvenance','factorDefinitionsFingerprint']){
+  const forged=structuredClone(m.reg);delete forged[key];
+  assert.throws(()=>verifyPreregisteredCandidate(seal(forged),m.context),/时点、冻结前缀或模型血缘不一致/);
+ }
+});
+test('valid canonical weight bounds do not bypass the sealed model-output binding',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ const forged=seal({...m.reg,candidateWeights:{...m.reg.candidateWeights,[ids[0]]:weights[ids[0]]}});
+ assert.throws(()=>verifyPreregisteredCandidate(forged,m.context),/权重绑定/);
+});
+
+const verifyPending=(x,reg=x.reg,sorted=x.context.sorted.slice(0,36))=>{
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ return verifyPendingCandidateRegistration(reg,{...x.context,sorted,freshTest:[]});
+};
+test('waiting registration shares the full prospective metadata and weight gate without opening a holdout',()=>{
+ const x=ordinary(),r=verifyPending(x);
+ assert.equal(r.status,'candidate-waiting-verified');assert.equal(r.canTrade,false);
+ assert.equal(Object.hasOwn(r,'holdoutFirstDay'),false);
+ assert.equal(verifyPending(x,x.reg,x.context.sorted).status,'candidate-waiting-verified');
+ assert.throws(()=>verifyPreregisteredCandidate(x.reg,{...x.context,sorted:x.context.sorted.slice(0,36),freshTest:[]}),/模型血缘不一致/);
+});
+test('waiting cannot conceal a resealed invalid weight or factor envelope',()=>{
+ const x=ordinary();
+ for(const reg of [seal({...x.reg,candidateWeights:{...x.reg.candidateWeights,[ids[0]]:99}}),
+  seal({...x.reg,factorDefinitions:defs.map(d=>({id:d.id,baseWeight:d.baseWeight*2}))}),
+  seal({...x.reg,canTrade:true}),seal({...x.reg,autoSourceFingerprint:'b'.repeat(64)})]){
+  assert.throws(()=>verifyPending(x,reg),/模型血缘不一致/);
+ }
+});
+test('waiting cannot conceal a replaced historical capture time or a capture outside the registered prefix',()=>{
+ const x=ordinary(),early=x.context.sorted.slice(0,36).map(r=>({...r}));early[0].featureCapturedAt=x.reg.registeredAt+1;
+ assert.throws(()=>verifyPending(x,x.reg,early),/模型血缘不一致/);
+ const late=x.context.sorted.map(r=>({...r}));late[36].featureCapturedAt=x.reg.registeredAt;
+ assert.throws(()=>verifyPending(x,x.reg,late),/模型血缘不一致/);
+ assert.throws(()=>verifyPending(x,x.reg,x.context.sorted.slice(0,35)),/模型血缘不一致/);
+});
+test('waiting model archive still checks the actual model response binding',()=>{
+ const x=ordinary(),m=modelRegistration(x);const y={...x,reg:m.reg,context:m.context};
+ assert.equal(verifyPending(y).status,'candidate-waiting-verified');
+ assert.throws(()=>verifyPending(y,seal({...m.reg,candidateWeights:{...m.reg.candidateWeights,[ids[0]]:weights[ids[0]]}})),/权重绑定/);
+});
+test('waiting seed keeps its original registration cutoff and is not counted as a holdout',()=>{
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ const now=Date.now(),reg=preregisterSeedCandidate({registeredAt:now,seedConfig:{schemaVersion:1,mode:'v6-fixed-shadow-seed-config-v1',researchOnly:true,canTrade:false,seedPolicy:SEED_POLICY,factorIds:ids}});
+ const context={sorted:[],ids,packFingerprint,oldWeights:weights,previousFingerprint:null,previousTrialFingerprint:null};
+ assert.equal(verifyPendingCandidateRegistration(reg,context).status,'candidate-waiting-verified');
+ const day=new Date(now+86400000).toISOString().slice(0,10);
+ assert.throws(()=>verifyPendingCandidateRegistration(reg,{...context,sorted:[{day,featureCapturedAt:reg.recordedAt,featureFingerprint:hash('too early')}]}),/固定种子预注册时点/);
+ assert.throws(()=>verifyPreregisteredCandidate(reg,{...context,freshTest:[]}),/固定种子预注册时点/);
+});
+
+test('actual frozen definitions bind ordinary, legacy and model registration checks',()=>{
+ const x=ordinary(),m=modelRegistration(x);
+ const legacy={...x.reg};delete legacy.factorDefinitions;
+ const bad=defs.map((d,i)=>({...d,baseWeight:i===0?d.baseWeight*2:d.baseWeight}));
+ for(const reg of [x.reg,seal(legacy),m.reg]){
+  const context=reg===m.reg?m.context:x.context;
+  assert.equal(verifyPreregisteredCandidate(reg,{...context,definitions:defs}).canTrade,false);
+  assert.throws(()=>verifyPreregisteredCandidate(reg,{...context,definitions:bad}),/实际冻结因子定义/);
+ }
+ const changed=defs.map((d,i)=>({...d,field:i===0?'wrong-field':d.field}));
+ assert.throws(()=>verifyPreregisteredCandidate(m.reg,{...m.context,definitions:changed}),/实际冻结因子定义/);
+ const {verifyPendingCandidateRegistration}=require('../src/core/factor-candidate-prereg');
+ assert.throws(()=>verifyPendingCandidateRegistration(m.reg,{...m.context,definitions:changed}),/实际冻结因子定义/);
+});
