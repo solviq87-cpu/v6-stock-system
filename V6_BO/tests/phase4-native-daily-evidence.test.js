@@ -67,3 +67,27 @@ test('absence of optional evidence remains unknown and preserves native coverage
  for(const c of Object.values(r.coverage))assert.equal(c.evaluated+c.unknown,40);
  assert.equal(r.signals.length,160);
 });
+
+test('GPT nested factors and market evidence cannot be later than the historical session or parent receipt',()=>{
+ for(const patch of [
+  {gptSnapshot:{...scores(),knownAt:at(dates[39])}},
+  {market:{...market(),sourceTimestamp:at(dates[39])}},
+  {market:{...market(),observedThrough:dates[39]}},
+  {gptSnapshot:{...scores(),symbol:'600000'}},
+  {knownAt:at(date,'16:00:00'),market:{...market(),receivedAt:at(date,'17:00:00')}},
+  {market:{...market(),availableAt:null}}
+ ])assert.equal(result(patch).gpt.verdict,'unknown');
+ const valid=result({knownAt:at(date),gptSnapshot:{...scores(),knownAt:at(date)},market:{...market(),date,knownAt:at(date)}});
+ assert.equal(valid.gpt.verdict,'pass');
+});
+test('Python round-level late or foreign evidence remains unknown even with an on-time parent',()=>{
+ for(const patch of [{knownAt:at(dates[39])},{observedAt:null},{symbol:'600000'},{tradeDate:dates[39]},{receivedAt:at(date,'17:00:00')} ]){
+  const entry=py({knownAt:at(date)});
+  entry.rounds[1]={...entry.rounds[1],...patch};
+  const r=runNativeDaily(history,{pythonEvidence:{[key]:entry}});
+  assert.equal(r.details[38].results.python.verdict,'unknown');
+ }
+ const entry=py({knownAt:at(date)});
+ entry.rounds=entry.rounds.map(r=>({...r,symbol:'000001',knownAt:at(date)}));
+ assert.equal(runNativeDaily(history,{pythonEvidence:{[key]:entry}}).details[38].results.python.verdict,'pass');
+});

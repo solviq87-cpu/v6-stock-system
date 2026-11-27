@@ -27,10 +27,21 @@ function explicitTime(value){
 function availableWithinSession(row,date){
  if(!row)return true;
  const cutoff=Date.parse(date+'T23:59:59.999+08:00');
- return ['knownAt','availableAt','receivedAt','recordedAt'].every(key=>{
+ return ['knownAt','availableAt','receivedAt','recordedAt','observedAt','sourceTimestamp'].every(key=>{
   if(!own(row,key))return true;
   const at=explicitTime(row[key]);return at!==null&&at<=cutoff;
  });
+}
+// Nested evidence must not bypass the enclosing same-session receipt. Missing
+// optional legacy metadata is not fabricated; explicit metadata must agree.
+function nestedSessionEvidence(row,symbol,date,parent){
+ if(!object(row)||!availableWithinSession(row,date))return false;
+ for(const k of ['symbol','code'])if(own(row,k)&&row[k]!==symbol)return false;
+ for(const k of ['date','tradeDate','observedThrough'])if(own(row,k)&&row[k]!==date)return false;
+ const keys=['knownAt','availableAt','receivedAt','recordedAt','observedAt','sourceTimestamp'];
+ const outer=keys.filter(k=>own(parent,k)).map(k=>explicitTime(parent[k]));
+ const inner=keys.filter(k=>own(row,k)).map(k=>explicitTime(row[k]));
+ return !outer.length||!inner.length||Math.max(...inner)<=Math.max(...outer);
 }
 function fundHistoryVisible(rows,date){
  if(!Array.isArray(rows))return false;
@@ -111,6 +122,7 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // flow/quality/market-state features. Never substitute zeros or neutral scores.
    if(context.gptSnapshot && context.gptSnapshotObservedThrough===date){
     if(completeScores(context.gptSnapshot,GPT_FIELDS)&&completeScores(context.market,MARKET_FIELDS)&&
+       nestedSessionEvidence(context.gptSnapshot,symbol,date,context)&&nestedSessionEvidence(context.market,symbol,date,context)&&
        (!own(context,'marketObservedThrough')||context.marketObservedThrough===date)){
      const snapshot=Object.fromEntries(GPT_FIELDS.map(k=>[k,context.gptSnapshot[k]]));
      const market=Object.fromEntries(MARKET_FIELDS.map(k=>[k,context.market[k]]));
@@ -122,7 +134,7 @@ function runNativeDaily(history,{snapshots={},pythonEvidence={},splitDay,generat
    // Python has a separate runtime and three-round provenance requirement; do not fake it.
    const py=pythonEvidence[key];
    const evaluatedPython=evaluatePythonEvidence(py,{symbol,date});
-   results.python=availableWithinSession(py,date)?evaluatedPython:
+   results.python=availableWithinSession(py,date)&&(!py||py.rounds.every(r=>nestedSessionEvidence(r,symbol,date,py)))?evaluatedPython:
     {verdict:'unknown',reason:'Python回执在该历史交易日结束后才可知或时间无效'};
    for(const [system,r] of Object.entries(results)){
     coverage[system][r.verdict==='unknown'?'unknown':'evaluated']++;
