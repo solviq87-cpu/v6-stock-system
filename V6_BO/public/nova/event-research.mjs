@@ -15,8 +15,9 @@ export function projectSecurityIdentity(e,{active=true}={}){
   // A type on one row cannot be assigned to other codes in the same document.
   if(/股票种类[ \t]+股票上市交易所[^\n]{0,200}股票代码/.test(body)){
     for(const match of body.matchAll(/^(普通股[ \t]*A[ \t]*股|优先股)[ \t]{2,}[^\n]{0,180}?[ \t]{2,}(\d{6})(?:[ \t]{2,}|$)/gm)){
-      const codes=match[0].match(/(?<!\d)\d{6}(?!\d)/g)||[];
-      if(codes.length===1)add(match[2],match[1].startsWith('普通股')?'ordinary-a-share':'preferred-share',match[0]);
+      const end=body.indexOf('\n',match.index),line=body.slice(match.index,end<0?body.length:end);
+      const codes=[...line.matchAll(/(?:^|\D)(\d{6})(?!\d)/g)].map(m=>m[1]);
+      if(codes.length===1)add(match[2],match[1].startsWith('普通股')?'ordinary-a-share':'preferred-share',line);
     }
   }
   for(const match of body.matchAll(/^[ \t]*(优先股代码|转债代码|可转换公司债券代码)[：:][ \t]*([^\n]{1,100}(?:\n[ \t]*\d{6}[ \t]*){0,3})/gm)){

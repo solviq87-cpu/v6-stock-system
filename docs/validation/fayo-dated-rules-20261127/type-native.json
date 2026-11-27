@@ -1,8 +1,8 @@
 {
   "scope": "Three actual received public PDF excerpts through the existing local news CLI, authenticated journal API, original projection and native desktop/mobile evidence page. Source/types are unverified claims; no source timestamp, exchange, PIT or execution qualification.",
-  "baseline": "a4f4ed47048689ee02e47ecd40cafd26ec2ce80f",
+  "baseline": "5a06b6cdec15d271458cdb7557bfc48636a1ecb3",
   "sourceFiles": {
-    "public/nova/event-research.mjs": "25d6ad41afc5049fd6408ebe7ec1aafa7bd17c8013b591e9a4345b54766070ff",
+    "public/nova/event-research.mjs": "20397f9633f91ba520c3ca65eca65d99ca24b9cdbc12d5a6f23577d9efc6cbdd",
     "public/nova/research.js": "3c2b633fefb6fffab9f8b2134a91fedaaa7edf1278897b3b7d1a7d724bb72cf8",
     "src/core/news-evidence-journal.js": "35c9f4eb40e13c12af131639b3089850dc3ba14b5c4b730d57180bd872974c70"
   },
@@ -12,17 +12,17 @@
     "mode": "local-news-evidence-import",
     "results": [
       {
-        "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+        "eventHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
         "sequence": 1,
         "reused": false
       },
       {
-        "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+        "eventHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
         "sequence": 2,
         "reused": false
       },
       {
-        "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+        "eventHash": "8ee7f3e722748168ed9ed8da4ca868888b8dcf642651408074db655170cff38e",
         "sequence": 3,
         "reused": false
       }
@@ -34,7 +34,7 @@
     "externallyTimestampCertified": false
   },
   "http": 200,
-  "asOf": 1795817681042,
+  "asOf": 1795818123279,
   "types": {
     "spdb-preference-dividend": {
       "360003": "preferred-share",
@@ -53,26 +53,26 @@
   "archive": [
     {
       "file": "000001.json",
-      "sha256": "8045c77ddef60d962c8a158d39b5d0dd7cd8cc707875e8e4c5ce86fae17f566e"
+      "sha256": "20221128e96f86ed17fc98e593ff291894657c62564e0d6f10217516ee890e8d"
     },
     {
       "file": "000002.json",
-      "sha256": "d444799a0e82a464fc1dcde5ff9466717afb6c8464c825a7c1701a26967d3201"
+      "sha256": "eea93681a28a5ad33029705c98cb009c39073312632b47ca07f32cde94408ca6"
     },
     {
       "file": "000003.json",
-      "sha256": "f3ae23fec4cc2eb92cd881d9498ecc0fa70da96596b2b7a48909b57b86045125"
+      "sha256": "7adc2a2826074e1f3be09a1cfeffe6a0f05de38cc8dcdeb47fb894a2c57ddd44"
     }
   ],
-  "firstRecordedAt": 1795817680990,
+  "firstRecordedAt": 1795818123254,
   "beforeArchiveRows": 0,
   "viewerDenied": true,
   "records": [
     {
       "schemaVersion": 1,
       "sequence": 3,
-      "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
-      "recordedAt": 1795817680990,
+      "previousHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
+      "recordedAt": 1795818123254,
       "evidence": {
         "schemaVersion": 1,
         "source": "spdb-preference-dividend",
@@ -105,7 +105,7 @@
       "canNotify": false,
       "independentlyVerified": false,
       "externallyTimestampCertified": false,
-      "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+      "eventHash": "8ee7f3e722748168ed9ed8da4ca868888b8dcf642651408074db655170cff38e",
       "current": true,
       "associated": true,
       "eligibleForResearchSupport": false,
@@ -115,8 +115,8 @@
     {
       "schemaVersion": 1,
       "sequence": 2,
-      "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
-      "recordedAt": 1795817680990,
+      "previousHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
+      "recordedAt": 1795818123254,
       "evidence": {
         "schemaVersion": 1,
         "source": "510300-product-summary",
@@ -147,7 +147,7 @@
       "canNotify": false,
       "independentlyVerified": false,
       "externallyTimestampCertified": false,
-      "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+      "eventHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
       "current": true,
       "associated": true,
       "eligibleForResearchSupport": false,
@@ -158,7 +158,7 @@
       "schemaVersion": 1,
       "sequence": 1,
       "previousHash": null,
-      "recordedAt": 1795817680990,
+      "recordedAt": 1795818123254,
       "evidence": {
         "schemaVersion": 1,
         "source": "spdb-2025-summary",
@@ -191,7 +191,7 @@
       "canNotify": false,
       "independentlyVerified": false,
       "externallyTimestampCertified": false,
-      "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+      "eventHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
       "current": true,
       "associated": true,
       "eligibleForResearchSupport": false,
@@ -206,8 +206,8 @@
         "row": {
           "schemaVersion": 1,
           "sequence": 3,
-          "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
-          "recordedAt": 1795817680990,
+          "previousHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
+          "recordedAt": 1795818123254,
           "evidence": {
             "schemaVersion": 1,
             "source": "spdb-preference-dividend",
@@ -240,7 +240,7 @@
           "canNotify": false,
           "independentlyVerified": false,
           "externallyTimestampCertified": false,
-          "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+          "eventHash": "8ee7f3e722748168ed9ed8da4ca868888b8dcf642651408074db655170cff38e",
           "current": true,
           "associated": true,
           "eligibleForResearchSupport": false,
@@ -251,8 +251,8 @@
           {
             "schemaVersion": 1,
             "sequence": 3,
-            "previousHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
-            "recordedAt": 1795817680990,
+            "previousHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
+            "recordedAt": 1795818123254,
             "evidence": {
               "schemaVersion": 1,
               "source": "spdb-preference-dividend",
@@ -285,7 +285,7 @@
             "canNotify": false,
             "independentlyVerified": false,
             "externallyTimestampCertified": false,
-            "eventHash": "94c99815a53187ed38118d62ce01640d9c98e45f025ad4f83d63a0646b3f1738",
+            "eventHash": "8ee7f3e722748168ed9ed8da4ca868888b8dcf642651408074db655170cff38e",
             "current": true,
             "associated": true,
             "eligibleForResearchSupport": false,
@@ -293,7 +293,7 @@
             "supportStatus": "unknown"
           }
         ],
-        "knownAt": 1795817680990,
+        "knownAt": 1795818123254,
         "subjects": [
           "360003",
           "360008",
@@ -363,8 +363,8 @@
         "row": {
           "schemaVersion": 1,
           "sequence": 2,
-          "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
-          "recordedAt": 1795817680990,
+          "previousHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
+          "recordedAt": 1795818123254,
           "evidence": {
             "schemaVersion": 1,
             "source": "510300-product-summary",
@@ -395,7 +395,7 @@
           "canNotify": false,
           "independentlyVerified": false,
           "externallyTimestampCertified": false,
-          "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+          "eventHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
           "current": true,
           "associated": true,
           "eligibleForResearchSupport": false,
@@ -406,8 +406,8 @@
           {
             "schemaVersion": 1,
             "sequence": 2,
-            "previousHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
-            "recordedAt": 1795817680990,
+            "previousHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
+            "recordedAt": 1795818123254,
             "evidence": {
               "schemaVersion": 1,
               "source": "510300-product-summary",
@@ -438,7 +438,7 @@
             "canNotify": false,
             "independentlyVerified": false,
             "externallyTimestampCertified": false,
-            "eventHash": "a517b782083667d786c9971a7d9bd756e38594d2c7d77439810ac44cd5f5dc79",
+            "eventHash": "25c28337fefe421e68887f39f4f183289a953088cf68d68a609c0acd7196daa8",
             "current": true,
             "associated": true,
             "eligibleForResearchSupport": false,
@@ -446,7 +446,7 @@
             "supportStatus": "unknown"
           }
         ],
-        "knownAt": 1795817680990,
+        "knownAt": 1795818123254,
         "subjects": [
           "510300"
         ],
@@ -494,7 +494,7 @@
           "schemaVersion": 1,
           "sequence": 1,
           "previousHash": null,
-          "recordedAt": 1795817680990,
+          "recordedAt": 1795818123254,
           "evidence": {
             "schemaVersion": 1,
             "source": "spdb-2025-summary",
@@ -527,7 +527,7 @@
           "canNotify": false,
           "independentlyVerified": false,
           "externallyTimestampCertified": false,
-          "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+          "eventHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
           "current": true,
           "associated": true,
           "eligibleForResearchSupport": false,
@@ -539,7 +539,7 @@
             "schemaVersion": 1,
             "sequence": 1,
             "previousHash": null,
-            "recordedAt": 1795817680990,
+            "recordedAt": 1795818123254,
             "evidence": {
               "schemaVersion": 1,
               "source": "spdb-2025-summary",
@@ -572,7 +572,7 @@
             "canNotify": false,
             "independentlyVerified": false,
             "externallyTimestampCertified": false,
-            "eventHash": "a2c29c8597539c6c55013039a25fb55898d922171b9fff28d820cfb1518b285f",
+            "eventHash": "e08bc25e60dc055e449c91ac324104652a8d804d1b081a28a83f40e2c0218b40",
             "current": true,
             "associated": true,
             "eligibleForResearchSupport": false,
@@ -580,7 +580,7 @@
             "supportStatus": "unknown"
           }
         ],
-        "knownAt": 1795817680990,
+        "knownAt": 1795818123254,
         "subjects": [
           "360003",
           "360008",
@@ -616,7 +616,7 @@
               "label": "普通股A股",
               "status": "source-claim",
               "quotes": [
-                "普通股 A 股                            浦发银行           600000"
+                "普通股 A 股                            浦发银行           600000           -"
               ]
             }
           ],

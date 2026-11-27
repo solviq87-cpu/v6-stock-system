@@ -79,3 +79,7 @@ test('并列字段和代码续行保持边界，畸形类型输入安全返回�
   const r=await identity(e);assert.equal(r.rows.some(x=>x.type),false);assert.equal(r.canQualify,false);
  }
 });
+test('普通股行出现多个代码且无逐列绑定时保持未知',async()=>{
+ const r=await identity(declared('股票种类  股票上市交易所 股票简称 股票代码\n普通股 A股    示例    600000    600001',['600000','600001']));
+ assert.ok(r.rows.every(x=>x.type===null));
+});
