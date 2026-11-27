@@ -9,7 +9,7 @@ const str=x=>typeof x==='string'&&x.trim()===x&&x.length>0&&x.length<=256;
 const digest=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const code=x=>typeof x==='string'&&/^\d{6}$/.test(x);
 const stamp=x=>Number.isSafeInteger(x)&&x>=946684800000&&x<4102444800000;
-const dayOK=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d;
+const dayOK=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(Date.parse(d)).toISOString().slice(0,10)===d;
 const day=t=>new Date(t+28800000).toISOString().slice(0,10);
 const time=(d,t)=>Date.parse(d+'T'+t+'+08:00');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
