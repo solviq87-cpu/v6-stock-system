@@ -139,25 +139,25 @@ function reviewSourceIds(state,sourceIds,frozenAt,asOf){
  // Source IDs may also refer to historical K-line labels. Absence alone is
  // not revocation, but known conflicting/teaching-only trade IDs are.
  for(const row of scoped)if(ids.has(row.id)&&!retained.has(row.id))affected.add(row.id);
- // A known settlement can become unusable without producing a second copy.
- // Use the same quality and verified-receipt gates as strict learning.
- // Explicit plan review history has its own as-of/restoration rules below:
- // do not reinterpret a later quarantine as if it were known earlier.
- for(const row of resolved.rows){
-  if(!ids.has(row.id)||row.planEvidenceReview!=null)continue;
-  if(!sampleMatches(row,'standard')||!verifiedLearningObservation(row,at))affected.add(row.id);
- }
+ // Test-only records cannot substitute a known real settlement.
  if(state?.scope!=='demo')for(const row of visible)
   if(ids.has(row.id)&&isLearningTestSample(row)&&!scopedIds.has(row.id))affected.add(row.id);
- for(const row of state?.trades||[]){
-  const review=row?.planEvidenceReview;
-  if(!review||!ids.has(row.id)||state?.scope!=='demo'&&isLearningTestSample(row))continue;
-  const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt);
-  if(first!==null&&last!==null&&first<=last&&at!==null&&first>at)continue;
-  const restored=sampleEvidenceTime(review.revalidatedAt);
-  const usable=review.status==='revalidated'&&at!==null&&created!==null&&first!==null&&last!==null&&restored!==null&&
-    first<=last&&last<=restored&&restored<=created&&created<=at;
-  if(!usable)affected.add(row.id);
+ // Review only retained, as-of-visible evidence. A conflicting identity is
+ // already blocked above, and a genuinely later archive cannot revoke history.
+ for(const row of resolved.rows){
+  if(!ids.has(row.id))continue;
+  const review=row.planEvidenceReview;
+  if(review!=null){
+   const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt);
+   // A valid later quarantine is not evidence of an earlier withdrawal.
+   if(first!==null&&last!==null&&first<=last&&at!==null&&first>at)continue;
+   const restored=sampleEvidenceTime(review.revalidatedAt);
+   const usable=review.status==='revalidated'&&at!==null&&created!==null&&first!==null&&last!==null&&restored!==null&&
+     first<=last&&last<=restored&&restored<=created&&created<=at;
+   if(!usable){affected.add(row.id);continue;}
+  }
+  // Neither a recovery marker nor a unique identity proves usable learning.
+  if(!sampleMatches(row,'standard')||!verifiedLearningObservation(row,at))affected.add(row.id);
  }
  return {ids,affected};
 }
