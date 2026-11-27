@@ -330,3 +330,41 @@ test('恢复来源必须保持原结算质量，晚到归档不能反向改变�
  assert.equal(candidateEvidenceReview(state([valid]),{...c,createdAt:time(8)},cutoff).status,bad);
  check([],good); // the candidate may instead reference a historical K-line label
 });
+
+test('当前可用的结算不等于原训练与验证截止时已经可知',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview,verifiedLearningObservation}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const original={id:'settled',code:'600000',entryTime:'2024-07-01T09:32',exitTime:'2024-07-02T11:00',
+  createdAt:time(2),snapshotVerified:true,repeatable:true,pnl:2};
+ const c={id:'candidate',createdAt:time(10),sourceIds:[original.id]};
+ const model={sourceIds:[original.id],trainCutoff:time(5)};
+ const good='no-known-revocation',bad='requires-revalidation',asOf=point(12);
+ function check(trades,legacy,numeric,created=c.createdAt,trainCutoff=model.trainCutoff){
+  const plain={...c,createdAt:created},candidate={...plain,numericModel:{...model,trainCutoff}};
+  const version={number:1,candidateId:c.id,approvedAt:time(10),numericModel:candidate.numericModel};
+  const state={scope:'live',trades,candidates:[candidate],versions:[version]},before=JSON.stringify(state);
+  assert.equal(candidateEvidenceReview(state,plain,asOf).status,legacy);
+  assert.equal(candidateEvidenceReview(state,candidate,asOf).status,numeric);
+  assert.equal(approvedModelEvidenceReview(state,version,asOf).status,numeric);
+  assert.equal(JSON.stringify(state),before);
+ }
+ check([original],good,good);
+ check([{...original,knownAt:time(5)}],good,good);
+ for(const field of ['createdAt','recordedAt','receivedAt','availableAt','knownAt','observedAt','observedAtMs','asOf','updatedAt','revisedAt']){
+  const late={...original,[field]:field==='observedAtMs'?point(6):time(6)};
+  assert.ok(verifiedLearningObservation(late,asOf));
+  check([late],good,bad);
+ }
+ check([{...original,exitTime:'2024-07-06T11:00',createdAt:time(6)}],good,bad);
+ check([{...original,createdAt:time(11)}],bad,bad);
+ const recovered={...original,planEvidenceReview:{status:'revalidated',firstQuarantinedAt:time(3),lastQuarantinedAt:time(3),revalidatedAt:time(4)}};
+ check([recovered],good,good);
+ check([{...recovered,planEvidenceReview:{...recovered.planEvidenceReview,revalidatedAt:time(6)}}],good,bad);
+ check([{...recovered,knownAt:time(6)}],good,bad);
+ check([original,{...original,pnl:null,createdAt:time(13)}],good,good);
+ check([original,{...original,pnl:4,createdAt:time(6)}],bad,bad);
+ check([original,{...original,pnl:99,createdAt:time(6),sampleSet:'demo'}],good,good);
+ check([],good,good); // a historical K-line ID may be absent from the trade archive
+ check([original],bad,bad,'broken-clock','broken-clock');
+ check([original],bad,bad,time(13),time(13));
+});
