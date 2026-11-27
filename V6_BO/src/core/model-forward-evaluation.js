@@ -85,16 +85,20 @@ function freezeForecast(workspace,events,request,{now=Date.now(),beforeCommit}={
  predictionStructure(request.prediction);
  if(!stamp(now)||now>Date.now())fail('TIME');
  const fingerprint=S.digest({runId:request.runId,prediction:request.prediction}),root=rootFor(workspace);
+ const checkClock=()=>{const current=Date.now();if(!stamp(current)||current<now)fail('TIME');return current;};
+ const checkReplay=old=>{
+  checkClock();if(old.recordedAt>now)fail('TIME');
+  if(old.data?.requestFingerprint!==fingerprint)fail('REQUEST');
+  if(old.kind!=='analysis')fail('ARCHIVE');
+  validateArchive(old);
+ };
  let old;try{old=S.readEvents(root).find(e=>e.requestId===request.requestId);}catch{fail('ARCHIVE');}
  if(old){
   // A replay is read-only, but must still respect the supplied authorization
   // guard and cannot return a receipt from a future or invalid archive.
   if(beforeCommit!==undefined&&(typeof beforeCommit!=='function'||beforeCommit()!==true))
    throw Object.assign(Error('编辑授权或主实例角色已变化，研究写入取消'),{code:'WORKSPACE_AUTHORIZATION',httpStatus:403});
-  if(old.recordedAt>now)fail('TIME');
-  if(old.data?.requestFingerprint!==fingerprint)fail('REQUEST');
-  if(old.kind!=='analysis')fail('ARCHIVE');
-  validateArchive(old);
+  checkReplay(old);
   return {ok:true,forecastId:old.hash,reused:true,...S.FLAGS};
  }
  const event=events.find(e=>e.kind==='analysis'&&e.hash===request.runId&&e.recordedAt<=now&&e.data.asOf<=now);
@@ -104,14 +108,15 @@ function freezeForecast(workspace,events,request,{now=Date.now(),beforeCommit}={
   generatedAt:request.prediction.generatedAt,freezeDeadline:input.freezeDeadline,requestFingerprint:fingerprint,
   provenance:'explicit-import-unverified',contextRows:input.bars.length,lastClose:input.bars.at(-1).close,tradeDates:input.tradeDates,
   inputAvailability:'recorded-closed-prices-only',modelExecutionVerified:false,costReportsVerified:false};
- const beforeForecastCommit=beforeCommit===undefined?undefined:()=>{
-  const allowed=typeof beforeCommit==='function'&&beforeCommit()===true;
-  // A worker authorization handshake or disk sync can cross the import deadline.
-  if(allowed&&Date.now()>=input.freezeDeadline)fail('LATE');
-  return allowed;
+ // The store rechecks this guard under its process lock and again after
+ // staging/fsync. A racing same-ID winner is a replay, not a new publication.
+ const beforeCommitLocked=context=>{
+  if(context.reused){checkReplay(context.existing);return true;}
+  if(checkClock()>=input.freezeDeadline)fail('LATE');
+  return true;
  };
- let saved;try{saved=S.appendEvent(root,'analysis',data,{requestId:request.requestId,now,beforeCommit:beforeForecastCommit});}
- catch(error){if(['WORKSPACE_AUTHORIZATION','FORECAST_LATE'].includes(error?.code))throw error;fail('ARCHIVE');}
+ let saved;try{saved=S.appendEvent(root,'analysis',data,{requestId:request.requestId,now,beforeCommit,beforeCommitLocked});}
+ catch(error){if(['WORKSPACE_AUTHORIZATION','FORECAST_LATE','FORECAST_TIME','FORECAST_REQUEST'].includes(error?.code))throw error;fail('ARCHIVE');}
  return {ok:true,forecastId:saved.hash,reused:saved.reused,...S.FLAGS};
 }
 // First dated post-close receipt is retained even if its price or status is
