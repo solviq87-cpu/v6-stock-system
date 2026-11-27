@@ -2,7 +2,7 @@
 // Manual EIA daily oil spot observations; never a futures or executable quote.
 const SERIES=Object.freeze({RWTC:'WTI Cushing',RBRTE:'Brent Europe'});
 const ENDPOINT='https://api.eia.gov/v2/petroleum/pri/spt/data/';
-const LIMIT=512*1024, DAY=86400000;
+const LIMIT=512*1024, MAX_CHUNKS=4096, DAY=86400000;
 const validTime=x=>Number.isSafeInteger(x)&&x>0&&x<8e15;
 const validDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
 function localDay(at){
@@ -16,13 +16,25 @@ function validate({series,start,end,now=Date.now(),timeoutMs=10000}={}){
 }
 // Reject credential-bearing metadata before any immutable raw archival, even
 // when the public response is submitted directly to the archive API.
+// Decode two bounded layers of percent-escaped ASCII. Never persist the
+// decoded text; it is used only to detect credential-like keys/assignments.
+function credentialScanText(value){
+ for(let i=0;i<2;i++)value=value.replace(/%([0-9a-f]{2})/gi,(all,hex)=>{
+  const byte=parseInt(hex,16);return byte<128?String.fromCharCode(byte):all;
+ });
+ return value;
+}
+const credentialKey=/^(?:apikey|accesstoken|authorization|password|secret|token)$/i;
+const credentialAssignment=/(?:^|[^a-z0-9])(?:api[\s_-]*key|access[\s_-]*token|authorization|password|secret|token)\s*["']?\s*[:=]/i;
 function checkPrivateMetadata(value,secret){
  const stack=[[value,0]];let count=0;
  while(stack.length){const [v,depth]=stack.pop();if(++count>30000||depth>32)throw Error('EIA响应结构超限');
   if(typeof v==='string'){
-   if(secret&&v.includes(secret)||/(?:api[_-]?key|access[_-]?token|authorization)\s*=/i.test(v))throw Error('EIA响应包含凭据字段，拒绝保存');
+   const decoded=credentialScanText(v);
+   if(secret&&(v.includes(secret)||decoded.includes(secret))||credentialAssignment.test(decoded))throw Error('EIA响应包含凭据字段，拒绝保存');
   }else if(v&&typeof v==='object')for(const [k,x] of Object.entries(v)){
-   if(/^(?:api[_-]?key|access[_-]?token|authorization|password|secret|token)$/i.test(k)||secret&&k.includes(secret))throw Error('EIA响应包含凭据字段，拒绝保存');
+   const decoded=credentialScanText(k);
+   if(credentialKey.test(decoded.replace(/[\s_-]/g,''))||secret&&(k.includes(secret)||decoded.includes(secret)))throw Error('EIA响应包含凭据字段，拒绝保存');
    stack.push([x,depth+1]);
   }
  }
@@ -58,23 +70,38 @@ async function collectEiaSpotDaily({series,start,end,apiKey,clock=Date.now,timeo
  let high=0;function sample(){let at;try{at=clock();}catch{throw Error('EIA采集时钟无效');}if(!validTime(at)||at<high)throw Error('EIA采集时钟无效或倒退');high=at;return at;}
  const requestStartedAt=sample();validate({series,start,end,now:requestStartedAt,timeoutMs});
  const url=new URL(ENDPOINT);for(const [k,v] of Object.entries({'api_key':apiKey,'frequency':'daily','data[0]':'value','facets[series][]':series,start,end,'sort[0][column]':'period','sort[0][direction]':'asc',offset:'0',length:'367'}))url.searchParams.set(k,v);
+ // Bound both headers and body, including injected transports that ignore
+ // AbortSignal. The raced worker cannot write to the archive.
+ const controller=new AbortController(),deadline=performance.now()+timeoutMs;
+ let timer;
+ function ensureActive(){if(controller.signal.aborted||performance.now()>=deadline)throw Error('EIA请求失败或超时');}
+ function activeSample(){ensureActive();return sample();}
+ const work=async()=>{
  let response;
- try{response=await fetchImpl(url.href,{method:'GET',redirect:'error',signal:AbortSignal.timeout(timeoutMs),headers:{Accept:'application/json'}});}catch{throw Error('EIA请求失败或超时');}
- sample();
+ try{response=await fetchImpl(url.href,{method:'GET',redirect:'error',signal:controller.signal,headers:{Accept:'application/json'}});}catch{throw Error('EIA请求失败或超时');}
+ activeSample();
  if(!response||response.ok!==true||response.status!==200)throw Error('EIA HTTP '+(Number.isInteger(response?.status)&&response.status>=100&&response.status<=599?response.status:'invalid'));
  if(response.redirected===true||response.type==='opaqueredirect'||response.url&&response.url!==url.href)throw Error('EIA拒绝重定向');
- const ct=response.headers?.get?.('content-type');if(ct&&!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|\s*$)/i.test(ct))throw Error('EIA响应不是JSON');
- const length=response.headers?.get?.('content-length'),encoding=response.headers?.get?.('content-encoding');
+ const header=name=>{try{return response.headers?.get?.(name);}catch{throw Error('EIA响应头无效');}};
+ const ct=header('content-type');if(ct!=null&&(typeof ct!=='string'||!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|\s*$)/i.test(ct)))throw Error('EIA响应不是JSON');
+ const length=header('content-length'),encoding=header('content-encoding');
  if(length!=null&&(typeof length!=='string'||!/^\d+$/.test(length)||!Number.isSafeInteger(Number(length))||Number(length)>LIMIT))throw Error('EIA响应长度无效或超限');
- if(encoding!=null&&typeof encoding!=='string')throw Error('EIA响应编码无效');
+ if(encoding!=null&&(typeof encoding!=='string'||!/^(?:identity|gzip|deflate|br)$/i.test(encoding)))throw Error('EIA响应编码无效');
  if(!response.body||typeof response.body[Symbol.asyncIterator]!=='function')throw Error('EIA缺少原始字节流');
- const chunks=[];let size=0;
- try{for await(const part of response.body){sample();if(!(part instanceof Uint8Array))throw Error('invalid byte stream');size+=part.byteLength;if(size>LIMIT)throw Error('oversize');chunks.push(Buffer.from(part));}}catch{throw Error('EIA字节流超限、损坏或采集时钟异常');}
- const observedAt=sample();if(length!=null&&(!encoding||encoding.toLowerCase()==='identity')&&size!==Number(length))throw Error('EIA响应长度不符');
+ const chunks=[];let size=0,count=0;
+ try{for await(const part of response.body){activeSample();if(!(part instanceof Uint8Array)||++count>MAX_CHUNKS)throw Error('invalid byte stream');size+=part.byteLength;if(size>LIMIT)throw Error('oversize');if(part.byteLength)chunks.push(Buffer.from(part));}}catch{ensureActive();throw Error('EIA字节流超限、损坏或采集时钟异常');}
+ const observedAt=activeSample();if(length!=null&&(!encoding||encoding.toLowerCase()==='identity')&&size!==Number(length))throw Error('EIA响应长度不符');
  const raw=Buffer.concat(chunks),text=raw.toString('utf8');if(!Buffer.from(text,'utf8').equals(raw))throw Error('EIA响应不是有效UTF-8');
  if(text.includes(apiKey))throw Error('EIA响应包含凭据字段，拒绝保存');
  let parsed;try{parsed=JSON.parse(text);}catch{throw Error('EIA JSON无效');}checkPrivateMetadata(parsed,apiKey);
  const result={...projectEiaJson(text,{series,start,end,observedAt}),requestStartedAt,observationTimeBasis:'local-body-receipt'};
+ activeSample(); // Final publication check must not renew observedAt.
+ return {result,raw};
+ };
+ let completed;
+ try{completed=await Promise.race([new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('EIA请求失败或超时'));controller.abort();},timeoutMs);}),work()]);ensureActive();}
+ finally{clearTimeout(timer);controller.abort();}
+ const {result,raw}=completed;
  return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw,byteBasis:'response-body',scope:{series,start,end}});
 }
 module.exports={validate,projectEiaJson,collectEiaSpotDaily};
