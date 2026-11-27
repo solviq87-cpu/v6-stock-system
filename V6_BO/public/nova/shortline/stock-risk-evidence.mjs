@@ -150,12 +150,95 @@ function positionMetrics(sequence){
     canTrade:false};
 }
 
+// Descriptive close-based structure review. Reconstruct a fixed preceding
+// 20-bar range at a visible endpoint; never reinterpret it using later highs.
+function structureReview(sequence,cutoff,volumeByDay){
+  if(sequence.length<21)return null;
+  const b=sequence[0],day=b.date,clean=n=>finite(n)?n:null;
+  const rangeAt=i=>{
+    const prior=sequence.slice(i+1,i+21);
+    if(prior.length!==20)return null;
+    const at=i===0?cutoff:time(sequence[i].date);
+    if(!visible(sequence[i],at)||!prior.every(r=>visible(r,at)))return null;
+    return {from:prior.at(-1).date,to:prior[0].date,high:Math.max(...prior.map(r=>r.high)),low:Math.min(...prior.map(r=>r.low))};
+  };
+  const range=rangeAt(0);
+  if(!range)return null;
+  const current={range,referenceClose:b.close,
+    closeVsCeilingPct:clean(100*(b.close/range.high-1)),closeVsFloorPct:clean(100*(b.close/range.low-1)),
+    closeAboveCeiling:b.close>range.high,closeAtCeiling:b.close===range.high,
+    touchedBeyondCeiling:b.high>range.high,
+    attemptedBreakoutReturnedBelow:b.high>range.high&&b.close<range.high,
+    attemptedBreakoutClosedAtBoundary:b.high>range.high&&b.close===range.high,
+    closeBelowFloor:b.close<range.low,lowBelowFloor:b.low<range.low};
+  const result={day,current,anchorStatus:'unknown',anchor:null,path:null,canTrade:false,
+    basis:'visible-original-daily-ohlc-structure-not-confirmed-breakout-or-execution',
+    continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified'};
+  // Fixed five-endpoint search. All five prior ranges must be known at
+  // their respective endpoints. An incomplete search cannot prove no anchor.
+  if(sequence.length<25)return result;
+  const ranges=Array.from({length:5},(_,i)=>rangeAt(i));
+  if(ranges.some(r=>!r))return result;
+  let anchorIndex=null;
+  for(let i=4;i>=0;i--)if(sequence[i].close>ranges[i].high){anchorIndex=i;break;}
+  if(anchorIndex===null){result.anchorStatus='no-close-breakout-in-five-endpoints';return result;}
+  const anchorBar=sequence[anchorIndex],frozen=ranges[anchorIndex],level=frozen.high;
+  const post=sequence.slice(0,anchorIndex).reverse();
+  // All earlier daily path observations must have been visible at their own
+  // close, and current observation at the requested cutoff.
+  if(post.some(r=>!visible(r,r===b?cutoff:time(r.date))))return result;
+  result.anchorStatus='earliest-observed-close-breakout-in-five-endpoints';
+  result.anchor={date:anchorBar.date,referenceFrom:frozen.from,referenceTo:frozen.to,
+    resistance:level,rangeFloor:frozen.low,breakoutClose:anchorBar.close,
+    basis:'reconstructed-prior-window-not-a-persisted-registered-plan'};
+  let breached=false,reclaimed=false,firstBreachDay=null,firstReclaimDay=null,firstRebreakDay=null,rebreakCount=0,retestDays=0;
+  const observations=post.map(r=>{
+    const below=r.close<level,above=r.close>level,atLevel=r.close===level;
+    const regained=above&&breached,retouched=r.low<=level&&!below;
+    if(below&&!breached)firstBreachDay=r.date;
+    if(below&&reclaimed){rebreakCount++;firstRebreakDay??=r.date;reclaimed=false;}
+    if(below)breached=true;
+    if(regained){firstReclaimDay??=r.date;reclaimed=true;}
+    if(retouched)retestDays++;
+    return {date:r.date,close:r.close,low:r.low,high:r.high,below,above,atLevel,retouched,
+      touchedLevelButClosedBelow:r.high>=level&&below};
+  });
+  const last=observations.at(-1),prev=sequence[1];
+  let volumeReview=null;
+  const v=volumeByDay.get(day),av=volumeByDay.get(anchorBar.date),pv=volumeByDay.get(prev?.date);
+  const validVolume=r=>r&&positive(r.volume)&&['shares','lots','手','股'].includes(r.volumeUnit);
+  if(last?.retouched&&validVolume(v)&&validVolume(av)&&validVolume(pv)&&
+      v.volumeUnit===av.volumeUnit&&v.volumeUnit===pv.volumeUnit){
+    const versusAnchor=clean(v.volume/av.volume),versusPrevious=clean(v.volume/pv.volume);
+    if(versusAnchor!==null&&versusPrevious!==null)volumeReview={unit:v.volumeUnit,volume:v.volume,
+      anchorVolume:av.volume,previousVolume:pv.volume,versusAnchor,versusPrevious,
+      contractedAgainstBoth:versusAnchor<1&&versusPrevious<1};
+  }
+  // A close back above the frozen level is not a release of risk. Recovery
+  // after an earlier breach is kept distinct from a clean retest.
+  let status='breakout-close-observed';
+  if(last){
+    if(last.below)status=rebreakCount>0?'reclaim-failed-close-below':'close-below-frozen-level';
+    else if(breached)status=last.above?'close-reclaimed-after-breach':'boundary-after-breach';
+    else if(last.retouched)status=last.atLevel?'retest-closed-at-boundary':
+      volumeReview?.contractedAgainstBoth===true?'contracting-retest-close-held':
+      volumeReview?'retest-close-held-no-confirmed-contraction':'retest-close-held-volume-unknown';
+    else status='post-breakout-close-above';
+  }
+  result.path={status,observedSessions:post.length,observations,retestDays,
+    firstBreachDay,firstReclaimDay,firstRebreakDay,rebreakCount,
+    currentCloseBelowFrozenLevel:b.close<level,currentCloseBelowFrozenRangeFloor:b.close<frozen.low,
+    volumeReview,actualHealthyPullback:null,actualFalseBreakout:null,actualRecoveryConfirmed:null,
+    canTrade:false,basis:'daily-close-and-range-only-no-intraday-order-or-causal-proof'};
+  return result;
+}
+
 /** Read-only point-in-time diagnostics, not verified vendor evidence or order permission. */
 export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows,sectorRows=[],indexRows=[]}={}){
   const out={basis:'historical-research-only',canTrade:false,priceRange:null,
     relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
     themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null,positionRisk:null,
-    sectorPositionRisk:null,multiWindowRelativeStrength:null,themePersistence:null};
+    sectorPositionRisk:null,multiWindowRelativeStrength:null,themePersistence:null,structureReview:null};
   const cutoff=time(asOf??b?.date);
   const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
   const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
@@ -214,6 +297,13 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
       }
       positionSequence=sequence;
       out.positionRisk=positionMetrics(sequence);
+      // A price-identical duplicate may disagree on volume. Suppress only
+      // the volume comparison instead of losing otherwise valid price facts.
+      const originals=currentRows===undefined?[b]:currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff));
+      const volumeRows=unambiguousAt([...visibleHistory,...originals],[...positionFields,'volume','volumeUnit']);
+      const volumes=new Map(volumeRows.map(r=>[r.date,r]));
+      if(currentRows!==undefined&&(!Object.is(volumes.get(day)?.volume,b.volume)||!Object.is(volumes.get(day)?.volumeUnit,b.volumeUnit)))volumes.delete(day);
+      out.structureReview=structureReview(sequence,cutoff,volumes);
     }
   }
   // The benchmark must be an actual original series, not the derived daily
