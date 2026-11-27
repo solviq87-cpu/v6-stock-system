@@ -14,16 +14,18 @@ const safeNow=n=>Number.isSafeInteger(n)&&n>0;
 const elapsed=start=>Math.max(0,Math.round(performance.now()-start));
 function reason(status,code=null){return {status,httpStatus:code,quoteAt:null,
  quoteAgeMs:null,price:null,previousClose:null};}
+// Only a local size-limit exception is evidence of exceeding our byte cap.
+class BodyLimitError extends Error {}
 async function boundedBody(response){
  const header=response.headers?.get?.('content-length');
  if(header!==null&&header!==undefined&&/^\d+$/.test(header)&&Number(header)>SIZE_LIMIT)
-  throw Error('body-too-large');
+  throw new BodyLimitError('body-too-large');
  if(!response.body||typeof response.body[Symbol.asyncIterator]!=='function')
   throw Error('invalid-response');
  const chunks=[];let n=0;
  for await(const chunk of response.body){
   const buf=Buffer.from(chunk);n+=buf.length;
-  if(n>SIZE_LIMIT)throw Error('body-too-large');
+  if(n>SIZE_LIMIT)throw new BodyLimitError('body-too-large');
   chunks.push(buf);
  }
  return Buffer.concat(chunks);
@@ -53,7 +55,16 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    if(httpStatus!==200)return reason('invalid-response',httpStatus);
    let raw;
    try{raw=await boundedBody(response);}
-   catch(e){return reason(e.message==='body-too-large'?'response-too-large':'invalid-response',httpStatus);}
+   catch(e){
+    if(controller.signal.aborted)return {...reason('timeout'),failureKind:'timeout'};
+    const tooLarge=e instanceof BodyLimitError;
+    const transport=quoteTransportFailureKind(e);
+    const status=tooLarge?'response-too-large':'invalid-response';
+    // Preserve the existing HTTP/status receipt contract while separating body
+    // transport failures from malformed content. Never report upstream text.
+    return {...reason(status,httpStatus),failureKind:tooLarge?status:
+     transport==='transport-error'?status:transport};
+   }
    let q;
    try{
     const text=id==='eastmoney'?raw.toString('utf8'):new TextDecoder('gb18030').decode(raw);
