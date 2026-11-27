@@ -7,6 +7,21 @@ const PRIOR_DAYS = 20;
 const WINDOWS = [1, 5, 15];
 const INDEX_CODES = new Set(['1.000001', '0.399001', '0.399006', '1.000688']);
 const SOURCES = new Set(['tencent-index', 'sina-index']);
+// Match the upstream session feed's clock domain before constructing a Date.
+const validTime = at => Number.isSafeInteger(at) && at > 0 && at <= 8e15;
+function validObservation(row, asOf) {
+  return row && SOURCES.has(row.quoteSource) && Number.isFinite(row.price) && row.price > 0 &&
+    validTime(row.quoteAt) && validTime(row.receivedAt) && row.quoteAt <= row.receivedAt && row.receivedAt <= asOf;
+}
+function uniqueIndices(rows) {
+  const latest = new Map();
+  if (!Array.isArray(rows)) return latest;
+  for (const row of rows) {
+    if (!INDEX_CODES.has(row?.code)) continue;
+    latest.set(row.code, latest.has(row.code) ? null : row);
+  }
+  return latest;
+}
 
 function sessionMinute(at) {
   const minute = (Math.floor(at / MINUTE) + 480) % 1440;
@@ -29,7 +44,7 @@ function createIndexWindowResearch({ investigate } = {}) {
   let lastClock = 0;
   let active = [];
   function observe(feed, session, asOf) {
-    if (!Number.isSafeInteger(asOf) || asOf <= 0 || asOf < lastClock) {
+    if (!validTime(asOf) || asOf < lastClock) {
       days.clear();
       active = [];
       lastClock = 0;
@@ -38,7 +53,7 @@ function createIndexWindowResearch({ investigate } = {}) {
     lastClock = asOf;
     const day = new Date(asOf + 28800000).toISOString().slice(0, 10).replaceAll('-', '');
     const slot = sessionMinute(asOf);
-    if (!session.trading || session.day !== day || feed.day !== day || slot === null) {
+    if (!session?.trading || session.day !== day || feed?.day !== day || slot === null) {
       active = [];
       return;
     }
@@ -48,7 +63,7 @@ function createIndexWindowResearch({ investigate } = {}) {
     }
     const current = days.get(day);
     const prior = [...days.entries()].slice(0, -1);
-    const latest = new Map(feed.indices.map(row => [row.code, row]));
+    const latest = uniqueIndices(feed.indices);
     active = active.filter(e => e.day === day && e.validUntil > asOf && latest.get(e.code)?.quoteSource === e.source);
     for (const code of INDEX_CODES) {
       if (!current.has(code)) current.set(code, new Map());
@@ -57,18 +72,15 @@ function createIndexWindowResearch({ investigate } = {}) {
       // A suppressed/conflicting quote or source switch disqualifies the
       // current minute. Do not retain a now-disputed detection.
       const saved = points.get(slot);
-      if (saved && (!row || row.quoteSource !== saved.quoteSource ||
-          row.quoteAt === saved.quoteAt && row.price !== saved.price)) {
+      if (saved && (!validObservation(row, asOf) || row.quoteSource !== saved.quoteSource ||
+          row.quoteAt < saved.quoteAt || row.quoteAt === saved.quoteAt && row.price !== saved.price)) {
         points.set(slot, null);
         active = active.filter(e => e.code !== code);
         continue;
       }
       // Sample the first reconciled observation from seconds 0..9 of a
       // minute. The actual timestamps and span are retained on each clue.
-      if (points.has(slot) || !row || !SOURCES.has(row.quoteSource) ||
-          !Number.isFinite(row.price) || row.price <= 0 ||
-          !Number.isSafeInteger(row.quoteAt) || !Number.isSafeInteger(row.receivedAt) ||
-          row.quoteAt > row.receivedAt || row.receivedAt > asOf || asOf - row.quoteAt > 15000 ||
+      if (points.has(slot) || !validObservation(row, asOf) || asOf - row.quoteAt > 15000 ||
           Math.floor(row.quoteAt / MINUTE) !== Math.floor(asOf / MINUTE) || row.quoteAt % MINUTE >= 10000) continue;
       points.set(slot, {price:row.price, quoteAt:row.quoteAt, receivedAt:row.receivedAt, quoteSource:row.quoteSource});
       for (const width of WINDOWS) {
@@ -93,7 +105,13 @@ function createIndexWindowResearch({ investigate } = {}) {
           validUntil: (Math.floor(row.quoteAt / MINUTE) + 1) * MINUTE,
           method:'same-minute-absolute-range-v1', references:comparable, status:'market-only', attribution:'unknown', canTrade:false, canNotify:false
         };
-        event.investigation = investigate?.(event) ?? {status:'unavailable'};
+        // Optional cache research must not abort the market observation loop.
+        // Give the investigator a detached copy, never the stored event.
+        try {
+          event.investigation = structuredClone(investigate?.(structuredClone(event)) ?? {status:'unavailable'});
+        } catch {
+          event.investigation = {status:'unavailable'};
+        }
         active.push(event);
       }
     }
@@ -101,7 +119,8 @@ function createIndexWindowResearch({ investigate } = {}) {
   return {observe, view(asOf) {
     return {mode:'experimental-same-minute-range', priorDaysRequired:PRIOR_DAYS,
       priorDaysObserved:Math.max(0, days.size - 1),
-      events:active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil), canTrade:false};
+      events:validTime(asOf) && asOf >= lastClock
+        ? structuredClone(active.filter(e => e.detectedAt <= asOf && asOf < e.validUntil)) : [], canTrade:false};
   }};
 }
 
