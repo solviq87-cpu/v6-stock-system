@@ -95,22 +95,37 @@ export function createRiskReceiptTracker(){
   const old=clocks.get(accountId),at=report.generatedAt;
   if(old&&(at<old.at||receivedAt<old.receivedAt))return null;
   const first=old?.at===at?Math.min(old.first,startedAt):startedAt;
-  clocks.set(accountId,{at,first,receivedAt});
-  return createRiskViewReceipt({...input,startedAt:first});
+  // A narrower report or a replay with fewer current price rows may only
+  // shorten this generation's lifetime; it cannot erase a prior short budget.
+  const expiresAt=Math.min(first+originalAgeBudget(report),old?.at===at?old.expiresAt:Infinity);
+  clocks.set(accountId,{at,first,receivedAt,expiresAt});
+  if(receivedAt>=expiresAt)return null;
+  const next=createRiskViewReceipt({...input,startedAt:first});
+  return next?Object.freeze({...next,expiresAt}):null;
  }};
 }
 // A backgrounded document is not a current private risk display. Observe the
 // document itself, not a window event that mobile browsers need not deliver.
 export function watchRiskVisibility(doc,{signal,onHidden,onVisible}={}){
- const visible=()=>doc?.visibilityState!=='hidden'&&signal?.aborted!==true;
- let previous=visible();
+ // A partial document adapter must not crash the parent page, or count
+ // unknown visibility as permission to retain private current evidence.
+ let listening=false,disposed=false,previous=false;
+ const visible=()=>listening&&!disposed&&signal?.aborted!==true&&doc.visibilityState==='visible';
  function change(){
-  if(signal?.aborted)return;
+  if(disposed||signal?.aborted||!listening)return;
   const next=visible();if(next===previous)return;previous=next;
   if(next)onVisible?.();else onHidden?.();
  }
- if(!signal?.aborted)doc?.addEventListener('visibilitychange',change,{signal});
- return {visible,dispose:()=>doc?.removeEventListener('visibilitychange',change)};
+ if(!signal?.aborted&&typeof doc?.addEventListener==='function'&&typeof doc?.removeEventListener==='function'){
+  try{doc.addEventListener('visibilitychange',change,{signal});listening=true;previous=visible();}
+  catch{listening=false;}
+ }
+ function dispose(){
+  if(disposed)return;
+  disposed=true;
+  if(listening){listening=false;doc.removeEventListener('visibilitychange',change);}
+ }
+ return {visible,dispose};
 }
 // Notification state is a separate original receipt. Missing or wrong epoch
 // never becomes a mutable empty archive. Zero is a valid initial revision.
