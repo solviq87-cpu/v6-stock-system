@@ -31,29 +31,42 @@ function validateAssumptions(input) {
 }
 
 function classifyAt(symbol, records, asOf, day) {
-  const valid=[],rejected=[];
+  const valid=[],rejected=[],visible=[],latest=new Map(),blocked=[];
+  // Choose visible revisions before validating their content. A newer invalid
+  // or expired current-day revision cannot silently resurrect an older one.
   for (const e of records.filter(row=>row?.symbol===symbol)) {
+    const knownAt=timestamp(e.knownAt),effectiveFrom=e.effectiveFrom==null ? knownAt : timestamp(e.effectiveFrom);
+    if (knownAt!==null && (knownAt>asOf || effectiveFrom!==null && effectiveFrom>asOf)) {
+      rejected.push('CLASSIFICATION_NOT_KNOWN_AT_OBSERVATION');continue;
+    }
+    if (dayOk(e.day) && e.day!==day) {rejected.push('CLASSIFICATION_NOT_EFFECTIVE_AT_OBSERVATION');continue;}
+    visible.push({e,knownAt});
+    if (text(e.source) && knownAt!==null && (!latest.has(e.source) || knownAt>latest.get(e.source))) latest.set(e.source,knownAt);
+  }
+  for (const {e,knownAt:versionTime} of visible) {
+    if (versionTime!==null && latest.has(e.source) && versionTime<latest.get(e.source)) continue;
     const knownAt=timestamp(e.knownAt),publishedAt=e.publishedAt==null ? null : timestamp(e.publishedAt);
     const effectiveFrom=e.effectiveFrom==null ? knownAt : timestamp(e.effectiveFrom);
     const effectiveTo=e.effectiveTo==null ? null : timestamp(e.effectiveTo);
     if (!text(e.source) || !text(e.sourceRecordId) || !text(e.version) || !dayOk(e.day) || !knownAt ||
         !effectiveFrom || e.publishedAt!=null && (!publishedAt || publishedAt>knownAt) ||
-        e.effectiveTo!=null && (!effectiveTo || effectiveTo<=effectiveFrom) || !Array.isArray(e.themes) || e.themes.length>100 ||
+        e.effectiveTo!=null && (!effectiveTo || effectiveTo<=effectiveFrom) || e.retracted===true ||
+        !Array.isArray(e.themes) || !e.themes.length || e.themes.length>100 ||
         e.themes.some(theme=>!text(theme)) || e.sector!=null && !text(e.sector)) {
-      rejected.push('CLASSIFICATION_PROVENANCE_MISSING');continue;
+      blocked.push('CLASSIFICATION_PROVENANCE_MISSING');continue;
     }
     if (knownAt>asOf || effectiveFrom>asOf || publishedAt>asOf) {rejected.push('CLASSIFICATION_NOT_KNOWN_AT_OBSERVATION');continue;}
-    if (e.day!==day || effectiveTo!==null && effectiveTo<=asOf) {rejected.push('CLASSIFICATION_NOT_EFFECTIVE_AT_OBSERVATION');continue;}
+    if (e.day!==day || effectiveTo!==null && effectiveTo<=asOf) {blocked.push('CLASSIFICATION_NOT_EFFECTIVE_AT_OBSERVATION');continue;}
     const themes=[...new Set(e.themes.map(theme=>theme.trim()))].sort();
     valid.push({symbol,themes,sector:e.sector?.trim() || null,source:e.source,sourceRecordId:e.sourceRecordId,version:e.version,day:e.day,
       knownAt,publishedAt,effectiveFrom,effectiveTo,effectiveBasis:e.effectiveFrom==null ? 'first-observed' : 'source-effective-time',
       publicationTimeUnknown:publishedAt===null,
       fingerprint:journal.digest({symbol,themes,sector:e.sector?.trim() || null,source:e.source,sourceRecordId:e.sourceRecordId,version:e.version,knownAt,publishedAt,effectiveFrom,effectiveTo,day:e.day})});
   }
-  if (!valid.length) return {symbol,status:'unknown',themes:null,sector:null,sourceRefs:[],reasons:[...new Set(rejected.length ? rejected : ['CLASSIFICATION_MISSING'])]};
-  // Keep the newest version per publisher that was actually known at the
-  // observation. Different publishers do not override one another by arrival.
-  const selected=valid.filter(row=>!valid.some(other=>other.source===row.source && other.knownAt>row.knownAt));
+  if (blocked.length || !valid.length) return {symbol,status:'unknown',themes:null,sector:null,sourceRefs:valid,
+    reasons:[...new Set(blocked.length ? blocked : rejected.length ? rejected : ['CLASSIFICATION_MISSING'])]};
+  // Different publishers do not override one another by arrival.
+  const selected=valid;
   const facts=row=>journal.digest({themes:row.themes,sector:row.sector});
   if (new Set(selected.map(facts)).size>1)
     return {symbol,status:'conflict',themes:null,sector:null,sourceRefs:selected,reasons:['CLASSIFICATION_SOURCE_CONFLICT']};
@@ -87,11 +100,12 @@ function buildPortfolioStressEvidence({equity,classifications=[],now=Date.now(),
   }
   const groups=[...groupMap.entries()].map(([theme,set])=>{
     const symbols=[...set].sort(),members=symbols.map(symbol=>byCode.get(symbol));
-    const valuesComplete=members.every(p=>finite(p.marketValue));
+    const classificationComplete=classes.every(c=>c.status==='available');
+    const valuesComplete=classificationComplete && members.every(p=>finite(p.marketValue));
     const observedMarketValue=money(members.reduce((n,p)=>n+(p.marketValue || 0),0));
     return {theme,symbols,positionCount:symbols.length,marketValue:valuesComplete ? observedMarketValue : null,observedMarketValue,
       weightPct:valuesComplete && equity.equity>0 ? observedMarketValue/equity.equity*100 : null,
-      classificationComplete:classes.every(c=>c.status==='available'),
+      classificationComplete,
       note:'每个题材可重复展示同一股票；组合总额和单个情景按代码去重，不相加题材权重。'};
   }).sort((a,b)=>(b.observedMarketValue-a.observedMarketValue)||a.theme.localeCompare(b.theme));
   const overlaps=[];
@@ -116,7 +130,9 @@ function buildPortfolioStressEvidence({equity,classifications=[],now=Date.now(),
       const friction=availabilityKnown ? sellableValue*(1-priceShockPct/100)*additionalCostBps/10000 : null;
       if (additionalCostBps>0 && !availabilityKnown) unknown.push(p.symbol);
       const loss=additionalCostBps>0 && friction===null ? null : markLoss+(friction || 0);
-      coveredLossEstimate+=loss || 0;
+      // Even if liquidation costs cannot be determined, the price shock on a
+      // verified market value is still a covered component of the scenario.
+      coveredLossEstimate+=loss===null ? markLoss : loss;
       if (availabilityKnown) {
         sellableLoss+=sellableValue*priceShockPct/100+(friction || 0);
         blockedLoss+=blockedValue*priceShockPct/100;
@@ -128,7 +144,7 @@ function buildPortfolioStressEvidence({equity,classifications=[],now=Date.now(),
     }
     if (requiresClassification) unknown.push(...classes.filter(c=>c.status!=='available').map(c=>c.symbol));
     const missingSymbols=[...new Set(unknown)],complete=current && !missingSymbols.length && equity.cashMovements.status==='reconciled';
-    const availabilityComplete=members.every(p=>p.sellableQuantity!==null && p.marketValue!==null);
+    const availabilityComplete=members.every(p=>finite(p.marketValue) && Number.isSafeInteger(p.sellableQuantity) && p.sellableQuantity>=0 && p.sellableQuantity<=p.quantity && p.quantity>0);
     return {id,title,theme,assumptionVersion:policy.version,priceShockPct,additionalLiquidationCostBps:additionalCostBps,
       asOf,status:complete ? 'estimated' : 'unknown',estimatedLoss:complete ? money(coveredLossEstimate) : null,
       coveredLossEstimate:money(coveredLossEstimate),lossPctOfEquity:complete && equity.equity>0 ? coveredLossEstimate/equity.equity*100 : null,
@@ -147,9 +163,10 @@ function buildPortfolioStressEvidence({equity,classifications=[],now=Date.now(),
   ];
   for (const group of groups.filter(g=>g.positionCount>=2)) scenarios.push(scenario({id:'theme-'+journal.digest(group.theme).slice(0,16),
     title:'共同题材退潮：'+group.theme,theme:group.theme,priceShockPct:policy.themeRetreatPct,symbols:group.symbols,requiresClassification:true}));
-  if (!groups.some(g=>g.positionCount>=2)) scenarios.push({id:'theme-retreat',title:'共同题材退潮',status:classes.every(c=>c.status==='available') ? 'no-observed-overlap' : 'unknown',
-    estimatedLoss:classes.every(c=>c.status==='available') && current ? 0 : null,coveredLossEstimate:0,
-    missingSymbols:classes.filter(c=>c.status!=='available').map(c=>c.symbol),assumptionVersion:policy.version,
+  const noOverlapComplete=missing.length===0;
+  if (!groups.some(g=>g.positionCount>=2)) scenarios.push({id:'theme-retreat',title:'共同题材退潮',status:noOverlapComplete ? 'no-observed-overlap' : 'unknown',
+    estimatedLoss:noOverlapComplete ? 0 : null,coveredLossEstimate:0,
+    missingSymbols:[...new Set(missing.map(row=>row.symbol).filter(Boolean))],assumptionVersion:policy.version,
     note:'仅检查当前已知分类中的共同题材；未观察到重叠不等于不存在相关风险。',maximumLossGuarantee:false,executionGuaranteed:false});
   const pricedClassified=positions.filter(p=>finite(p.marketValue) && classMap.get(p.symbol)?.status==='available');
   return {protocol:'fayo-portfolio-stress-evidence-v1',accountId:equity.accountId,accountEpoch:equity.accountEpoch,

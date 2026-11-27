@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: C11.1 exact same-account security response accepted; wrong, absent or extra code rejected
+ok 1 - C11.1 exact same-account security response accepted; wrong, absent or extra code rejected
+  ---
+  duration_ms: 6.927323
+  type: 'test'
+  ...
+# Subtest: C11.1 malformed observation time or incomplete core report cannot be read as current
+ok 2 - C11.1 malformed observation time or incomplete core report cannot be read as current
+  ---
+  duration_ms: 0.341243
+  type: 'test'
+  ...
+# Subtest: C11.2 scope abort after request completion still invalidates the selected security
+ok 3 - C11.2 scope abort after request completion still invalidates the selected security
+  ---
+  duration_ms: 0.259189
+  type: 'test'
+  ...
+# Subtest: C11.2 old scope abort cannot invalidate a replacement; disposal removes listeners
+ok 4 - C11.2 old scope abort cannot invalidate a replacement; disposal removes listeners
+  ---
+  duration_ms: 0.169214
+  type: 'test'
+  ...
+# Subtest: C11.2 already-aborted scope refuses to read
+ok 5 - C11.2 already-aborted scope refuses to read
+  ---
+  duration_ms: 0.225078
+  type: 'test'
+  ...
+# Subtest: C11.3 freshness is bounded from request start, not the later receipt or redraw
+ok 6 - C11.3 freshness is bounded from request start, not the later receipt or redraw
+  ---
+  duration_ms: 0.49848
+  type: 'test'
+  ...
+# Subtest: C11.3 elapsed time ignores historical server clock but never renews an old receipt
+ok 7 - C11.3 elapsed time ignores historical server clock but never renews an old receipt
+  ---
+  duration_ms: 0.211248
+  type: 'test'
+  ...
+# Subtest: C11.4 old account, old report, detached role or connectivity cannot act on a different current report
+ok 8 - C11.4 old account, old report, detached role or connectivity cannot act on a different current report
+  ---
+  duration_ms: 0.249325
+  type: 'test'
+  ...
+# Subtest: C11.5 correct research projections are subordinate to one original report; no new authority
+ok 9 - C11.5 correct research projections are subordinate to one original report; no new authority
+  ---
+  duration_ms: 0.248473
+  type: 'test'
+  ...
+# Subtest: C11.5 mixed account, epoch, equity fingerprint, revision, clock or permission hides only optional research
+ok 10 - C11.5 mixed account, epoch, equity fingerprint, revision, clock or permission hides only optional research
+  ---
+  duration_ms: 1.065301
+  type: 'test'
+  ...
+# Subtest: C11.5 mismatch in parent report or missing original equity makes research unknown, never default zero
+ok 11 - C11.5 mismatch in parent report or missing original equity makes research unknown, never default zero
+  ---
+  duration_ms: 0.180511
+  type: 'test'
+  ...
+# Subtest: C11.3 original quote age shortens the remaining presentation lifetime, expired or future claimed current price cannot renew it
+ok 12 - C11.3 original quote age shortens the remaining presentation lifetime, expired or future claimed current price cannot renew it
+  ---
+  duration_ms: 0.260191
+  type: 'test'
+  ...
+# Subtest: C11.3 explicit historical or unavailable risk rows do not fabricate current clocks or erase valid original report
+ok 13 - C11.3 explicit historical or unavailable risk rows do not fabricate current clocks or erase valid original report
+  ---
+  duration_ms: 0.137306
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 60.890123

@@ -20,31 +20,268 @@ const known=s=>typeof s==='string'&&s.trim().length>0&&!['缺失','未知','未�
 const fmt=n=>finite(n)?String(+n.toFixed(2)):'缺失';
 const dayOf=s=>String(s||'').slice(0,10);
 function time(x) {
-  if(Number.isSafeInteger(x)&&x>0)return x;
+  if(Number.isSafeInteger(x)&&x>0&&x<8e15)return x;
   if(typeof x!=='string')return NaN;
   const s=x.replace(' ','T');
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return Date.parse(s+'T15:00:00+08:00');
-  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(s))return Date.parse(s+'+08:00');
-  return /(?:Z|[+-]\d\d:\d\d)$/.test(s)?Date.parse(s):NaN;
+  if(validDay(s))return Date.parse(s+'T15:00:00+08:00');
+  const m=/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/.exec(s);
+  if(!m||!validDay(m[1])||+m[2]>23||+m[3]>59||(m[4]!==undefined&&+m[4]>59))return NaN;
+  const at=Date.parse(m[5]?s:s+'+08:00');
+  return Number.isSafeInteger(at)&&at>0&&at<8e15?at:NaN;
 }
 const cnDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 function visible(row,cutoff){
-  if(!row||!known(row.date)||!finite(time(row.date))||time(row.date)>cutoff)return false;
-  return [row.knownAt,row.availableAt].filter(v=>v!=null).every(v=>finite(time(v))&&time(v)<=cutoff);
+  if(!row||!known(row.date)||!validDay(row.date.slice(0,10)))return false;
+  const observed=time(row.date);
+  if(!finite(observed)||observed>cutoff)return false;
+  // Legacy absent clocks remain descriptive; explicit unknown or reversed clocks do not.
+  return ['knownAt','availableAt'].every(k=>{
+    if(!Object.hasOwn(row,k))return true;
+    const v=row[k];
+    // Date-only daily availableAt is a declared availability day, not a receipt.
+    // Preserve the original CSV day-close convention; knownAt stays precise.
+    const at=k==='availableAt'&&validDay(row.date)&&validDay(v)?time(v):planClock(v);
+    return (typeof v!=='string'||validDay(v.slice(0,10)))&&finite(at)&&at>=observed&&at<=cutoff;
+  });
 }
 function seen(source,observed,received,cutoff){
-  const o=time(observed),r=time(received);
+  const o=planClock(observed),r=planClock(received);
   return known(source)&&finite(o)&&finite(r)&&r>=o&&r<=cutoff;
 }
 const sameSymbol=(b,r)=>r?.code===b.code&&(!r.role||r.role==='stock');
+const conflictFields=['sourceConflict','conflict','evidenceStatus','quoteStatus','retracted','withdrawn'];
+const rowConflict=r=>r?.sourceConflict===true||r?.conflict===true||r?.evidenceStatus==='conflict'||r?.quoteStatus==='conflict'||r?.retracted===true||r?.withdrawn===true;
+const priceUsable=r=>!rowConflict(r)&&r?.suspended!==true&&r?.tradingStatus!=='停牌'&&(r?.priceBasis==null||r.priceBasis==='unadjusted');
+const comparableGap=r=>priceUsable(r)&&r?.noPriceLimit!==true&&r?.ipoNoLimit!==true&&
+  (r?.corporateAction==null||r.corporateAction===false)&&r?.referencePriceConflict!==true;
+const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&finite(Date.parse(d+'T00:00:00Z'))&&new Date(Date.parse(d+'T00:00:00Z')).toISOString().slice(0,10)===d;
+// An already-visible contradictory observation is a gap, not a choice based on
+// array order. Exact agreement on the consumed fields is safe to deduplicate.
+function unambiguousAt(rows,fields,key=r=>r.date){
+  const byKey=new Map();
+  for(const row of rows){
+    const k=key(row);
+    if(!byKey.has(k)){byKey.set(k,row);continue;}
+    const prior=byKey.get(k);
+    if(prior&&!fields.every(field=>Object.is(prior[field],row[field])))byKey.set(k,null);
+  }
+  return [...byKey.values()].filter(Boolean);
+}
 function precedingDay(row){
-  if(/^\d{4}-\d{2}-\d{2}$/.test(row.previousDay||''))return row.previousDay;
+  if(!validDay(row?.date))return null;
+  if(row.previousDay!=null&&row.previousDay!=='')return validDay(row.previousDay)&&row.previousDay<row.date?row.previousDay:null;
   const d=new Date(row.date+'T12:00:00Z');
   do{d.setUTCDate(d.getUTCDate()-1);}while([0,6].includes(d.getUTCDay()));
   return d.toISOString().slice(0,10);
 }
 const locked=b=>positive(b?.limitUp)&&b.high===b.limitUp&&b.low===b.limitUp&&b.close===b.limitUp;
 const sealed=b=>positive(b?.limitUp)&&b.close===b.limitUp;
+
+// A date-only value is not a frozen decision or an actual receipt time.
+// Preserve legacy records that omit redundant clocks, but do not repair an
+// explicit unknown, malformed or later receipt with the original frozenAt.
+function planClock(x){
+  if(typeof x==='string'&&(!/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(x)||!validDay(x.slice(0,10))))return NaN;
+  const at=time(x);
+  return Number.isSafeInteger(at)&&at>0&&at<8e15?at:NaN;
+}
+function frozenRiskPlanTime(plan,code,cutoff,day){
+  const frozen=planClock(plan?.frozenAt);
+  if(!plan||rowConflict(plan)||plan.code!==code||!finite(cutoff)||!finite(frozen)||frozen>cutoff||
+      day&&plan.intendedDate!=null&&plan.intendedDate!==day)return null;
+  for(const key of ['firstKnownAt','knownAt','availableAt','receivedAt','recordedAt']){
+    if(!Object.hasOwn(plan,key))continue;
+    const at=planClock(plan[key]);
+    if(!finite(at)||at<frozen||at>cutoff)return null;
+  }
+  return frozen;
+}
+export function selectFrozenRiskPlan(plans,code,day,cutoff){
+  if(!Array.isArray(plans)||!validDay(day))return null;
+  const eligible=plans.filter(p=>typeof p?.frozenAt==='string')
+    .map(p=>({p,at:frozenRiskPlanTime(p,code,cutoff,day)}))
+    .filter(({p,at})=>at!==null&&(p.intendedDate||cnDay(at))===day);
+  if(eligible.length!==1)return null;
+  const {p}=eligible[0];
+  return {code,strategy:p.strategy,holdUntil:p.holdUntil,entryPrice:p.entryMax,stopPrice:p.stop,targetPrice:p.target,expectedAuctionGap:p.expectedAuctionGap,frozenAt:p.frozenAt};
+}
+
+
+/** Read-only point-in-time diagnostics, not verified vendor evidence or order permission. */
+export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows}={}){
+  const out={basis:'historical-research-only',canTrade:false,priceRange:null,
+    relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
+    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null};
+  const cutoff=time(asOf??b?.date);
+  const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
+  const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
+    [r.open,r.high,r.low,r.close].every(positive)&&r.low<=Math.min(r.open,r.close)&&
+    r.high>=Math.max(r.open,r.close)&&r.low<=r.high;
+  if(!b||!validCode(b.code)||!sameSymbol(b,b)||!finite(cutoff)||!visible(b,cutoff)||!price(b))return out;
+  const day=b.date, clean=n=>finite(n)?n:null;
+  const priceFields=['previousDay','period','open','high','low','close','priceBasis','corporateAction','noPriceLimit','ipoNoLimit','referencePriceConflict',
+    'amount','netActiveBuy','source','suspended','tradingStatus',...conflictFields];
+  const themeFields=['sector','sectorRole','sectorLeader','sectorAssists','sectorAdvancingCount','sectorObservedCount','sectorTotalCount',
+    'sectorBreadthSource','sectorBreadthAt','sectorBreadthReceivedAt'];
+  const limitFields=['streak','limitUp','limitDown'];
+  // The original check can pick the first same-day bar. Do not present the
+  // new research projection if the actually visible current rows disagree.
+  if(currentRows!==undefined){
+    if(!Array.isArray(currentRows))return out;
+    const observed=currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff));
+    const unique=unambiguousAt(observed,[...priceFields,...themeFields,...limitFields]);
+    if(unique.length!==1||!price(unique[0]))return out;
+    // Enrichment of fields absent from the original bar is descriptive, but
+    // an explicitly different original observation is not interchangeable.
+    if([...priceFields,...themeFields,...limitFields].some(k=>Object.hasOwn(unique[0],k)&&
+        Object.hasOwn(b,k)&&!Object.is(unique[0][k],b[k])))return out;
+  }
+  const visibleHistory=(Array.isArray(history)?history:[]).filter(r=>sameSymbol(b,r)&&daily(r)&&r.date<day&&visible(r,cutoff));
+  const rows=unambiguousAt(visibleHistory,priceFields);
+  function past(day,fields){
+    const r=unambiguousAt(visibleHistory.filter(r=>r.date===day),[...priceFields,...fields])[0];
+    return price(r)?r:null;
+  }
+  const byDay=new Map(rows.map(r=>[r.date,r])),prior=[];
+  let target=precedingDay(b);
+  while(target&&prior.length<20){
+    const r=byDay.get(target);
+    if(!price(r))break;
+    prior.push(r);target=precedingDay(r);
+  }
+  const prev=prior[0];
+  if(prior.length===20){
+    const high=Math.max(...prior.map(r=>r.high)),low=Math.min(...prior.map(r=>r.low));
+    const less=prior.filter(r=>r.close<b.close).length,equal=prior.filter(r=>r.close===b.close).length;
+    out.priceRange={count:20,from:prior.at(-1).date,to:prev.date,high,low,
+      closeRankPct:100*(less+equal/2)/20,rangePositionPct:high>low?clean(100*(b.close-low)/(high-low)):null,
+      aboveRange:b.close>high,belowRange:b.close<low,
+      continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified'};
+  }
+  if(prev){
+    const stockChange=clean(100*(b.close/prev.close-1));
+    const sameWindow=r=>r?.date===day&&r.previousDay===prev.date&&visible(r,cutoff)&&!rowConflict(r);
+    const validChange=n=>finite(n)&&n>=-100;
+    const indexChange=sameWindow(market)&&validChange(market.indexChange)?market.indexChange:null;
+    const sectorChange=known(b.sector)&&sameWindow(sector)&&(sector.sector||sector.code)===b.sector&&
+      (!sector.role||sector.role==='sector')&&validChange(sector.change)?sector.change:null;
+    if(stockChange!==null&&(indexChange!==null||sectorChange!==null)){
+      out.relativeStrength={from:prev.date,to:day,stockChange,indexChange,sectorChange,
+        versusIndexPctPoints:indexChange===null?null:clean(stockChange-indexChange),
+        versusSectorPctPoints:sectorChange===null?null:clean(stockChange-sectorChange),
+        basis:'same-declared-daily-window-not-source-certified'};
+    }
+    const active=r=>known(r.source)&&positive(r.amount)&&finite(r.netActiveBuy)&&Math.abs(r.netActiveBuy)<=r.amount;
+    if(active(b)&&active(prev)&&b.source===prev.source){
+      const now=100*(b.netActiveBuy/b.amount),before=100*(prev.netActiveBuy/prev.amount);
+      out.activeBuy={from:prev.date,to:day,source:b.source,currentNetCny:b.netActiveBuy,priorNetCny:prev.netActiveBuy,
+        currentSharePct:now,priorSharePct:before,deltaPctPoints:now-before,turnedNegative:prev.netActiveBuy>0&&b.netActiveBuy<0,
+        basis:'declared-net-active-buy-not-independent-fund-flow-verification'};
+    }
+  }
+  // Theme deterioration: coverage and declared seal assists are different
+  // measurements; never fill absent breadth with a limit-up count.
+  if(prev&&known(b.sector)){
+    const old=past(prev.date,themeFields);
+    const breadth=r=>r&&seen(r.sectorBreadthSource,r.sectorBreadthAt,r.sectorBreadthReceivedAt,cutoff)&&
+      planClock(r.sectorBreadthAt)===time(r.date)&&Number.isSafeInteger(r.sectorTotalCount)&&r.sectorTotalCount>=10&&
+      r.sectorObservedCount===r.sectorTotalCount&&Number.isSafeInteger(r.sectorAdvancingCount)&&
+      r.sectorAdvancingCount>=0&&r.sectorAdvancingCount<=r.sectorTotalCount;
+    if(old&&old.sector===b.sector){
+      let fullBreadth=null,sealAssists=null;
+      if(breadth(b)&&breadth(old)&&b.sectorBreadthSource===old.sectorBreadthSource&&b.sectorTotalCount===old.sectorTotalCount){
+        const currentPct=100*b.sectorAdvancingCount/b.sectorTotalCount,priorPct=100*old.sectorAdvancingCount/old.sectorTotalCount;
+        fullBreadth={source:b.sectorBreadthSource,declaredTotal:b.sectorTotalCount,currentAdvancing:b.sectorAdvancingCount,
+          priorAdvancing:old.sectorAdvancingCount,currentPct,priorPct,deltaPctPoints:currentPct-priorPct,
+          basis:'same-declared-full-count-not-frozen-membership'};
+      }
+      const count=n=>Number.isSafeInteger(n)&&n>=0;
+      if(known(b.source)&&b.source===old.source&&count(b.sectorAssists)&&count(old.sectorAssists)){
+        sealAssists={source:b.source,current:b.sectorAssists,prior:old.sectorAssists,delta:b.sectorAssists-old.sectorAssists,
+          basis:'declared-seal-assists-not-full-breadth'};
+      }
+      if(fullBreadth||sealAssists)out.themeDeterioration={from:prev.date,to:day,sector:b.sector,fullBreadth,sealAssists};
+      // Compare two original daily rows for the same explicitly identified
+      // leader, not a guessed leader or a same-name member quotation.
+      const lead=b.sectorLeader;
+      if(b.sectorRole==='跟风'&&old.sectorRole==='跟风'&&validCode(lead)&&lead!==b.code&&old.sectorLeader===lead){
+        const peer=unambiguousAt((Array.isArray(leaderRows)?leaderRows:[]).filter(r=>
+          r?.code===lead&&sameSymbol({code:lead},r)&&daily(r)&&(r.date===day||r.date===prev.date)&&visible(r,cutoff)),
+          [...priceFields,'sector']);
+        const now=peer.find(r=>r.date===day),before=peer.find(r=>r.date===prev.date);
+        if(price(now)&&price(before)&&now.sector===b.sector&&before.sector===b.sector&&precedingDay(now)===prev.date){
+          const leaderChange=clean(100*(now.close/before.close-1)),stockChange=clean(100*(b.close/prev.close-1));
+          if(leaderChange!==null&&stockChange!==null)out.leaderCoDecline={from:prev.date,to:day,sector:b.sector,leaderCode:lead,
+            leaderChange,stockChange,stockMinusLeaderPctPoints:clean(stockChange-leaderChange),bothDown:leaderChange<0&&stockChange<0,
+            basis:'two-declared-daily-returns-not-causal-transmission'};
+        }
+      }
+    }
+  }
+  // Prior high-board state and today's actual daily limit-price evidence.
+  if(prev){
+    const old=past(prev.date,limitFields);
+    const limit=r=>r&&positive(r.limitUp)&&r.high<=r.limitUp&&
+      (!Object.hasOwn(r,'limitDown')||positive(r.limitDown)&&r.limitDown<r.limitUp&&r.low>=r.limitDown);
+    if(limit(old)&&limit(b)&&old.high===old.limitUp&&old.close===old.limitUp&&Number.isSafeInteger(old.streak)&&old.streak>=3&&
+        (!Object.hasOwn(b,'streak')||Number.isSafeInteger(b.streak)&&(b.close===b.limitUp?b.streak===old.streak+1:b.streak===0))){
+      const touched=b.high===b.limitUp,closed=b.close===b.limitUp;
+      out.relayFailure={priorDay:prev.date,day,priorStreak:old.streak,priorLimitUp:old.limitUp,currentLimitUp:b.limitUp,
+        touchedLimit:touched,closedAtLimit:closed,failedAfterTouch:touched&&!closed,failedToContinue:!closed,
+        touchToClosePct:touched?clean(100*(b.limitUp-b.close)/b.limitUp):null,
+        basis:'prior-sealed-high-board-and-daily-limit-evidence-not-fill'};
+    }
+  }
+  // Three consecutive daily measurements from one declared source. Zero is
+  // an observation, not negative flow; missing or conflicting days stay null.
+  if(prior.length>=2){
+    const flowRows=[prior[1],prior[0],b];
+    const active=r=>known(r.source)&&positive(r.amount)&&finite(r.netActiveBuy)&&Math.abs(r.netActiveBuy)<=r.amount;
+    if(flowRows.every(r=>active(r)&&r.source===b.source)){
+      const days=flowRows.map(r=>({date:r.date,netCny:r.netActiveBuy,sharePct:100*(r.netActiveBuy/r.amount)}));
+      const totalAmount=flowRows.reduce((sum,r)=>sum+r.amount,0),totalNet=flowRows.reduce((sum,r)=>sum+r.netActiveBuy,0);
+      const negativeDays=days.filter(r=>r.netCny<0).length;
+      out.flowPersistence={source:b.source,days,negativeDays,allNegative:negativeDays===3,
+        strictlyWeakeningShares:days[0].sharePct>days[1].sharePct&&days[1].sharePct>days[2].sharePct,
+        totalNetCny:clean(totalNet),turnoverWeightedSharePct:finite(totalAmount)&&finite(totalNet)?clean(100*(totalNet/totalAmount)):null,
+        basis:'three-declared-net-active-buy-days-not-verified-main-force-outflow'};
+    }
+  }
+  // Holding evidence is a declared snapshot, not the authoritative current
+  // account. A trigger or a declared sellable count never authorizes an exit.
+  const holding=b.holdingSnapshot;
+  if(holding?.code===b.code&&!rowConflict(holding)&&Number.isSafeInteger(holding.shares)&&holding.shares>0&&positive(holding.avgCost)&&
+      seen(holding.source,holding.observedAt,holding.knownAt,cutoff)&&cnDay(planClock(holding.observedAt))===day){
+    const knownPlan=frozenRiskPlanTime(plan,b.code,cutoff,day)!==null;
+    const levels=knownPlan&&positive(plan.stopPrice)&&positive(plan.targetPrice)&&plan.stopPrice<plan.targetPrice;
+    const stopReached=levels?b.close<=plan.stopPrice:null,targetReached=levels?b.close>=plan.targetPrice:null;
+    const declaredSellable=Number.isSafeInteger(holding.sellableShares)&&holding.sellableShares>=0&&holding.sellableShares<=holding.shares?
+      holding.sellableShares:null;
+    const floatingReturnPct=clean(100*(b.close/holding.avgCost-1));
+    const breadth=out.themeDeterioration?.fullBreadth,assists=out.themeDeterioration?.sealAssists;
+    const weakness=breadth?.deltaPctPoints<0||assists?.delta<0||out.leaderCoDecline?.bothDown===true||
+      out.relayFailure?.failedAfterTouch===true||out.flowPersistence?.allNegative===true;
+    const reviewLevel=stopReached===true?'frozen-stop-review':targetReached===true?'frozen-target-review':
+      weakness?'weakness-review':levels?'no-frozen-price-trigger-observed':'unassessed';
+    out.holdingExitReview={snapshotSource:holding.source,observedAt:holding.observedAt,knownAt:holding.knownAt,
+      declaredShares:holding.shares,declaredSellableShares:declaredSellable,averageCost:holding.avgCost,referenceClose:b.close,
+      floatingReturnPct,stopReached,targetReached,reviewLevel,canExecuteExit:null,
+      basis:'historical-holding-review-not-authoritative-account-or-sellability'};
+  }
+  const range=b.high-b.low;
+  out.reversal={high:b.high,close:b.close,drawdownFromHighPct:clean(100*((b.high-b.close)/b.high)),
+    upperWickPctOfRange:range>0?clean(100*((b.high-Math.max(b.open,b.close))/range)):null,
+    closePositionPctOfRange:range>0?clean(100*((b.close-b.low)/range)):null,
+    basis:'daily-ohlc-not-intraday-path'};
+  if(frozenRiskPlanTime(plan,b.code,cutoff,day)!==null&&
+      [plan.entryPrice,plan.stopPrice,plan.targetPrice].every(positive)&&
+      plan.stopPrice<b.close&&b.close<plan.targetPrice&&b.close<=plan.entryPrice){
+    const reward=plan.targetPrice-b.close,loss=b.close-plan.stopPrice,ratio=clean(reward/loss);
+    if(ratio!==null)out.grossPayoff={assumedEntry:b.close,entryCap:plan.entryPrice,stop:plan.stopPrice,target:plan.targetPrice,
+      grossRewardRisk:ratio,breakEvenWinRatePct:clean(100/(1+ratio)),basis:'frozen-plan-price-only-no-fees-slippage-fill-or-probability'};
+  }
+  return out;
+}
 
 function priceRisks(b,h,f,m,sector,stage,add){
   const prev=h.at(-1),older=h.at(-2);
@@ -55,7 +292,7 @@ function priceRisks(b,h,f,m,sector,stage,add){
   if(highMark&&finite(f.ratio)&&finite(f.change)){
     add('11:0',f.ratio>=1.5&&stalled,'昨日 '+prev.streak+' 连板，今日量比 '+fmt(f.ratio)+'，收盘涨幅 '+fmt(f.change)+'%（量比≥1.5且涨跌幅在±1%）');
   }
-  if(highMark&&finite(b.auctionGap)){
+  if(highMark&&comparableGap(b)&&finite(b.auctionGap)){
     add('30:0',b.auctionGap<=-5,'昨日 '+prev.streak+' 连板，竞价涨幅 '+fmt(b.auctionGap)+'%（≤−5%）');
     if(b.auctionGap<=-5&&declining)add('30:3',true,'高标显著低开且连续三日成交量递减');
   }
@@ -67,7 +304,7 @@ function priceRisks(b,h,f,m,sector,stage,add){
     add('40:0',true,'连续三次封板且三日成交量递减，当前 '+b.streak+' 连板');
     if(fraction(b.turnover))add('20:2',b.turnover<=1,'连续缩量板日换手 '+fmt(b.turnover)+'%（≤1%）');
     if(fraction(b.sealRatio))add('40:2',b.sealRatio<=1,'连续缩量板的收盘封单占当日成交额 '+fmt(b.sealRatio)+'%（≤1%）');
-    if(Number.isSafeInteger(b.sectorAssists)&&Number.isSafeInteger(prev.sectorAssists)&&prev.sectorAssists>=2&&b.sector===prev.sector&&known(b.sector)){
+    if(Number.isSafeInteger(b.sectorAssists)&&b.sectorAssists>=0&&Number.isSafeInteger(prev.sectorAssists)&&prev.sectorAssists>=2&&b.sector===prev.sector&&known(b.sector)){
       add('40:1',b.sectorAssists<prev.sectorAssists,'同题材封板助攻由 '+prev.sectorAssists+' 减至 '+b.sectorAssists+' 只');
       add('20:1',b.sectorAssists===0,'连续缩量高板的题材封板助攻由 '+prev.sectorAssists+' 只降至 '+b.sectorAssists+' 只');
     }
@@ -82,20 +319,19 @@ function priceRisks(b,h,f,m,sector,stage,add){
   const lead=f.sectorLeader??b.sectorLeader;
   if(b.sectorRole==='跟风'&&known(b.sector)&&known(lead)&&lead!==b.code&&lead!==b.name){
     if(f.position==='高位'&&finite(f.ratio))add('37:1',f.ratio>=1.5,'同题材跟风标的 '+b.code+' 处于20日区间高位，量比 '+fmt(f.ratio));
-    const leaderRows=(sector.memberQuotes||[]).filter(q=>(q.code===lead||q.name===lead)&&q.code!==b.code&&q.date===b.date&&q.sector===b.sector);
-    if(leaderRows.length===1&&finite(leaderRows[0].change)&&finite(leaderRows[0].ratio)&&f.position==='高位'&&finite(f.ratio)&&f.ratio>=1.5){
+    const leaderRows=(sector.memberQuotes||[]).filter(q=>(validCode(lead)?q.code===lead:q.name===lead)&&q.date===b.date&&q.sector===b.sector);
+    if(leaderRows.length===1&&!rowConflict(leaderRows[0])&&validCode(leaderRows[0].code)&&sameSymbol({code:leaderRows[0].code},leaderRows[0])&&leaderRows[0].code!==b.code&&finite(leaderRows[0].change)&&finite(leaderRows[0].ratio)&&f.position==='高位'&&finite(f.ratio)&&f.ratio>=1.5){
       const leader=leaderRows[0];add('37:0',Math.abs(leader.change)<=1&&leader.ratio>=1.5,'同题材龙头 '+leader.code+' 涨幅 '+fmt(leader.change)+'%、量比 '+fmt(leader.ratio)+'，跟风票高位放量');
     }
   }
 }
 
 function executionRisks(b,cutoff,sector,stage,add){
-  const plan=b.frozenPlan,freeze=time(plan?.frozenAt);
-  const planKnown=plan?.code===b.code&&finite(freeze)&&freeze<=cutoff;
+  const plan=b.frozenPlan,planKnown=frozenRiskPlanTime(plan,b.code,cutoff,dayOf(b.date))!==null;
   const holding=b.holdingSnapshot;
-  const holds=holding?.code===b.code&&positive(holding.shares)&&positive(holding.avgCost)&&
+  const holds=!rowConflict(holding)&&holding?.code===b.code&&Number.isSafeInteger(holding.shares)&&holding.shares>0&&positive(holding.avgCost)&&
     seen(holding.source,holding.observedAt,holding.knownAt,cutoff)&&cnDay(time(holding.observedAt))===dayOf(b.date);
-  if(holds&&positive(b.close)){
+  if(holds&&priceUsable(b)&&positive(b.close)){
     const gain=b.close>holding.avgCost;
     add('64:0',gain,'持仓成本 '+fmt(holding.avgCost)+' 元、现价 '+fmt(b.close)+' 元，原始持仓时点 '+holding.observedAt);
     if(gain&&finite(sector.change))add('64:2',sector.change<=-2,'持仓仍有浮盈，所属板块当日涨跌 '+fmt(sector.change)+'%（≤−2%）');
@@ -109,7 +345,7 @@ function executionRisks(b,cutoff,sector,stage,add){
   // Motivation is only admissible as the trader's own time-stamped statement
   // linked to this specific decision. No price-series inference supplies intent.
   const record=b.traderRecord;
-  if(record?.code===b.code&&record.source==='本人交易日志'&&known(record.decisionId)&&
+  if(!rowConflict(record)&&record?.code===b.code&&record.source==='本人交易日志'&&known(record.decisionId)&&
       seen(record.source,record.decisionAt,record.recordedAt,cutoff)&&cnDay(time(record.decisionAt))===dayOf(b.date)){
     const keys={'报复性交易':'55:2','亏损后急于回本':'55:3','凭感觉':'59:1','听消息':'59:2',
       '跟风别人标的':'59:3','提前埋伏赌消息':'70:0','赌回流':'70:1','赌修复':'70:2'};
@@ -135,13 +371,14 @@ function balanceSheetRisks(b,cutoff,add){
 
 function liquidityRisks(b,h,cutoff,add){
   if(b.tradingStatus==='停牌')add('57:1',true,'同日个股交易状态为停牌');
-  if(positive(b.bid1)&&positive(b.ask1)&&b.ask1>=b.bid1&&seen(b.quoteSource,b.quoteAt,b.quoteReceivedAt,cutoff)&&
+  const quoteConflict=rowConflict(b);
+  if(b.tradingStatus!=='停牌'&&b.suspended!==true&&!quoteConflict&&positive(b.bid1)&&positive(b.ask1)&&b.ask1>=b.bid1&&seen(b.quoteSource,b.quoteAt,b.quoteReceivedAt,cutoff)&&
       cnDay(time(b.quoteAt))===dayOf(b.date)&&cutoff-time(b.quoteAt)<=180000){
     const spread=200*(b.ask1-b.bid1)/(b.ask1+b.bid1);
     add('57:1',spread>=1,'盘口买一 '+fmt(b.bid1)+'、卖一 '+fmt(b.ask1)+'，相对价差 '+fmt(spread)+'%（≥1%）；来源 '+b.quoteSource+' '+b.quoteAt);
   }
   const lastTen=h.slice(-9).concat(b);
-  if(lastTen.length===10&&lastTen.every(r=>nonnegative(r.amount)&&fraction(r.turnover))){
+  if(lastTen.length===10&&lastTen.every(r=>priceUsable(r)&&nonnegative(r.amount)&&fraction(r.turnover))){
     add('57:3',lastTen.every(r=>r.amount<1e7&&r.turnover<.5),'连续10个可见日成交额均低于1000万元且换手率均低于0.5%的检验');
   }
   if(known(b.sector)&&seen(b.sectorBreadthSource,b.sectorBreadthAt,b.sectorBreadthReceivedAt,cutoff)&&
@@ -154,25 +391,47 @@ function liquidityRisks(b,h,cutoff,add){
   }
 }
 
+// Select latest visible original same-event/source observation. Do not infer
+// that an unrelated correction title cancels a different announcement.
+function abnormalNoticeDays(b,cutoff){
+  const groups=new Map();
+  for(const a of Array.isArray(b.announcements)?b.announcements:[]){
+    if(!a||(a.code??a.symbol)!==b.code||a.code!=null&&a.symbol!=null&&a.code!==a.symbol||!known(a.source)||!known(a.eventId))continue;
+    const received=Object.hasOwn(a,'knownAt')?a.knownAt:a.receivedAt,at=planClock(received);
+    if(finite(at)&&at>cutoff)continue;
+    const key=JSON.stringify([a.source,a.eventId]),g=groups.get(key)||[];
+    g.push({a,at,received});groups.set(key,g);
+  }
+  const events=new Map();
+  for(const g of groups.values()){
+    if(g.some(x=>!finite(x.at)))continue;
+    const latest=Math.max(...g.map(x=>x.at)),rows=g.filter(x=>x.at===latest),{a,received}=rows[0];
+    const fields=['code','symbol','eventId','source','title','publishedAt','type','verified',...conflictFields];
+    if(rows.some(x=>!fields.every(k=>Object.is(x.a[k],a[k]))))continue;
+    if(rowConflict(a)||a.verified!==true||!known(a.title)||!seen(a.source,a.publishedAt,received,cutoff)||
+       typeof a.publishedAt==='string'&&!validDay(a.publishedAt.slice(0,10))||
+       typeof received==='string'&&!validDay(received.slice(0,10))||
+       !['股价异常波动公告','股票交易异常波动公告'].includes(a.type)||/更正|撤销|澄清|回复/.test(a.title))continue;
+    const age=cutoff-time(a.publishedAt);
+    if(age<0||age>10*86400000)continue;
+    const day=cnDay(time(a.publishedAt));
+    if(!events.has(a.eventId))events.set(a.eventId,day);
+    else if(events.get(a.eventId)!==day)events.set(a.eventId,null);
+  }
+  return [...new Set([...events.values()].filter(Boolean))].sort();
+}
 function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
   const day=dayOf(b.date);
   if(['严重异常波动','连续异常波动'].includes(b.regulationStatus))add('49:1 56:4',true,'个股同期监管状态明确记载为 '+b.regulationStatus);
-  const notices=new Map();
-  for(const a of b.announcements||[]){
-    if((a.code??a.symbol)!==b.code||a.verified!==true||!known(a.source)||!known(a.title)||
-       !seen(a.source,a.publishedAt,a.knownAt??a.receivedAt,cutoff)||
-       !['股价异常波动公告','股票交易异常波动公告'].includes(a.type)||
-       !known(a.eventId)||/更正|撤销|澄清|回复/.test(a.title))continue;
-    const age=cutoff-time(a.publishedAt);
-    if(age>=0&&age<=10*86400000)notices.set(a.eventId,cnDay(time(a.publishedAt)));
-  }
-  if(new Set(notices.values()).size>=3)add('49:1',true,'近10个自然日有至少3个不同披露日的已核对交易异常波动公告：'+[...notices.values()].sort().join('、'));
+  const noticeDays=abnormalNoticeDays(b,cutoff);
+  if(noticeDays.length>=3)add('49:1',true,'近10个自然日有至少3个不同披露日的已核对交易异常波动公告：'+noticeDays.join('、'));
   const prev=series.filter(r=>r.date<day).at(-1);
-  if(prev&&m.previousDay===prev.date&&known(b.sector)&&positive(b.limitDown)&&b.open===b.limitDown){
-    const groups=(prev.themes||[]).filter(t=>t.name===b.sector);
+  if(prev&&comparableGap(b)&&m.previousDay===prev.date&&known(b.sector)&&positive(b.limitDown)&&b.open===b.limitDown){
+    const groups=(Array.isArray(prev.themes)?prev.themes:[]).filter(t=>t?.name===b.sector);
     const g=groups.length===1?groups[0]:null;
-    if(g?.count>=2&&g.members?.length===g.count&&new Set(g.members.map(r=>r.code)).size===g.count&&
-        g.members.every(r=>validCode(r.code)&&Number.isInteger(r.level))){
+    if(g&&!rowConflict(g)&&Number.isSafeInteger(g.count)&&g.count>=2&&Array.isArray(g.members)&&g.members.length===g.count&&
+        g.members.every(r=>r&&!rowConflict(r)&&validCode(r.code)&&Number.isSafeInteger(r.level)&&r.level>=1)&&
+        new Set(g.members.map(r=>r.code)).size===g.count){
       const first=g.members.filter(r=>r.level===1);
       const times=first.map(r=>String(r.firstSealTime||'').replace(/:/g,''));
       if(times.length>=2&&times.every(t=>/^\d{6}$/.test(t)&&t>='092500'&&t<='150000'&&+t.slice(2,4)<60&&+t.slice(4)<60)){
@@ -181,13 +440,13 @@ function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
       }
     }
   }
-  if(known(m.calendarSource)&&finite(time(m.calendarKnownAt))&&time(m.calendarKnownAt)<=cutoff&&
-      /^\d{4}-\d{2}-\d{2}$/.test(m.nextTradingDay||'')){
+  if(known(m.calendarSource)&&finite(planClock(m.calendarKnownAt))&&planClock(m.calendarKnownAt)<=cutoff&&
+      validDay(m.nextTradingDay)){
     const gap=(time(m.nextTradingDay)-time(day))/86400000;
     if(gap>=1&&gap<=18)add('58:0',gap>=6,'已发布交易日历 '+m.calendarSource+' 的下一个交易日 '+m.nextTradingDay+'，间隔 '+gap+' 个自然日');
   }
-  const plan=b.frozenPlan,freeze=time(plan?.frozenAt);
-  if(plan?.code===b.code&&finite(freeze)&&freeze<=cutoff){
+  const plan=b.frozenPlan;
+  if(frozenRiskPlanTime(plan,b.code,cutoff,day)!==null){
     if(['退潮','高潮','冰点'].includes(stage)&&known(plan.strategy)){
       if(stage==='退潮'&&['连板接力战法','放量加速战法'].includes(plan.strategy))
         add('67:0',true,'冻结战法 '+plan.strategy+' 与退潮环境错配');
@@ -204,8 +463,13 @@ function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
   }
   // A continuous minute series is required. Gaps, lunch breaks and one-off
   // spikes cannot be counted as repeated plunges.
-  const rows=minutes.filter(r=>sameSymbol(b,r)&&dayOf(r.date)===day&&r.date.length===16&&['1m','1min','1分钟','1分钟K','分钟K','分时'].includes(r.period)&&visible(r,cutoff)&&positive(r.close)&&positive(r.volume))
-    .sort((x,y)=>x.date.localeCompare(y.date));
+  const sessionMinute=r=>{
+    if(typeof r?.date!=='string'||!/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}$/.test(r.date))return false;
+    const hour=Number(r.date.slice(11,13)),minute=Number(r.date.slice(14,16)),at=60*hour+minute;
+    return hour<24&&minute<60&&(at>=570&&at<=690||at>=780&&at<=900);
+  };
+  const rows=unambiguousAt(minutes.filter(r=>sameSymbol(b,r)&&dayOf(r.date)===day&&sessionMinute(r)&&['1m','1min','1分钟','1分钟K','分钟K','分时'].includes(r.period)&&visible(r,cutoff)),['close','volume','priceBasis','suspended','tradingStatus',...conflictFields],r=>time(r.date))
+    .filter(r=>priceUsable(r)&&positive(r.close)&&positive(r.volume)).sort((x,y)=>time(x.date)-time(y.date));
   let state=0;
   for(let i=1;i<rows.length;i++){
     if(time(rows[i].date)-time(rows[i-1].date)!==60000){state=0;continue;}
@@ -217,18 +481,25 @@ function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
 }
 
 export function addStockRiskEvidence({b,f={},market={},sector={},stage,history=[],marketSeries=[],intraday=[],asOf},facts){
-  if(!b||!validCode(b.code)||b.date?.length!==10||!facts)return facts;
+  if(!b||!validCode(b.code)||!sameSymbol(b,b)||!validDay(b.date)||!facts)return facts;
   const cutoff=time(asOf??b.decisionAt??b.date);
   if(!finite(cutoff)||!visible(b,cutoff))return facts;
-  const day=dayOf(b.date), priorRows=history.filter(r=>sameSymbol(b,r)&&r.date.length===10&&r.date<day&&visible(r,cutoff)).sort((a,z)=>a.date.localeCompare(z.date));
+  const day=dayOf(b.date), priorRows=unambiguousAt(history.filter(r=>sameSymbol(b,r)&&validDay(r.date)&&r.date<day&&visible(r,cutoff)),
+    ['previousDay','volume','amount','turnover','high','low','close','limitUp','streak','sector','sectorAssists','priceBasis','suspended','tradingStatus',...conflictFields]).filter(priceUsable).sort((a,z)=>a.date.localeCompare(z.date));
   const hist=[];
   let target=precedingDay(b);
   for(let i=priorRows.length-1;i>=0&&priorRows[i].date===target;i--){
     hist.unshift(priorRows[i]);target=precedingDay(priorRows[i]);
   }
-  const marketDay=market?.date===day&&visible(market,cutoff)?market:{};
-  const sectorOK=!sector?.date||dayOf(sector.date)===day&&visible(sector,cutoff);
-  const sectorDay=sectorOK?{...sector,memberQuotes:(sector.memberQuotes||[]).filter(q=>visible(q,cutoff))}:{};
+  const marketDay=market?.date===day&&visible(market,cutoff)&&!rowConflict(market)?market:{};
+  // Invalid explicit market evidence cannot support stage-dependent facts.
+  // Legacy stage-only callers remain descriptive, not authenticated.
+  const stageForEvidence=market&&(rowConflict(market)||Object.hasOwn(market,'date')&&marketDay!==market)?undefined:stage;
+  const sectorOK=sector&&!rowConflict(sector)&&(!sector.date||dayOf(sector.date)===day&&visible(sector,cutoff))&&
+    (!known(sector.sector)||sector.sector===b.sector)&&
+    (sector.role!=='sector'||!known(sector.code)||sector.code===b.sector||sector.sector===b.sector);
+  const sectorDay=sectorOK?{...sector,memberQuotes:(Array.isArray(sector.memberQuotes)?sector.memberQuotes:[])
+    .filter(q=>visible(q,cutoff))}:{};
   function add(keys,pass,source){
     for(const key of keys.split(' ')){
       // An independent, verified adverse observation takes priority; preserve
@@ -236,15 +507,18 @@ export function addStockRiskEvidence({b,f={},market={},sector={},stage,history=[
       if(!facts.has(key)||pass&&!facts.get(key).pass)facts.set(key,{pass,source});
     }
   }
-  priceRisks(b,hist,f,marketDay,sectorDay,stage,add);
+  if(priceUsable(b))priceRisks(b,hist,f,marketDay,sectorDay,stageForEvidence,add);
   liquidityRisks({...b,changePct:f.change??b.changePct,sectorLeader:f.sectorLeader??b.sectorLeader},hist,cutoff,add);
   balanceSheetRisks(b,cutoff,add);
-  executionRisks(b,cutoff,sectorDay,stage,add);
-  const knownMarkets=marketSeries.filter(r=>visible(r,cutoff)&&r.date<=day).sort((a,z)=>a.date.localeCompare(z.date));
-  otherRisks(b,f,marketDay,stage,knownMarkets,intraday,cutoff,add);
+  executionRisks(b,cutoff,sectorDay,stageForEvidence,add);
+  const marketRows=marketSeries.filter(r=>validDay(r?.date)&&visible(r,cutoff)&&r.date<=day).map(r=>({...r,themeSignature:JSON.stringify(r.themes??null)}));
+  const knownMarkets=unambiguousAt(marketRows,['previousDay','indexChange','volume','themeSignature',...conflictFields])
+    .filter(r=>!rowConflict(r)).sort((a,z)=>a.date.localeCompare(z.date));
+  otherRisks(b,f,marketDay,stageForEvidence,knownMarkets,intraday,cutoff,add);
   const marketDays=knownMarkets.slice(-3);
   if(marketDays.length===3&&marketDays.every((r,i)=>i===0||marketDays[i-1].date===precedingDay(r))&&marketDays.at(-1).date===day&&
-      marketDays.every(r=>finite(r.indexChange))&&marketDay.volume==='放量下跌'){
+      marketDays.every(r=>finite(r.indexChange))&&marketDay.volume==='放量下跌'&&
+      (marketDay.indexChange==null||marketDay.indexChange===marketDays.at(-1).indexChange)){
     add('62:0',marketDays.every(r=>r.indexChange<0)&&marketDays.at(-1).indexChange<=-2,
       '全A近三日涨跌 '+marketDays.map(r=>fmt(r.indexChange)+'%').join(' / ')+'，当日放量下跌（当日≤−2%）');
   }

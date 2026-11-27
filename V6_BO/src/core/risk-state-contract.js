@@ -92,6 +92,12 @@ function lastValidRisk(rows,now){
   risks:JSON.parse(JSON.stringify(usable))};
 }
 
+// A fresh wrapper row cannot renew or change the source of its authority receipt.
+function freshRecoveryReceipt(receipt,at,next,proof,oldTime,now){
+ return plain(receipt)&&text(proof.source)&&receipt.source===proof.source&&time(at)&&
+   at>oldTime&&(!time(proof.observedAt)||at>proof.observedAt)&&at>=next.sourceAt&&at<=now;
+}
+
 function resolutionCheck(incoming,previous,now){
  const former=list(previous?.risks),oldTime=previous?.sourceAt??Math.max(0,...former.map(row=>time(row.sourceAt)?row.sourceAt:0));
  const rows=list(incoming.risks);
@@ -103,13 +109,13 @@ function resolutionCheck(incoming,previous,now){
   if(['authority-unavailable','quote-reader-failed'].includes(proof?.kind)){
    const expected=proof.kind==='authority-unavailable'?'account-reconciled':'original-quotes-restored';
    if(!rows.some(next=>next.recoveryEvidence?.kind===expected&&next.recoveryEvidence.confirmed===true&&
-     time(next.recoveryEvidence.checkedAt)&&next.recoveryEvidence.checkedAt>oldTime&&
-     next.recoveryEvidence.checkedAt<=now&&text(next.recoveryEvidence.source)))
+     freshRecoveryReceipt(next.recoveryEvidence,next.recoveryEvidence.checkedAt,next,proof,oldTime,now)))
     return {allowed:false,reason:'尚缺对应原账户对账或原数据链恢复回执，其他行情恢复不能解除此事故'};
   }
   if(proof?.kind==='effective-rule'&&!rows.some(next=>next.authorityEvidence?.kind==='effective-rule'&&
     next.authorityEvidence.ruleId===proof.ruleId&&next.authorityEvidence.ruleVersion===proof.ruleVersion&&
-    next.authorityEvidence.configurationStatus==='active'&&next.authorityEvidence.enabled===true&&next.authorityEvidence.exceeded===false))
+    next.authorityEvidence.configurationStatus==='active'&&next.authorityEvidence.enabled===true&&next.authorityEvidence.exceeded===false&&
+    freshRecoveryReceipt(next.authorityEvidence,next.authorityEvidence.observedAt,next,proof,oldTime,now)))
    return {allowed:false,reason:'原生效规则尚无同版本重新核验通过的回执'};
  }
  return {allowed:true,reason:null};

@@ -1,0 +1,82 @@
+{
+  "base": "e49abb3996e297766a44edd4549dfa99f1613a7e",
+  "engine": "V8 isolated actual full new module and original common-entry-risk / portfolio-risk-gate dependencies, adapted test/assert harness; not native Node, no full runtime execution",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "blob": "f341321e0f9b79c66c6602370b08b8a6dbc5c41c"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "blob": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "blob": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "blob": "efb02315656248df13dee6136589182b54e20f45"
+    }
+  ],
+  "tests": [
+    {
+      "name": "C14.1 actual concentration threshold is crossed by selective losses, not a universal decline prediction",
+      "pass": true
+    },
+    {
+      "name": "C14.1 freeze remainder and original reserved fee enter explicit all-fill scenario only",
+      "pass": true
+    },
+    {
+      "name": "C14.1 inconsistent reservation or unknown threshold never manufactures reverse limit",
+      "pass": true
+    },
+    {
+      "name": "C14.1 a 100 percent cap cannot be strictly exceeded through other holdings loss alone",
+      "pass": true
+    },
+    {
+      "name": "C14.2 lowering average cost leaves larger current exposure and hypothetical new T+1 restriction",
+      "pass": true
+    },
+    {
+      "name": "C14.2 unknown lot basis preserves known incremental exposure without fabricated average",
+      "pass": true
+    },
+    {
+      "name": "C14.2 changed account, stale mark, price mismatch or blocked preview never simulates current addition",
+      "pass": true
+    },
+    {
+      "name": "C14.3 changed account revision, omitted holding, invalid observation and mismatched cash suppress all account projections",
+      "pass": true
+    },
+    {
+      "name": "C14.4 selling only historically liquid subset can leave all remaining exposure in one restricted stock",
+      "pass": true
+    },
+    {
+      "name": "C14.4 missing sellability or historical capacity never silently gives complete zero residual",
+      "pass": true
+    },
+    {
+      "name": "C14.4 explicitly unknown theme stays unknown even if stock-level residual is known",
+      "pass": true
+    },
+    {
+      "name": "C14.5 different declared themes can co-lose on every worst-decile day",
+      "pass": true
+    },
+    {
+      "name": "C14.5 insufficient tail samples retain complete all-day description but no tail certainty",
+      "pass": true
+    },
+    {
+      "name": "C14.5 missing, duplicate, future, wrong basis or misbound history does not certify diversification",
+      "pass": true
+    }
+  ],
+  "passed": 14,
+  "failed": 0
+}

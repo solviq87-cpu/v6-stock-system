@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: C EX04 all positive holdings locked cannot report zero sessions or zero exit cost
+ok 1 - C EX04 all positive holdings locked cannot report zero sessions or zero exit cost
+  ---
+  duration_ms: 2.550109
+  type: 'test'
+  ...
+# Subtest: C EX39 partial sellable subset cannot certify whole holding exit
+ok 2 - C EX39 partial sellable subset cannot certify whole holding exit
+  ---
+  duration_ms: 0.653226
+  type: 'test'
+  ...
+# Subtest: C EX39 subset multi-session estimate stays separate from whole holding
+ok 3 - C EX39 subset multi-session estimate stays separate from whole holding
+  ---
+  duration_ms: 0.177638
+  type: 'test'
+  ...
+# Subtest: C EX04 restriction cannot improve whole-position exit evidence
+ok 4 - C EX04 restriction cannot improve whole-position exit evidence
+  ---
+  duration_ms: 1.216005
+  type: 'test'
+  ...
+# Subtest: C EX39 no price-capacity estimate for suspended, limit-down or unknown status
+ok 5 - C EX39 no price-capacity estimate for suspended, limit-down or unknown status
+  ---
+  duration_ms: 0.489459
+  type: 'test'
+  ...
+# Subtest: C EX39 stale, future, wrong-symbol and observation-only quotes retain unknown exit
+ok 6 - C EX39 stale, future, wrong-symbol and observation-only quotes retain unknown exit
+  ---
+  duration_ms: 0.195555
+  type: 'test'
+  ...
+# Subtest: C EX39 missing liquidity, no capacity or invalid participation retain unknown exit
+ok 7 - C EX39 missing liquidity, no capacity or invalid participation retain unknown exit
+  ---
+  duration_ms: 0.246422
+  type: 'test'
+  ...
+# Subtest: C EX39 all mature holding retains original capacity and costs, without execution permission
+ok 8 - C EX39 all mature holding retains original capacity and costs, without execution permission
+  ---
+  duration_ms: 0.136957
+  type: 'test'
+  ...
+# Subtest: C EX39 real zero holding remains distinct from a locked holding
+ok 9 - C EX39 real zero holding remains distinct from a locked holding
+  ---
+  duration_ms: 0.256908
+  type: 'test'
+  ...
+# Subtest: C EX39 invalid quantities stay unknown
+ok 10 - C EX39 invalid quantities stay unknown
+  ---
+  duration_ms: 0.381215
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 60.167433
