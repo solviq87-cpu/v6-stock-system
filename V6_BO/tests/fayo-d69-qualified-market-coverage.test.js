@@ -33,3 +33,11 @@ test('D69 exact duplicates count once without altering original display counters
 test('D69 two invalid members stop the decision at the existing eighty percent coverage threshold',()=>{const s=fixture();s.stocks[0].sourceConflict=true;s.stocks[1].synthetic=true;blocked(s);});
 test('D69 non-safe integer denominator never qualifies as an observed universe',()=>{const b=breadth({...fixture(),universeSize:Number.MAX_SAFE_INTEGER+1},options);assert.equal(b.usable,false);assert.equal(classify({...fixture(),universeSize:Number.MAX_SAFE_INTEGER+1},options).usable,false);});
 test('D69 valid market evidence and candidate scores remain read-only',()=>{const s=fixture(),b=breadth(s,options);assert.equal(b.decisionUsable,true);assert.equal(b.decisionBreadthScore,b.breadthScore);assert.equal(classify(s,options).usable,true);const c={code:'600001',finalScore:80},j=join(s,b,[c],{asOf:now});assert.equal(j.items[0].canTrade,false);assert.equal(assess(s,b,{usable:true},[c],j,{requireOriginalQuoteTime:true}).items[0].canTrade,false);});
+
+test('D69 a wrong-source or contradictory-limit member cannot enter the candidate gate when remaining coverage qualifies',()=>{
+ for(const patch of [{source:'unrelated-provider'},{limitUp:true,limitDown:true}]){const s=fixture();Object.assign(s.stocks[0],patch);
+ const b=breadth(s,options);assert.equal(b.decisionUsable,true);assert.equal(b.qualifiedObserved,4);
+ const candidates=[{code:'600001',finalScore:80},{code:'600002',finalScore:70}];
+ const r=join(s,b,candidates,{asOf:now});assert.deepEqual(r.items.map(x=>x.code),['600002']);
+ }
+});

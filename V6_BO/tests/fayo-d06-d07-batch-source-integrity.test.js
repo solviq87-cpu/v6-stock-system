@@ -22,3 +22,12 @@ test('D06 contradictory secondary evidence is not published without a valid thir
 test('D06 a research-only third route can never grant a transaction permission',async()=>{const f=fixture([],[],[quote('read-only-research')]);const r=await f.read();assert.equal(r[0].canTrade,false);});
 test('D07 a strictly newer valid primary tick can supersede an older contradictory pair',async()=>{const f=fixture([quote(),quote('eastmoney',{price:11}),quote('eastmoney',{price:13,quoteAt:start-500})]);const r=await f.read();assert.equal(r[0].price,13);assert.deepEqual(f.calls,['primary']);});
 test('D07 identical same-time primary rows retain a single valid observation and original time',async()=>{const f=fixture([quote(),quote()]);const r=await f.read();assert.equal(r.length,1);assert.equal(r[0].quoteAt,start-1000);assert.deepEqual(f.calls,['primary']);});
+
+test('D46 an asserted research fallback notification or training flag cannot escape read-only policy',async()=>{
+ const f=fixture([],[],[quote('read-only-research',{canTrade:true,canNotify:true,verifiedLive:true,canTrain:true})]);const rows=await f.read();
+ assert.equal(rows.length,1);for(const k of ['canTrade','canNotify','verifiedLive','canTrain'])assert.equal(rows[0][k],false);
+});
+test('D06 conflicting same-time notification rights cannot pick a more permissive main copy',async()=>{
+ const f=fixture([quote('eastmoney',{canNotify:true}),quote('eastmoney',{canNotify:false})]);const rows=await f.read();
+ assert.equal(rows[0].quoteSource,'tencent');assert.equal(rows[0].price,12);
+});

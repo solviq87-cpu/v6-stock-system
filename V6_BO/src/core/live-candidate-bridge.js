@@ -5,11 +5,11 @@ const codeOf=row=>String(row?.code??row?.symbol??'');
 const artificial=/simulat|synthetic|fixture|mock|demo/i;
 const badFlags=['suspended','isST','sourceConflict','quoteSourceConflict','synthetic','mock','fixture','simulated','testSample','conflict'];
 const identityFields=['code','symbol','pctChange','amount','latestPrice','volumeLots','turnoverPct','mainNetInflow','mainNetInflowPct',
- 'vendorQuoteAt','source','provider','suspended','tradable','isST','sourceConflict','quoteSourceConflict','evidenceStatus','quoteStatus','synthetic','mock','fixture','simulated'];
-function usableRow(row){
+ 'vendorQuoteAt','source','provider','suspended','tradable','isST','sourceConflict','quoteSourceConflict','evidenceStatus','quoteStatus','synthetic','mock','fixture','simulated','testSample','conflict','limitUp','limitDown'];
+function usableRow(row,source){
  return typeof row.pctChange==='number'&&Number.isFinite(row.pctChange)&&row.pctChange>=-100&&row.pctChange<=100&&
   !badFlags.some(k=>row[k]===true)&&row.tradable!==false&&row.evidenceStatus!=='conflict'&&row.quoteStatus!=='conflict'&&
-  (row.source==null||typeof row.source==='string'&&row.source.trim()&&!artificial.test(row.source))&&
+  (row.source==null||row.source===source&&!artificial.test(row.source))&&!(row.limitUp===true&&row.limitDown===true)&&
   (row.code==null||row.symbol==null||String(row.code)===String(row.symbol));
 }
 /** Research-only candidate/market intersection. Never converts a market quote into
@@ -37,7 +37,7 @@ function joinObservedCandidates(snapshot, breadth, candidates=[], {limit=50,asOf
     const prior=byCode.get(code);
     // Contradictory copies cannot silently replace one another, even if one
     // looks newer. Exact duplicates retain the first original observation.
-    if(!usableRow(stock)||prior&&identityFields.some(k=>!Object.is(prior[k]??null,stock[k]??null))){
+    if(!usableRow(stock,snapshot.source)||prior&&identityFields.some(k=>!Object.is(prior[k]??null,stock[k]??null))){
       byCode.delete(code);rejectedCodes.add(code);continue;
     }
     if(!prior)byCode.set(code,stock);

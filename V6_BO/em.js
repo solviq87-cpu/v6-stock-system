@@ -1287,7 +1287,7 @@ async function fetchBatchSnapshot(codes) {
   const collect = (rows, wanted, now, provider) => {
     if (!Array.isArray(rows)) return;
     const allowed = new Set(wanted), observations = new Map();
-    const evidenceFields = ['price','preClose','pct','open','high','low','volume','amount','canTrade'];
+    const evidenceFields = ['price','preClose','pct','open','high','low','volume','amount','canTrade','canNotify'];
     for (const row of rows) {
       if (!row || !allowed.has(row.code)) continue;
       const current = batchQuoteAtPublication(row, now);
@@ -1296,7 +1296,7 @@ async function fetchBatchSnapshot(codes) {
       const blocked = provider !== 'research' && current.quoteSource !== provider ||
         ['synthetic','simulated','mock','fixture','testSample','sourceConflict','quoteSourceConflict','conflict'].some(k => row[k] === true) ||
         row.quoteStatus === 'conflict' || row.evidenceStatus === 'conflict';
-      if (provider === 'research') current.canTrade = false;
+      if (provider === 'research') Object.assign(current,{canTrade:false,canNotify:false,verifiedLive:false,canTrain:false});
       const prior = observations.get(row.code);
       if (!prior || current.quoteAt > prior.row.quoteAt) observations.set(row.code, {row:current,blocked});
       else if (current.quoteAt === prior.row.quoteAt &&
