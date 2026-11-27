@@ -408,8 +408,8 @@ test('ordinary report is cheap and independent of invalid or oversized heavy-his
 test('existing global immutable trial archives include rejected candidates and detect byte changes', t => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'evolution-stat-trials-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const payload = { schemaVersion: 1, mode: 'v6-factor-shadow-evolution-v1', status: 'shadow-retained', trainingEnd: day(20), lastObservationDay: day(45),
-    packFingerprint: digest(require('../strategies/extended-factor-pack.json')), canTrade: false, productionWeightsChanged: false,
-    trialAudit: { schemaVersion: 1, status: 'consumed', firstHoldoutDay: day(40), lastHoldoutDay: day(45), holdoutDays: 6, candidateFingerprint: 'a'.repeat(64) } };
+    packFingerprint: digest(require('../strategies/extended-factor-pack.json')), canTrade: false, productionWeightsChanged: false, previousFingerprint: null,
+    trialAudit: { schemaVersion: 1, status: 'consumed', trialNumber: 1, previousTrialFingerprint: null, previousAcceptedFingerprint: null, firstHoldoutDay: day(40), lastHoldoutDay: day(45), holdoutDays: 6, candidateFingerprint: 'a'.repeat(64) } };
   const fingerprint = digest(payload), file = path.join(dir, `shadow-${payload.trainingEnd}-${fingerprint.slice(0, 12)}.json`);
   fs.writeFileSync(file, JSON.stringify({ ...payload, fingerprint }));
   const result = S.readEvolutionTrialInputs({ modelDir: dir, signalDays: Array.from({ length: 60 }, (_, i) => day(i)), asOf: at(80) });
