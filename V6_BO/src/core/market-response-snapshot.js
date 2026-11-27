@@ -32,13 +32,18 @@ function belongs(row,board){
  return object(row)&&typeof row.code==='string'&&/^\d{6}$/.test(row.code)&&
   (board==='all'||(board==='main'?/^(00|60)\d{4}$/:/^30\d{4}$/).test(row.code));
 }
+function validRows(rows,board){
+ return Array.isArray(rows)&&rows.length<=8000&&
+  Array.from(rows,(row,i)=>Object.hasOwn(rows,i)&&belongs(row,board)).every(Boolean)&&
+  new Set(rows.map(row=>row.code)).size===rows.length;
+}
+const validClock=at=>Number.isSafeInteger(at)&&at>0&&at<8e15;
 function validResponse(response,board,day){
  return object(response)&&response.board===board&&validDay(day)&&dayOf(response.asOf)===day&&
   !response.locked&&!response.needAuth&&!response.error&&!response.snapshotRetained&&!response.displayOnly&&!response.boardFallback&&
-  Array.isArray(response.items)&&response.items.length>0&&response.items.length<=8000&&
-  response.items.every(row=>belongs(row,board))&&new Set(response.items.map(row=>row.code)).size===response.items.length&&
+  validRows(response.items,board)&&response.items.length>0&&
   (response.sectorView==null||Array.isArray(response.sectorView)&&response.sectorView.length<=8000&&
-   response.sectorView.every(group=>object(group)&&Array.isArray(group.picks)&&group.picks.length<=8000&&group.picks.every(row=>belongs(row,'all'))));
+   Array.from(response.sectorView,(group,i)=>Object.hasOwn(response.sectorView,i)&&object(group)&&validRows(group.picks,'all')).every(Boolean));
 }
 function sanitizeResponse(response){
  const result=copyResponse(response);
@@ -46,19 +51,21 @@ function sanitizeResponse(response){
  // evidence which did not yet exist at the frozen scan time.
  const freezeRow=row=>{
   const fields=quoteSnapshotFields(row);
-  const futureAtCapture=[row.quoteAt,row.receivedAt].some(t=>Number.isSafeInteger(t)&&t>response.asOf)||
+  const clockConflict=[row.quoteAt,row.vendorQuoteAt,row.receivedAt].some(t=>t!=null&&(!validClock(t)||t>response.asOf))||
+    row.quoteAt!=null&&row.vendorQuoteAt!=null&&row.quoteAt!==row.vendorQuoteAt||
     fields.quoteAt!==null&&fields.receivedAt!==null&&fields.quoteAt>fields.receivedAt;
-  return {...row,...fields,...(futureAtCapture?{sourceConflict:true,snapshotTimeConflict:true}:{}),
+  return {...clean(row),...fields,...(clockConflict?{sourceConflict:true,snapshotTimeConflict:true}:{}),
     canTrade:false,canNotify:false,verifiedLive:false,canTrain:false};
  };
- result.items=result.items.map(freezeRow);
- if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(group=>({...group,picks:group.picks.map(freezeRow)}));
+ // Use original rows for clock diagnostics, not their sanitized copies.
+ result.items=response.items.map(freezeRow);
+ if(Array.isArray(response.sectorView))result.sectorView=response.sectorView.map(group=>({...clean(group),picks:group.picks.map(freezeRow)}));
  return result;
 }
 function readFile(file){
  let fd;
  try{
-  fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+  fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
   const before=fs.fstatSync(fd);
   if(!before.isFile()||before.size>MAX_BYTES)throw Error('invalid snapshot file');
   // Read the original bounded length plus one byte to reject growth.
@@ -68,7 +75,9 @@ function readFile(file){
   if(total!==before.size||after.size!==before.size||before.mtimeMs!==after.mtimeMs||before.ctimeMs!==after.ctimeMs||
    current.isSymbolicLink()||current.dev!==after.dev||current.ino!==after.ino||current.size!==after.size||
    current.mtimeMs!==after.mtimeMs||current.ctimeMs!==after.ctimeMs)throw Error('snapshot changed during read');
-  return JSON.parse(bytes.subarray(0,total).toString('utf8'));
+  const raw=bytes.subarray(0,total),text=raw.toString('utf8');
+  if(!Buffer.from(text,'utf8').equals(raw))throw Error('snapshot invalid UTF-8');
+  return JSON.parse(text);
  }finally{if(fd!==undefined)fs.closeSync(fd);}
 }
 function createMarketResponseSnapshot({file,clock=Date.now,onError=()=>{}}={}){
