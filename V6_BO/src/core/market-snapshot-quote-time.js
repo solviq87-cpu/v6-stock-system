@@ -4,6 +4,13 @@
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const CHINA_OFFSET_MS=8*3600000;
 const chinaDay=ms=>new Date(ms+CHINA_OFFSET_MS).toISOString().slice(0,10);
+const validClock=t=>Number.isSafeInteger(t)&&t>0&&t<=8e15;
+function captureTime(snapshot){
+ const raw=snapshot?.retrievedAt;
+ if(typeof raw!=='string')return null;
+ const t=Date.parse(raw);
+ return validClock(t)&&new Date(t).toISOString()===raw?t:null;
+}
 const dateOK=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&new Date(Date.parse(s+'T00:00:00Z')).toISOString().slice(0,10)===s;
 /**
@@ -39,8 +46,8 @@ function sourceQuoteTimeSeconds(raw){
  if(!Number.isSafeInteger(n)||n<946684800||n>=4102444800)return null;
  return n*1000;
 }
-function classifyQuoteTime(stock,{requestDate,retrievedAt,maxAgeMs=90000}={}){
- if(!Number.isSafeInteger(retrievedAt)||retrievedAt<=0||
+function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=retrievedAt,maxAgeMs=90000}={}){
+ if(!validClock(retrievedAt)||
     !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1000||maxAgeMs>300000)
   throw Error('报价时效评价时钟或阈值无效');
  const at=stock?.vendorQuoteAt;
@@ -50,23 +57,28 @@ function classifyQuoteTime(stock,{requestDate,retrievedAt,maxAgeMs=90000}={}){
  if(!dateOK(requestDate))return {...base,quoteTimeStatus:'request-date-invalid'};
  const quotedDate=chinaDay(at),age=retrievedAt-at;
  const result={...base,quoteAt:at,quoteDate:quotedDate,quoteAgeMs:age};
- if(age<0)return {...result,quoteTimeStatus:'future'};
+ // A later read cannot repair future-at-receipt evidence or expose an
+ // as-yet unreceived snapshot. Do not replace an unknown receipt with now.
+ if(!validClock(originalRetrievedAt))return {...result,quoteTimeStatus:'receipt-time-unknown'};
+ if(originalRetrievedAt>retrievedAt)return {...result,quoteTimeStatus:'snapshot-not-yet-observed'};
+ if(age<0||at>originalRetrievedAt)return {...result,quoteTimeStatus:'future'};
  if(quotedDate!==requestDate)return {...result,quoteTimeStatus:'historical-snapshot'};
  if(age>maxAgeMs)return {...result,quoteTimeStatus:'stale-source-time'};
  return {...result,quoteTimeStatus:'recent-source-unverified'};
 }
 function auditSnapshotQuoteTimes(snapshot,{asOf,maxAgeMs=90000}={}){
- const t=asOf??Date.parse(snapshot?.retrievedAt||'');
- if(!Number.isSafeInteger(t)||t<=0)throw Error('行情采样完成时钟缺失');
+ const originalRetrievedAt=captureTime(snapshot),t=asOf??originalRetrievedAt;
+ if(!validClock(t))throw Error('行情采样完成时钟缺失');
  const rows=Array.isArray(snapshot?.stocks)?snapshot.stocks:[];
  const marketWindow=chinaMarketWindowHint(t);
  const states={};
  for(const stock of rows){
-  const state=classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,maxAgeMs}).quoteTimeStatus;
+  const state=classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,originalRetrievedAt,maxAgeMs}).quoteTimeStatus;
   states[state]=(states[state]||0)+1;
  }
  return {mode:'market-quote-time-audit',asOf:new Date(t).toISOString(),
   requestDate:snapshot?.date||null,source:snapshot?.source||null,
+  originalRetrievedAt,receiptTimeStatus:originalRetrievedAt===null?'unknown':originalRetrievedAt>t?'not-yet-observed':'observed-unverified',
   providerQuoteField:'f124',total:rows.length,counts:states,
   recentSourceTimeCount:states['recent-source-unverified']||0,
   unknownSourceTimeCount:states.unknown||0,
