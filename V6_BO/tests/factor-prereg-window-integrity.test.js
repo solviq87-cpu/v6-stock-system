@@ -65,9 +65,9 @@ test('duplicate fingerprint or nonpositive capturedAt cannot be sealed as a norm
 test('seed and ordinary verification share full holdout membership checks',()=>{
  const registeredAt=Date.now();
  const reg=preregisterSeedCandidate({registeredAt,seedConfig:{schemaVersion:1,mode:'v6-fixed-shadow-seed-config-v1',researchOnly:true,canTrade:false,seedPolicy:SEED_POLICY,factorIds:ids}});
- const first=new Date(reg.recordedAt+86400000).toISOString().slice(0,10);
- const second=new Date(reg.recordedAt+2*86400000).toISOString().slice(0,10);
- const sorted=[first,second].map((day,i)=>({day,featureCapturedAt:Date.parse(day+'T16:00:00Z'),featureFingerprint:hash('seed-'+i)}));
+ const first=new Date(reg.recordedAt+28800000+86400000).toISOString().slice(0,10);
+ const second=new Date(reg.recordedAt+28800000+2*86400000).toISOString().slice(0,10);
+ const sorted=[first,second].map((day,i)=>({day,featureCapturedAt:Date.parse(day+'T16:00:00+08:00'),featureFingerprint:hash('seed-'+i)}));
  const context={sorted,ids,packFingerprint,oldWeights:weights,previousFingerprint:null,previousTrialFingerprint:null,freshTest:sorted.map(x=>({...x}))};
  assert.equal(verify({reg,context}).status,'candidate-committed-before-new-signal');
  context.freshTest[1].featureCapturedAt++;
