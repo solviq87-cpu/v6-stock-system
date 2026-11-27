@@ -129,3 +129,57 @@ test('D55 existing offline CLI can replay history without network and rejects ma
  fs.writeFileSync(file,Buffer.concat([Buffer.from(raw.slice(0,i)),Buffer.from([255]),Buffer.from(raw.slice(i+6))]));
  assert.equal(run().status,2);
 });
+
+test('D55 overlapping report windows cannot reuse or regress one provider original fresh quote',()=>{
+ for(const delta of [0,-500]){
+  const x=window().evidence,t=x.expectedSlots[0];
+  x.expectedSlots=[t,t+30000,t+60000];x.maxReportLagMs=60000;
+  x.observations=x.expectedSlots.map(slotAt=>({slotAt,report:report(slotAt)}));
+  const a=x.observations[0].report,b=x.observations[1].report;
+  a.asOf=new Date(t+32000).toISOString();
+  a.sourceStatuses[0].quoteAt=t+31000;
+  a.sourceStatuses[1].quoteAt=t+30900;
+  a.quoteAt=t+30900;a.quoteTimeGapMs=100;
+  b.asOf=new Date(t+33000).toISOString();
+  b.sourceStatuses[0].quoteAt=t+31000+delta;
+  b.sourceStatuses[1].quoteAt=t+32000;
+  b.quoteAt=Math.min(b.sourceStatuses[0].quoteAt,b.sourceStatuses[1].quoteAt);
+  b.quoteTimeGapMs=Math.abs(b.sourceStatuses[0].quoteAt-b.sourceStatuses[1].quoteAt);
+  assert.equal(audit(x).reason,'duplicate-or-regressing-fresh-provider-quote');
+  const h=review();h.windows=[{windowId:'one',evidence:x}];
+  assert.equal(history(h).status,'blocked');
+ }
+});
+test('D55 legitimate distinct fresh observations survive overlapping lag windows and out-of-order input',()=>{
+ const x=window().evidence,t=x.expectedSlots[0];
+ x.expectedSlots=[t,t+30000,t+60000];x.maxReportLagMs=60000;
+ x.observations=x.expectedSlots.map(slotAt=>({slotAt,report:report(slotAt)}));
+ const a=x.observations[0].report,b=x.observations[1].report;
+ a.asOf=new Date(t+31000).toISOString();a.sourceStatuses[0].quoteAt=t+30000;
+ a.sourceStatuses[1].quoteAt=t+29900;a.quoteAt=t+29900;a.quoteTimeGapMs=100;
+ b.asOf=new Date(t+33000).toISOString();b.sourceStatuses[0].quoteAt=t+32000;
+ b.sourceStatuses[1].quoteAt=t+31900;b.quoteAt=t+31900;b.quoteTimeGapMs=100;
+ x.observations.reverse();
+ const r=audit(x);assert.equal(r.status,'limited-alignment-unverified');assert.equal(r.sourceCoverage[0].freshSlots,3);
+});
+test('D54 repeated old dated snapshots remain nonfresh observations rather than supplier coverage',()=>{
+ const x=window().evidence;
+ x.observations=x.expectedSlots.map(slotAt=>({slotAt,report:report(slotAt,['dated-snapshot','dated-snapshot'])}));
+ for(const o of x.observations)for(const s of o.report.sourceStatuses)s.quoteAt=base-60000;
+ const r=audit(x);assert.equal(r.sourceCoverage[0].freshSlots,0);assert.equal(r.sourceCoverage[0].datedSlots,3);
+ assert.equal(r.jointCoverage.bothDatedSlots,3);assert.equal(r.jointCoverage.commonCauseVerified,false);
+});
+test('D74 explicit source conflict and quote date contradictions cannot earn a quality grade',()=>{
+ for(const edit of [
+  x=>x.sourceConflict=true,
+  x=>x.observations[0].report.quoteStatus='conflict',
+  x=>x.observations[0].report.sourceStatuses[0].quoteSourceConflict=true,
+  x=>x.observations[0].report.sourceStatuses[0].evidenceStatus='conflict',
+  x=>x.observations[0].report.sourceStatuses[0].tradeDate='2026-11-22',
+  x=>x.observations[0].report.sourceStatuses[0].quoteDate=['2026-11-23']
+ ]){
+  const x=window().evidence;edit(x);assert.equal(audit(x).status,'blocked');
+ }
+ const x=window().evidence;x.observations[0].report.sourceStatuses[0].sourceTradeDate='2026-11-23';
+ assert.equal(audit(x).status,'limited-alignment-unverified');
+});

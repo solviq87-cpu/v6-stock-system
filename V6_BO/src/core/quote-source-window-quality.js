@@ -13,12 +13,14 @@ const validTime = x => Number.isSafeInteger(x) && x > 946684800000 && x < 410244
 // Optional assertions must not contradict the explicitly read-only evidence contract.
 const unsafe = x => ['synthetic','simulated','fixture','mock','testSample','canTrade','canNotify','canTrain',
  'verifiedLive','certifiedLive','exchangeVerified','providerLicensed','calendarVerified','canAutoSelectProvider',
- 'releaseReady','autoPromotion','canExecute'].some(k=>x[k]!==undefined&&x[k]!==false);
+ 'releaseReady','autoPromotion','canExecute','sourceConflict','quoteSourceConflict','conflict'].some(k=>x[k]!==undefined&&x[k]!==false)||
+ x.evidenceStatus==='conflict'||x.quoteStatus==='conflict';
 const roundedPct = (a,b) => b?Math.round(a*1000/b)/10:null;
 const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const dense=x=>Array.isArray(x)&&Array.from(x,(_,i)=>Object.hasOwn(x,i)).every(Boolean);
 const token=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(x);
 const symbol=x=>typeof x==='string'&&/^(?:60|68|00|30)\d{4}$/.test(x);
+const chinaDay=at=>new Date(at+28800000).toISOString().slice(0,10);
 const blocked = reason => ({schemaVersion:1,mode:'quote-source-window-quality-research',status:'blocked',reason,
  canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,canAutoSelectProvider:false,
  providerIndependenceVerified:false,qualityProvesPriceAccuracy:false});
@@ -73,6 +75,7 @@ function auditQuoteSourceWindow(input={}) {
        s.quoteAt!=null&&s.receivedAt<s.quoteAt)||
       s.quoteAgeMs!==undefined&&s.quoteAgeMs!==(s.quoteAt===null?null:reportAt-s.quoteAt)||
       s.vendorQuoteAt!==undefined&&s.vendorQuoteAt!==s.quoteAt||
+      ['tradeDate','quoteDate','sourceTradeDate'].some(k=>s[k]!=null&&(s.quoteAt===null||s[k]!==chinaDay(s.quoteAt)))||
       [s.quoteMode,s.mode].some(m=>m!=null&&(typeof m!=='string'||/simulat|fixture|mock|synthetic|test.sample|imported/i.test(m))))
     return blocked('contradictory-provider-receipt-or-mode');
    rows.set(s.provider,s);
@@ -102,11 +105,21 @@ function auditQuoteSourceWindow(input={}) {
  // Overlapping lag windows must not turn reused or regressing reports
  // into separate successful samples. Enforce the registered slot order.
  let previousReportAt=null;
+ const latestFreshByProvider=new Map();
  for(const slot of expectedSlots){
-  const reportAt=seen.get(slot)?.reportAt;
+  const entry=seen.get(slot),reportAt=entry?.reportAt;
   if(reportAt===undefined)continue;
   if(previousReportAt!==null&&reportAt<=previousReportAt)return blocked('duplicate-or-regressing-report-time');
   previousReportAt=reportAt;
+  // Overlapping report-lag windows can otherwise count the same source
+  // quote as fresh in multiple nominal slots, inflating coverage and value.
+  // Historical/dated observations may repeat but never earn fresh coverage.
+  for(const [provider,row] of entry.rows){
+   if(row.status!=='fresh-unverified')continue;
+   const prior=latestFreshByProvider.get(provider);
+   if(prior!==undefined&&row.quoteAt<=prior)return blocked('duplicate-or-regressing-fresh-provider-quote');
+   latestFreshByProvider.set(provider,row.quoteAt);
+  }
  }
  const perSource=PROVIDERS.map(provider=>{
   let fresh=0,dated=0,unavailable=0,missing=0;
