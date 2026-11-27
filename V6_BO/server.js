@@ -10037,7 +10037,10 @@ function pushAll(text, force, opts) {
   text = redactSecrets(text);   // ⛔ 凭据闸门：密码/令牌一律不许出网（2026-10-02）
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
+  const planNotice = opts.private && opts.planNotice &&
+    require('./src/core/paper-plan-notice-review').noticeRef(opts.planNotice,opts.signalRefs);
   const _extra = base => Object.assign({}, base, { extra: { codes: _codes,
+    ...(planNotice?{planNotice}:{}),
     signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) })) : [] } });
   // ⛔ 2026-10-02 改：以前 essential=true 会让【副本实例也照发】（本意是"找回密码不能被副本吞掉"），
   //    实际后果是本地开发副本往用户手机狂发：找回验证码 44 条、只读申请、重置通知……
@@ -11830,12 +11833,12 @@ function approvedFactorCache(){
 }
 function centerEvidenceRuntime(){
   return decisionEvidenceRuntime??=require('./src/server/decision-evidence-runtime').createDecisionEvidenceRuntime({
-    isPrimary:()=>!isReplica()&&centerEvidenceEnabled(),
+    isPrimary:()=>!isReplica()&&centerEvidenceEnabled(),canReadArchive:()=>!isReplica(),
     session:now=>{const session=marketDisplaySession(now);return {...session,
       day:require('./src/core/limit-reason-evidence').normalizeDay(session.day),continuous:isContinuousTrading()};},
     readArchive:()=>require('./src/server/research-workspace-job').runWorkspaceJob({
       action:'shortline',root:shortlineResearchDir(),book:'main',replica:isReplica()}),
-    readContext:async plans=>{
+    readContext:async (plans,{publishReceipts=true}={})=>{
       const rules=await loadSystemPickRules(),decisions=await decisionCenterFor(true),now=Date.now();
       const book=_paperAuthority.pool.read(),account=require('./src/core/legacy-paper-projection').projectLegacy(book);
       const quotes=paperAuthorityQuotes(),marks=paperPrices(),policy=PAPER_CFG.pool;
@@ -11863,7 +11866,7 @@ function centerEvidenceRuntime(){
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
-      advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
+      if(publishReceipts)advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
         checks:Object.fromEntries(activePlans.slice(0,20).map(plan=>[plan.id,entryEligibilityByPlan[plan.id]]))};
       return {book,quotes,calendar:paperAuthorityCalendar,entryEligibilityByPlan,exitEligibilityByPlan,now};
     },
@@ -21421,6 +21424,17 @@ function handle(req, res, u, body) {
   if (p === '/api/push-log' && req.method === 'GET') {
     let lTok = (u.searchParams && u.searchParams.get('token')) || '';
     if (!requireEditor(res, lTok, req)) return;
+    if (u.searchParams.has('planNotice')) {
+      const id=u.searchParams.get('planNotice');
+      const entry=/^[a-f0-9]{64}$/.test(id||'') && PUSH_LOG.find(row=>row?.extra?.planNotice?.deliveryId===id);
+      const ref=entry && require('./src/core/paper-plan-notice-review').noticeRef(entry.extra.planNotice,entry.extra.signalRefs);
+      if(!ref)return json(res,{ok:false,error:'未找到此投递对应的原计划凭据'});
+      const authorized=()=>isEditorReq(req,lTok||req.__tok);
+      return centerEvidenceRuntime().reviewNotice(ref,authorized).then(result=>{
+        if(!requireEditor(res,lTok,req))return;
+        return json(res,{ok:true,result});
+      }).catch(()=>{if(requireEditor(res,lTok,req))json(res,{ok:false,error:'计划复核暂不可用'});});
+    }
     // gov = 节流器状态（与 /api/state 的 pushGov 同源同一份，见 pushGovStat）
     // —— 让人在翻流水时顺带看见"今天还剩多少名额、拦了几条"，不用去别处找。
     // ⛔⛔ hw 轮修「早上的竞价到底发没发，永远查不到」：

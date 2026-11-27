@@ -305,7 +305,7 @@ test('production conditional queue delegates every notification to the common pl
 function privatePushHarness({requiresNewsReview = false} = {}) {
   const queued = [], checks = [], logs = []; let newsAllowed = true, releases = 0;
   const context = {
-    process: {env: {}}, S: {config: {}}, Date, console: {log() {}, error() {}},
+    require:serverRequire, process: {env: {}}, S: {config: {}}, Date, console: {log() {}, error() {}},
     prepareRecommendationDelivery: text => ({ok: true, text, kind: 'current-recommendation', requiresNewsReview,
       ...(requiresNewsReview ? {newsRows: [{code: '600000'}]} : {})}),
     redactSecrets: text => text, extractStockCodes: () => ['600000'], inManualPush: () => false, isReplica: () => false,
@@ -377,4 +377,113 @@ test('actual pushAll preserves original news rejection before the caller hook, b
     beforeSend: () => assert.fail('caller must not run before an initial news rejection')}), false);
   assert.equal(initiallyBlocked.queued.length, 0); assert.equal(initiallyBlocked.releases(), 1);
   await Promise.resolve();
+});
+
+test('private plan alert binds the actual queued receipt to the immutable observation and account period', async t=>{
+  const x=await setup(t);x.set({configured:true});
+  const alert=await x.commitObservation();
+  assert.equal(await x.options.sendPrivate(alert),true);
+  const queued=x.calls.push.at(-1)[2],ref=queued.planNotice;
+  assert.ok(ref,'private sender must provide the bound notice');
+  assert.equal(ref.observationId,alert.observationId);
+  assert.equal(ref.alertId,alert.id);
+  assert.equal(ref.quoteAt,alert.quoteAt);
+  assert.equal(ref.code,x.plan.code);
+  assert.match(ref.deliveryId,/^[a-f0-9]{64}$/);
+  assert.equal(ref.accountEpoch,require('../src/core/account-equity-evidence').accountEpochOf(x.book,'pool'));
+});
+
+test('same decision travels from persisted trigger and private receipt to read-only price review and original paper execution veto', async t=>{
+  const x=await setup(t),push=privatePushHarness();
+  x.set({configured:true});x.context.pushAll=push.context.pushAll;
+  const alert=await x.commitObservation();
+  assert.equal(await x.options.sendPrivate(alert),true);
+  push.queued[0].callback(true,'ok');await Promise.resolve();
+  const saved=push.logs.find(row=>row[0]==='✅ 已送达(私密)')[2].extra;
+  const {noticeRef}=require('../src/core/paper-plan-notice-review');
+  const ref=noticeRef(saved.planNotice,saved.signalRefs);
+  assert.equal(ref.alertId,alert.id);assert.equal(noticeRef(ref,[{...saved.signalRefs[0],ts:0}]),null);
+  const runtime=serverRequire('./src/server/decision-evidence-runtime').createDecisionEvidenceRuntime({...x.options,clock:x.now});
+  const reviewed=()=>runtime.reviewNotice(ref,()=>true);
+  const initial=await reviewed();assert.equal(initial.status,'observed',JSON.stringify(initial));
+  assert.equal(initial.original.decisionId,x.plan.decisionId);assert.equal(initial.current.price,10);
+  const before=fs.readFileSync(x.authorityFile),oldArchive=await x.store.read({day,now:x.now()});
+  x.set({now:x.now()+2000});x.refreshQuote(10.5);
+  const moved=await reviewed();
+  assert.equal(moved.status,'waiting',JSON.stringify(moved));assert.equal(moved.current.gate,false);
+  assert.equal(moved.original.price,10);assert.equal(moved.current.price,10.5);
+  assert.equal(moved.original.decisionId,x.plan.decisionId);assert.equal(moved.canTrade,false);
+  const c=x.context;
+  Object.assign(c,{_paperAuthorityRevision:{pool:c._paperAuthority.pool.read().revision},
+    refreshPaperAuthority:()=>{},paperEquity:()=>x.book.account.cash,
+    aShareCalendarDate:(value=x.now())=>serverRequire('./src/core/a-share-calendar').aShareCalendarDate(value),
+    paperBuy:()=>assert.fail('out-of-range price must never reach the original buy callback')});
+  vm.runInContext(section('function executePaperCenterPlan(','async function runPaperConditionalOrders('),c);
+  assert.throws(()=>c.executePaperCenterPlan({action:'executePlan',account:'pool',planId:x.plan.id},x.plan,{
+    eligiblePick:()=>true,pickReasons:()=>['隔离策略命中'],systemPickDay:()=>day},{cards:[x.card]}),/区间/);
+  x.set({now:x.now()+15001});
+  assert.equal((await reviewed()).status,'unknown');
+  assert.deepEqual(await x.store.read({day,now:x.now()}),oldArchive);
+  assert.deepEqual(fs.readFileSync(x.authorityFile),before);assert.equal(push.queued.length,1);
+  assert.equal((await runtime.reviewNotice({...ref,accountEpoch:'0'.repeat(64)},()=>true)).status,'historical');
+  x.set({enabled:false});
+  const disabled=await reviewed();assert.equal(disabled.status,'historical');assert.equal(disabled.original.decisionId,x.plan.decisionId);
+  const unavailable=await runtime.reviewNotice(ref,()=>false);
+  assert.equal(unavailable.status,'unavailable');assert.equal(unavailable.original,null);
+  if(process.env.FAYO_PLAN_NOTICE_QA_DIR)await require('./helpers/plan-notice-browser.cjs').verify({
+    extra:saved,archive:oldArchive,output:process.env.FAYO_PLAN_NOTICE_QA_DIR,decisionId:x.plan.decisionId});
+});
+
+test('private plan review drops the historical payload upon revocation and limits concurrent reads', async t => {
+  const x = await setup(t);
+  x.set({configured: true});
+  const alert = await x.commitObservation();
+  await x.options.sendPrivate(alert);
+  const ref = x.calls.push.at(-1)[2].planNotice;
+  const {createDecisionEvidenceRuntime} = serverRequire('./src/server/decision-evidence-runtime');
+  let resume, started, authorized = true;
+  const pending = new Promise(resolve => { resume = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  const runtime = createDecisionEvidenceRuntime({...x.options, clock: x.now,
+    async readContext(plans, options) {
+      assert.equal(options.publishReceipts, false);
+      started();
+      await pending;
+      return x.options.readContext(plans, options);
+    }});
+  const first = runtime.reviewNotice(ref, () => authorized);
+  await entered;
+  assert.equal((await runtime.reviewNotice(ref, () => authorized)).status, 'busy');
+  authorized = false;
+  resume();
+  const denied = await first;
+  assert.equal(denied.status, 'unavailable');
+  assert.equal(denied.original, null);
+  assert.equal(denied.current, null);
+  assert.equal((await runtime.reviewNotice(ref, () => true)).status, 'observed');
+});
+
+test('current read declines conflicting simultaneous prices and declines a different plan for the same stock', async t => {
+  const x = await setup(t);
+  x.set({configured: true});
+  const alert = await x.commitObservation();
+  await x.options.sendPrivate(alert);
+  const ref = x.calls.push.at(-1)[2].planNotice;
+  const {createDecisionEvidenceRuntime} = serverRequire('./src/server/decision-evidence-runtime');
+  const conflict = createDecisionEvidenceRuntime({...x.options, clock: x.now, async readContext(plans, options) {
+    const context = await x.options.readContext(plans, options);
+    return {...context, quotes: {...context.quotes, [x.plan.code]: {...context.quotes[x.plan.code], price: 10.5}}};
+  }});
+  const result = await conflict.reviewNotice(ref, () => true);
+  assert.equal(result.status, 'unknown');
+  assert.match(result.reason, /矛盾/);
+  assert.equal(result.current, null);
+  assert.equal(result.original.price, 10);
+  const replaced = createDecisionEvidenceRuntime({...x.options, clock: x.now, readArchive: async () => ({
+    ok: true, state: {plans: [{...x.plan, decisionId: 'b'.repeat(64)}]}
+  })});
+  const changed = await replaced.reviewNotice(ref, () => true);
+  assert.equal(changed.status, 'historical');
+  assert.equal(changed.current, null);
+  assert.equal(changed.original.decisionId, x.plan.decisionId);
 });
