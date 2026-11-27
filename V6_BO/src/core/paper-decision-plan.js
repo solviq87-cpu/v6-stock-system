@@ -77,23 +77,41 @@ function matchesFrozenConfirmationQuote(plan,card,quote,quoteAt,now){
     matches(frozen.quoteBasis)&&matches(card.quoteBasis);
 }
 
-function planFill(book, planId) {
-  // The account service verifies these event hashes before returning the book.
-  for (const period of [...(book?.archives || []), book].filter(Boolean)) {
-    const event = (period.account?.events || []).find(e => e.side === 'buy' && planIdOf(e.reason) === planId);
-    if (event) return event;
+function planFill(book, planId, {plan=null, now=Date.now()}={}) {
+  // Read the original validated account; neither absence of an account
+  // period nor the first of several matching fills is an idempotency receipt.
+  if(!book||!Array.isArray(book.account?.events)||
+     book.archives!=null&&!Array.isArray(book.archives))
+    throw Error('原持久账本缺少完整成交流水，停止执行');
+  let found=null;
+  for (const period of [...(book.archives || []), book]) {
+    if(!Array.isArray(period?.account?.events))
+      throw Error('原持久账本缺少完整账户期次，停止执行');
+    for(const event of period.account.events){
+      if(event?.side!=='buy'||planIdOf(event.reason)!==planId)continue;
+      if(found)throw Error('计划与原持久成交冲突：存在多个同计划买入事件，停止执行');
+      found=event;
+    }
   }
-  return null;
+  if(found&&plan){
+    const at=executionTimeOf(found);
+    if(plan.id!==planId||String(found.symbol)!==plan.code||found.tradeDate!==plan.intendedDate||
+       typeof found.eventId!=='string'||!found.eventId.trim()||
+       !finite(found.price)||found.price<=0||!Number.isSafeInteger(found.quantity)||found.quantity<=0||
+       !Number.isSafeInteger(at)||at<Date.parse(plan.frozenAt)||at>now)
+      throw Error('计划与原持久成交冲突：证券、交易日、冻结时点或成交身份不一致，停止执行');
+  }
+  return found;
 }
 
 function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDate(now), replica,
   continuous, candidate, eligiblePick, systemPickDay, poolDay, newsBlocked,
-  account, policy, equity, quote, authoritative, readBook, buy}) {
+  account, policy, equity, quote, authoritative, readBook, buy, clock=null}) {
   if (replica) throw Error('当前为副本，请在原主实例确认模拟计划');
   if (!input || input.account !== 'pool' || !planIdOk(input.planId) || input.planId !== plan?.id ||
       Object.keys(input).some(k => !['action','account','planId','token'].includes(k))) throw Error('模拟计划请求无效');
   validatePlan(plan, now);
-  const previous = planFill(readBook(), plan.id);
+  const previous = planFill(readBook(), plan.id, {plan,now});
   if (previous) return {ok:true,status:'already-executed',planId:plan.id,code:plan.code,
     eventId:previous.eventId,price:previous.price,shares:previous.quantity,msg:'该计划已有持久成交流水，未重复买入'};
   if (plan.intendedDate !== day || aShareCalendarDate(Date.parse(plan.frozenAt)) !== day)
@@ -131,7 +149,12 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   if (allocationPct > Math.min(plan.maxPosition,authoritative.plan.positionPct)+1e-7)
     throw Error('原账户等权预算超出冻结计划或当前风险仓位，请重新核对；未修改账户分仓规则');
   buy(candidate,reasonOf(plan));
-  const committed = planFill(readBook(),plan.id);
+  // The original synchronous callback may commit a few milliseconds after
+  // the entry check. Use the completion clock without changing quote provenance.
+  const bookAfter=readBook(),wall=clock===null?Date.now():clock();
+  const finishedAt=clock===null&&aShareCalendarDate(wall)!==aShareCalendarDate(now)?now:wall;
+  if(!Number.isSafeInteger(finishedAt)||finishedAt<now)throw Error('原模拟成交确认时钟倒退，停止执行');
+  const committed = planFill(bookAfter,plan.id,{plan,now:finishedAt});
   if (!committed) throw Error('原模拟门禁未产生持久成交，请核对报价、涨停、持仓上限、资金或账本回执');
   return {ok:true,status:'executed',planId:plan.id,code:plan.code,eventId:committed.eventId,
     price:committed.price,shares:committed.quantity,msg:'已通过原模拟门禁并核对持久成交；退出仍按原账户止损规则'};

@@ -40,7 +40,7 @@ test('direct plan entry rejects explicit read-only and conflicting original quot
  for(const patch of [{canTrade:false},{readOnlyBackup:true},{sourceConflict:true},{quoteStatus:'conflict'},{mode:'historical-replay'},{provider:'other'},{timestamp:now-2000}]){
   assert.throws(()=>executeDecisionPlan(input(now,quote(now,patch))),/只读、来源冲突或时点不一致/);
  }
- const x=input(time('15:10:00'));x.book.account.events.push({eventId:'old-fill',side:'buy',symbol:code,price:10,quantity:100,reason:'作战台计划['+x.plan.id+']'});
+ const x=input(time('15:10:00'));x.book.account.events.push({eventId:'old-fill',side:'buy',symbol:code,price:10,quantity:100,tradeDate:day,timestamp:now,reason:'作战台计划['+x.plan.id+']'});
  assert.equal(executeDecisionPlan(x).status,'already-executed');
 });
 test('plan preview uses exact integer share volume and counts numeric prior symbol fills',()=>{
@@ -89,4 +89,34 @@ test('original account preview rejects same-day rollback even when the candidate
  const r=x.app.previewAutomaticEntry(req);
  assert.equal(r.allowed,null);assert.ok(r.reasonCodes.includes('ACCOUNT_EXECUTION_CLOCK_ROLLBACK'));
  assert.equal(fs.readFileSync(x.file,'utf8'),before);
+});
+
+function receipt(x,patch={}){
+ return {eventId:'original-receipt',side:'buy',symbol:code,price:10,quantity:100,tradeDate:day,timestamp:now,
+  reason:'作战台计划['+x.plan.id+'] 原账户风控',...patch};
+}
+test('direct retry must identify one actual same-security same-day post-freeze fill',()=>{
+ for(const patch of [{symbol:'600999'},{tradeDate:'2026-11-25'},{timestamp:now+1},{timestamp:time('09:29:49')},
+  {timestamp:null},{eventId:''},{quantity:0},{quantity:100.5},{price:0}]){
+  const x=input();x.book.account.events=[receipt(x,patch)];
+  const before=JSON.stringify(x.book);let calls=0;
+  assert.throws(()=>executeDecisionPlan({...x,buy:()=>calls++}),/原持久成交冲突/);
+  assert.equal(calls,0);assert.equal(JSON.stringify(x.book),before);
+ }
+});
+test('duplicate plan fills in the current or archived account must not become an idempotent success',()=>{
+ const a=input(),event=receipt(a);a.book.account.events=[event,{...event,eventId:'another-fill'}];
+ assert.throws(()=>executeDecisionPlan(a),/多个同计划买入事件/);
+ const b=input();b.book.account.events=[receipt(b)];b.book.archives=[{account:{events:[receipt(b,{eventId:'archived-fill'})]}}];
+ assert.throws(()=>executeDecisionPlan(b),/多个同计划买入事件/);
+ const c=input();c.book.archives=[{account:{events:[receipt(c)]}}];
+ assert.equal(executeDecisionPlan({...c,continuous:false}).status,'already-executed');
+ assert.throws(()=>executeDecisionPlan({...input(),readBook:()=>({})}),/原持久账本/);
+});
+test('original execution receipt is rechecked after the callback and uses its actual completion clock',()=>{
+ const x=input(),before=JSON.stringify(x.book);let calls=0;
+ assert.throws(()=>executeDecisionPlan({...x,buy:()=>{calls++;x.book.account.events.push(receipt(x,{symbol:'600999'}));}}),/原持久成交冲突/);
+ assert.equal(calls,1);assert.notEqual(JSON.stringify(x.book),before);
+ const y=input();const result=executeDecisionPlan({...y,clock:()=>now+5,buy:()=>y.book.account.events.push(receipt(y,{timestamp:now+5}))});
+ assert.equal(result.status,'executed');assert.equal(result.eventId,'original-receipt');
 });
