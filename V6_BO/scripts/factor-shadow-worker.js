@@ -544,7 +544,7 @@ function pendingRegistrationStatus(reg,{conf,manifest,frozen,previous,previousTr
  if(!Array.isArray(defs))throw Error('待执行候选缺少原冻结因子定义');
  verifyPendingCandidateRegistration(reg,{
   sorted:all.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt})),
-  ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
+  ids:defs.map(f=>f.id),definitions:defs,packFingerprint:hash(factorPack),
   oldWeights:previous?.shadowWeights||Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
   previousFingerprint:previous?.fingerprint||null,
   previousTrialFingerprint:previousTrial?.fingerprint||null
@@ -618,7 +618,7 @@ function evaluateOnce(conf,now,manifest){
    const next=sorted[prefix.length],defs=sorted[0].factors;
    verifyPreregisteredCandidate(preRegistration,{
     sorted:sorted.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt})),
-    ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
+    ids:defs.map(f=>f.id),definitions:defs,packFingerprint:hash(factorPack),
     oldWeights:previous?.shadowWeights||
      Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
     previousFingerprint:previous?.fingerprint||null,
