@@ -231,6 +231,19 @@ async function run(){
       assert.match(await page.locator('.fy-intelligence-research').innerText(),/原编辑身份权限/);
       report.viewerPrivateReads=0;
     }finally{await context.close();}
+    const retryContext=await browser.newContext({serviceWorkers:'block'});
+    try{
+      const page=await retryContext.newPage();
+      await page.route('**/api/decision-center/research',route=>route.fulfill({json:{ok:false,code:'WORKSPACE_BUSY'}}),{times:1});
+      await page.goto(origin+'/',{waitUntil:'networkidle'});
+      await page.locator('#fy-intelligence-center > summary').click();
+      await page.getByRole('button',{name:'重试研究档案'}).click();
+      await page.locator('.fy-intelligence-research').getByRole('heading',{name:'L5 · 复盘反馈',exact:true}).waitFor();
+      const urls=await page.evaluate(()=>intelligenceHarness.reads.map(read=>read.url));
+      assert.equal(urls.filter(url=>url.startsWith('/api/decision-center/visuals')).length,1);
+      assert.equal(urls.filter(url=>url==='/api/decision-center/research').length,2);
+      report.privateRetryReusedVisibleCharts=true;
+    }finally{await retryContext.close();}
     assert.deepEqual(writes,[]);report.passed=true;report.unexpectedWrites=0;report.fixtureFeedbackSubmissions=validationSubmissions.length;report.projectionChecks=projectionChecks;
     fs.writeFileSync(path.join(output,'intelligence-browser-report.json'),JSON.stringify(report,null,2));
     process.stdout.write(JSON.stringify({passed:true,output,views:report.views,viewerPrivateReads:0,unexpectedWrites:0,fixtureFeedbackSubmissions:validationSubmissions.length},null,2)+'\n');

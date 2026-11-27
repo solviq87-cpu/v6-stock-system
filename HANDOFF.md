@@ -56,6 +56,8 @@
 
 <!-- CURRENT_CHECKPOINT_END -->
 
+2026-11-27　F33.2 独立研究候选基于 `b936ebdd`。两笔模拟结算合计 300 股，买入价差 6 元、分摊买费 5 元。双端已核对原鉴权读取。原发布、账户、报价门禁沿用总管流程。核对复现与现场范围见[费用与资源测量](docs/validation/fayo-entry-shortfall-20261127/README.md)。
+
 ## 本地集成继承记录
 
 <details><summary>各组原交接记录（历史责任称谓与单组结果不代表本地最终验收）</summary>

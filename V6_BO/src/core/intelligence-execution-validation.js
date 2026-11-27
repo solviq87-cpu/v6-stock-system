@@ -4,6 +4,7 @@
  * This report cannot approve a candidate or change a production weight.
  */
 const {createHash}=require('node:crypto');
+const {frozenFeedbackQuote}=require('./paper-decision-plan');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const time=x=>{
  const t=typeof x==='string'?Date.parse(x):x;
@@ -44,12 +45,12 @@ function priorPlan(plan,trade){
   ['createdAt','recordedAt','knownAt'].every(k=>!Object.hasOwn(plan,k)||
    (time(plan[k])!==null&&time(plan[k])<=entry));
 }
-function selectPriorPlan(plans,trade){
+function selectPriorPlan(plans,trade,reviewPlan){
  const candidates=new Map();
  const linked=Object.hasOwn(trade||{},'decisionLink');
  for(const plan of plans||[]){
   if(!priorPlan(plan,trade))continue;
-  const fingerprint=digest(plan);
+  const {fingerprint}=reviewPlan(plan);
   if(linked&&trade.decisionLink?.planFingerprint!==fingerprint)continue;
   candidates.set(fingerprint,plan);
  }
@@ -63,13 +64,35 @@ function futureReceipt(trade,now){
  return [trade?.createdAt,trade?.exitTimestamp,trade?.paperSettlement?.exitTimestamp,
   trade?.planLinkedAt,trade?.decisionLink?.knownAt].some(v=>time(v)!==null&&time(v)>now);
 }
+// Price only the settled buy shares whose exact frozen decision was linked by
+// the original pool ledger. Partial FIFO exits use their allocated quantities.
+function settledEntryBenchmark(plan, proof, trade, q) {
+  if (!trade.decisionLink || proof.accountId !== 'pool' || trade.source !== 'V6 模拟成交' ||
+      trade.id !== 'paper-' + digest([proof.accountId,proof.exitEventId])) return null;
+  if (!q || q.code !== plan.code || q.receivedAt == null || !centPrice(q.price) ||
+      q.retracted === true || q.quarantined === true || q.revoked === true || q.quoteSourceConflict === true ||
+      [q.source,q.mode,q.quoteMode].some(tag => /histor|delay|carried|archive|收盘|延时|延迟/i.test(tag || '')) ||
+      !proof.entryFills.every(leg => centPrice(leg.price) && day(leg.time) === plan.intendedDate)) return null;
+  const benchmarkCents = money(q.price) * proof.exitQuantity;
+  if (!Number.isSafeInteger(benchmarkCents)) return null;
+  return {price:q.price, quantity:proof.exitQuantity, benchmarkCents, source:q.source,
+    quoteAt:q.quoteAt, receivedAt:q.receivedAt, decisionAt:plan.decisionEvidence.calculatedAt, decisionId:plan.decisionId};
+}
+
+function reviewFrozenPlan(plan) {
+  return {fingerprint:digest(plan), quote:plan.decisionAuthority==='fayo-decision-center'
+    ? frozenFeedbackQuote(plan,time(plan.frozenAt)) : null};
+}
 function verifiedSettlement(trade,plan,now) {
+  return inspectSettlement(trade,plan,now,reviewFrozenPlan);
+}
+function inspectSettlement(trade,plan,now,reviewPlan) {
   if(!trade||typeof trade!=='object')return {reason:'missing-prior-verified-plan'};
   const p=trade.paperSettlement,entry=time(trade.entryTimestamp),exit=time(trade.exitTimestamp),recorded=time(trade.createdAt),frozen=time(plan?.frozenAt);
   if(!real(trade)||!identity(trade.id)||trade.planVerified!==true||trade.snapshotVerified!==true||
       !priorPlan(plan,trade))return {reason:'missing-prior-verified-plan'};
   if(exit===null||recorded===null||exit<=entry||recorded<exit||futureReceipt(trade,now))return {reason:'unmatured-or-unrecorded-settlement'};
-  const planFingerprint=digest(plan);
+  const {fingerprint:planFingerprint,quote}=reviewPlan(plan);
   const linked=Object.hasOwn(trade,'decisionLink'),link=trade.decisionLink;
   const linkKnown=linked?time(link?.knownAt):null;
   const linkedAt=Object.hasOwn(trade,'planLinkedAt')?time(trade.planLinkedAt):null;
@@ -109,11 +132,37 @@ function verifiedSettlement(trade,plan,now) {
   return {row:{id:trade.id,planId:plan.id,planFingerprint,planEvidenceBasis:linked?'original-plan-link-reconciled':'legacy-plan-declaration',
     code:trade.code,signalDay:day(frozen),entry,exit,recorded,knownAt:Math.max(recorded,exit,linkKnown||0,linkedAt||0),
     entryGrossCents:entryGross,exitGrossCents:p.exitGrossCents,costBasisCents:p.costBasisCents,costCents:cost,netCents:net,
+    settledEntryBenchmark:settledEntryBenchmark(plan,p,trade,quote),exitFeeCents:p.exitFeeCents,
     strategy,regime,cycle,quality,
     fingerprint:trade.sourceFingerprint,settlementIdentity:digest([p.accountId,p.exitEventId]),
     settlementContentFingerprint:digest({settlement:settlementContent(p,plan.id),planFingerprint,strategy,regime,cycle,quality}),
     entryPriceEvidence:p.entryFills.every(leg=>centPrice(leg.price))?'exact-cent-price-reconciled':'fifo-allocation-not-replayed',canTrade:false}};
 }
+function settledEntryCosts(rows, benchmarks) {
+  const matched = rows.filter(row => benchmarks.has(row.settlementIdentity));
+  const benchmark = row => benchmarks.get(row.settlementIdentity);
+  const entryFees = row => row.costBasisCents - row.entryGrossCents;
+  const priceDifference = row => row.entryGrossCents - benchmark(row).benchmarkCents;
+  const total = (group, select) => {
+    let sum = 0;
+    for (const row of group) {
+      sum += select(row);
+      if (!Number.isSafeInteger(sum)) return null;
+    }
+    return sum;
+  };
+  const yuan = (group, select) => {
+    const cents = total(group, select);
+    return group.length && cents !== null ? cents / 100 : null;
+  };
+  return {scope:'standard-verified-simulation-settlements', standardSettlements:rows.length, withBenchmark:matched.length,
+    matchedShares:total(matched,row => benchmark(row).quantity),
+    entryPriceDifferenceCny:yuan(matched,priceDifference), matchedEntryFeesCny:yuan(matched,entryFees),
+    filledEntryShortfallCny:yuan(matched,row => priceDifference(row) + entryFees(row)),
+    allEntryFeesCny:yuan(rows,entryFees), allExitFeesCny:yuan(rows,row => row.exitFeeCents),
+    exitPriceDifferenceCny:null, unfilledOpportunityCostCny:null, spreadCny:null, impactCny:null, delayCny:null};
+}
+
 function settledPnlAttribution(rows,{slippageBps=0,feeMultiplier=1}={}) {
  const sum=fn=>rows.reduce((a,r)=>a+fn(r),0);
  const gross=sum(r=>r.exitGrossCents-r.entryGrossCents),fees=sum(r=>r.costCents),net=sum(r=>r.netCents);
@@ -157,6 +206,13 @@ function stress(rows,config=settings) {
 function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
   if(!Number.isSafeInteger(now)||time(now)===null)throw Error('执行验证时钟无效');
   const plans=new Map(),accepted=[],excluded=[],seen=new Set(),attempts=[],events=new Map(),claims=new Map(),verifiedCounts=new Map();
+  // The archive is immutable during this synchronous report. Future calls
+  // rehash the original record, including any corrected fields or version.
+  const planReviews=new WeakMap();
+  function reviewPlan(plan) {
+    if (!planReviews.has(plan)) planReviews.set(plan,reviewFrozenPlan(plan));
+    return planReviews.get(plan);
+  }
   for(const plan of (archive?.plans||[]).filter(real)){
     if(!identity(plan.id))continue;
     if(!plans.has(plan.id))plans.set(plan.id,[]);
@@ -171,8 +227,8 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     if(real(trade)&&p&&['pool','pre'].includes(p.accountId)&&identity(p.exitEventId)){
       const key=digest([p.accountId,p.exitEventId]);claims.set(key,(claims.get(key)||0)+1);
     }
-    const selected=selectPriorPlan(plans.get(trade?.planId),trade);
-    const result=selected.reason?selected:verifiedSettlement(trade,selected.plan,now);
+    const selected=selectPriorPlan(plans.get(trade?.planId),trade,reviewPlan);
+    const result=selected.reason?selected:inspectSettlement(trade,selected.plan,now,reviewPlan);
     attempts.push({id:trade?.id||null,...result});
     if(result.reason)continue;
     const row=result.row;
@@ -180,13 +236,16 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     events.get(row.settlementIdentity).add(row.settlementContentFingerprint);
     verifiedCounts.set(row.settlementIdentity,(verifiedCounts.get(row.settlementIdentity)||0)+1);
   }
-  const seenEvents=new Set();
+  const seenEvents=new Set(), entryBenchmarks=new Map();
   for(const result of attempts){
     if(result.reason){excluded.push({id:result.id,reason:result.reason});continue;}
     const row=result.row;
     if(events.get(row.settlementIdentity).size>1||claims.get(row.settlementIdentity)>verifiedCounts.get(row.settlementIdentity)){
       excluded.push({id:row.id,reason:'conflicting-ledger-settlement'});continue;
     }
+    // Equivalent projections can arrive in either order. Only a visible exact
+    // native link supplies a benchmark; keep each settlement's cash flow once.
+    if(row.settledEntryBenchmark)entryBenchmarks.set(row.settlementIdentity,row.settledEntryBenchmark);
     if(seen.has(row.fingerprint)||seenEvents.has(row.settlementIdentity)){excluded.push({id:row.id,reason:'duplicate-ledger-settlement'});continue;}
     seen.add(row.fingerprint);seenEvents.add(row.settlementIdentity);accepted.push(row);
   }
@@ -206,7 +265,7 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     method:'frozen-plan-and-original-ledger-cost-validation',acceptedTrades:accepted.length,standardTrades:standard.length,
     excludedCount:excluded.length,excluded:excluded.slice(-40),settings:{...settings,stressSlippageBps:[...settings.stressSlippageBps],
       stressFeeMultipliers:[...settings.stressFeeMultipliers]},strata,byRegime:groups('regime'),byCycle:groups('cycle'),byStrategy:groups('strategy'),
-    overall:stress(standard),folds,
+    overall:stress(standard),folds,settledEntryCosts:settledEntryCosts(standard,entryBenchmarks),
     planEvidence:{originalLinkReconciled:accepted.filter(row=>row.planEvidenceBasis==='original-plan-link-reconciled').length,
       legacyDeclarationOnly:accepted.filter(row=>row.planEvidenceBasis==='legacy-plan-declaration').length},
     fingerprint:digest(accepted.map(row=>({id:row.id,planId:row.planId,planFingerprint:row.planFingerprint,

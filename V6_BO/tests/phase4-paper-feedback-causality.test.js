@@ -172,3 +172,49 @@ test('explicit conflicts in frozen original quote identity and provenance cannot
   quoteSource:'tencent',quoteProvider:'tencent',tradeDate:day,timestamp:at-7000,quoteStatus:'recent-unverified'});
  assert.equal(x.run().imported,1);assert.equal(x.state.trades[0].snapshotVerified,true);
 });
+
+const {buildExecutionValidation}=require('../src/core/intelligence-execution-validation');
+function entryReview(state) {
+ return buildExecutionValidation(state,{folds:[]},{now}).settledEntryCosts;
+}
+test('only filled entry shares incur the signed decision-price difference, with each booked fee counted once',()=>{
+ for(const [price,difference] of [[9.98,2],[10.02,-2],[10,0]]){
+  const x=fixture();x.plan.decisionEvidence.quoteBasis.price=price;
+  x.run();const archive=JSON.stringify(x.state),r=entryReview(x.state);
+  assert.equal(r.standardSettlements,1);assert.equal(r.withBenchmark,1);assert.equal(r.matchedShares,100);
+  assert.equal(r.entryPriceDifferenceCny,difference);assert.equal(r.matchedEntryFeesCny,5);
+  assert.equal(r.filledEntryShortfallCny,difference+5);assert.equal(r.allEntryFeesCny,5);assert.equal(r.allExitFeesCny,5);
+  assert.equal(r.exitPriceDifferenceCny,null);assert.equal(r.unfilledOpportunityCostCny,null);
+  assert.equal(JSON.stringify(x.state),archive);
+ }
+});
+test('a missing or disqualified decision price cannot be recovered from settlement prices or the entry range',()=>{
+ const empty=entryReview({trades:[],plans:[]});assert.equal(empty.withBenchmark,0);assert.equal(empty.allEntryFeesCny,null);
+ for(const mutate of [q=>delete q.price,q=>delete q.code,q=>delete q.receivedAt,q=>q.quoteAt=at-6000-15001,
+  q=>q.mode='historical-replay',q=>q.mode='delayed',q=>q.source='historical-close',q=>q.revoked=true,
+  q=>q.sourceConflict=true,q=>q.quoteSource='other',q=>q.price=9.999]){
+  const x=fixture();x.run();const original=x.state.trades[0];mutate(x.plan.decisionEvidence.quoteBasis);
+  original.decisionLink.planFingerprint=sha(x.plan);
+  const r=entryReview(x.state);assert.equal(r.standardSettlements,1);assert.equal(r.withBenchmark,0);
+  assert.equal(r.entryPriceDifferenceCny,null);assert.equal(r.filledEntryShortfallCny,null);
+  assert.equal(r.allEntryFeesCny,5);assert.equal(r.allExitFeesCny,5);
+ }
+ const x=fixture();x.run();delete x.state.trades[0].decisionLink;
+ assert.equal(entryReview(x.state).withBenchmark,0);
+});
+
+test('a duplicate legacy projection contributes no extra shares or fees regardless of order',()=>{
+ const x=fixture();x.plan.decisionEvidence.quoteBasis.price=9.98;x.run();
+ const linked=x.state.trades[0],legacy=structuredClone(linked);delete legacy.decisionLink;legacy.id='legacy-copy';
+ for(const trades of [[linked,legacy],[legacy,linked]]){
+  const r=entryReview({...x.state,trades});assert.equal(r.standardSettlements,1);assert.equal(r.withBenchmark,1);
+  assert.equal(r.matchedShares,100);assert.equal(r.filledEntryShortfallCny,7);assert.equal(r.allExitFeesCny,5);
+ }
+ const copied={...linked,id:'unbound-import'};assert.equal(entryReview({...x.state,trades:[copied]}).withBenchmark,0);
+});
+
+test('historical entry attribution uses the inclusive original 15-second gate and rechecks each report',()=>{
+ const x=fixture(),e=x.plan.decisionEvidence;e.quoteBasis.quoteAt=e.calculatedAt-15000;x.run();
+ assert.equal(entryReview(x.state).withBenchmark,1);
+ e.quoteBasis.price=9.5;assert.equal(entryReview(x.state).standardSettlements,0);
+});

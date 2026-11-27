@@ -1,0 +1,317 @@
+{
+  "scope": "isolated actual paper service, original researcher import, authenticated HTTP; synthetic quote sequence",
+  "account": {
+    "scope": "isolated actual paper service, original researcher import, authenticated HTTP; synthetic quote sequence",
+    "accountCashChange": 283.3500000000058,
+    "viewerHttp": 200,
+    "viewerLocked": true,
+    "viewerReceivedReport": false,
+    "reports": [
+      {
+        "stage": "partially-closed",
+        "sync": {
+          "changed": true,
+          "revision": 2,
+          "imported": 1,
+          "updated": 0,
+          "retry": false
+        },
+        "response": 200,
+        "costs": {
+          "scope": "standard-verified-simulation-settlements",
+          "standardSettlements": 1,
+          "withBenchmark": 1,
+          "matchedShares": 100,
+          "entryPriceDifferenceCny": 2,
+          "matchedEntryFeesCny": 1.67,
+          "filledEntryShortfallCny": 3.67,
+          "allEntryFeesCny": 1.67,
+          "allExitFeesCny": 5.55,
+          "exitPriceDifferenceCny": null,
+          "unfilledOpportunityCostCny": null,
+          "spreadCny": null,
+          "impactCny": null,
+          "delayCny": null
+        },
+        "feesAndNet": {
+          "grossPricePnlCny": 100,
+          "recordedCostsCny": 7.22,
+          "netPnlCny": 92.78,
+          "reconciliationResidualCny": 0
+        }
+      },
+      {
+        "stage": "fully-closed",
+        "sync": {
+          "changed": true,
+          "revision": 3,
+          "imported": 1,
+          "updated": 0,
+          "retry": false
+        },
+        "response": 200,
+        "costs": {
+          "scope": "standard-verified-simulation-settlements",
+          "standardSettlements": 2,
+          "withBenchmark": 2,
+          "matchedShares": 300,
+          "entryPriceDifferenceCny": 6,
+          "matchedEntryFeesCny": 5,
+          "filledEntryShortfallCny": 11,
+          "allEntryFeesCny": 5,
+          "allExitFeesCny": 11.65,
+          "exitPriceDifferenceCny": null,
+          "unfilledOpportunityCostCny": null,
+          "spreadCny": null,
+          "impactCny": null,
+          "delayCny": null
+        },
+        "feesAndNet": {
+          "grossPricePnlCny": 300,
+          "recordedCostsCny": 16.65,
+          "netPnlCny": 283.35,
+          "reconciliationResidualCny": 0
+        }
+      }
+    ]
+  },
+  "views": [
+    {
+      "viewport": [
+        1366,
+        900
+      ],
+      "path": "/#/home",
+      "text": "买入决策价与已结算成交\n\n有事前报价 2 / 2 笔标准结算，覆盖 300 股。\n\n已成交买入价差 6.00 元，分摊买入费用 5.00 元，合计 11.00 元。正价差表示买入价高于决策价。\n\n卖出决策价差、未成交机会成本及价差中的等待和冲击成本均待独立证据。",
+      "researchResponses": [
+        "WORKSPACE_BUSY",
+        "ok"
+      ],
+      "visualRequests": 1,
+      "manualRetries": 1
+    },
+    {
+      "viewport": [
+        390,
+        844
+      ],
+      "path": "/m#/home",
+      "text": "买入决策价与已结算成交\n\n有事前报价 2 / 2 笔标准结算，覆盖 300 股。\n\n已成交买入价差 6.00 元，分摊买入费用 5.00 元，合计 11.00 元。正价差表示买入价高于决策价。\n\n卖出决策价差、未成交机会成本及价差中的等待和冲击成本均待独立证据。",
+      "researchResponses": [
+        "WORKSPACE_BUSY",
+        "ok"
+      ],
+      "visualRequests": 1,
+      "manualRetries": 1
+    }
+  ],
+  "benchmark": {
+    "scope": "controlled single process, synthetic 240 unique settlements with one shared frozen plan; no real market performance claim",
+    "baseline": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+    "sourceFiles": {
+      "before": "8ebc494836d9dc47f212d84c6592ae22b0a8c0f1e8d5b0f32e3ed1868933c079",
+      "after": "6a8337598a69d526b39ca92d5ac76c81e1a13972e325bfa55dba433d9d14eef8"
+    },
+    "node": "v24.22.3",
+    "cpu": "AMD EPYC 9V74 80-Core Processor",
+    "arch": "x64",
+    "corpusSha256": "c0644b39ea2447d16bb1fe6cc66abcf00a067100ee1df38a4a747748b2c2808b",
+    "matchedSettlements": 240,
+    "matchedOriginalOutputs": true,
+    "planHashCalls": {
+      "before": {
+        "planSha256": 480
+      },
+      "after": {
+        "planSha256": 1
+      }
+    },
+    "rounds": 21,
+    "warmup": 4,
+    "measurements": {
+      "before": {
+        "wallMedianMs": 8.853,
+        "wallP95Ms": 9.651,
+        "cpuMedianMs": 9.207,
+        "samples": [
+          {
+            "wallMs": 9.650902,
+            "cpuMs": 11.008
+          },
+          {
+            "wallMs": 8.852688,
+            "cpuMs": 8.924
+          },
+          {
+            "wallMs": 9.565814,
+            "cpuMs": 9.707
+          },
+          {
+            "wallMs": 9.643511,
+            "cpuMs": 13.369
+          },
+          {
+            "wallMs": 8.44195,
+            "cpuMs": 8.681
+          },
+          {
+            "wallMs": 8.784767,
+            "cpuMs": 8.719
+          },
+          {
+            "wallMs": 9.390662,
+            "cpuMs": 9.416
+          },
+          {
+            "wallMs": 8.511775,
+            "cpuMs": 8.562
+          },
+          {
+            "wallMs": 9.057178,
+            "cpuMs": 9.207
+          },
+          {
+            "wallMs": 8.391044,
+            "cpuMs": 8.395
+          },
+          {
+            "wallMs": 9.436601,
+            "cpuMs": 12.51
+          },
+          {
+            "wallMs": 9.767991,
+            "cpuMs": 10.38
+          },
+          {
+            "wallMs": 8.864809,
+            "cpuMs": 9.894
+          },
+          {
+            "wallMs": 7.699229,
+            "cpuMs": 7.702
+          },
+          {
+            "wallMs": 8.356151,
+            "cpuMs": 8.803
+          },
+          {
+            "wallMs": 9.450782,
+            "cpuMs": 9.457
+          },
+          {
+            "wallMs": 9.132172,
+            "cpuMs": 10.143
+          },
+          {
+            "wallMs": 8.566888,
+            "cpuMs": 8.635
+          },
+          {
+            "wallMs": 8.594731,
+            "cpuMs": 17.647
+          },
+          {
+            "wallMs": 8.102197,
+            "cpuMs": 8.212
+          },
+          {
+            "wallMs": 8.557374,
+            "cpuMs": 8.504
+          }
+        ]
+      },
+      "after": {
+        "wallMedianMs": 7.313,
+        "wallP95Ms": 8.132,
+        "cpuMedianMs": 7.772,
+        "samples": [
+          {
+            "wallMs": 8.092341,
+            "cpuMs": 11.66
+          },
+          {
+            "wallMs": 8.954721,
+            "cpuMs": 9.181
+          },
+          {
+            "wallMs": 7.037619,
+            "cpuMs": 9.458
+          },
+          {
+            "wallMs": 6.941266,
+            "cpuMs": 7.622
+          },
+          {
+            "wallMs": 8.131652,
+            "cpuMs": 8.248
+          },
+          {
+            "wallMs": 7.10282,
+            "cpuMs": 7.772
+          },
+          {
+            "wallMs": 7.168948,
+            "cpuMs": 8.311
+          },
+          {
+            "wallMs": 6.347289,
+            "cpuMs": 6.352
+          },
+          {
+            "wallMs": 6.368772,
+            "cpuMs": 6.373
+          },
+          {
+            "wallMs": 7.635162,
+            "cpuMs": 7.64
+          },
+          {
+            "wallMs": 7.471275,
+            "cpuMs": 10.429
+          },
+          {
+            "wallMs": 7.776956,
+            "cpuMs": 10.041
+          },
+          {
+            "wallMs": 7.741422,
+            "cpuMs": 8.647
+          },
+          {
+            "wallMs": 7.621062,
+            "cpuMs": 7.643
+          },
+          {
+            "wallMs": 7.883517,
+            "cpuMs": 8.72
+          },
+          {
+            "wallMs": 7.312605,
+            "cpuMs": 7.399
+          },
+          {
+            "wallMs": 7.749736,
+            "cpuMs": 7.754
+          },
+          {
+            "wallMs": 6.171834,
+            "cpuMs": 6.175
+          },
+          {
+            "wallMs": 7.189961,
+            "cpuMs": 15.436
+          },
+          {
+            "wallMs": 6.572027,
+            "cpuMs": 6.715
+          },
+          {
+            "wallMs": 6.092075,
+            "cpuMs": 6.742
+          }
+        ]
+      }
+    }
+  },
+  "originalBrowserBusyRetryPassed": true
+}
