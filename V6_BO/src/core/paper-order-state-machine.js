@@ -20,13 +20,17 @@ function reducePaperOrderEvents(order, events) {
     averageFillPrice: 0, fills: [], events: [], lastSequence: 0
   };
   if (!state.orderId || !/^\d{6}$/.test(state.symbol) || !['buy', 'sell'].includes(state.side)) throw new Error('订单标识、股票代码或方向无效');
-  const seen = new Set();
+  const seen = new Map();
   for (const event of events) {
     if (!event || typeof event !== 'object' || Array.isArray(event)) throw new Error('订单事件格式无效');
     const id = String(event.eventId || '');
     const sequence = Number(event.sequence);
     if (!id) throw new Error('订单事件缺少 eventId');
-    if (seen.has(id)) continue; // idempotent replay
+    const eventHash = hash(event);
+    if (seen.has(id)) {
+      if (seen.get(id) !== eventHash) throw new Error('相同 eventId 对应不同事件内容，拒绝幂等冲突');
+      continue; // Only an identical event is an idempotent replay.
+    }
     if (!Number.isSafeInteger(sequence) || sequence <= state.lastSequence) throw new Error('订单事件序号必须严格递增');
     if (TERMINAL.has(state.status)) throw new Error('终态订单不能继续变更');
     const type = event.type;
@@ -53,7 +57,7 @@ function reducePaperOrderEvents(order, events) {
     }
     state.lastSequence = sequence;
     state.events.push({ eventId: id, sequence, type, statusAfter: state.status });
-    seen.add(id);
+    seen.set(id, eventHash);
   }
   state.terminal = TERMINAL.has(state.status);
   state.paperOnly = true;
