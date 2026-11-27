@@ -623,7 +623,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   dailyIC(postRecoveryTest,ids,oldWeights):null;
  const postRecoveryEvolved=existingGate?.phase==='recovered'&&unseenReady?
   dailyIC(postRecoveryTest,ids,proposal):null;
- const postRecoveryGain=postRecoveryBase&&postRecoveryEvolved?
+ const postRecoveryGain=finite(postRecoveryBase?.meanIC)&&finite(postRecoveryEvolved?.meanIC)?
   postRecoveryEvolved.meanIC-postRecoveryBase.meanIC:null;
  const accepted=candidateChanged&&!paused&&!shadowDecay.alert&&
    !activeCooldown&&!recoveredNow&&unseenReady&&
