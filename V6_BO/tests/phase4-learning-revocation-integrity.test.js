@@ -8,7 +8,8 @@ const names=['训练集验证','时间外验证','样本外测试','成本压力
 function state(evidence=review(),createdAt=at(10)){
  const candidate={id:'frozen-candidate',createdAt,baseVersion:0,status:'待人工审批',sampleScope:'live',
   sourceIds:['paper-1'],steps:names.map(name=>({name,status:'通过'})),weights:{'承接':2},threshold:0,strategyThresholds:{},minSupport:6};
- return {scope:'live',candidates:[candidate],versions:[],trades:[{id:'paper-1',planEvidenceReview:evidence}],plans:[],checks:[],explanations:[]};
+ return {scope:'live',candidates:[candidate],versions:[],trades:[{id:'paper-1',code:'600000',date:'2024-02-07',entryTime:'2024-02-07T10:00',exitTime:'2024-02-08T11:00',
+  createdAt:at(8),pnl:3,snapshotVerified:true,repeatable:true,planEvidenceReview:evidence}],plans:[],checks:[],explanations:[]};
 }
 const decision={id:'frozen-candidate',decision:'approve',reviewer:'隔离验收',reason:'验证原候选来源'};
 test('a previously five-gate candidate cannot be promoted after a source learning receipt is quarantined',()=>{

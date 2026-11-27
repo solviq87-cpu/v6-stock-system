@@ -195,6 +195,10 @@ test('新独立窗口的中心提案在同一获批正交基底上调权，完�
   t.mock.timers.enable({apis:['Date'],now:at('2023-12-20','16:00:00')});
   const [,,{learningAction}, {applyCenterFeedback}]=await modules;
   const past=addRulePanels(shiftFixture(await feedbackFixture(),-200));
+  // Independently archived windows must not recycle local settlement/check/plan IDs.
+  for(const check of past.state.checks)check.id='past-'+check.id;
+  for(const plan of past.state.plans)plan.id='past-'+plan.id;
+  for(const trade of past.state.trades){trade.id='past-'+trade.id;trade.checkId='past-'+trade.checkId;trade.planId='past-'+trade.planId;}
   const first=learningAction(past.state,'learn:candidate',{});
   const approved=learningAction(past.state,'learn:decision',{id:first.id,decision:'approve',reviewer:'单元测试',reason:'建立真实数值基线'});
   const x=addRulePanels(await feedbackFixture());x.state.versions=[approved];x.state.candidates=[first];
