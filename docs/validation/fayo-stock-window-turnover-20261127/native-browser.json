@@ -1,0 +1,38 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "applicationPath": "/lab/shortline-new/600000/2026-11-27",
+    "renderedText": "个股同时段成交额（盘后研究）\n\n交易日 2026-11-27 · 研究截点 2026-11-28 03:08:00（北京时间）\n\n分钟来源、回执或成交额口径不满足比较条件",
+    "privateHttp": [
+      {
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "applicationPath": "/lab/shortline-new/600000/2026-11-27",
+    "renderedText": "个股同时段成交额（盘后研究）\n\n交易日 2026-11-27 · 研究截点 2026-11-28 03:08:00（北京时间）\n\n分钟来源、回执或成交额口径不满足比较条件",
+    "privateHttp": [
+      {
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]

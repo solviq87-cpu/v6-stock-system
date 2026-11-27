@@ -1,0 +1,63 @@
+{
+  "mode": "local isolated V6 service, public post-close inputs, original worker/store then authenticated HTTP read",
+  "receipts": [
+    {
+      "code": "688981",
+      "day": "2026-11-27",
+      "sourceBarCount": 0,
+      "source": null,
+      "originalCapture": null,
+      "sourceHash": null,
+      "editorHttp": 200,
+      "observed": {
+        "version": 1,
+        "purpose": "post-close-stock-research",
+        "code": "688981",
+        "day": "2026-11-27",
+        "asOf": 1795806373367,
+        "unit": "CNY",
+        "requiredDays": 20,
+        "status": "unknown",
+        "windows": [],
+        "history": [],
+        "calendarSha256": "013dbddcd5b60175000d82c18051ccaebcf7476c72a13d9a6da7c48942d8e00f",
+        "currentAttempts": {
+          "1m": "missing-session",
+          "5m": "missing-session"
+        },
+        "reason": "current-session-unavailable"
+      }
+    },
+    {
+      "code": "600000",
+      "day": "2026-11-27",
+      "sourceBarCount": 240,
+      "source": "V6/tencent",
+      "originalCapture": 1795806316951,
+      "sourceHash": "e9ca226a52db8f4474eec8f52a138ae5e103525b5cfbf334759888b58f167742",
+      "editorHttp": 200,
+      "observed": {
+        "version": 1,
+        "purpose": "post-close-stock-research",
+        "code": "600000",
+        "day": "2026-11-27",
+        "asOf": 1795806480414,
+        "unit": "CNY",
+        "requiredDays": 20,
+        "status": "unknown",
+        "windows": [],
+        "history": [],
+        "calendarSha256": "013dbddcd5b60175000d82c18051ccaebcf7476c72a13d9a6da7c48942d8e00f",
+        "currentAttempts": {
+          "1m": "incompatible-receipt-or-amount",
+          "5m": "missing-session"
+        },
+        "reason": "current-session-unavailable"
+      }
+    }
+  ],
+  "viewerHttp": 403,
+  "anonymousHttp": 200,
+  "anonymousReturnedState": false,
+  "anonymousLocked": true
+}

@@ -69,13 +69,17 @@ function linksFor(dir,day,code){
   }
   return data.links;
 }
-function rowsFor(dir,day,key,required=false){
+function shardFor(dir,day,key,required=false){
   const data=read(path.join(dir,key+'.json.gz'));
-  if(!data&&!required)return [];
+  if(!data&&!required)return {rows:[]};
   if(!data||data.day!==day||data.key!==key||!Array.isArray(data.rows)||data.rows.length>512)throw invalid();
   for(const b of data.rows)validateBar(b,day,key);
   if(data.rows.some((b,i)=>i>0&&data.rows[i-1].date>=b.date))throw invalid();
-  return data.rows;
+  if(data.turnoverAudit){
+    const {completeAt,disputedAt}=data.turnoverAudit;
+    if(!key.startsWith('stock-')||[completeAt,disputedAt].some(at=>at!==null&&(!Number.isSafeInteger(at)||at<1)))throw invalid();
+  }
+  return data;
 }
 
 // A V6 sync holds the existing account-process lock across all shard writes.
@@ -99,25 +103,37 @@ function saveMinuteBars(root,{day,code,observedAtMs},rows){
     const seen=new Map();
     for(const b of group){
       const prior=seen.get(b.date);
-      if(prior&&['open','high','low','close','volume','amount','priceBasis','volumeUnit','secid'].some(k=>prior[k]!==b[k]))throw invalid();
+      if(prior&&['open','high','low','close','volume','amount','amountUnit','priceBasis','volumeUnit','secid'].some(k=>prior[k]!==b[k]))throw invalid();
       if(!prior)seen.set(b.date,b);
     }
   }
   const dir=folder(root,day,true),links=linksFor(dir,day,code);
   let newLinks=false;
   for(const [key,incoming] of groups){
-    const current=rowsFor(dir,day,key),byMinute=new Map(current.map(b=>[b.date,b]));
+    const stored=shardFor(dir,day,key),byMinute=new Map(stored.rows.map(b=>[b.date,b]));
+    // Earlier shards did not retain dispute times. Keep them readable for their
+    // original purpose, without retrospectively certifying a turnover baseline.
+    const audit=stored.turnoverAudit||(!stored.rows.length&&key.startsWith('stock-')?{completeAt:null,disputedAt:null}:null);
     let changed=false;
     for(const bar of incoming){
       const prior=byMinute.get(bar.date);
       if(!prior){byMinute.set(bar.date,bar);result.added++;changed=true;continue;}
       const conflict=['open','high','low','close','volume','amount','priceBasis','volumeUnit','secid'].some(k=>
-        prior[k]!=null&&bar[k]!=null&&prior[k]!==bar[k]);
-      if(conflict)result.conflicts++;
+        prior[k]!=null&&bar[k]!=null&&prior[k]!==bar[k])||
+        audit&&bar.amount!=null&&bar.amountUnit!=null&&bar.amountUnit!==(prior.amountUnit??'CNY');
+      if(conflict){
+        result.conflicts++;
+        if(audit&&(audit.disputedAt===null||observedAtMs<audit.disputedAt)){
+          audit.disputedAt=observedAtMs;changed=true;
+        }
+      }
       else result.confirmed++;
     }
     if(byMinute.size>512)throw invalid();
-    if(changed)write(path.join(dir,key+'.json.gz'),{day,key,rows:[...byMinute.values()].sort((a,b)=>a.date.localeCompare(b.date))});
+    if(audit&&audit.completeAt===null&&byMinute.size===(key.endsWith('-1m')?240:48)){
+      audit.completeAt=observedAtMs;changed=true;
+    }
+    if(changed)write(path.join(dir,key+'.json.gz'),{day,key,...(audit?{turnoverAudit:audit}:{}),rows:[...byMinute.values()].sort((a,b)=>a.date.localeCompare(b.date))});
     if(!Object.hasOwn(links,key)){
       // Sector membership is observed for this particular stock at this sync.
       links[key]=observedAtMs;newLinks=true;
@@ -132,11 +148,25 @@ function readMinuteBars(root,{day,code,observedAtMs}={}){
   const dir=folder(root,day,false),links=linksFor(dir,day,code),out=[];
   for(const [key,linkedAt] of Object.entries(links)){
     if(linkedAt>observedAtMs)continue;
-    for(const row of rowsFor(dir,day,key,true)){
+    for(const row of shardFor(dir,day,key,true).rows){
       if(row.knownAt>observedAtMs)continue;
       out.push(key.startsWith('sector-')?{...row,membershipKnownAt:linkedAt}:row);
     }
   }
   return out.sort((a,b)=>a.date.localeCompare(b.date)||a.role.localeCompare(b.role)||a.period.localeCompare(b.period));
 }
-module.exports={saveMinuteBars,readMinuteBars,minuteEnd};
+// Only the selected stock and native period are read. A different stock's
+// archive, including any linked industry files, cannot complete a sample.
+function readTurnoverSession(root,{day,code,period,observedAtMs}){
+  if(!stockCode.test(code)||!validDay(day)||!['1m','5m'].includes(period)||!Number.isSafeInteger(observedAtMs))return {status:'invalid-selection'};
+  const dir=folder(root,day,false),key='stock-'+code+'-'+period;
+  const linkedAt=linksFor(dir,day,code)[key];
+  if(linkedAt===undefined||linkedAt>observedAtMs)return {status:'missing-session'};
+  const {rows,turnoverAudit:audit}=shardFor(dir,day,key,true);
+  if(!audit)return {status:'legacy-without-dispute-history'};
+  if(audit.disputedAt!==null&&audit.disputedAt<=observedAtMs)return {status:'disputed-session'};
+  if(!audit.completeAt||audit.completeAt>observedAtMs||rows.length!==(period==='1m'?240:48))return {status:'incomplete-session'};
+  if(rows.some(row=>row.knownAt>observedAtMs))return {status:'not-yet-observed'};
+  return {status:'available',rows,capturedAt:audit.completeAt};
+}
+module.exports={saveMinuteBars,readMinuteBars,readTurnoverSession,minuteEnd};

@@ -9,6 +9,7 @@ import decisionPlans from '../../core/paper-decision-plan.js';
 import governance from '../../core/fayo-research-governance.js';
 import {mutate} from './engine.mjs';
 import minuteArchive from '../shortline-minute-archive.js';
+import windowTurnover from '../shortline-window-turnover.js';
 import {bookIdOk,booksOf,bookPath,createBook} from './workbooks.mjs';
 import {seedDemo} from './demo.mjs';
 import {mergePressureHistory} from '../../../public/nova/shortline/pressure.mjs';
@@ -101,6 +102,7 @@ function applySnapshot(state,snapshot,{applySource,readSettlements},root,mainBoo
   const candidate=mutate(state,'learn:auto-candidate',{});
   for(const exitDay of new Set(settlements.exitDays||[]))if(exitDay!==day)refreshDailyReview(state,exitDay);
   const note=refreshDailyReview(state,day);
+  state.v6Observation.windowTurnover=windowTurnover.compareWindowTurnover(minuteRoot(root,state),state.v6Observation,process.env.V6_RESEARCH_CALENDAR_FILE||undefined);
   return {...info,minuteReport,settlements,code,day,name:state.v6Observation.name,stock,missing:state.v6Observation.missing,
     observedAt,checkId:(prior||record).id,reviewId:note.id,candidateId:candidate?.id||null};
 }

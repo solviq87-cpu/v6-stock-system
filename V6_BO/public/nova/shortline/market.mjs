@@ -421,6 +421,24 @@ export function recognitionHTML(rec,day){
     }).join(''):'暂无具备部分条件的战法')+'</div></details></section>';
 }
 
+export function windowTurnoverHTML(report,code,day){
+  if(!report||report.code!==code||report.day!==day||report.purpose!=='post-close-stock-research'||!Array.isArray(report.windows))return '';
+  const format=value=>value>0&&value<0.01?'小于 0.01':value.toLocaleString('zh-CN',{maximumFractionDigits:2});
+  const reasons={'insufficient-history':'历史样本不足','zero-median':'历史中位数为零','unrepresentable-ratio':'倍数超出范围'};
+  const attempts=Object.values(report.currentAttempts||{});
+  const reasonsForDay={'disputed-session':'当日分钟证据存在冲突','unreadable-session':'分钟档案校验失败',
+    'legacy-without-dispute-history':'旧档案缺少冲突记录','incompatible-receipt-or-amount':'分钟来源、回执或成交额口径不满足比较条件',
+    'incomplete-session':'当日分钟记录不完整'};
+  const unavailable=report.reason==='calendar-unavailable-or-session-closed'?'交易日历未覆盖或当日休市':
+    attempts.map(status=>reasonsForDay[status]).find(Boolean)||'当日缺少可核对的完整分钟成交额';
+  const body=report.windows.length?'<p>来源 '+esc(report.current.source)+' · 原始周期 '+esc(report.period)+' · 同期样本 '+esc(report.observedDays)+'/'+esc(report.requiredDays)+' 个交易日</p>'+
+    report.windows.map(w=>'<div>'+esc(w.start)+'–'+esc(w.end)+'　'+esc(format(w.amount))+' 元　'+
+      (w.multiple==null?esc(reasons[w.reason]||'倍数未知'):'历史中位数 '+esc(format(w.median))+' 元　'+esc(format(w.multiple))+' 倍')+'</div>').join(''):
+    '<p>'+esc(unavailable)+'</p>';
+  const cutoff=new Date(report.asOf+8*3600000).toISOString().slice(0,19).replace('T',' ');
+  return '<details class="mk-note"><summary>个股同时段成交额（盘后研究）</summary><div class="mk-evidence"><p>交易日 '+esc(day)+' · 研究截点 '+esc(cutoff)+'（北京时间）</p>'+body+'</div></details>';
+}
+
 const evidenceQueues=new WeakMap();
 function newCheck(ui,mount=ui.root,embedded=false){
   const state=ui.state,root=mount,observation=state.v6Observation||{};
@@ -447,7 +465,7 @@ function newCheck(ui,mount=ui.root,embedded=false){
     if(loadedKey!==key(p)||!ready(p))return;
     try{
       visibleResult=autoValidate(ui.state,p);
-      out.innerHTML='<div class="mk-spaced"><section class="mk-panel"><div class="mk-head" style="margin-bottom:15px"><div><h3>'+esc(visibleResult.name)+' <span class="mk-sub">'+esc(p.code)+'</span></h3><p class="mk-sub">'+esc(visibleResult.asOf||p.date)+' 观测快照</p></div><span class="tag">行情自动识别</span></div>'+resultHTML(visibleResult)+'</section>'+recognitionHTML(visibleResult.recognition,p.date)+'</div>';
+      out.innerHTML='<div class="mk-spaced"><section class="mk-panel"><div class="mk-head" style="margin-bottom:15px"><div><h3>'+esc(visibleResult.name)+' <span class="mk-sub">'+esc(p.code)+'</span></h3><p class="mk-sub">'+esc(visibleResult.asOf||p.date)+' 观测快照</p></div><span class="tag">行情自动识别</span></div>'+resultHTML(visibleResult)+'</section>'+recognitionHTML(visibleResult.recognition,p.date)+windowTurnoverHTML(ui.state.v6Observation?.windowTurnover,p.code,p.date)+'</div>';
       save.disabled=false;
     }catch(err){showNote(err.message)}
   }
