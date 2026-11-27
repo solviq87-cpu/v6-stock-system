@@ -116,3 +116,27 @@ test('read-only UI uses text nodes for titles/body and rejects script and creden
  assert.equal(container.children[0].children.some(x=>x.tag==='a'),false);assert.equal(ui.allowedUrl('https://example.test/original'),'https://example.test/original');
  assert.equal(ui.allowedUrl('https://user:secret@example.test'),null);assert.equal(ui.clock(null),'未知');
 });
+
+test('D65/D40 sparse securities are rejected before append and cannot poison journal recovery',t=>{
+ const root=temp(t);
+ for(const securities of [Array(1),['600000',,'000001'],[null],['600000','600000']]){
+  assert.throws(()=>J.normalize(base({securities}),{now:NOW}),/INVALID_NEWS_SECURITIES/);
+  assert.throws(()=>J.appendBatch(root,[base(),base({eventId:'two',securities})],{now:NOW}),/INVALID_NEWS_SECURITIES/);
+  assert.equal(fs.existsSync(root),false);
+ }
+ put(root,base({securities:['600000','000001']}));
+ put(root,base({eventId:'no-security',securities:[]}));
+ assert.deepEqual(J.readJournal(root,{now:NOW}).map(e=>e.evidence.securities),[['000001','600000'],[]]);
+});
+test('D65 current and point-in-time news queries reject coerced security identities',t=>{
+ const root=temp(t);
+ for(const symbol of [600000,['600000']]){
+  assert.throws(()=>J.query(root,{symbol,now:NOW}),/INVALID_NEWS_QUERY/);
+  assert.throws(()=>J.queryAt(root,{symbol,now:NOW,asOf:NOW}),/INVALID_NEWS_HISTORY_QUERY/);
+ }
+ assert.equal(fs.existsSync(root),false);
+ put(root,base());
+ assert.equal(J.query(root,{symbol:'600000',now:NOW}).total,1);
+ assert.equal(J.queryAt(root,{symbol:'600000',now:NOW,asOf:NOW}).total,1);
+ assert.equal(J.query(root,{symbol:null,now:NOW}).total,1);
+});

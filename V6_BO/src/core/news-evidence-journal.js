@@ -37,7 +37,7 @@ function normalize(input,{now=Date.now()}={}){
  typeof input.body!=='string'||input.body.length>50000||!timestamp(input.receivedAt)||input.receivedAt>now)
   throw Error('INVALID_NEWS_INPUT_OR_FUTURE_RECEIPT');
  if(!Array.isArray(input.securities)||input.securities.length>100||
- input.securities.some(s=>typeof s!=='string'||!/^\d{6}$/.test(s))||new Set(input.securities).size!==input.securities.length)
+ Array.from(input.securities,(s,i)=>!Object.hasOwn(input.securities,i)||typeof s!=='string'||!/^\d{6}$/.test(s)).some(Boolean)||new Set(input.securities).size!==input.securities.length)
   throw Error('INVALID_NEWS_SECURITIES');
  const publishedAt=input.publishedAt??null,revisedAt=input.revisedAt??null;
  for(const t of [publishedAt,revisedAt])if(t!==null&&(!timestamp(t)||t>input.receivedAt||t>now))throw Error('INVALID_OR_FUTURE_SOURCE_TIME');
@@ -135,7 +135,7 @@ function appendBatch(root=ROOT,inputs,{now=Date.now()}={}){
  }finally{fs.closeSync(fd);fs.unlinkSync(lock);}
 }
 function query(root=ROOT,{symbol=null,limit=50,now=Date.now()}={}){
- if(symbol!==null&&!/^\d{6}$/.test(symbol)||!Number.isSafeInteger(limit)||limit<1||limit>200)throw Error('INVALID_NEWS_QUERY');
+ if(symbol!==null&&(typeof symbol!=='string'||!/^\d{6}$/.test(symbol))||!Number.isSafeInteger(limit)||limit<1||limit>200)throw Error('INVALID_NEWS_QUERY');
  const all=readJournal(root,{now}),latest=new Map(all.map(e=>[key(e.evidence),e.eventHash]));
  const rows=all.filter(e=>symbol===null||e.evidence.securities.includes(symbol)).map(e=>{
   const current=latest.get(key(e.evidence))===e.eventHash,x=e.evidence;
@@ -225,7 +225,7 @@ function captureProviderBatch(root=ROOT,raw,{now=Date.now()}={}){
 // clock, then select only events recorded at/before the requested cutoff.
 // A removed-security revision belongs to the same event, never today's state.
 function queryAt(root=ROOT,{symbol=null,limit=50,offset=0,asOf=Date.now(),now=Date.now()}={}){
- if(symbol!==null&&!/^\d{6}$/.test(symbol)||!Number.isSafeInteger(limit)||limit<1||limit>200||
+ if(symbol!==null&&(typeof symbol!=='string'||!/^\d{6}$/.test(symbol))||!Number.isSafeInteger(limit)||limit<1||limit>200||
     !Number.isSafeInteger(offset)||offset<0||offset>MAX_EVENTS||!timestamp(asOf)||!timestamp(now)||asOf>now)
   throw Error('INVALID_NEWS_HISTORY_QUERY');
  const all=readJournal(root,{now}).filter(e=>e.recordedAt<=asOf);
