@@ -124,6 +124,7 @@ jobs:
           node scripts/ui-original-workspace-browser-check.js
           node scripts/ui-mobile-roles-browser-check.js
           node scripts/ui-cache-upgrade-browser-check.js
+          node scripts/fayo-offline-entry-browser-check.js
           node scripts/ui-reference-browser-check.js
           node scripts/ui-picks-three-k-browser-check.js
           node scripts/ui-stream-recovery-browser-check.js
