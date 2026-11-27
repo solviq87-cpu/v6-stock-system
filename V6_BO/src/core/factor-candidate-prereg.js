@@ -14,13 +14,14 @@ const seal=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&
  [Object.prototype,null].includes(Object.getPrototypeOf(x));
 const validId=id=>typeof id==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$/.test(id)&&
- !['__proto__','constructor','prototype'].includes(id);
-const exactKeys=(row,ids)=>plain(row)&&Object.keys(row).length===ids.length&&ids.every(id=>Object.hasOwn(row,id));
-const validIds=ids=>Array.isArray(ids)&&ids.length>=2&&ids.every(validId)&&new Set(ids).size===ids.length;
+ !Object.hasOwn(Object.prototype,id)&&id!=='prototype';
+const ownData=(row,key)=>{const d=Object.getOwnPropertyDescriptor(row,key);return !!d&&d.enumerable&&Object.hasOwn(d,'value');};
+const exactKeys=(row,ids)=>plain(row)&&Reflect.ownKeys(row).length===ids.length&&ids.every(id=>ownData(row,id));
+const validIds=ids=>Array.isArray(ids)&&ids.length>=2&&Array.from(ids).every(validId)&&new Set(ids).size===ids.length;
 const positive=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
 function declaredDefinitions(defs,ids){
  if(!Array.isArray(defs)||defs.length!==ids.length||!validIds(ids)||
-    defs.some((d,i)=>!plain(d)||d.id!==ids[i]||!positive(d.baseWeight)))return null;
+    Array.from(defs).some((d,i)=>!plain(d)||!ownData(d,'id')||!ownData(d,'baseWeight')||d.id!==ids[i]||!positive(d.baseWeight)))return null;
  return defs;
 }
 function canonicalDefinitions(ids,packFingerprint){
@@ -33,6 +34,8 @@ function canonicalDefinitions(ids,packFingerprint){
 function weightsValid(candidate,accepted,ids,definitions=null){
  if(!validIds(ids)||!exactKeys(candidate,ids)||!exactKeys(accepted,ids)||
     definitions!==null&&!declaredDefinitions(definitions,ids))return false;
+ if(![candidate,accepted].every(w=>Number.isFinite(ids.reduce((sum,id)=>sum+w[id],0)))||
+    definitions!==null&&!Number.isFinite(definitions.reduce((sum,d)=>sum+d.baseWeight,0)))return false;
  return ids.every((id,i)=>{
   const c=candidate[id],a=accepted[id],base=definitions?.[i].baseWeight;
   if(!positive(c)||!positive(a)||c<a*.92-1e-7||c>a*1.08+1e-7)return false;
@@ -44,6 +47,22 @@ function weightsValid(candidate,accepted,ids,definitions=null){
 const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+const timestamp=t=>Number.isSafeInteger(t)&&t>0&&t<8e15;
+const validCapture=(day,t)=>date(day)&&timestamp(t)&&new Date(t+28800000).toISOString().slice(0,10)===day;
+function sealedFeature(f){
+ if(!plain(f)||!seal(f.fingerprint)||!validCapture(f.signalDay,f.capturedAt))return false;
+ const {fingerprint,...payload}=f;
+ try{return hash(payload)===fingerprint;}catch{return false;}
+}
+function bodyMatches(row,reg){
+ const body=row.features;
+ if(!plain(body)||body.signalDay!==row.day||body.capturedAt!==row.featureCapturedAt||body.packFingerprint!==reg.packFingerprint||
+    !declaredDefinitions(body.factors,reg.factorIds))return false;
+ const defs=body.factors.map(d=>({id:d.id,baseWeight:d.baseWeight}));
+ const declared=reg.factorDefinitions?.map(d=>({id:d.id,baseWeight:d.baseWeight}));
+ if(declared&&hash(defs)!==hash(declared))return false;
+ try{return hash(body)===row.featureFingerprint;}catch{return false;}
+}
 const policyFiles=[
  'factor-shadow-evolution.js','factor-learning-reliability.js',
  'factor-redundancy.js','factor-marginal-contribution.js',
@@ -59,11 +78,10 @@ function currentResearchCodeFingerprint(){
 // This policy is deliberately fixed before any result exists. Its direction
 // follows pack order, never a ranking, feature score, or historical return.
 function seedDefinition(config){
- if(!config||config.schemaVersion!==1||config.mode!=='v6-fixed-shadow-seed-config-v1'||
+ if(!plain(config)||Reflect.ownKeys(config).some(k=>typeof k!=='string'||!ownData(config,k))||config.schemaVersion!==1||config.mode!=='v6-fixed-shadow-seed-config-v1'||
     config.researchOnly!==true||config.canTrade!==false||config.seedPolicy!==SEED_POLICY||
     Object.keys(config).some(k=>!['schemaVersion','mode','researchOnly','canTrade','seedPolicy','factorIds'].includes(k))||
-    !Array.isArray(config.factorIds)||config.factorIds.length<2||
-    new Set(config.factorIds).size!==config.factorIds.length||
+    !validIds(config.factorIds)||
     config.factorIds.some(id=>!factorPack.factors.some(f=>f.id===id)))
   throw Error('固定种子配置协议无效，禁止外部权重或结果选择');
  const definitions=factorPack.factors.filter(f=>config.factorIds.includes(f.id))
@@ -81,8 +99,7 @@ function verifySeedRegistrationMetadata(reg){
     reg.candidateOrigin!=='fixed-pack-seed-v1'||reg.seedPolicy!==SEED_POLICY||
     reg.seedConfigFingerprint!==hash(reg.seedConfig)||reg.packFingerprint!==hash(factorPack)||
     !seal(reg.algorithmFingerprint)||
-    !Number.isSafeInteger(reg.registeredAt)||reg.registeredAt<=0||
-    !Number.isSafeInteger(reg.recordedAt)||reg.recordedAt<reg.registeredAt||
+    !timestamp(reg.registeredAt)||!timestamp(reg.recordedAt)||reg.recordedAt<reg.registeredAt||
     reg.recordedAt>reg.registeredAt+60000||
     reg.parentAcceptedFingerprint!==null||reg.parentTrialFingerprint!==null||
     reg.canTrade!==false||reg.productionWeightsChanged!==false||reg.sealedBeforeFutureSignals!==true||
@@ -93,25 +110,23 @@ function verifySeedRegistrationMetadata(reg){
     !Array.isArray(prefix)||prefix.length>400||prefix.some(fp=>!seal(fp))||
     new Set(prefix).size!==prefix.length||
     (prefix.length===0?(reg.latestFrozenSignalDay!==null||reg.lastFrozenCapturedAt!==null):
-     (!date(reg.latestFrozenSignalDay)||!Number.isSafeInteger(reg.lastFrozenCapturedAt)||
-      reg.lastFrozenCapturedAt<=0||reg.registeredAt<reg.lastFrozenCapturedAt)))
+     (!validCapture(reg.latestFrozenSignalDay,reg.lastFrozenCapturedAt)||reg.registeredAt<reg.lastFrozenCapturedAt)))
   throw Error('固定种子预注册元信息或完整性无效');
  return definition;
 }
 function preregisterSeedCandidate({features=[],seedConfig,registeredAt}={}){
  const definition=seedDefinition(seedConfig),packFingerprint=hash(factorPack),recordedAt=Date.now();
  if(!Array.isArray(features)||features.length>400||
-    !Number.isSafeInteger(registeredAt)||registeredAt<=0||
-    !Number.isSafeInteger(recordedAt)||recordedAt<registeredAt||recordedAt>registeredAt+60000)
+    !timestamp(registeredAt)||!timestamp(recordedAt)||recordedAt<registeredAt||recordedAt>registeredAt+60000)
   throw Error('固定种子预注册输入协议无效');
  const ordered=[...features].sort((a,b)=>String(a?.signalDay).localeCompare(String(b?.signalDay)));
- if(ordered.some((f,i)=>!date(f?.signalDay)||!seal(f.fingerprint)||
+ if(new Set(ordered.map(f=>f?.fingerprint)).size!==ordered.length||ordered.some((f,i)=>!sealedFeature(f)||
     f.packFingerprint!==packFingerprint||hash(f.factors)!==hash(definition.definitions)||
     !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt||
     (i>0&&ordered[i-1].signalDay===f.signalDay)))
   throw Error('固定种子真实冻结前缀或因子定义无效');
  const latest=ordered.at(-1),payload={schemaVersion:1,mode:SEED_MODE,
-  candidateOrigin:'fixed-pack-seed-v1',seedPolicy:SEED_POLICY,seedConfig,
+  candidateOrigin:'fixed-pack-seed-v1',seedPolicy:SEED_POLICY,seedConfig:{...seedConfig,factorIds:[...seedConfig.factorIds]},
   seedConfigFingerprint:hash(seedConfig),registeredAt,recordedAt,
   latestFrozenSignalDay:latest?.signalDay??null,lastFrozenCapturedAt:latest?.capturedAt??null,
   frozenPrefixFingerprints:ordered.map(f=>f.fingerprint),
@@ -131,15 +146,14 @@ function preregisterSeedCandidate({features=[],seedConfig,registeredAt}={}){
 function matchesFrozenWindows(reg,sorted,freshTest,sealedAt){
  const prefix=reg.frozenPrefixFingerprints;
  if(!Array.isArray(prefix)||!Array.isArray(sorted)||!Array.isArray(freshTest)||
-    !Number.isSafeInteger(sealedAt)||sealedAt<=0||sorted.length>400||
+    !timestamp(reg.registeredAt)||!timestamp(sealedAt)||sorted.length>400||
     prefix.length>=sorted.length||!freshTest.length||freshTest.length>sorted.length)
   return false;
- const seen=new Set(),byDay=new Map();
+ const seen=new Set(),byDay=new Map(),native=sorted.some(row=>row&&Object.hasOwn(row,'features'));
  for(let i=0;i<sorted.length;i++){
   const row=sorted[i];
-  if(!date(row?.day)||!seal(row.featureFingerprint)||seen.has(row.featureFingerprint)||
-     (i>0&&sorted[i-1].day>=row.day)||!Number.isSafeInteger(row.featureCapturedAt)||
-     row.featureCapturedAt<=0||(i<prefix.length?
+  if(!validCapture(row?.day,row?.featureCapturedAt)||!seal(row.featureFingerprint)||seen.has(row.featureFingerprint)||
+     (i>0&&sorted[i-1].day>=row.day)||native&&!bodyMatches(row,reg)||(i<prefix.length?
       row.featureFingerprint!==prefix[i]||row.featureCapturedAt>reg.registeredAt:
       row.featureCapturedAt<=sealedAt))return false;
   seen.add(row.featureFingerprint);byDay.set(row.day,{row,index:i});
@@ -170,17 +184,18 @@ function verifySeedCandidate(reg,{sorted,ids,packFingerprint,oldWeights,
   throw Error('固定种子预注册时点、冻结前缀或模型血缘不一致');
  return {status:'candidate-committed-before-new-signal',registrationFingerprint:reg.fingerprint,
   registeredAt:reg.registeredAt,recordedAt:reg.recordedAt,frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
-  candidateOrigin:reg.candidateOrigin,canTrade:false,productionWeightsChanged:false};
+  candidateOrigin:reg.candidateOrigin,registrationClockEvidence:'recorded-wall-clock',
+  featureBodyEvidence:sorted.some(row=>Object.hasOwn(row,'features'))?'matched-frozen-body':'fingerprint-references-only',
+  canTrade:false,productionWeightsChanged:false};
 }
 function preregisterCandidate({features,candidateWeights,acceptedWeights,
  registeredAt,parentAcceptedFingerprint=null,parentTrialFingerprint=null,
  packFingerprint,autoSourceFingerprint=null}={}){
  if(!Array.isArray(features)||features.length<36||features.length>400||
-    !Number.isSafeInteger(registeredAt)||registeredAt<=0||
-    !/^[0-9a-f]{64}$/.test(packFingerprint||'')||
+    !timestamp(registeredAt)||!seal(packFingerprint)||
     !plain(candidateWeights)||!plain(acceptedWeights)||
     (autoSourceFingerprint!==null&&
-     !/^[a-f0-9]{64}$/.test(autoSourceFingerprint)))
+     (!seal(autoSourceFingerprint)||![parentAcceptedFingerprint,parentTrialFingerprint].includes(autoSourceFingerprint))))
   throw Error('候选预注册输入协议无效');
  const ordered=[...features];
  if(ordered.some(x=>!date(x?.signalDay)))
@@ -197,7 +212,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
     new Set(ordered.map(f=>f.fingerprint)).size!==ordered.length||
     ordered.some((f,i)=>!date(f?.signalDay)||
      (i>0&&ordered[i-1].signalDay===f.signalDay)||
-     !/^[0-9a-f]{64}$/.test(f?.fingerprint||'')||
+     !sealedFeature(f)||
      f.packFingerprint!==packFingerprint||
      hash(f.factors)!==hash(defs)||
      !Number.isSafeInteger(f.capturedAt)||f.capturedAt<=0||f.capturedAt>registeredAt))
@@ -254,7 +269,8 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
  return {status:'candidate-committed-before-new-signal',
   registrationFingerprint:fingerprint,registeredAt:reg.registeredAt,
-  frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
+  frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,registrationClockEvidence:'declared-registration-time',
+  featureBodyEvidence:sorted.some(row=>Object.hasOwn(row,'features'))?'matched-frozen-body':'fingerprint-references-only',
   canTrade:false,productionWeightsChanged:false};
 }
 module.exports={preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint,
