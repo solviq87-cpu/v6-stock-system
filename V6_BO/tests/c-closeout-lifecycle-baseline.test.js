@@ -80,3 +80,57 @@ test('C34.8 replay of an older active observation cannot reopen a genuinely reso
  const fresh=g(f.observe([a(f.now)]));assert.equal(fresh.status,'active');assert.equal(fresh.occurrence,2);
  assert.equal(fresh.lastValidRisk.sourceAt,f.now);
 });
+
+test('C39.1 a currently missing quote with its last original old timestamp reopens after valid clearance',t=>{
+ const f=space(t),missing=risk(BASE,{evidenceStatus:'missing'});
+ f.observe([missing]);f.advance(1000);f.observe([risk(BASE,{status:'resolved',evidenceStatus:'stale'})]);
+ f.advance(1000);const closed=g(f.observe([risk(f.now,{status:'resolved'})]));
+ assert.equal(closed.status,'resolved');f.advance(1000);
+ const open=g(f.observe([missing]));assert.equal(open.occurrence,2);assert.equal(open.events.at(-1).kind,'reopened');
+ assert.equal(open.firstSeenAt,BASE);assert.equal(open.resolvedAt,null);assert.equal(open.lastValidRisk,null);
+});
+test('C39.2 stale, partial, conflict and unknown active evidence must not be silently suppressed after recovery',t=>{
+ for(const evidenceStatus of ['stale','partial','conflict','unknown']){
+  const f=space(t);f.observe([risk(BASE)]);f.advance(1000);f.observe([risk(f.now,{status:'resolved'})]);f.advance(1000);
+  const open=g(f.observe([risk(BASE,{evidenceStatus})]));
+  assert.equal(open.occurrence,2);assert.equal(open.status,'active');assert.equal(open.events.at(-1).kind,'reopened');
+ }
+});
+test('C39.3 exact retained complete evidence replay stays closed; changed original facts do not',t=>{
+ const f=space(t);f.observe([a(BASE)]);f.advance(1000);f.observe([clear(f.now)]);f.advance(1000);
+ const replay=f.make().observe({...key,risks:[a(BASE)],complete:true});assert.equal(replay.changed,false);
+ assert.equal(g(replay).status,'resolved');assert.equal(g(replay).occurrence,1);
+ const open=g(f.observe([a(BASE,{facts:['原风险出现新的更正事实']})]));assert.equal(open.occurrence,2);
+ assert.equal(open.events.at(-1).kind,'reopened');
+});
+test('C39.4 another object under the same root cannot borrow an unrelated old clearance',t=>{
+ const f=space(t);f.observe([a(BASE)]);f.advance(1000);f.observe([clear(f.now)]);f.advance(1000);
+ const open=g(f.observe([b(BASE)]));assert.equal(open.occurrence,2);
+ assert.equal(open.lastValidRisk.risks[0].object.id,'600001');
+});
+test('C39.5 different source or rule version is not an exact historical replay',t=>{
+ for(const extra of [{source:'another-original-source'},{authorityEvidence:rule(BASE,{ruleVersion:'v2'})}]){
+  const f=space(t);f.observe([a(BASE)]);f.advance(1000);f.observe([clear(f.now)]);f.advance(1000);
+  assert.equal(g(f.observe([a(BASE,extra)])).occurrence,2);
+ }
+});
+test('C39.6 old valid active row alongside unknown or missing sibling cannot hide the new gap',t=>{
+ const f=space(t);f.observe([a(BASE)]);f.advance(1000);f.observe([clear(f.now)]);f.advance(1000);
+ const sibling=b(BASE,{status:'unknown',evidenceStatus:'missing',authorityEvidence:null});
+ const open=g(f.observe([a(BASE),sibling]));assert.equal(open.occurrence,2);
+ assert.ok(open.risks.some(r=>r.id==='row-B'&&r.status==='unknown'));
+});
+test('C39.7 newer original knowledge or data clocks are not an older complete replay',t=>{
+ for(const patch of [now=>({firstKnowableAt:now}),now=>({dataAt:now}),now=>({actionEvidence:{allowed:false,reason:'原新检查',checkedAt:now,evidenceStatus:'available'}})]){
+  const f=space(t);f.observe([a(BASE)]);f.advance(1000);f.observe([clear(f.now)]);f.advance(1000);
+  const open=g(f.observe([a(BASE,patch(f.now))]));assert.equal(open.occurrence,2);
+ }
+});
+test('C39.8 reopened missing observation uses its own current baseline; older recovery cannot close it again',t=>{
+ const f=space(t);f.observe([risk(BASE)]);f.advance(1000);const closed=g(f.observe([risk(f.now,{status:'resolved'})]));
+ f.advance(1000);const open=g(f.observe([risk(BASE,{evidenceStatus:'missing'})]));
+ assert.equal(open.resolutionBaselineAt,f.now);assert.equal(open.occurrence,2);
+ f.advance(1000);const stale=g(f.observe([risk(closed.resolvedAt+100,{status:'resolved'})]));
+ assert.equal(stale.status,'unknown');assert.equal(stale.resolvedAt,null);
+ const fresh=g(f.observe([risk(f.now,{status:'resolved'})]));assert.equal(fresh.status,'resolved');assert.equal(fresh.occurrence,2);
+});
