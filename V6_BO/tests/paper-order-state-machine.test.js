@@ -40,3 +40,13 @@ test('result is paper-only and never mutates input', () => {
   const r = reducePaperOrderEvents(o, events);
   assert.equal(JSON.stringify([o, events]), before); assert.equal(r.brokerConnected, false); assert.equal(r.accountMutated, false);
 });
+
+test('conflicting duplicate event IDs fail closed even after terminal state', () => {
+  const first = ev('e1', 1, 'fill', { quantity: 300, price: 10, date: '2026-11-26' });
+  const changes = [{ price: 11 }, { quantity: 100 }, { sequence: 2 }, { type: 'cancel' }, { date: '2026-11-27' }];
+  for (const change of changes) {
+    assert.throws(() => reducePaperOrderEvents(order(), [first, { ...first, ...change }]), /不同事件内容/);
+  }
+  const once = reducePaperOrderEvents(order(), [first]);
+  assert.deepEqual(reducePaperOrderEvents(order(), [first, { ...first }]), once);
+});
