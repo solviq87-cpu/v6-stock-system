@@ -255,6 +255,7 @@ function run(config,{apply,now,ackFailure}){
  // Preview reads all seals, but creates neither output directories nor locks.
  if(!apply){const events=readEvents(dir);requireClock(events,now);const pending=pendingEntry(dir,events);
   if(pending){if(now<pending.entry.summary.checkTime)throw Error('agent-clock-rollback');return pendingStatus(pending);}
+  const failed=latchedFailure(events.at(-1),now);if(failed)return failed;
   return plan(perceive(config,now),events,now).output;}
  fs.mkdirSync(dir,{recursive:true,mode:0o700});privatePath(lock);
  const fd=fs.openSync(lock,'wx',0o600);
@@ -276,6 +277,7 @@ function run(config,{apply,now,ackFailure}){
    const result=summary({...event.summary,eventFingerprint:event.fingerprint});release();return result;
   }
   if(ackFailure!==undefined&&(last?.outcome!=='failed'||last.fingerprint!==ackFailure))throw Error('agent-failure-ack-rejected');
+  if(ackFailure===undefined){const failed=latchedFailure(last,now);if(failed){release();return failed;}}
   const before=perceive(config,now),planned=plan(before,events,now,{acknowledged:ackFailure!==undefined});
   if(planned.repeated){release();return planned.output;}
   let after=before;
@@ -328,13 +330,15 @@ function run(config,{apply,now,ackFailure}){
   const value=finish(null);release();return value;
  }catch(e){release();throw e;}
 }
+// An unacknowledged failure is evaluated before reading fresh research evidence.
+// Corrupt or changed input must not obscure the original audit requirement.
+function latchedFailure(last,now){
+ return last?.outcome==='failed'?summary({...last.summary,
+  stage:'idle',status:'failed-stop-and-audit-before-retry',
+  nextAction:'audit-private-research-artifacts-before-retry',eventFingerprint:last.fingerprint,checkTime:now}):null;
+}
 function plan(perception,events,now,{acknowledged=false}={}){
  const last=events.at(-1);
- // Partial writes change perception too. A changed source or date must not
- // silently authorize another execution after an audit-required failure.
- if(last?.outcome==='failed'&&!acknowledged)return {repeated:true,output:summary({...last.summary,
-  stage:'idle',status:'failed-stop-and-audit-before-retry',
-  nextAction:'audit-private-research-artifacts-before-retry',eventFingerprint:last.fingerprint,checkTime:now})};
  const repeated=!acknowledged&&!!last&&[last.inputFingerprint,last.settledFingerprint].includes(perception.fingerprint);
  // A non-adjacent previously completed perception is a replay, not new evidence.
  // Acknowledging a failure does not authorize replaying an older completed run.
