@@ -12,6 +12,44 @@ const average=xs=>xs.reduce((sum,x)=>sum+x,0)/xs.length;
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+// A comparison must consume one frozen input snapshot. Keep native and legacy
+// date-only diagnostics distinct; never allow a scorer to rewrite the evidence.
+const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+function ownValue(x,k){const d=object(x)?Object.getOwnPropertyDescriptor(x,k):null;return d&&Object.hasOwn(d,'value')?d.value:undefined;}
+function freezeTree(x,seen=new WeakSet()){
+ if(x!==null&&typeof x==='object'&&!seen.has(x)){seen.add(x);for(const v of Object.values(x))freezeTree(v,seen);Object.freeze(x);}
+ return x;
+}
+function weightTotal(ids,weights){
+ const sum=ids.reduce((n,id)=>n+weights[id],0);
+ if(!finite(sum)||sum<=0)throw Error('因子反事实研究权重合计无效');
+}
+function assertNativeSections(phases,ids){
+ const present=phases.some(days=>days.some(d=>Object.hasOwn(d,'rows')));
+ if(!present)return false;
+ const lastTarget=new Map();
+ for(const days of phases)for(const d of days){
+  const rows=ownValue(d,'rows');
+  if(!validDate(d.targetDate)||!Array.isArray(rows)||rows.length<5||rows.length>500)throw Error('因子反事实成熟截面证据缺失或无效');
+  const symbols=new Set();
+  for(const row of rows){
+   if(!object(row)||typeof row.symbol!=='string'||!/^\d{6}$/.test(row.symbol)||symbols.has(row.symbol)||
+      row.signalDate!==d.day||row.targetDate!==d.targetDate||!finite(row.returnPct)||row.returnPct< -100||
+      !object(row.values)||ids.some(id=>!finite(ownValue(row.values,id))))throw Error('因子反事实成熟截面证据缺失或无效');
+   if(lastTarget.has(row.symbol)&&lastTarget.get(row.symbol)>=d.day)throw Error('因子反事实截面收益标签重叠');
+   symbols.add(row.symbol);lastTarget.set(row.symbol,row.targetDate);
+  }
+ }
+ return true;
+}
+function captureDaily(result){
+ // Capture primitive fields immediately: a scorer may reuse its result object.
+ if(ownValue(result,'days')!==1)return null;
+ const value=ownValue(result,'meanIC');
+ if(value===undefined)return null;
+ if(!finite(value)||Math.abs(value)>1)throw Error('因子反事实IC证据超出有限相关范围');
+ return value;
+}
 function evaluateScope(days,ids,proposal,without,score,required){
  const sample={status:'insufficient',requiredDays:required,observedDays:days.length,
   comparedDays:0,firstDay:days[0]?.day||null,lastDay:days.at(-1)?.day||null,
@@ -21,14 +59,11 @@ function evaluateScope(days,ids,proposal,without,score,required){
  if(days.length<required)return sample;
  const delta=[];
  for(const d of days){
-  const withIt=score([d],ids,proposal);
-  const withoutIt=score([d],ids,without);
-  if(!withIt||!withoutIt||withIt.days!==1||withoutIt.days!==1)
+  const withIt=captureDaily(score(Object.freeze([d]),ids,proposal));
+  const withoutIt=captureDaily(score(Object.freeze([d]),ids,without));
+  if(withIt===null||withoutIt===null)
    return {...sample,status:'incomparable',comparedDays:delta.length};
-  if(!finite(withIt.meanIC)||!finite(withoutIt.meanIC)||
-     Math.abs(withIt.meanIC)>1||Math.abs(withoutIt.meanIC)>1)
-   throw Error('因子反事实IC证据超出有限相关范围');
-  delta.push(withIt.meanIC-withoutIt.meanIC);
+  delta.push(withIt-withoutIt);
  }
  const mid=Math.floor(delta.length/2);
  const mean=average(delta),early=average(delta.slice(0,mid)),
@@ -46,14 +81,19 @@ function assessFactorMarginalContribution({
  training,validation,holdout,ids,acceptedWeights,proposedWeights,score
 }={}){
  if(!Array.isArray(ids)||ids.length<2||new Set(ids).size!==ids.length||
-    ids.some(x=>typeof x!=='string'||!x)||
+    Array.from(ids).some(x=>typeof x!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(x)||Object.hasOwn(Object.prototype,x)||x==='prototype')||
     typeof score!=='function')
   throw Error('因子反事实评估协议无效');
  for(const weights of [acceptedWeights,proposedWeights]){
   if(!weights||typeof weights!=='object'||Array.isArray(weights)||
-    ids.some(id=>!Object.hasOwn(weights,id)||!finite(weights[id])||weights[id]<=0))
+    ids.some(id=>!finite(ownValue(weights,id))||ownValue(weights,id)<=0))
    throw Error('因子反事实研究权重缺失或无效');
  }
+ ids=Object.freeze([...ids]);
+ acceptedWeights=Object.freeze(Object.fromEntries(ids.map(id=>[id,ownValue(acceptedWeights,id)])));
+ proposedWeights=Object.freeze(Object.fromEntries(ids.map(id=>[id,ownValue(proposedWeights,id)])));
+ weightTotal(ids,acceptedWeights);weightTotal(ids,proposedWeights);
+ for(const id of ids)weightTotal(ids,{...proposedWeights,[id]:acceptedWeights[id]});
  const sets=[['training',training,MIN_TRAIN],['validation',validation,MIN_EVAL],
   ['holdout',holdout,MIN_EVAL]];
  for(const [name,days] of sets){
@@ -85,10 +125,13 @@ function assessFactorMarginalContribution({
    }
   }
  }
+ const nativeSections=assertNativeSections(phases,ids);
+ // Copy once, not once per factor/day. Native score uses only immutable data.
+ [training,validation,holdout]=[training,validation,holdout].map(days=>freezeTree(structuredClone(days)));
  const factors=[];
  for(const id of ids){
   if(acceptedWeights[id]===proposedWeights[id])continue;
-  const without={...proposedWeights,[id]:acceptedWeights[id]};
+  const without=Object.freeze({...proposedWeights,[id]:acceptedWeights[id]});
   const trainingScore=evaluateScope(training,ids,proposedWeights,without,score,MIN_TRAIN);
   const validationScore=evaluateScope(validation,ids,proposedWeights,without,score,MIN_EVAL);
   const holdoutScore=evaluateScope(holdout,ids,proposedWeights,without,score,MIN_EVAL);
@@ -114,6 +157,7 @@ function assessFactorMarginalContribution({
    harmfulFactorIds.length?'harmful-factor-change-detected':'paired-evaluated',
   evidenceBasis:'frozen-factor-training-and-time-isolated-forward-observation',
   labelTimeEvidence:hasLabelDates?'provided-and-checked':'not-provided',
+  crossSectionEvidence:nativeSections?'validated-frozen-rows':'legacy-descriptive-only',
   counterfactual:'revert-one-factor-to-accepted-weight-others-stay-proposed',
   changedFactorCount:factors.length,factors,
   harmfulFactorIds,supportedFactorIds,incomparableFactorIds,
