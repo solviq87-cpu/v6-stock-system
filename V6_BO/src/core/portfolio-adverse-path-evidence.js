@@ -103,9 +103,88 @@ function themeUnion(stress,h,asOf,day){
  const value=sum(symbols.map(s=>held.get(s).value));
  return value===null?null:{symbols,value,themeCount:overlapping.length};
 }
+// Optional C review: same original valuation and frozen levels; no new stop.
+const signedYuan=x=>Number.isSafeInteger(x)?x/100:null;
+const signedCents=x=>finite(x)&&cents(Math.abs(x))!==null?Math.sign(x)*cents(Math.abs(x)):null;
+function holdingMark(position,price,source,quoteAt,now,day){
+ const q=position?.quote,v=cents(position?.marketValue);
+ return !!(position&&qty(position.quantity)&&position.quantity>0&&position.evidenceStatus==='available'&&
+  positive(position.price)&&position.price===price&&v!==null&&v===cents(Math.round(position.quantity*price*100)/100)&&
+  fresh(q?.quoteAt,now,day)&&q.quoteAt===quoteAt&&q.quoteSource===source&&q.tradeDate===day&&
+  time(q.receivedAt)&&q.receivedAt>=q.quoteAt&&q.receivedAt<=now&&
+  q.quoteStatus==='recent-unverified'&&q.missingReason===null);
+}
+function profitBasis(position,value){
+ const cost=cents(position?.costBasis),pnl=signedCents(position?.unrealizedPnl);
+ return cost!==null&&pnl!==null&&pnl===value-cost?{cost,pnl}:null;
+}
+function heldProtectionReview(e,h,shockPct){
+ const rows=h.rows.slice(0,100).map(row=>{
+  const original=e.positions.find(p=>p.symbol===row.symbol),basis=profitBasis(original,row.value);
+  const scenarios=[1,2,3].map(steps=>{
+   const after=Math.round(row.value*(1-shockPct/100)**steps),loss=row.value-after;
+   return {steps,markLoss:yuan(loss),marketValueAfter:yuan(after),
+    unrealizedPnlAfter:basis?signedYuan(after-basis.cost):null,
+    positivePnlErased:basis&&basis.pnl>0?after<=basis.cost:null,realizedLoss:null,guaranteedFill:false};
+  });
+  return {symbol:row.symbol,quantity:row.quantity,quoteAt:row.quoteAt,marketValue:yuan(row.value),
+   originalRemainingCostBasis:basis?yuan(basis.cost):null,currentUnrealizedPnl:basis?signedYuan(basis.pnl):null,
+   priceDeclineToErasePositivePnlPct:basis&&basis.pnl>0&&row.value>0?round(100*basis.pnl/row.value):null,
+   currentSellableQuantity:row.sellableQuantity,currentlyRestrictedQuantity:row.sellableQuantity===null?null:row.quantity-row.sellableQuantity,
+   lossPerOnePct:round(row.value/10000),peakToCurrentDrawdownPct:null,scenarios,
+   profitReducesRisk:false,canTrade:false};
+ });
+ return {status:rows.every(r=>r.originalRemainingCostBasis!==null&&r.currentSellableQuantity!==null)&&h.rows.length===rows.length?'observed-research':'partial',
+  rows,omittedPositions:h.rows.length-rows.length,shockPerStepPct:shockPct,
+  basis:'same-current-holding-mark-and-original-remaining-cost-not-peak-drawdown',canTrade:false,
+  note:'浮盈回吐仅为当前盯市到剩余批次成本的距离，未计真实退出费用；未取得连续持仓最高权益，历史峰值回撤未知。逐股情景独立四舍五入，不替代组合总额。'};
+}
+function priceReview(plan,mark,held){
+ const {entryMin,entryMax,stop,target}=plan;
+ const ratio=price=>round((target-price)/(price-stop));
+ return {frozenEntryMin:entryMin,frozenEntryMax:entryMax,
+  entryRangeStatus:held?'not-applicable-held':mark<entryMin?'below-frozen-entry':mark>entryMax?'above-frozen-entry':'inside-frozen-entry',
+  remainingRiseToFrozenEntryCapPct:held?null:round(100*(entryMax/mark-1)),
+  distanceAboveFrozenEntryFloorPct:held?null:round(100*(1-entryMin/mark)),
+  signedDistanceToStopPct:round(100*(1-stop/mark)),signedDistanceToTargetPct:round(100*(target/mark-1)),
+  grossRatioAtFrozenEntryMin:held?null:ratio(entryMin),grossRatioAtFrozenEntryMax:held?null:ratio(entryMax),
+  actualCostAdjustedRatio:null,proposedNewStop:null,proposedNewTarget:null,canReenter:false,canTrade:false,
+  basis:'original-frozen-price-geometry-requires-fresh-original-entry-or-exit-recheck'};
+}
+function stagedDefense(position,item,quantity,mark,now,day,uniqueHolding){
+ const v=cents(position.marketValue),c=item.constraints||{},session=c.session,l=c.liquidity,execution=item.execution;
+ const originalAvailability=qty(position.sellableQuantity)&&position.sellableQuantity<=quantity&&
+  qty(position.todayBlockedQuantity)&&qty(position.frozenQuantity)&&
+  sum([position.sellableQuantity,position.todayBlockedQuantity,position.frozenQuantity])===quantity&&
+  c.sellableQuantity===position.sellableQuantity&&c.todayLockedQuantity===position.todayBlockedQuantity&&c.frozenQuantity===position.frozenQuantity;
+ const out={status:'unknown',scope:'full-holding-only',remainingQuantity:quantity,markValue:yuan(v),
+  originalSellableQuantity:originalAvailability?position.sellableQuantity:null,
+  originalCapacityQuantity:null,originalExitAllowed:null,scenarios:[{fraction:0,hypotheticalRemovedQuantity:0,
+   residualQuantity:quantity,residualMarketValue:yuan(v),lossPerOnePct:round(v/10000),actualProceeds:null,actualExecutionCost:null}],
+  canTrade:false,canExecuteExit:false,guaranteedFill:false,
+  basis:'same-mark-alternative-size-envelopes-not-orders-or-per-stage-permission'};
+ if(!uniqueHolding||position.quantity!==quantity||!originalAvailability)return out;
+ if(!session||session.day!==day||session.checkedAt!==now||session.source!=='original-calendar-and-continuous-session'||
+   !execution||execution.checkedAt!==now||execution.evidenceStatus!=='available'||typeof execution.allowed!=='boolean')return out;
+ if(execution.allowed===false){out.status='original-full-exit-blocked';out.originalExitAllowed=false;return out;}
+ if(session.calendarOpen!==true||session.continuous!==true||!l||l.source!=='original-paper-application-service'||
+    l.participationPct!==1||!qty(l.capacityQuantity)||!qty(l.usedVolume)||l.capacityQuantity%100!==0||
+    quantity%100!==0||position.sellableQuantity!==quantity||l.capacityQuantity<quantity||
+    !positive(c.price?.lowerLimit)||!positive(c.price?.upperLimit)||!(c.price.lowerLimit<mark&&mark<c.price.upperLimit)||
+    !Array.isArray(item.orders)||item.orders.some(o=>!['filled','canceled','rejected'].includes(o?.status)))return out;
+ out.originalExitAllowed=true;out.originalCapacityQuantity=l.capacityQuantity;out.status='estimated-unverified';
+ for(const fraction of [.5,1]){
+  const removed=fraction===1?quantity:Math.floor(quantity*fraction/100)*100;
+  const remaining=quantity-removed,residual=Math.round(v*remaining/quantity);
+  out.scenarios.push({fraction,hypotheticalRemovedQuantity:removed,residualQuantity:remaining,residualMarketValue:yuan(residual),
+   lossPerOnePct:round(residual/10000),actualProceeds:null,actualExecutionCost:null});
+ }
+ return out;
+}
+
 function buildAdversePathEvidence({equity:e,rules:r,stress,now=Date.now()}={}){
  const result={protocol:VERSION,...identity(e),asOf:time(now)?now:null,status:'unknown',reason:null,paths:[],simultaneousThemeRetreat:null,
-  pendingBudget:null,grossLimit:null,actualFutureLimitDownPath:null,...FLAGS};
+  pendingBudget:null,grossLimit:null,actualFutureLimitDownPath:null,heldProtection:null,...FLAGS};
  const h=holdings(e,now),a=stress?.assumptions;
  if(!h||!stress||stress.current!==true||stress.generatedAt!==now||stress.asOf!==e.observedAt||
     stress.accountId!==e.accountId||stress.accountEpoch!==e.accountEpoch||stress.equityEvidenceId!==e.fingerprint||
@@ -122,6 +201,7 @@ function buildAdversePathEvidence({equity:e,rules:r,stress,now=Date.now()}={}){
   {status:'unknown',reason:'ORIGINAL_PENDING_BUDGET_OR_ACCOUNT_IDENTITY_UNVERIFIED',remainingBuyNotional:null,reservedCash:null,
    estimatedRemainingFees:null,availableCash:null,orderCount:null,orderIds:[],totalExposureAtOrderPrices:null,currentEquity:yuan(h.equity)};
  result.grossLimit=rule;
+ result.heldProtection=heldProtectionReview(e,h,a.gapPct);
  for(const steps of [1,2,3]){
   const factor=(1-a.gapPct/100)**steps,heldAfter=Math.round(h.value*factor),heldLoss=h.value-heldAfter;
   const lockedLoss=h.locked===null?null:Math.round(heldLoss*(h.value>0?h.locked/h.value:0));
@@ -151,7 +231,11 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
  if(!bound(e,actions,now)||actions.authorityStatus!=='verified'||!Array.isArray(actions.items)||actions.items.length>11000||
     !Array.isArray(plans)||plans.length>10000||!Array.isArray(e.positions)||e.positions.length>1000||
     !unique(e.positions.map(p=>p?.symbol))||e.positions.some(p=>!code(p?.symbol)||!qty(p.quantity)))return result;
- const holdingsBySymbol=new Map(e.positions.map(p=>[p.symbol,p.quantity]));
+ const positionsBySymbol=new Map(e.positions.map(p=>[p.symbol,p]));
+ const holdingClaims=new Map();
+ for(const item of actions.items)if(text(item?.planId)&&text(item.entryEventId)&&qty(item.constraints?.remainingQuantity)&&item.constraints.remainingQuantity>0){
+  holdingClaims.set(item.code,(holdingClaims.get(item.code)||0)+1);
+ }
  const byId=new Map(),duplicates=new Set();
  for(const plan of plans){if(!text(plan?.id))continue;if(byId.has(plan.id))duplicates.add(plan.id);else byId.set(plan.id,plan);}
  const items=new Map(),duplicateItems=new Set();
@@ -165,13 +249,13 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
   if(result.rows.length>=100)continue;
   const out={planId:id,symbol:code(item.code)?item.code:null,scope:held?'held-position':'unfilled-candidate',status:'unknown',
    currentPrice:null,stopPrice:null,targetPrice:null,quoteAt:null,source:null,rewardPct:null,riskPct:null,grossRewardRiskRatio:null,
-   costAdjustedRatio:null,winProbability:null,expectedValue:null,canTrade:false};
+   costAdjustedRatio:null,winProbability:null,expectedValue:null,priceReview:null,stagedDefense:null,canTrade:false};
   result.rows.push(out);
   if(duplicates.has(id)||duplicateItems.has(id)||!p||p.decisionAuthority!=='fayo-decision-center'||!hash(p.decisionId)||
      p.code!==item.code||!code(p.code)||item.id!=='risk-action:'+e.accountId+':'+id||
      ['unknown','pending-reconciliation'].includes(item.status)||!qty(quantity)||
      (held?quantity===0:quantity!==0||item.entryEventId!=null||p.intendedDate!==e.day||item.status!=='observing'))continue;
-  const actualShares=holdingsBySymbol.get(item.code)||0;
+  const position=positionsBySymbol.get(item.code),actualShares=position?.quantity||0;
   if(held&&actualShares<quantity)continue;
   if(!held&&actualShares>0){
    // A fresh unfilled plan for an already held symbol is not a new entry
@@ -187,7 +271,11 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
      c.source!==price.source||c.price!==price.current||!['triggered','not-triggered'].includes(c.status))continue;
   const mark=price.current,expectedKind=held?(mark<=stop?'stop':mark>=target?'target':null):null;
   if(expectedKind?c.status!=='triggered'||c.kind!==expectedKind:c.status!=='not-triggered'||c.kind!=null)continue;
+  // Same original held mark, not merely a matching account wrapper.
+  if(held&&!holdingMark(position,mark,price.source,price.quoteAt,now,e.day))continue;
   Object.assign(out,{currentPrice:mark,stopPrice:stop,targetPrice:target,quoteAt:price.quoteAt,source:price.source});
+  out.priceReview=priceReview(p,mark,held);
+  if(held&&quantity===actualShares)out.stagedDefense=stagedDefense(position,item,quantity,mark,now,e.day,holdingClaims.get(item.code)===1);
   if(held&&mark<=stop)out.status='stop-reached';
   else if(held&&mark>=target)out.status='target-reached';
   else if(!held&&(mark<entryMin||mark>entryMax))out.status='entry-range-expired';
