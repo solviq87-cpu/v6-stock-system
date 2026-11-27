@@ -29,6 +29,7 @@ function validateSourceUrl(value){
  return u.toString();
 }
 function validateImport(data,{provider,datasetId,now=Date.now()}={}){
+ if(!Number.isSafeInteger(now)||now<=0||!Number.isFinite(new Date(now).getTime()))throw Error('行情校验时钟无效');
  if(!provider||!datasetId||!/^[a-zA-Z0-9_.:-]{3,100}$/.test(provider)||!/^[a-zA-Z0-9_.:-]{3,120}$/.test(datasetId))throw Error('缺少可信数据源标识');
  if(!data||data.source!=='imported'||data.provider!==provider||data.datasetId!==datasetId)throw Error('行情来源与配置不一致');
  if(data.observedAt!==undefined&&(!Number.isSafeInteger(data.observedAt)||data.observedAt<=0||data.observedAt>now))throw Error('行情声明的采集时点无效或位于接收时钟未来');
@@ -41,7 +42,7 @@ function validateImport(data,{provider,datasetId,now=Date.now()}={}){
  if(data.stocks.some(s=>s.bars.some(b=>b.date>data.asOf)))throw Error('存在未来交易日');
  // A live import must not bypass the same-day close gate enforced by the
  // research upload and cached K-line adapters. This is not provider certification.
- const gate=assessDailyBarFinality(details.lastDate,{observedAt:now,now});
+ const gate=assessDailyBarFinality(details.lastDate,{observedAt:data.observedAt??now,now});
  if(!gate.usable)throw Error(gate.reason||'日K完成度门禁未通过');
  return details;
 }
@@ -52,6 +53,17 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
  const root=evidenceRoot||path.resolve(outputFile)+'.evidence';
  let lastAttempt=null,lastSuccess=null,lastError=null,lastDigest=null,lastEvidence=null,updates=0,busy=false;
  const writable=()=>{try{return canWrite()===true;}catch{return false;}};
+ let clockHighWater=0;
+ function sampleClock(){
+  const now=clock();
+  if(!Number.isSafeInteger(now)||now<=0||now>Date.now()||now<clockHighWater)throw Error('行情采集或回放时钟无效或倒退');
+  clockHighWater=now;return now;
+ }
+ function decodeRaw(raw){
+  const text=raw.toString('utf8');
+  if(!Buffer.from(text,'utf8').equals(raw))throw Error('原始字节不是有效 UTF-8');
+  return JSON.parse(text);
+ }
  function processRaw(raw,{receivedAt,availableAt=receivedAt,replayOf=null,review=null,requestId}={}){
   let incoming,details=null,consensus=null,receipt=null,referenceRaw=null,referenceMetadata=null,
    independentReferenceRequired=Boolean(secondaryFile);
@@ -64,7 +76,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
    independentReferenceRequired=independentReferenceRequired||evidence.readReceipts(root,{provider,datasetId})
     .some(event=>event.data.gateRequirements.independentReferenceRequired);
    if(independentReferenceRequired&&!secondaryFile)throw Error('原历史回执要求独立对照来源，不得省略原双源门禁');
-   try{incoming=JSON.parse(raw.toString('utf8'));}catch{throw Error('原始行情JSON解析失败');}
+   try{incoming=decodeRaw(raw);}catch{throw Error('原始行情JSON解析失败');}
    // Replay uses the original receipt clock too. Waiting until close cannot
    // turn bytes collected before the close into a completed daily bar.
    details=validateImport(incoming,{provider,datasetId,now:receivedAt});
@@ -72,7 +84,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
     const fd=fs.openSync(secondaryFile,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));
     try{const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size>maxBytes)throw Error('独立行情对照文件无效或超过上限');referenceRaw=fs.readFileSync(fd);}
     finally{fs.closeSync(fd);}
-    let reference;try{reference=JSON.parse(referenceRaw.toString('utf8'));}catch{throw Error('独立行情原始JSON解析失败');}
+    let reference;try{reference=decodeRaw(referenceRaw);}catch{throw Error('独立行情原始JSON解析失败');}
     referenceMetadata={provider:reference?.provider,datasetId:reference?.datasetId,observedAt:reference?.observedAt};
     consensus=compareMarketFeeds(incoming,reference);
     if(!consensus.consensus)throw Error('双供应商行情不一致，共 '+consensus.discrepancies+' 项差异');
@@ -91,7 +103,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
    // Storage exhaustion or corruption therefore cannot silently bypass audit.
    receipt=remember('admitted');lastEvidence={id:receipt.hash,status:'admitted',availableAt};
    if(!writable())throw Error('只读实例不能写入行情或复核结果');
-   if(changed){atomicWrite(outputFile,stable(incoming)+'\n');updates++;}
+   if(changed){atomicWrite(outputFile,stable(incoming)+'\n',{beforeRename:()=>{if(!writable())throw Error('只读实例不能发布行情');sampleClock();}});updates++;}
    lastDigest=digest(stable(incoming));lastSuccess=new Date().toISOString();lastError=null;
    return {updated:changed,hash:lastDigest,details,asOf:incoming.asOf,evidence:{...lastEvidence,dataVersion:receipt.data.dataVersion},
     consensus:consensus?{matched:consensus.consensus,comparedBars:consensus.comparedBars,secondary:consensus.secondary,evidenceQuality:consensus.evidenceQuality,bySymbol:consensus.bySymbol,suspensionCoverage:consensus.suspensionCoverage}:null};
@@ -113,19 +125,24 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
  async function sync(){
   if(busy)return {updated:false,reason:'busy'};
   if(!writable())return {updated:false,error:'只读实例不能采集或写入行情'};
-  busy=true;lastAttempt=new Date().toISOString();
+  busy=true;
   try{
+   lastAttempt=new Date(sampleClock()).toISOString();
    const response=await fetchImpl(sourceUrl,{method:'GET',redirect:'error',signal:AbortSignal.timeout(timeoutMs),headers:{Accept:'application/json'}});
-   if(!response.ok)throw Error('行情服务返回 HTTP '+response.status);
+   sampleClock();
+   if(response?.ok!==true||response.status!==200)throw Error('行情服务返回 HTTP '+response?.status);
+   if(response.redirected===true||(response.url&&response.url!==sourceUrl))throw Error('行情响应发生重定向或地址不一致');
    const contentType=response.headers?.get?.('content-type');
    if(contentType&&!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|\s*$)/i.test(contentType))throw Error('行情响应必须是 JSON 类型');
-   const length=Number(response.headers?.get?.('content-length'));
-   if(Number.isFinite(length)&&length>maxBytes)throw Error('行情响应体超过限制');
+   const declared=response.headers?.get?.('content-length');
+   const length=declared==null?null:Number(declared);
+   if(declared!=null&&(typeof declared!=='string'||!/^\d+$/.test(declared)||!Number.isSafeInteger(length)||length>maxBytes))throw Error('行情响应体长度无效或超过限制');
    let total=0;const chunks=[];
    if(!response.body||typeof response.body[Symbol.asyncIterator]!=='function')throw Error('行情响应缺少可读数据流');
-   for await(const chunk of response.body){total+=chunk.length;if(total>maxBytes)throw Error('行情响应体超过限制');chunks.push(chunk);}
-   const receivedAt=clock();
-   if(!Number.isSafeInteger(receivedAt)||receivedAt<=0||receivedAt>Date.now())throw Error('行情接收时钟无效');
+   for await(const chunk of response.body){sampleClock();if(!(chunk instanceof Uint8Array))throw Error('行情响应不是原始字节流');total+=chunk.byteLength;if(total>maxBytes)throw Error('行情响应体超过限制');chunks.push(Buffer.from(chunk));}
+   const encoding=response.headers?.get?.('content-encoding');
+   if(length!==null&&(!encoding||encoding.toLowerCase()==='identity')&&total!==length)throw Error('行情响应体长度与声明不一致');
+   const receivedAt=sampleClock();
    return lockedProcess(Buffer.concat(chunks),{receivedAt});
   }catch(e){lastError=e.message;return {updated:false,error:lastError};}
   finally{busy=false;}
@@ -140,7 +157,7 @@ function createMarketDataCenter({url,outputFile,provider,datasetId,fetchImpl=glo
   if(!writable())return {updated:false,error:'只读实例不能复核行情'};
   busy=true;
   try{
-   const now=clock();if(!Number.isSafeInteger(now)||now<=0||now>Date.now())throw Error('隔离回放时钟无效');
+   const now=sampleClock();
    const events=evidence.readReceipts(root,{asOf:now,provider,datasetId,verifyRaw:true}),prior=events.find(event=>event.requestId===requestId);
    if(prior){
     if(prior.data.replayOf!==quarantineId||prior.data.review?.reviewerId!==reviewerId||prior.data.review?.reason!==reason)throw Error('复核请求ID内容冲突');

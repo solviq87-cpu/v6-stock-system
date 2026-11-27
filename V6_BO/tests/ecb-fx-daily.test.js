@@ -68,16 +68,16 @@ test('empty/duplicate/malformed headers, unsafe query and oversized responses ar
  assert.equal(calls,0);
  await assert.rejects(()=>collectEcbFxRate({...cfg,fetchImpl:async()=>({ok:false,status:429})}),/429/);
  await assert.rejects(()=>collectEcbFxRate({...cfg,fetchImpl:async()=>({
-  ok:true,headers:{get:()=> 'application/json'},text:async()=> '{}'
+  ok:true,status:200,headers:{get:k=>k==='content-type'?'application/json':null},text:async()=> '{}'
  })}),/不是CSV/);
  await assert.rejects(()=>collectEcbFxRate({...cfg,fetchImpl:async()=>({
-  ok:true,headers:{get:()=> 'text/csv'},body:Readable.from([Buffer.alloc(513*1024)])
+  ok:true,status:200,headers:{get:k=>k==='content-type'?'text/csv':null},body:Readable.from([Buffer.alloc(513*1024)])
  })}),/超过512KiB/);
 });
 
 test('18/22 ECB observation begins only after the complete response body is received',async()=>{
  let receiptClock=now;
- const make=()=>({ok:true,headers:{get:()=> 'text/csv'},text:async()=>{
+ const make=()=>({ok:true,status:200,headers:{get:k=>k==='content-type'?'text/csv':null},text:async()=>{
   receiptClock=now+2000;return csv([line('2026-11-02','1.2')]);
  }});
  const r=await collectEcbFxRate({...cfg,clock:()=>receiptClock,fetchImpl:async()=>make()});

@@ -2,7 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {fetchItickStockQuote}=require('../src/core/itick-stock-quote');
 const now=Date.parse('2026-11-10T10:02:00+08:00');
-const response=o=>({ok:true,text:async()=>JSON.stringify(o)});
+const response=o=>({ok:true,status:200,text:async()=>JSON.stringify(o)});
 const data=(x={})=>({code:0,msg:null,data:{s:'600519',ld:1444.99,p:1453,
  t:now-2000,v:2000000,tu:100000000,ts:0,...x}});
 test('unconfigured token never makes an external request',async()=>{
@@ -65,14 +65,14 @@ test('oversized streamed response fails closed without reading full remote body'
   throw Error('must not read a third chunk');
  }
  const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
-  fetchImpl:async()=>({ok:true,body:largeBody()})});
+  fetchImpl:async()=>({ok:true,status:200,body:largeBody()})});
  assert.equal(r.status,'unavailable');
  assert.equal(chunksRead,2);
 });
 test('declared huge content-length is rejected before streaming',async()=>{
  let didRead=false;
  const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
-  fetchImpl:async()=>({ok:true,headers:{get:()=>String(90000)},
+  fetchImpl:async()=>({ok:true,status:200,headers:{get:()=>String(90000)},
    body:{async *[Symbol.asyncIterator](){didRead=true;yield Buffer.from('{}');}}})});
  assert.equal(r.status,'unavailable');
  assert.equal(didRead,false);
@@ -80,7 +80,7 @@ test('declared huge content-length is rejected before streaming',async()=>{
 test('normal bounded streamed iTick response is accepted',async()=>{
  async function* body(){yield Buffer.from(JSON.stringify(data()));}
  const r=await fetchItickStockQuote({code:'600519',now,token:'fake',
-  fetchImpl:async()=>({ok:true,body:body()})});
+  fetchImpl:async()=>({ok:true,status:200,body:body()})});
  assert.equal(r.status,'fresh-unverified');
  assert.equal(r.quote.quoteAt,now-2000);
  assert.equal(r.canTrade,false);

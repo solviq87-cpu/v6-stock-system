@@ -8,6 +8,21 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
 const date=x=>typeof x==='string'&&/^\d{4}-\d\d-\d\d(?: 00:00:00)?$/.test(x)&&day(x.slice(0,10))?x.slice(0,10):null;
 const flags={researchOnly:true,canTrade:false,canNotify:false,verifiedExternal:false};
+const validTime=t=>Number.isSafeInteger(t)&&t>0&&t<8e15;
+const quarterDay=d=>day(d)&&/-(?:03-31|06-30|09-30|12-31)$/.test(d);
+const chinaDay=t=>new Date(t+28800000).toISOString().slice(0,10);
+function validFinancialDataset(d,symbol,kind,asOf){
+ return validTime(asOf)&&d&&d.simulated!==true&&d.retracted!==true&&d.symbol===symbol&&d.kind===kind&&
+  d.status==='observed-unverified'&&d.source==='eastmoney-financials'&&typeof d.rawHash==='string'&&/^[a-f0-9]{64}$/.test(d.rawHash)&&
+  validTime(d.receivedAt)&&d.receivedAt<=asOf&&Array.isArray(d.records)&&d.records.length>0&&d.records.length<=12&&
+  d.records.every((r,i)=>r&&quarterDay(r.reportDate)&&day(r.publicationDate)&&day(r.updatedDate)&&
+   r.periodKind===kind&&r.currency==='CNY'&&r.publicationBasis===(kind==='quarter'?'same-report-period-receipt':'supplier-row')&&
+   r.publicationDate>=r.reportDate&&r.updatedDate>=r.publicationDate&&r.updatedDate<=chinaDay(d.receivedAt)&&
+   r.values&&typeof r.values==='object'&&!Array.isArray(r.values)&&(!i||r.reportDate>d.records[i-1].reportDate));
+}
+function sameQuarterAnchor(row,anchor){
+ return !!anchor&&row.reportDate===anchor.reportDate&&row.publicationDate===anchor.publicationDate&&row.updatedDate===anchor.updatedDate;
+}
 const reference='https://github.com/akfamily/akshare/blob/main/akshare/stock/issue/stock_finance_sina.py';
 function targetFor(symbol,kind){
  if(!codeOK(symbol)||!['period','quarter'].includes(kind))throw Error('财务请求身份无效');
@@ -21,18 +36,20 @@ async function requestFinancialBytes(target,options={}){
  return requestResearchBytes(target,{...options,maxBytes:MAX_BYTES});
 }
 function parseFinancials(raw,{symbol,kind,receivedAt,period}){
- if(!codeOK(symbol)||!['period','quarter'].includes(kind)||!Number.isSafeInteger(receivedAt)||receivedAt<=0)throw Error('财务解析参数无效');
+ if(!codeOK(symbol)||!['period','quarter'].includes(kind)||!validTime(receivedAt))throw Error('财务解析参数无效');
+ if(kind==='quarter'&&!validFinancialDataset(period,symbol,'period',receivedAt))throw Error('单季数据缺少同报告期证据');
  const bytes=Buffer.isBuffer(raw)?raw:typeof raw==='string'?Buffer.from(raw):null;
  if(!bytes||bytes.length>MAX_BYTES)throw Error('缺少有界财务原始字节');
  const j=JSON.parse(bytes.toString('utf8')),today=new Date(receivedAt+28800000).toISOString().slice(0,10);
  if(j.success!==true||!Array.isArray(j.result?.data)||j.result.data.length>12)throw Error('财务响应错误或行数超限');
  const expected=symbol+(symbol.startsWith('6')?'.SH':'.SZ'),records=[],dates=new Set();
  for(const r of j.result.data){
-  if(!r||r.SECURITY_CODE!==symbol||r.SECUCODE!==expected||(kind==='period'&&r.CURRENCY!=='CNY'))throw Error('财务证券或币种不一致');
+  if(!r||r.SECURITY_CODE!==symbol||r.SECUCODE!==expected||(kind==='period'&&r.CURRENCY!=='CNY')||(kind==='quarter'&&r.CURRENCY!=null&&r.CURRENCY!=='CNY'))throw Error('财务证券或币种不一致');
   const reportDate=date(r.REPORT_DATE);
   // Quarter endpoint omits publication dates/currency: require the same report in the period receipt.
   const anchor=kind==='quarter'&&period?.symbol===symbol&&period.kind==='period'&&period.receivedAt<=receivedAt&&period.records?.find(x=>x.reportDate===reportDate);
-  if(kind==='quarter'&&!anchor)throw Error('单季数据缺少同报告期证据');
+  if(kind==='quarter'&&(!anchor||r.NOTICE_DATE!=null&&date(r.NOTICE_DATE)!==anchor.publicationDate||
+    r.UPDATE_DATE!=null&&date(r.UPDATE_DATE)!==anchor.updatedDate))throw Error('单季数据缺少同报告期或修订日期证据');
   const publicationDate=kind==='quarter'?anchor.publicationDate:date(r.NOTICE_DATE),updatedDate=kind==='quarter'?anchor.updatedDate:date(r.UPDATE_DATE);
   if(!reportDate||!publicationDate||!/-((03-31)|(06-30)|(09-30)|(12-31))$/.test(reportDate)||publicationDate<reportDate||publicationDate>today||
     reportDate>today||!updatedDate||updatedDate>today||updatedDate<publicationDate||dates.has(reportDate))throw Error('财报日期、重复修订或可得性不明');
@@ -52,31 +69,36 @@ async function fetchPublicStockFinancials({symbol}={},dependencies={}){
  if(!codeOK(symbol))throw Error('仅支持已核对接口的沪深A股代码');
  const {requestJson=requestFinancialBytes,requestGovernor,now=Date.now}=dependencies;
  const request=createResearchRequest(requestJson,requestFinancialBytes,requestGovernor),clock=()=>typeof now==='function'?now():now;
- const datasets={},errors=[],rawEvidence=[];
+ const datasets={},errors=[],rawEvidence=[];let lastAt=null;
+ function sampleClock(){
+  let at;try{at=clock();}catch{at=null;}
+  if(!validTime(at)||lastAt!==null&&at<lastAt)throw Object.assign(Error('财务采集时钟无效或倒退'),{code:'FINANCIAL_CLOCK_INVALID'});
+  lastAt=at;return at;
+ }
  for(const kind of ['period','quarter']){
   try{
-   const url=targetFor(symbol,kind),response=await request(url,{maxBytes:MAX_BYTES}),receivedAt=clock();
+   sampleClock();
+   const url=targetFor(symbol,kind),response=await request(url,{maxBytes:MAX_BYTES}),receivedAt=sampleClock();
    const raw=Buffer.isBuffer(response.raw)?response.raw:typeof response.raw==='string'?Buffer.from(response.raw):null;
    if(!raw||raw.length>MAX_BYTES)throw Error('财务响应无有效原始字节');
    const rawHash=createHash('sha256').update(raw).digest('hex');
    rawEvidence.push({source:'eastmoney-financials',url,receivedAt,encoding:'base64',data:raw.toString('base64'),sha256:rawHash,byteLength:raw.length});
    datasets[kind]=parseFinancials(raw,{symbol,kind,receivedAt,period:datasets.period});
   }catch(error){errors.push({kind,code:typeof error.code==='string'?error.code:'financial-source-invalid',...restrictionFields(error)});
-   if(error.code==='MARKET_RESTRICTED')break;
+   if(error.code==='MARKET_RESTRICTED'||error.code==='FINANCIAL_CLOCK_INVALID')break;
   }
  }
  return {schemaVersion:1,symbol,source:'eastmoney-financials',datasets,errors,rawEvidence,...flags};
 }
 function financialFeatures(financials,{code,asOf}){
- if(financials?.symbol!==code||financials.source!=='eastmoney-financials'||financials.simulated===true||financials.retracted===true)return {};
- const output={},valid=d=>d&&d.simulated!==true&&d.retracted!==true&&d.symbol===code&&d.status==='observed-unverified'&&d.source==='eastmoney-financials'&&
-  /^[a-f0-9]{64}$/.test(d.rawHash||'')&&Number.isSafeInteger(d.receivedAt)&&d.receivedAt>0&&d.receivedAt<=asOf&&Array.isArray(d.records)&&d.records.length<=12&&d.records.every((r,i)=>r&&day(r.reportDate)&&day(r.publicationDate)&&day(r.updatedDate)&&r.publicationDate>=r.reportDate&&r.updatedDate>=r.publicationDate&&r.updatedDate<=new Date(d.receivedAt+28800000).toISOString().slice(0,10)&&r.values&&typeof r.values==='object'&&(!i||r.reportDate>d.records[i-1].reportDate));
+ if(!codeOK(code)||!validTime(asOf)||financials?.symbol!==code||financials.source!=='eastmoney-financials'||financials.simulated===true||financials.retracted===true)return {};
+ const output={};
  const units={operatingCashToProfit:'ratio',basicEps:'CNY/share',operatingCashPerShare:'CNY/share',receivableDays:'days',inventoryDays:'days',currentRatio:'ratio',quickRatio:'ratio'};
  const put=(field,value,d,r)=>{if(finite(value))output[field]={code,value,unit:units[field]||'percent',source:'eastmoney-financials',
   evidenceId:d.rawHash+':'+(d.periodRawHash||'')+':'+r.reportDate+':'+field,observedAt:Date.parse(r.reportDate+'T23:59:59+08:00'),availableAt:d.receivedAt,recordedAt:d.receivedAt,
   reportDate:r.reportDate,publicationDate:r.publicationDate,updatedDate:r.updatedDate,periodKind:d.kind,verifiedExternal:false};};
  const period=financials.datasets?.period,quarter=financials.datasets?.quarter;
- if(valid(period)&&period.kind==='period'&&period.records.length){
+ if(validFinancialDataset(period,code,'period',asOf)){
   const r=period.records.at(-1),prior=period.records.find(p=>p.reportDate===String(Number(r.reportDate.slice(0,4))-1)+r.reportDate.slice(4));
   put('roePct',r.values.ROEJQ,period,r);put('debtAssetsPct',r.values.ZCFZL,period,r);
   for(const [field,raw] of [['grossMarginPct','XSMLL'],['netMarginPct','XSJLL'],['basicEps','EPSJB'],['operatingCashPerShare','MGJYXJJE'],['receivableDays','YSZKZZTS'],['inventoryDays','CHZZTS'],['currentRatio','LD'],['quickRatio','SD']])put(field,r.values[raw],period,r);
@@ -84,7 +106,8 @@ function financialFeatures(financials,{code,asOf}){
   // ROE is the actual report-period cumulative percentage, never annualized.
   // NCO_NETPROFIT and FCFF fields remain unmapped until source unit semantics are verified.
  }
- if(valid(quarter)&&valid(period)&&quarter.periodRawHash===period.rawHash&&quarter.receivedAt>=period.receivedAt&&quarter.kind==='quarter'&&quarter.records.length){
+ if(validFinancialDataset(quarter,code,'quarter',asOf)&&validFinancialDataset(period,code,'period',asOf)&&
+   quarter.periodRawHash===period.rawHash&&quarter.receivedAt>=period.receivedAt&&quarter.records.every(r=>sameQuarterAnchor(r,period.records.find(p=>p.reportDate===r.reportDate)))){
   const r=quarter.records.at(-1),p=quarter.records.at(-2);
   put('earningsGrowthPct',r.values.PARENTNETPROFITTZ,quarter,r);put('revenueGrowthPct',r.values.TOTALOPERATEREVETZ,quarter,r);
   const ordinal=d=>Number(d.slice(0,4))*4+Number(d.slice(5,7))/3;

@@ -41,8 +41,20 @@ test('future dated fund history cannot change the native eight-word result',()=>
  const baseline=result({}).bazi;
  const future=[{date:dates[37],main:1e8},{date,main:1e8},{date:dates[39],main:1e8}];
  const late=[{date:dates[36],main:1e8},{date:dates[37],main:1e8},{date,main:1e8,knownAt:at(dates[39])}];
- for(const fundDays of [future,late])assert.deepEqual(result({fundDays}).bazi,baseline);
- assert.deepEqual(result({mainInflow:1e8,fundsSourceTimestamp:at(dates[39])}).bazi,baseline);
+ // Rejected evidence must leave every original native result field identical.
+ // The new diagnostic fields are required, not part of the native score.
+ assert.equal(baseline.verdict,'unknown');
+ assert.equal(baseline.evidenceComplete,false);
+ assert.equal(Object.hasOwn(baseline,'rejectedDataInputs'),false);
+ assert.equal(Object.hasOwn(baseline,'sourceEvidenceVerified'),false);
+ const assertRejected=(patch,expectedGap)=>{
+  const {rejectedDataInputs,sourceEvidenceVerified,...native}=result(patch).bazi;
+  assert.deepEqual(native,baseline);
+  assert.deepEqual(rejectedDataInputs,[expectedGap]);
+  assert.equal(sourceEvidenceVerified,false);
+ };
+ for(const fundDays of [future,late])assertRejected({fundDays},'fundDays');
+ assertRejected({mainInflow:1e8,fundsSourceTimestamp:at(dates[39])},'fundReceipt');
 });
 test('late or invalid Python receipts remain unknown rather than creating historical passes',()=>{
  for(const knownAt of [at(dates[39]),'not-a-time',null]){
