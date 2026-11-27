@@ -84,28 +84,36 @@ function reconcilePaperAccount(input = {}) {
     const fee = nonnegativeMoney(own(t, 'fee'));
     if (fee === null) { missingFee++; errors.push(`第${i + 1}笔流水缺少有效费用`); continue; }
     if (side === 'BUY') {
-      const nextCash = round2(cash - amount - fee), basis = round2(amount + fee);
+      const basis = round2(amount + fee);
+      const nextCash = basis !== null ? round2(cash - basis) : null;
       const totalShares = (quantities.get(code) || 0) + shares;
       if (nextCash === null || basis === null || !Number.isSafeInteger(totalShares)) { failArithmetic(i); break; }
       cash = nextCash;
-      if (cash < -tolerance) errors.push(`第${i + 1}笔买入导致重算现金为负数`);
+      // The comparison tolerance cannot authorize a historical overdraft.
+      if (cash < 0) errors.push(`第${i + 1}笔买入导致重算现金为负数`);
       const queue = lots.get(code) || [];
       queue.push({ shares, basis });
       lots.set(code, queue);
       quantities.set(code, totalShares);
     } else {
-      const nextCash = round2(cash + amount - fee);
+      const credit = round2(amount - fee);
+      const nextCash = credit !== null ? round2(cash + credit) : null;
       if (nextCash === null) { failArithmetic(i); break; }
       cash = nextCash;
+      if (cash < 0) errors.push(`第${i + 1}笔卖出导致重算现金为负数`);
       let remaining = shares, basis = 0;
       const queue = lots.get(code) || [];
       while (remaining > 0 && queue.length) {
         const lot = queue[0], take = Math.min(remaining, lot.shares);
-        basis += lot.basis * take / lot.shares;
-        if (round2(basis) === null) { failArithmetic(i); break; }
+        // Match the authoritative ledger: round consumed cost once, then
+        // subtract that exact amount from the remaining lot.
+        const consumed = round2(lot.basis * take / lot.shares);
+        const nextBasis = consumed !== null ? round2(basis + consumed) : null;
+        const remainingBasis = consumed !== null ? round2(lot.basis - consumed) : null;
+        if (nextBasis === null || remainingBasis === null) { failArithmetic(i); break; }
+        basis = nextBasis;
         lot.shares -= take;
-        lot.basis = round2(lot.basis * (lot.shares / (lot.shares + take)));
-        if (lot.basis === null) { failArithmetic(i); break; }
+        lot.basis = remainingBasis;
         remaining -= take;
         if (lot.shares === 0) queue.shift();
       }
@@ -113,7 +121,8 @@ function reconcilePaperAccount(input = {}) {
       quantities.set(code, (quantities.get(code) || 0) - (shares - remaining));
       if (remaining > 0) { invalidTrades++; errors.push(`第${i + 1}笔卖出超过可追溯买入数量 ${remaining} 股`); }
       else {
-        realized = round2(realized + amount - fee - basis);
+        const tradeRealized = round2(amount - fee - basis);
+        realized = tradeRealized !== null ? round2(realized + tradeRealized) : null;
         if (realized === null) { failArithmetic(i); break; }
       }
       lots.set(code, queue);
