@@ -29,10 +29,12 @@ class El{
  }
  contains(){return false;}
 }
-function dom(){
+function dom({visibility}={}){
  global.Node=El;
- global.document={createElement:tag=>new El(tag),createElementNS:(_ns,tag)=>new El(tag),
-  createTextNode:content=>Object.assign(new El('text'),{textContent:content})};
+ const doc=visibility===undefined?{}:new EventTarget();
+ global.document=Object.assign(doc,{createElement:tag=>new El(tag),createElementNS:(_ns,tag)=>new El(tag),
+  createTextNode:content=>Object.assign(new El('text'),{textContent:content})});
+ if(visibility!==undefined)doc.visibilityState=visibility;
 }
 const textOf=el=>[el?.textContent||'',...(el?.children||[]).map(textOf)].join(' ');
 const locate=(el,predicate)=>predicate(el)?el:(el.children||[]).map(child=>locate(child,predicate)).find(Boolean);
@@ -202,7 +204,9 @@ test('native shell uses approved business navigation and worker caches every eag
 });
 
 test('home previews three candidates from the same system picks list and links to it',async()=>{
- dom();const {renderTerminalOverview}=await api,s=fixture(2);
+ // A current private risk read requires an explicitly visible document.
+ // Preserve the original candidate assertions and the exact private GET.
+ dom({visibility:'visible'});const {renderTerminalOverview}=await api,s=fixture(2);
  s.dashboard.rows=[{code:'600101',name:'首页原始候选',price:11.2,pct:1.3,score:95,signals:['放量突破'],
    quoteAt:Date.parse('2026-11-17T15:00:00+08:00'),quoteSource:'existing-source'},...Array.from({length:5},(_,i)=>({
    code:String(600102+i),name:'其他候选'+i,price:12+i,pct:0,signals:['同日量能条件'],
@@ -235,6 +239,30 @@ test('home previews three candidates from the same system picks list and links t
   'landing reads the shared account risk result and does not automatically load remote strategy pools');
  assert.ok(ctx.calls.every(call=>!call.options?.method||call.options.method==='GET'),'homepage risk read never mutates reminders or orders');
  ctx.controller.abort();
+});
+
+test('home risk summary waits for known visible document and does not revive a disposed view',async()=>{
+ const {renderTerminalOverview}=await api;
+ for(const visibility of [undefined,'hidden','unknown']){
+  dom({visibility});const ctx=context(fixture(2)),doc=global.document;
+  try{
+   renderTerminalOverview(ctx);await tick();
+   assert.deepEqual(ctx.calls.map(call=>call.path),[],'unknown or backgrounded visibility must not read private risk');
+   if(visibility!==undefined){
+    doc.visibilityState='visible';doc.dispatchEvent(new Event('visibilitychange'));await tick();
+    assert.deepEqual(ctx.calls.map(call=>call.path),['/api/risk-workbench?account=pool']);
+    doc.visibilityState='hidden';doc.dispatchEvent(new Event('visibilitychange'));
+    ctx.controller.abort();
+    doc.visibilityState='visible';doc.dispatchEvent(new Event('visibilitychange'));await tick();
+    assert.equal(ctx.calls.length,1,'disposed page must not resume the private request');
+   }
+  }finally{ctx.controller.abort();}
+ }
+ dom({visibility:'visible'});const viewer=context(fixture(2),'view');
+ try{
+  renderTerminalOverview(viewer);await tick();
+  assert.deepEqual(viewer.calls.map(call=>call.path),[],'visibility does not grant private read permission');
+ }finally{viewer.controller.abort();}
 });
 
 test('all received review rows are available on desktop and on-demand mobile, without inventing stocks',async()=>{
