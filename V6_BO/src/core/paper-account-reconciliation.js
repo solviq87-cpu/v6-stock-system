@@ -19,7 +19,15 @@ const numeric = n => finite(n) ? Number(n) : null;
 const monetary = n => { const v = numeric(n); return round2(v) !== null ? v : null; };
 const quantity = n => { const v = numeric(n); return Number.isSafeInteger(v) && v >= 0 ? v : null; };
 const nonnegativeMoney = n => { const v = monetary(n); return v !== null && v >= 0 ? v : null; };
-const record = v => v !== null && typeof v === 'object' && Object.prototype.toString.call(v) === '[object Object]';
+// Object.prototype.toString consults Symbol.toStringTag, which may invoke a
+// caller-supplied getter. Reject tagged records before classification.
+function record(v) {
+  if (v === null || typeof v !== 'object') return false;
+  for (let p = v; p !== null; p = Object.getPrototypeOf(p)) {
+    if (Object.getOwnPropertyDescriptor(p, Symbol.toStringTag)) return false;
+  }
+  return Object.prototype.toString.call(v) === '[object Object]';
+}
 function own(o, k) {
   const d = o == null ? undefined : Object.getOwnPropertyDescriptor(o, k);
   return d && Object.hasOwn(d, 'value') ? d.value : undefined;
@@ -30,6 +38,21 @@ function aliases(row, keys, normalize) {
   const supplied = keys.filter(k => Object.hasOwn(row, k));
   const values = supplied.map(k => normalize(own(row, k)));
   return values.length && values[0] !== null && values.every(v => v === values[0]) ? values[0] : null;
+}
+// IDs are optional in legacy histories; nonempty aliases must agree.
+function tradeIdentity(row) {
+  const ids = new Set();
+  for (const key of ['tradeId', 'trade_id', 'id']) {
+    const d = Object.getOwnPropertyDescriptor(row, key);
+    if (!d) continue;
+    if (!Object.hasOwn(d, 'value')) return { valid: false, id: null };
+    const value = d.value;
+    if (value === null || value === undefined) continue;
+    if (typeof value !== 'string' && !Number.isSafeInteger(value)) return { valid: false, id: null };
+    const id = String(value).trim();
+    if (id) ids.add(id);
+  }
+  return { valid: ids.size <= 1, id: ids.size === 1 ? ids.values().next().value : null };
 }
 const identity = v => typeof v === 'string' ? v.trim() : Number.isSafeInteger(v) && v > 0 ? String(v) : '';
 const sideOf = side => {
@@ -67,15 +90,12 @@ function reconcilePaperAccount(input = {}) {
     if (!record(t)) { invalidTrades++; errors.push(`第${i + 1}笔流水无效`); continue; }
     const side = sideOf(own(t, 'side')), code = identity(own(t, 'code'));
     const shares = quantity(own(t, 'shares')), amount = monetary(own(t, 'amount')), timestamp = own(t, 't');
-    const tradeId = own(t, 'tradeId') ?? own(t, 'trade_id') ?? own(t, 'id');
+    const tradeId = tradeIdentity(t);
     if (typeof timestamp !== 'number' || !Number.isSafeInteger(timestamp) || timestamp < 0) { invalidTrades++; errors.push(`第${i + 1}笔流水缺少有效非负整数时间戳`); continue; }
-    if (tradeId !== undefined && tradeId !== null) {
-      if (typeof tradeId !== 'string' && !Number.isSafeInteger(tradeId)) { invalidTrades++; errors.push(`第${i + 1}笔流水ID无效`); continue; }
-      const normalizedId = String(tradeId).trim();
-      if (normalizedId) {
-        if (seenTradeIds.has(normalizedId)) { invalidTrades++; errors.push(`重复成交流水ID：${normalizedId}`); continue; }
-        seenTradeIds.add(normalizedId);
-      }
+    if (!tradeId.valid) { invalidTrades++; errors.push(`第${i + 1}笔流水ID无效或冲突`); continue; }
+    if (tradeId.id !== null) {
+      if (seenTradeIds.has(tradeId.id)) { invalidTrades++; errors.push(`重复成交流水ID：${tradeId.id}`); continue; }
+      seenTradeIds.add(tradeId.id);
     }
     if (!side) { invalidTrades++; errors.push(`第${i + 1}笔流水方向无法识别`); continue; }
     if (!code || shares === null || shares <= 0 || amount === null || amount <= 0) {
@@ -135,7 +155,11 @@ function reconcilePaperAccount(input = {}) {
   const cashDiff = cash !== null && actualCash !== null ? round2(cash - actualCash) : null;
   const realizedDiff = realized !== null && actualRealized !== null ? round2(realized - actualRealized) : null;
   if (cashDiff === null || realizedDiff === null) errors.push('现金或盈亏差额无法安全计算');
-  const symbols = new Set([...lots.keys(), ...Object.keys(actualPositions)]);
+  // A non-enumerable own holding is still evidence; a symbol key is not
+  // a supported security identity and must never be silently ignored.
+  const actualSymbols = Object.getOwnPropertyNames(actualPositions);
+  if (Object.getOwnPropertySymbols(actualPositions).length) errors.push('持仓快照包含无法识别的证券键');
+  const symbols = new Set([...lots.keys(), ...actualSymbols]);
   const positionDiffs = [];
   for (const symbol of [...symbols].sort()) {
     const rebuiltLots = lots.get(symbol) || [];
@@ -161,7 +185,7 @@ function reconcilePaperAccount(input = {}) {
     ok, complete, tolerance, tradeCount: trades.length, missingFee, invalidTrades,
     cash: { rebuilt: cash, actual: round2(actualCash), diff: cashDiff },
     realized: { rebuilt: realized, actual: round2(actualRealized), diff: realizedDiff },
-    positions: { rebuiltSymbols: lots.size, actualSymbols: Object.keys(actualPositions).length, differences: positionDiffs },
+    positions: { rebuiltSymbols: lots.size, actualSymbols: actualSymbols.length, differences: positionDiffs },
     errors
   };
 }
