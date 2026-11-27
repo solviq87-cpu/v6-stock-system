@@ -64,9 +64,15 @@ test('C13.3 individually clear plans can have a conditional joint view, never an
 const quote=(symbol='600000',price=10,extra={})=>({code:symbol,price,quoteAt:now-1000,receivedAt:now,quoteSource:'provider',canTrade:true,suspended:false,...extra});
 const prior={date:'2026-11-24',source:'original',dataVersion:'v1',availableAt:Date.parse('2026-11-24T16:00:00+08:00'),evidenceKind:'historical',priceBasis:'unadjusted',volume:100000,volumeUnit:'shares',amount:100000,amountUnit:'CNY'};
 const exit=(p=prior,q=quote(),quantity=300)=>exitRisk({position:{symbol:q.code,quantity,sellable:quantity},quote:q,now,limitDown:false,suspended:false,prior:p,maxParticipationPct:1,assumedExitBps:20});
-test('C13.4 multi-session cost is unknown, one-session conditional friction stays known',()=>{
- const r=exit();assert.equal(r.conditionalSessions,3);assert.equal(r.estimatedExitCost,null);assert.equal(r.estimatedSellableExitCost,null);
- assert.equal(exit(prior,quote(),100).estimatedExitCost,2);
+test('C13.4 multi-session actual cost stays unknown while explicit static mark friction preserves its original contract',()=>{
+ const r=exit();assert.equal(r.conditionalSessions,3);
+ // Original C EX39 contract: explicit bps is static mark friction, NOT a
+ // full multi-session execution cost. Preserve the original C5 assertions.
+ assert.equal(r.estimatedExitCost,6);assert.equal(r.estimatedSellableExitCost,6);
+ assert.equal(r.exitCostBasis,'static-current-mark-bps-only');assert.equal(r.staticWholeMarkFriction,6);
+ assert.equal(r.staticSellableMarkFriction,6);assert.equal(r.staticMarkFrictionBps,20);
+ assert.equal(r.multiSessionExitCost,null);assert.equal(r.actualExitCost,null);
+ const one=exit(prior,quote(),100);assert.equal(one.estimatedExitCost,2);assert.equal(one.actualExitCost,null);
 });
 test('C13.4 explicit wrong currency unit never becomes CNY liquidity merely due to unadjusted prices',()=>{
  const p={...prior,amountUnit:'USD'};
@@ -94,4 +100,18 @@ test('C13.5 original distinct limit rule values and matching explicit boundary a
   const r=pick([mark(boundary,{lowerLimit:boundary})],null,limit);
   assert.equal(r.limitDown,true);assert.equal(r.lowerLimit,boundary);assert.equal(r.limitEvidenceStatus,'original-rule-and-quote-agree');
  }
+});
+
+test('C16.5 restricted shares never acquire a whole-position friction estimate or a complete future cost',()=>{
+ const q=quote(),r=exitRisk({position:{symbol:q.code,quantity:500,sellable:300},quote:q,now,limitDown:false,suspended:false,prior,maxParticipationPct:1,assumedExitBps:20});
+ assert.equal(r.staticSellableMarkFriction,6);assert.equal(r.staticWholeMarkFriction,null);
+ assert.equal(r.estimatedExitCost,null);assert.equal(r.conditionalSessions,null);assert.equal(r.multiSessionExitCost,null);assert.equal(r.actualExitCost,null);
+});
+test('C16.5 no explicit friction assumption or unavailable exit remains unknown, not zero',()=>{
+ const q=quote(),input={position:{symbol:q.code,quantity:300,sellable:300},quote:q,now,limitDown:false,suspended:false,prior,maxParticipationPct:1};
+ for(const patch of [{},{assumedExitBps:null},{assumedExitBps:20,limitDown:true},{assumedExitBps:20,suspended:true}]){
+  const r=exitRisk({...input,...patch});assert.equal(r.staticSellableMarkFriction,null);
+  assert.equal(r.staticWholeMarkFriction,null);assert.equal(r.exitCostBasis,'unavailable');assert.equal(r.multiSessionExitCost,null);assert.equal(r.actualExitCost,null);
+ }
+ const zero=exitRisk({...input,assumedExitBps:0});assert.equal(zero.staticWholeMarkFriction,0);assert.equal(zero.exitCostBasis,'static-current-mark-bps-only');
 });

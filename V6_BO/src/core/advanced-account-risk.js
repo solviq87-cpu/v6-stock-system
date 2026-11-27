@@ -118,6 +118,7 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
    orderFrozen:frozen,lotReserved:reservedLots,quoteAt:use?.quoteAt??null,quoteSource:safeSource(quote?.quoteSource),quoteStatus:use?.quoteStatus||'unknown',
    estimatedFee:fee,feeVersion,estimatedMarketImpact:null,conditionalSessions:null,estimatedExitCost:null,
    conditionalSellableSessions:null,estimatedSellableExitCost:null,exitEstimateQuantity:null,costReason:null,
+   exitCostBasis:"unavailable",estimatedFeeBasis:fee===null?null:"current-mark-single-order-fee",multiSessionExitCost:null,actualExitCost:null,
    guaranteedFill:false,alerts:rowAlerts});
  }
  if(feesComplete&&reservedCash>book.account.cash+0.011)return unavailable(account,'CASH_RESERVATION_MISMATCH');
@@ -140,6 +141,8 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   row.estimatedMarketImpact=extra.estimatedMarketImpact;row.conditionalSessions=extra.conditionalSessions;row.estimatedExitCost=extra.estimatedExitCost;
   row.conditionalSellableSessions=extra.conditionalSellableSessions??null;row.estimatedSellableExitCost=extra.estimatedSellableExitCost??null;
   row.exitEstimateQuantity=extra.exitEstimateQuantity??null;row.costReason=extra.costReason??null;
+  row.exitCostBasis=extra.exitCostBasis??"unavailable";row.estimatedFeeBasis=extra.estimatedFeeBasis??null;
+  row.multiSessionExitCost=null;row.actualExitCost=null;
   row.historicalDailyShares=extra.historicalDailyShares;row.liquidityEvidence=extra.liquidityEvidence;row.scenarioVersion=extra.scenarioVersion;
   row.alerts=[...row.alerts.filter(a=>a.code!=='LIQUIDITY_EXIT'),...(extra.alerts||[]).filter(a=>a.code==='LIQUIDITY_EXIT')];
  }

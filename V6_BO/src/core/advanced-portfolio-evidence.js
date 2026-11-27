@@ -58,14 +58,22 @@ function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipation
  const restrictedQuantity=position.quantity-position.sellable;
  const subsetKnown=clear&&(position.sellable>0||position.quantity===0);
  const conditionalSellableSessions=subsetKnown?Math.ceil(position.sellable/cap):null;
- const subsetCost=subsetKnown&&conditionalSellableSessions<=1&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
+ // Preserve the legacy STATIC current-mark friction when the caller supplies
+ // an explicit bps assumption. It is not an estimate of future multi-session
+ // executions, fees or prices. The runtime separately projects one session.
+ const subsetCost=subsetKnown&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
  const estimatedSellableExitCost=finite(subsetCost)?subsetCost:null;
  return report({symbol:position.symbol,sellable:position.sellable,restrictedQuantity,historicalDailyShares:cap,
   conditionalSessions:restrictedQuantity===0?conditionalSellableSessions:null,
   estimatedExitCost:restrictedQuantity===0?estimatedSellableExitCost:null,
   conditionalSellableSessions,estimatedSellableExitCost,exitEstimateQuantity:subsetKnown?position.sellable:null,
+  exitCostBasis:estimatedSellableExitCost===null?"unavailable":"static-current-mark-bps-only",
+  staticSellableMarkFriction:estimatedSellableExitCost,
+  staticWholeMarkFriction:restrictedQuantity===0?estimatedSellableExitCost:null,
+  staticMarkFrictionBps:estimatedSellableExitCost===null?null:assumedExitBps,
+  multiSessionExitCost:null,actualExitCost:null,
   alerts,guaranteedFill:false,quoteAt:q?.quoteAt??null,liquiditySource:liquidity?prior.source:null,liquidityVersion:liquidity?prior.dataVersion:null,
-  assumptions:["历史容量及成本仅为压力预演；止损不保证成交","存在T+1或冻结数量时整仓退出时间及成本未知；局部估计只覆盖明确可卖部分"]});
+  assumptions:["历史容量仅为压力预演；止损不保证成交","存在T+1或冻结数量时整仓退出时间及成本未知；局部估计只覆盖明确可卖部分","本底层estimatedExitCost/estimatedSellableExitCost在显式基点假设下仅兼容静态现价摩擦；跨时段费用、价格、冲击与实际成交成本未知"]});
 }
 function cashFlowPerformance({initialAt,initialEquity,rows,benchmark,asOf=Date.now(),dailyEvidence}={}){
  if(!stamp(asOf)||!stamp(initialAt)||initialAt>asOf||!positive(initialEquity)||!Array.isArray(rows)||!rows.length||rows.length>10000)return unknown("MISSING_EQUITY_BOUNDARIES");

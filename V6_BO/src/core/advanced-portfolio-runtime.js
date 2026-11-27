@@ -177,9 +177,12 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
   return {...detail,symbol:position.symbol,conditionalSessions:session?detail.conditionalSessions??null:null,
    conditionalSellableSessions:subsetSessions,exitEstimateQuantity:session?detail.exitEstimateQuantity??null:null,
    estimatedSellableExitCost,estimatedFee:session?position.estimatedFee:null,feeVersion:session?position.feeVersion:null,
-   estimatedMarketImpact:subsetSessions!==null&&estimated&&finite(estimated.impact)?estimated.impact:null,
+   estimatedMarketImpact:subsetSessions===1&&estimated&&finite(estimated.impact)?estimated.impact:null,
+   exitCostBasis:estimatedSellableExitCost===null?'unavailable':'one-session-fee-plus-assumed-impact',
+   estimatedFeeBasis:session&&finite(position.estimatedFee)?'current-mark-single-order-fee':null,
+   multiSessionExitCost:null,actualExitCost:null,
    estimatedExitCost:session&&detail.conditionalSessions===1?estimatedSellableExitCost:null,
-   costReason:!session?'SESSION_CLOSED_OR_ACCOUNT_PAUSED':detail.restrictedQuantity>0?'RESTRICTED_POSITION_EXIT_UNVERIFIED':detail.conditionalSessions>1?'MULTI_SESSION_FEES_AND_PRICES_UNAVAILABLE':estimatedSellableExitCost===null?'ORIGINAL_QUOTE_OR_PRIOR_LIQUIDITY_UNAVAILABLE':null,
+   costReason:!session?'SESSION_CLOSED_OR_ACCOUNT_PAUSED':detail.restrictedQuantity>0?'RESTRICTED_POSITION_EXIT_UNVERIFIED':subsetSessions>1?'MULTI_SESSION_FEES_AND_PRICES_UNAVAILABLE':estimatedSellableExitCost===null?'ORIGINAL_QUOTE_OR_PRIOR_LIQUIDITY_UNAVAILABLE':null,
    scenarioVersion:policy?.version||null,liquidityEvidence:prior?{date:prior.date,source:prior.source,dataVersion:prior.dataVersion,availableAt:prior.availableAt}:null,guaranteedFill:false,...flags};
  });
  const capacity=codes.slice(0,20).map(symbol=>{
