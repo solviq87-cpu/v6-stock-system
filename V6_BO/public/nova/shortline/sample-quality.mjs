@@ -156,8 +156,11 @@ function reviewSourceIds(state,sourceIds,frozenAt,asOf){
      first<=last&&last<=restored&&restored<=created&&created<=at;
    if(!usable){affected.add(row.id);continue;}
   }
-  // Neither a recovery marker nor a unique identity proves usable learning.
-  if(!sampleMatches(row,'standard')||!verifiedLearningObservation(row,at))affected.add(row.id);
+  // Current eligibility does not prove availability at the original fit or
+  // validation cutoff. A later receipt/revision cannot certify an older model.
+  const observation=verifiedLearningObservation(row,at);
+  if(!sampleMatches(row,'standard')||!observation||created===null||created>at||observation.knownAt>created)
+   affected.add(row.id);
  }
  return {ids,affected};
 }
