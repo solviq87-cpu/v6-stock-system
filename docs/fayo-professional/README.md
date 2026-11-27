@@ -131,12 +131,18 @@
 - 原公开行情研究接口及决策链提供近期有效样本的等权涨跌幅、中位数、上涨比例和全池成交HHI。沿用90秒研究观察窗；全池金额分母不完整时HHI为空。近期样本来自原供应商范围，并非全交易所认证覆盖。完整指数贡献、板块扩散速度仍待核。模型前向评价按相同配置、来源、目标期与输出类型同时展示配对交集及两侧冻结、可观察分母，仅用于价格误差分析。
 - 可复现入口为 `V6_BO/server.js` 的原指数调度、`/api/research/live-market`、`/api/research/eastmoney-breadth`、`/api/research/decision-pipeline`，及原研究档案的模型前向成绩。浏览器通过上述研究结果的形状消费同源数据。合成双端隔离验证使用1366和390像素视口，外部页面请求全部阻断。修前3项近期截面专项失败，修后相关8文件44项通过，模型前向专项28项通过。完整隔离服务冒烟通过；全量6630项，6626通过，0失败，4项跳过（PowerShell及可选模型环境）。首次回归因模型解释器选错有14项失败，重选已有scikit-learn 1.8.0解释器后重跑。测试命令见下。
 - ECB原采集器实际取得2026-11-16至20日五条CNY/EUR日参考值，收件时刻1795793433539，响应投影SHA256为 `c72b3749917684209e2417600636cbe95e7da54981dcc7aee20e597290d0f469`。记录的官方首次发布时间及可交易报价均为空。原东方财富研究采集器经当前环境网络返回HTTP 502；本次没有实际A股截面或实时影子结果。大陆线路、供应商交易用途许可、真机、持久运行、净收益增益与生产发布待验。
+- 大陆自主运行补验使用 Linux 子进程级 seccomp 和合成账户。正常服务保留后台初始化，禁出站连接、无连接发送及新建 io_uring，回环连接负对照返回 ENETUNREACH。外部测试客户端访问电脑、手机及登录入口成功。本地规则对输入趋势分80给出条件命中，实时市场研究采集失败时 verifiedLive 为 false，缺价风险保持 unknown、canRecommend 为 false。16项历史研究与风险测试在同一系统调用限制下通过。真实大陆网络、用户设备与授权实时源仍待现场验收。
+- 2026-11-27 15:48:01 UTC，原A股历史采集器在东方财富HTTP 503、腾讯HTTP 501后取得新浪600000未复权日线120条（2026-06-04至11-27）。源响应字节SHA256为 `897cc0471978459dca8f1f2d0f191fd9c77ad7a4d76f0b30e0f2ab6b645b1bf3`，原始供应商发布时间为空。以实际收件日为截点并核验字节指纹后，在断网条件下送入原历史研究、回测与模拟回放，数据集指纹 `6988ca39ddbc5fd93b32c53ec6247d902a0561fcd7c997cb96a1c50cdacebb08`。一只证券、89个回放权益点、0笔委托，回测返回 insufficient，交易资格为 false。该样本可复核采集至研究的消费，策略净收益及前向价值待验证。
+- 静态回归逐次检查已有应用、部署、模型依赖清单及所选随包HTML/CSS。覆盖云模型端点、SDK、密钥变量及页面装载的远程字体、图片、脚本、图表与样式，保留合法原文超链接和本地权重。间接遥测、动态请求、设备网络策略仍需运行证据。
 - 本次产品图仅为早期视觉方向；最终页集待统一集成与用户确认。当前隔离截图使用合成输入，记录真实浏览器渲染。后续真机与部署截图须标版本、设备、交易日和数据源。
 - 回退候选采用独立提交的代码回退，请总管核兼容后按原机制执行。本候选无权威账户、账本或数据卷迁移。
 
 ~~~sh
 V6_MODEL_PYTHON="$(command -v python3)" OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 npm test
 node V6_BO/tests/full-server-isolated-smoke.js
+node V6_BO/tests/full-server-isolated-smoke.js --offline-normal-boot
+python3 V6_BO/tests/helpers/deny-network-connect.py node --test V6_BO/tests/{offline-research-closure,historical-validation-integration,research-risk-gate}.test.js
+python3 scripts/audit-no-openai-runtime.py
 V6_UI_BROWSER=/usr/bin/chromium node V6_BO/scripts/fayo-research-discipline-browser-check.js
 node --test V6_BO/tests/model-forward-evaluation.test.js
 node --test V6_BO/tests/{recent-market-structure,index-window-research,market-breadth-observed,eastmoney-market-snapshot,live-market-research,decision-research-pipeline,market-snapshot-quote-time,intraday-session-feed}.test.js
