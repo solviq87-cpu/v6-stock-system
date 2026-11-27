@@ -33,6 +33,8 @@ async function fetchSinaIndices(){
 function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,onUpdate=()=>{}}){
   let day=null,epoch=0,lastClock=null,quotes=new Map(),books=new Map(),channels=new Map(),nextCloseCheck=0;
   const providers=['tencent-index','sina-index'];
+  // Keep physical request cadence across a cache/epoch reset.
+  const requestNotBefore=new Map();
   const validTime=at=>Number.isSafeInteger(at)&&at>0&&at<=8e15;
   function reset(nextDay,at=null){
     const hadQuotes=quotes.size>0;
@@ -41,9 +43,11 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     if(hadQuotes)onUpdate({at:validTime(at)?at:null,items:[]});
   }
   function sampleClock(){
-    const now=clock();
-    if(!validTime(now)){reset(day);lastClock=null;return null;}
-    if(lastClock!==null&&now<lastClock){reset(day,now);lastClock=now;return null;}
+    let now;try{now=clock();}catch{now=null;}
+    if(!validTime(now)){reset(day);return null;}
+    // Never lower the high-water clock on failure. Repeated reads below the
+    // last valid sample cannot restart a quote epoch or refresh its cache.
+    if(lastClock!==null&&now<lastClock){reset(day,now);return null;}
     lastClock=now;return now;
   }
   function timed(row,now,startedAt){
@@ -81,11 +85,12 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
   }
   function pull(source,fetchRows,interval,startedAt){
     const slot=channels.get(source);
-    if(slot&&(slot.pending||startedAt<slot.nextAt))return;
+    if(startedAt<(requestNotBefore.get(source)||0)||slot&&(slot.pending||startedAt<slot.nextAt))return;
     const state=slot||{status:'reading',checkedAt:null,quoteAt:null,count:0};
     channels.set(source,state);
     const forEpoch=epoch,forDay=day;
     state.nextAt=startedAt+interval;
+    requestNotBefore.set(source,state.nextAt);
     state.pending=Promise.resolve().then(fetchRows).then(rows=>{
       if(epoch!==forEpoch||day!==forDay)return;
       const asOf=sampleClock();
@@ -128,9 +133,11 @@ function createSessionIndexFeed({primary,backup=fetchSinaIndices,clock=Date.now,
     }).finally(()=>{state.pending=null;});
   }
   function read(session){
-    if(day!==session.day)reset(session.day);
     const now=sampleClock();
-    if(now===null||dayOf(now)!==day)return {day:session.day,indices:[],channels:[]};
+    if(now===null)return {day:session.day,indices:[],channels:[]};
+    const actualDay=dayOf(now);
+    if(day!==actualDay)reset(actualDay,now);
+    if(session.day!==actualDay)return {day:session.day,indices:[],channels:[]};
     if(session.trading){
       pull('tencent-index',primary,5000,now);
       const primaryRows=books.get('tencent-index'),primaryState=channels.get('tencent-index');
