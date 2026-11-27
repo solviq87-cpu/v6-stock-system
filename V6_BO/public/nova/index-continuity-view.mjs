@@ -18,3 +18,11 @@ export function indexContinuityRows(value,asOf){
   returnPct:e.returnPct,revision:e.revision,label:phases[e.phase],direction:e.direction==='up'?'上涨':'下跌',
   note:e.status==='ended'?'仅该研究窗口回落，不代表风险解除':'原因待核，仅研究观察'}));
 }
+
+export function indexHistoryDisclosure(value){
+ if(value?.mode!=='sealed-index-minute-history-v1'||value.currentSession!=='fresh-observation-required'||value.canTrade!==false||value.canNotify!==false||value.sourceVerified!==false||value.canTrain!==false||
+   !Number.isSafeInteger(value.daysLoaded)||value.daysLoaded<0||value.daysLoaded>21||
+   !Number.isSafeInteger(value.archivedDays)||value.archivedDays<0||value.archivedDays>16384||value.archivedDays<value.daysLoaded)return '';
+ const notes={restored:'已恢复 '+value.daysLoaded+' 日已封存的分钟研究样本',saved:'已封存交易日研究样本',empty:'尚无可恢复的分钟研究样本',unavailable:'分钟研究档案不可用，基准需重新积累','clock-reset':'研究时钟变化，已清空本次基准'};
+ return Object.hasOwn(notes,value.status)?notes[value.status]+'；本交易日重新采样，不恢复旧报价或旧异动结论。':'';
+}
