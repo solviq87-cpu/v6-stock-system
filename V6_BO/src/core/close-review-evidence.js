@@ -7,6 +7,7 @@ const {randomUUID}=require('node:crypto');
 const {requestResearchBytes}=require('./research-curl-bytes');
 const {fetchReviewLimitPool}=require('./public-market-context');
 const {normalizeDay,normalizeReasonEvidence,reasonMatchesDay}=require('./limit-reason-evidence');
+const {normalizeSeat}=require('./lhb-evidence');
 const height=row=>Number.isSafeInteger(row.consecutiveLimits)&&row.consecutiveLimits>0?row.consecutiveLimits:null;
 
 function summarizePromotion(sealed,previous){
@@ -27,15 +28,11 @@ function summarizePromotion(sealed,previous){
 }
 
 function seatFrom(row,day){
- const code=String(row?.SECURITY_CODE||'').trim();
- const dept=String(row?.OPERATEDEPT_NAME||'').trim();
- const reason=String(row?.EXPLANATION||row?.EXPLAIN||'').trim();
- const number=value=>typeof value==='number'||typeof value==='string'&&value.trim()?Number(value):NaN;
- const buy=number(row?.BUY),sell=number(row?.SELL);
- const net=number(row?.NET??(buy-sell));
- if(!/^\d{6}$/.test(code)||!dept||normalizeDay(String(row?.TRADE_DATE||'').slice(0,10))!==day||!Number.isFinite(net))return null;
+ const s=normalizeSeat(row,day);
+ if(!s)return null;
+ const {code,name,dept,reason,net}=s;
  const category=/机构专用/.test(dept)?'机构专用':/股通专用/.test(dept)?'互联互通':'营业部';
- return {code,name:String(row.SECURITY_NAME_ABBR||code).trim(),dept,category,net,reason};
+ return {code,name,dept,category,net,reason};
 }
 
 async function northTurnover(day,get){
