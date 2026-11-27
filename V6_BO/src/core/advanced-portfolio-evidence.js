@@ -53,7 +53,19 @@ function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipation
  const cap=Number.isSafeInteger(calculatedCap)&&calculatedCap>=0?calculatedCap:null;
  if(cap===null||cap===0||position.sellable>cap)add("LIQUIDITY_EXIT","high",cap===null?"前日成交量或参与率未知":"持仓可卖数量超过单日历史参与率容量","无法保证单日退出","核对成交量、金额与盘口","取得足量可执行流动性");
  const clear=q?.canTrade===true&&suspended===false&&limitDown===false&&cap!==null&&cap>0;
- return report({symbol:position.symbol,sellable:position.sellable,restrictedQuantity:position.quantity-position.sellable,historicalDailyShares:cap,conditionalSessions:clear?Math.ceil(position.sellable/cap):null,estimatedExitCost:clear&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null,alerts,guaranteedFill:false,quoteAt:q?.quoteAt??null,liquiditySource:liquidity?prior.source:null,liquidityVersion:liquidity?prior.dataVersion:null,assumptions:["历史容量及成本仅为压力预演；止损不保证成交"]});
+ // A capacity estimate for today's sellable subset is not an exit estimate
+ // for the whole holding. In particular, T+1 or frozen shares are not zero risk.
+ const restrictedQuantity=position.quantity-position.sellable;
+ const subsetKnown=clear&&(position.sellable>0||position.quantity===0);
+ const conditionalSellableSessions=subsetKnown?Math.ceil(position.sellable/cap):null;
+ const subsetCost=subsetKnown&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
+ const estimatedSellableExitCost=finite(subsetCost)?subsetCost:null;
+ return report({symbol:position.symbol,sellable:position.sellable,restrictedQuantity,historicalDailyShares:cap,
+  conditionalSessions:restrictedQuantity===0?conditionalSellableSessions:null,
+  estimatedExitCost:restrictedQuantity===0?estimatedSellableExitCost:null,
+  conditionalSellableSessions,estimatedSellableExitCost,exitEstimateQuantity:subsetKnown?position.sellable:null,
+  alerts,guaranteedFill:false,quoteAt:q?.quoteAt??null,liquiditySource:liquidity?prior.source:null,liquidityVersion:liquidity?prior.dataVersion:null,
+  assumptions:["历史容量及成本仅为压力预演；止损不保证成交","存在T+1或冻结数量时整仓退出时间及成本未知；局部估计只覆盖明确可卖部分"]});
 }
 function cashFlowPerformance({initialAt,initialEquity,rows,benchmark,asOf=Date.now(),dailyEvidence}={}){
  if(!stamp(asOf)||!stamp(initialAt)||initialAt>asOf||!positive(initialEquity)||!Array.isArray(rows)||!rows.length||rows.length>10000)return unknown("MISSING_EQUITY_BOUNDARIES");

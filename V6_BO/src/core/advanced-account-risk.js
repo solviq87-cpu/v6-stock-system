@@ -98,7 +98,9 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   if(book.legacy?.enabled===false)rowAlerts.push(issue('ACCOUNT_PAUSED','high','原模拟账户暂停',symbol,'不得通过本报告恢复交易','核对原账户状态及授权','原账户按授权启用并通过门禁'));
   positions.push({symbol,quantity:p.quantity,matureUnreserved:available,sellable:marketOpen?available:null,
    orderFrozen:frozen,lotReserved:reservedLots,quoteAt:use?.quoteAt??null,quoteSource:safeSource(quote?.quoteSource),quoteStatus:use?.quoteStatus||'unknown',
-   estimatedFee:fee,feeVersion,estimatedMarketImpact:null,conditionalSessions:null,guaranteedFill:false,alerts:rowAlerts});
+   estimatedFee:fee,feeVersion,estimatedMarketImpact:null,conditionalSessions:null,estimatedExitCost:null,
+   conditionalSellableSessions:null,estimatedSellableExitCost:null,exitEstimateQuantity:null,costReason:null,
+   guaranteedFill:false,alerts:rowAlerts});
  }
  if(feesComplete&&reservedCash>book.account.cash+0.011)return unavailable(account,'CASH_RESERVATION_MISMATCH');
  if(!feesComplete)alerts.push(issue('CASH_RESERVATION_UNKNOWN','high','原待买委托费率或预算证据不足',account,'不确认可用资金；建议核对原委托','核对生效费率及未终结委托','原冻结资金可核对'));
@@ -118,6 +120,8 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   const extra=result.portfolioEvidence.exits?.find(x=>x.symbol===row.symbol);
   if(!extra)continue;
   row.estimatedMarketImpact=extra.estimatedMarketImpact;row.conditionalSessions=extra.conditionalSessions;row.estimatedExitCost=extra.estimatedExitCost;
+  row.conditionalSellableSessions=extra.conditionalSellableSessions??null;row.estimatedSellableExitCost=extra.estimatedSellableExitCost??null;
+  row.exitEstimateQuantity=extra.exitEstimateQuantity??null;row.costReason=extra.costReason??null;
   row.historicalDailyShares=extra.historicalDailyShares;row.liquidityEvidence=extra.liquidityEvidence;row.scenarioVersion=extra.scenarioVersion;
   row.alerts=[...row.alerts.filter(a=>a.code!=='LIQUIDITY_EXIT'),...(extra.alerts||[]).filter(a=>a.code==='LIQUIDITY_EXIT')];
  }

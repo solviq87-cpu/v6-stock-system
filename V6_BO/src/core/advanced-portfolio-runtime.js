@@ -166,7 +166,17 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  const exits=diagnostic.positions.map(position=>{
   const raw=own(quotes,position.symbol),prior=history.prior(position.symbol),detail=exitRisk({position:{symbol:position.symbol,quantity:position.quantity,sellable:position.matureUnreserved},quote:raw?.quote,now,limitDown:raw?.limitDown,suspended:raw?.suspended,prior,maxParticipationPct:policy?.maxParticipationPct}),estimated=cost('sell',position.matureUnreserved,position.symbol);
   const session=diagnostic.continuous&&book.legacy?.enabled!==false;
-  return {...detail,symbol:position.symbol,conditionalSessions:session?detail.conditionalSessions:null,estimatedFee:session?position.estimatedFee:null,feeVersion:session?position.feeVersion:null,estimatedMarketImpact:session&&estimated?estimated.impact:null,estimatedExitCost:session&&estimated&&detail.conditionalSessions===1&&finite(position.estimatedFee)?round(estimated.impact+position.estimatedFee):null,costReason:detail.conditionalSessions>1?'MULTI_SESSION_FEES_AND_PRICES_UNAVAILABLE':estimated?null:'ORIGINAL_QUOTE_OR_PRIOR_LIQUIDITY_UNAVAILABLE',scenarioVersion:policy?.version||null,liquidityEvidence:prior?{date:prior.date,source:prior.source,dataVersion:prior.dataVersion,availableAt:prior.availableAt}:null,guaranteedFill:false,...flags};
+  // Session/permission restrictions apply to the subset estimate as well.
+  const subsetSessions=session?detail.conditionalSellableSessions??null:null;
+  const subsetCost=subsetSessions===1&&estimated&&finite(estimated.impact)&&finite(position.estimatedFee)?round(estimated.impact+position.estimatedFee):null;
+  const estimatedSellableExitCost=finite(subsetCost)?subsetCost:null;
+  return {...detail,symbol:position.symbol,conditionalSessions:session?detail.conditionalSessions??null:null,
+   conditionalSellableSessions:subsetSessions,exitEstimateQuantity:session?detail.exitEstimateQuantity??null:null,
+   estimatedSellableExitCost,estimatedFee:session?position.estimatedFee:null,feeVersion:session?position.feeVersion:null,
+   estimatedMarketImpact:subsetSessions!==null&&estimated&&finite(estimated.impact)?estimated.impact:null,
+   estimatedExitCost:session&&detail.conditionalSessions===1?estimatedSellableExitCost:null,
+   costReason:!session?'SESSION_CLOSED_OR_ACCOUNT_PAUSED':detail.restrictedQuantity>0?'RESTRICTED_POSITION_EXIT_UNVERIFIED':detail.conditionalSessions>1?'MULTI_SESSION_FEES_AND_PRICES_UNAVAILABLE':estimatedSellableExitCost===null?'ORIGINAL_QUOTE_OR_PRIOR_LIQUIDITY_UNAVAILABLE':null,
+   scenarioVersion:policy?.version||null,liquidityEvidence:prior?{date:prior.date,source:prior.source,dataVersion:prior.dataVersion,availableAt:prior.availableAt}:null,guaranteedFill:false,...flags};
  });
  const capacity=codes.slice(0,20).map(symbol=>{
   const raw=marks(symbol),plan=plans.find(p=>p.code===symbol),position=diagnostic.positions.find(p=>p.symbol===symbol);
