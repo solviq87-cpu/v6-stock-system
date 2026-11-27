@@ -4,19 +4,31 @@ const path=require('node:path');
 const crypto=require('node:crypto');
 const {createMarketDataCenter,validateImport}=require('./market-data-center');
 // Keep each provider's append-only history separate: fallback must not splice sources.
-function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retries=1,clock=Date.now,maxCacheAgeMs=86400000}={}){
+function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retries=1,clock=Date.now,maxCacheAgeMs=86400000,requestGovernor}={}){
   if(!Array.isArray(sources)||!sources.length||sources.length>5||!directory||!Number.isInteger(retries)||retries<0||retries>3||!Number.isFinite(maxCacheAgeMs)||maxCacheAgeMs<0)throw Error('备用行情配置无效');
   const ids=new Set();
+  // Physical default requests share the existing supplier governor; injected
+  // adapters may explicitly provide a deterministic governor for testing.
+  const governor=requestGovernor??(fetchImpl===globalThis.fetch&&sources.every(s=>typeof s?.url==='string')?require('./market-request-governor').marketRequests:null);
   const entries=sources.map(source=>{
-    if(!source||!/^[a-zA-Z0-9_-]{1,40}$/.test(source.id)||ids.has(source.id))throw Error('行情源ID重复或无效');ids.add(source.id);
-    const file=path.join(directory,source.id+'.json');
-    return {source,file,client:createMarketDataCenter({...source,outputFile:file,fetchImpl,clock})};
+    if(!source||typeof source.id!=='string'||!/^[a-zA-Z0-9_-]{1,40}$/.test(source.id)||ids.has(source.id.toLowerCase()))throw Error('行情源ID重复或无效');ids.add(source.id.toLowerCase());
+    const file=path.join(directory,source.id+'.json'),entry={source,file,restriction:null,verified:null};
+    const guardedFetch=async(target,options)=>{
+      const response=await fetchImpl(target,options);
+      if(governor){try{governor.checkResponse(target,response?.status,response?.headers);}
+      catch(error){entry.restriction=error;throw error;}}
+      return response;
+    };
+    entry.client=createMarketDataCenter({...source,outputFile:file,fetchImpl:guardedFetch,clock:readClock});
+    return entry;
   });
-  let busy=false,last=null,lastClock=null;
+  let busy=false,last=null,lastClock=null,clockFault=false;
   const validClock=at=>Number.isSafeInteger(at)&&at>0&&at<8e15;
   function readClock(){
-    const at=clock();
-    if(!validClock(at)||lastClock!==null&&at<lastClock)throw Object.assign(Error('行情同步时钟无效或回退'),{code:'FAILOVER_CLOCK'});
+    let at;try{at=clock();}catch{at=null;}
+    if(clockFault||!validClock(at)||lastClock!==null&&at<lastClock){
+      clockFault=true;throw Object.assign(Error('行情同步时钟无效或回退'),{code:'FAILOVER_CLOCK'});
+    }
     lastClock=at;return at;
   }
   function readData(e,now,expectedHash){
@@ -29,37 +41,63 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
       const bytes=Buffer.alloc(opened.size+1);let offset=0;
       while(offset<bytes.length){const n=fs.readSync(fd,bytes,offset,bytes.length-offset,offset);if(!n)break;offset+=n;}
       if(offset!==opened.size||!same(opened,fs.fstatSync(fd))||!same(opened,fs.lstatSync(e.file)))throw Error('行情文件已变化');
-      const data=JSON.parse(bytes.subarray(0,offset).toString('utf8'));
+      const raw=bytes.subarray(0,offset),text=raw.toString('utf8');
+      if(!Buffer.from(text,'utf8').equals(raw))throw Error('行情文件不是有效UTF-8');
+      const data=JSON.parse(text),hash=crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
       validateImport(data,{...e.source,now});
-      if(expectedHash!==undefined&&crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex')!==expectedHash)throw Error('行情文件与本次接收指纹不一致');
-      return {data,mtimeMs:opened.mtimeMs};
+      if(expectedHash!==undefined&&hash!==expectedHash)throw Error('行情文件与本次接收指纹不一致');
+      return {data,hash,mtimeMs:opened.mtimeMs};
     }finally{fs.closeSync(fd);}
   }
   async function sync(){
-    if(busy)return {updated:false,reason:'busy'};busy=true;const attempts=[],unverified=new Set();
+    if(busy)return {updated:false,reason:'busy'};busy=true;clockFault=false;const attempts=[],unverified=new Set();
     const unavailable=()=>last={mode:'unavailable',updated:false,stale:true,canTrade:false,verifiedLive:false,attempts,error:'全部行情源及允许时效内缓存不可用'};
     try{
       readClock();
       for(const [index,e] of entries.entries()){
         for(let attempt=0;attempt<=retries;attempt++){
-          let result;try{result=await e.client.sync();}catch{result=null;}
+          let result;e.restriction=null;
+          try{result=await (governor?governor.run(e.source.url,()=>e.client.sync()):e.client.sync());}
+          catch(error){result=null;if(error?.code==='MARKET_RESTRICTED')e.restriction=error;}
           const now=readClock(),receipt={id:e.source.id,attempt:attempt+1,ok:false};attempts.push(receipt);
-          if(!result||result.error||result.reason==='busy'||typeof result.updated!=='boolean'||typeof result.hash!=='string'||!/^[a-f0-9]{64}$/.test(result.hash))continue;
+          if(e.restriction){
+            receipt.status='restricted';
+            receipt.httpStatus=[403,429].includes(e.restriction.status)?e.restriction.status:null;
+            receipt.resumeAt=validClock(e.restriction.resumeAt)?e.restriction.resumeAt:null;
+            if(e.restriction.stateUnavailable===true)return structuredClone(unavailable());
+            break; // never retry a restricted route inside this sync
+          }
+          if(!result||result.error||result.reason==='busy'||typeof result.updated!=='boolean'||typeof result.hash!=='string'||!/^[a-f0-9]{64}$/.test(result.hash)){
+            if(result?.updated===true||result?.hash!==undefined)unverified.add(e.source.id);
+            continue;
+          }
           try{
-            const {data}=readData(e,now,result.hash);readClock();
-            receipt.ok=true;last={mode:index?'fallback':'primary',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:result.updated,stale:false,canTrade:false,verifiedLive:false,attempts,data};return last;
+            const {data,hash}=readData(e,now,result.hash);
+            if(result.asOf!==data.asOf)throw Error('接收回执与行情截至日不一致');
+            // A declared original observation is not refreshed by re-reading
+            // a file or fetching the same old source payload.
+            const acceptedAt=readClock();
+            e.verified={hash,acceptedAt};
+            receipt.ok=true;last={mode:index?'fallback':'primary',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:result.updated,stale:false,canTrade:false,verifiedLive:false,attempts,data};return structuredClone(last);
           }catch(error){if(error.code==='FAILOVER_CLOCK')throw error;unverified.add(e.source.id);}
         }
       }
       for(const e of entries){if(unverified.has(e.source.id))continue;try{
-        const now=readClock(),{data,mtimeMs}=readData(e,now),ageMs=readClock()-mtimeMs;
+        const now=readClock(),{data,hash,mtimeMs}=readData(e,now),finished=readClock();
+        if(!Number.isFinite(mtimeMs)||mtimeMs<=0||mtimeMs>finished||e.verified&&hash!==e.verified.hash)continue;
+        const anchors=[mtimeMs];
+        if(e.verified)anchors.push(e.verified.acceptedAt);
+        if(data.observedAt!==undefined){if(!validClock(data.observedAt)||data.observedAt>finished)continue;anchors.push(data.observedAt);}
+        const ageMs=finished-Math.min(...anchors);
         if(ageMs<0||ageMs>maxCacheAgeMs)continue;
-        last={mode:'cached-degraded',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:false,stale:true,cacheAgeMs:ageMs,canTrade:false,verifiedLive:false,attempts,data};return last;
+        last={mode:'cached-degraded',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:false,stale:true,cacheAgeMs:ageMs,
+          cacheAgeBasis:data.observedAt!==undefined?'declared-source-observation-bounded-by-local-times':e.verified?'verified-this-process-receipt-and-file-time':'legacy-file-time-only-unverified',
+          originalObservationAt:data.observedAt??null,canTrade:false,verifiedLive:false,attempts,data};return structuredClone(last);
       }catch(error){if(error.code==='FAILOVER_CLOCK')throw error;}}
-      return unavailable();
-    }catch(error){if(error.code==='FAILOVER_CLOCK')return unavailable();throw error;}
+      return structuredClone(unavailable());
+    }catch(error){if(error.code==='FAILOVER_CLOCK')return structuredClone(unavailable());throw error;}
     finally{busy=false;}
   }
-  return {sync,status:()=>last?{...last,data:undefined}: {mode:'not-started',canTrade:false,verifiedLive:false}};
+  return {sync,status:()=>last?structuredClone({...last,data:undefined}): {mode:'not-started',canTrade:false,verifiedLive:false}};
 }
 module.exports={createMarketFailover};
