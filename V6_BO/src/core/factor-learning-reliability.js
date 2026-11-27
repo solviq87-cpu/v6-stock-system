@@ -18,25 +18,91 @@ const clamp=(x,lo,hi)=>Math.max(lo,Math.min(hi,x));
 const REGIMES=['systemic-selloff','not-systemic-selloff'];
 const validDay=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
-function assertChronology(rows){
- if(!Array.isArray(rows)||rows.length>400||
-    rows.some((r,i)=>!validDay(r?.day)||(i>0&&rows[i-1].day>=r.day)))
-  throw Error('因子研究日期必须有效、唯一且严格递增');
+// Research evidence must be explicit own data, not inherited values or getters.
+const ownData=(o,k,error)=>{
+ const d=o&&Object.getOwnPropertyDescriptor(o,k);
+ if(!d||!Object.hasOwn(d,'value'))throw Error(error);
+ return d.value;
+};
+const record=o=>o!==null&&typeof o==='object'&&
+ (Object.getPrototypeOf(o)===Object.prototype||Object.getPrototypeOf(o)===null);
+function denseRows(rows,error){
+ if(!Array.isArray(rows)||rows.length>400)throw Error(error);
+ return Array.from({length:rows.length},(_,i)=>ownData(rows,i,error));
 }
-// The native scorer receives exactly one cross-section. Zero comparable
-// observations carry no IC, and one observation must be a correlation.
+function assertChronology(rows){
+ const error='因子研究日期必须有效、唯一且严格递增';
+ let previous=null;
+ for(const r of denseRows(rows,error)){
+  if(!record(r))throw Error(error);
+  const date=ownData(r,'day',error);
+  if(!validDay(date)||(previous!==null&&previous>=date))throw Error(error);
+  previous=date;
+ }
+}
+// Clone the JSON-like evidence once, rejecting accessors and sparse nested
+// arrays before scoring. Each variant sees the same immutable snapshot.
+function snapshot(value,error,active=new Set()){
+ if(value===null||value===undefined||['number','string','boolean'].includes(typeof value))return value;
+ if((!Array.isArray(value)&&!record(value))||active.has(value))throw Error(error);
+ active.add(value);
+ let out;
+ if(Array.isArray(value)){
+  out=Array.from({length:value.length},(_,i)=>snapshot(ownData(value,i,error),error,active));
+ }else{
+  out=Object.create(Object.getPrototypeOf(value));
+  for(const k of Object.keys(value))Object.defineProperty(out,k,{
+   value:snapshot(ownData(value,k,error),error,active),enumerable:true,writable:false,configurable:false});
+ }
+ active.delete(value);
+ return Object.freeze(out);
+}
+function comparisonInput(days,ids,base,next){
+ const error='样本外因子与权重证据无效';
+ const factors=denseRows(ids,error);
+ if(!factors.length||factors.some(id=>typeof id!=='string'||!id.trim()||
+    ['__proto__','prototype','constructor'].includes(id))||new Set(factors).size!==factors.length)throw Error(error);
+ const keys=w=>{
+  if(!record(w))throw Error(error);
+  const names=Object.keys(w);
+  if(!names.length||names.some(k=>!factors.includes(k)))throw Error(error);
+  const values=names.map(k=>ownData(w,k,error));
+  if(values.some(x=>!finite(x)||x<=0)||!finite(values.reduce((a,b)=>a+b,0)))throw Error(error);
+  return names.sort();
+ };
+ // Keep existing partial-weight callback fixtures compatible, but require
+ // both variants to have the same explicit supplied factor coverage.
+ const baseKeys=keys(base),nextKeys=keys(next);
+ if(baseKeys.length!==nextKeys.length||baseKeys.some((k,i)=>k!==nextKeys[i]))throw Error(error);
+ const rows=snapshot(denseRows(days,'因子研究日期证据无效'),error);
+ assertChronology(rows);
+ return {rows,ids:Object.freeze(factors),base:snapshot(base,error),next:snapshot(next,error)};
+}
+// Capture each receipt before invoking the other scorer: a scorer may reuse
+// one object, but cannot thereby rewrite the previous variant's result.
+function scoreReceipt(scorer,day,ids,weights,error){
+ const r=scorer(Object.freeze([day]),ids,weights);
+ if(!record(r))throw Error(error);
+ const days=ownData(r,'days',error),meanIC=ownData(r,'meanIC',error);
+ return {days,meanIC};
+}
 function assertPair(a,b,coverageError,icError){
- if(!a||!b||a.days!==b.days)throw Error(coverageError);
- if(![0,1].includes(a.days)||
-    (a.days===0?(a.meanIC!==null||b.meanIC!==null):
-     (!finite(a.meanIC)||!finite(b.meanIC)||Math.abs(a.meanIC)>1||Math.abs(b.meanIC)>1)))
+ if(a.days!==b.days)throw Error(coverageError);
+ for(const r of [a,b])if(![0,1].includes(r.days)||(r.days===0?r.meanIC!==null:!finite(r.meanIC)||Math.abs(r.meanIC)>1))
   throw Error(icError);
 }
 function assessFactorReliability(daily){
  if(!Array.isArray(daily)||daily.length>400)
   throw Error('单因子每日IC证据协议无效');
- const rows=daily.filter(r=>r&&finite(r.ic)&&r.ic>=-1&&r.ic<=1);
- if(rows.length!==daily.length)throw Error('单因子IC范围或证据无效');
+ const error='单因子IC范围或证据无效';
+ const rows=denseRows(daily,error).map(r=>{
+  if(!record(r))throw Error(error);
+  const ic=ownData(r,'ic',error);
+  if(!finite(ic)||ic< -1||ic>1)throw Error(error);
+  const day=ownData(r,'day','因子研究日期证据无效');
+  const regime=Object.hasOwn(r,'regime')?ownData(r,'regime',error):undefined;
+  return {day,ic,regime};
+ });
  assertChronology(rows);
  const ics=rows.map(r=>r.ic),n=ics.length;
  const overall=mean(ics),mid=Math.floor(n/2);
@@ -64,6 +130,10 @@ function assessFactorReliability(daily){
  // optimization objective or a replacement for future holdout testing.
  const biggest=ics.reduce((best,x,i)=>Math.abs(x)>Math.abs(ics[best])?i:best,0);
  const outlierRemovedMean=n>1?mean(ics.filter((_,i)=>i!==biggest)):null;
+ // The largest absolute outlier can oppose the signal, making its removal
+ // artificially strengthen IC. Also remove the strongest SUPPORTING day.
+ const support=ics.reduce((best,x,i)=>x*direction>ics[best]*direction?i:best,0);
+ const supportRemovedMean=n>1?mean(ics.filter((_,i)=>i!==support)):null;
  // The decision must use raw means. Rounded regime summaries are display-only:
  // e.g. 0.07996 prints as 0.0800 but has NOT crossed the 0.08 gate.
  const rawRegimes=Object.fromEntries(REGIMES.map(key=>{
@@ -105,7 +175,8 @@ function assessFactorReliability(daily){
  if(n>=MIN_DAYS&&(!finite(latestRollingMean)||latestRollingMean*direction<=0))
   reasons.push('latest-five-observation-rolling-reversal');
  if(n>=MIN_DAYS&&(!finite(outlierRemovedMean)||
-    outlierRemovedMean*direction<MIN_ROBUST_IC))
+    outlierRemovedMean*direction<MIN_ROBUST_IC||
+    !finite(supportRemovedMean)||supportRemovedMean*direction<MIN_ROBUST_IC))
   reasons.push('single-day-influence-dominates');
  if(contradictory)reasons.push('opposing-market-regime-effects');
  if(regimeReversals.length)reasons.push('within-market-regime-sign-reversal');
@@ -117,7 +188,7 @@ function assessFactorReliability(daily){
   clamp(n/30,0,1)*clamp(agreed/.85,0,1)*
   clamp(Math.abs(recent)/Math.max(Math.abs(overall),.01),0,1)*
   clamp(blockAgreement,0,1)*
-  clamp(Math.abs(outlierRemovedMean)/Math.max(Math.abs(overall),.01),0,1):0;
+  clamp(Math.min(Math.abs(outlierRemovedMean),Math.abs(supportRemovedMean))/Math.max(Math.abs(overall),.01),0,1):0;
  const multiplier=reliable?clamp(overall*.2*confidence,-.08,.08):0;
  return {
   days:n,meanIC:round(overall),medianIC:round(med),
@@ -132,6 +203,7 @@ function assessFactorReliability(daily){
   incompleteTailMeanIC:round(mean(incompleteTail)),
   observationBlocksProveIndependence:false,
   outlierRemovedMeanIC:round(outlierRemovedMean),
+  supportRemovedMeanIC:round(supportRemovedMean),
   assessedRegimes:byRegime,regimeStability,regimeReversals,
   regimeCoverageDays:rows.filter(r=>REGIMES.includes(r.regime)).length,
   opposingRegimeEffects:contradictory,
@@ -143,17 +215,18 @@ function assessFactorReliability(daily){
 function pairedStability(days,ids,baseline,proposed,dailyScore){
  if(!Array.isArray(days)||days.length<5)throw Error('样本外稳定性比较缺少足够交易日');
  if(typeof dailyScore!=='function')throw Error('样本外IC评估器无效');
- assertChronology(days);
+ const input=comparisonInput(days,ids,baseline,proposed);
  const deltas=[];
- for(const d of days){
-  const old=dailyScore([d],ids,baseline),next=dailyScore([d],ids,proposed);
+ for(const d of input.rows){
+  const old=scoreReceipt(dailyScore,d,input.ids,input.base,'样本外IC证据无效');
+  const next=scoreReceipt(dailyScore,d,input.ids,input.next,'样本外IC证据无效');
   assertPair(old,next,'新旧研究版本样本覆盖不一致','样本外IC证据无效');
   if(old.days===1){
    deltas.push({date:d.day,delta:next.meanIC-old.meanIC});
   }
  }
- const coverage={requestedDays:days.length,comparableDays:deltas.length,
-  missingDays:days.length-deltas.length,coverageComplete:deltas.length===days.length};
+ const coverage={requestedDays:input.rows.length,comparableDays:deltas.length,
+  missingDays:input.rows.length-deltas.length,coverageComplete:deltas.length===input.rows.length};
  if(deltas.length<5)return {...coverage,
   earlyDeltaIC:null,recentDeltaIC:null,positiveDayFractionPct:null,
   halfPeriodsConsistent:false};
@@ -175,11 +248,11 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
  if(!Array.isArray(days)||typeof dailyScore!=='function'||
     !Array.isArray(ids)||ids.length<2)
   throw Error('沙盒效果衰减的样本或因子协议无效');
- assertChronology(days);
- const window=days.slice(-10),pairs=[];
+ const input=comparisonInput(days,ids,baseWeights,acceptedWeights);
+ const window=input.rows.slice(-10),pairs=[];
  for(const d of window){
-  const base=dailyScore([d],ids,baseWeights);
-  const accepted=dailyScore([d],ids,acceptedWeights);
+  const base=scoreReceipt(dailyScore,d,input.ids,input.base,'效果衰减IC证据无效');
+  const accepted=scoreReceipt(dailyScore,d,input.ids,input.next,'效果衰减IC证据无效');
   assertPair(base,accepted,'效果衰减基准与沙盒样本覆盖不一致','效果衰减IC证据无效');
   if(base.days===1){
    pairs.push({date:d.day,baseIC:base.meanIC,shadowIC:accepted.meanIC,
@@ -223,11 +296,11 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
 function assessShadowRecovery(days,ids,baseWeights,acceptedWeights,dailyScore){
  if(!Array.isArray(days)||!Array.isArray(ids)||ids.length<2||
     typeof dailyScore!=='function')throw Error('恢复审核输入协议无效');
- assertChronology(days);
- const recent=days.slice(-10),paired=[];
+ const input=comparisonInput(days,ids,baseWeights,acceptedWeights);
+ const recent=input.rows.slice(-10),paired=[];
  for(const d of recent){
-  const original=dailyScore([d],ids,baseWeights);
-  const shadow=dailyScore([d],ids,acceptedWeights);
+  const original=scoreReceipt(dailyScore,d,input.ids,input.base,'恢复审核IC证据无效');
+  const shadow=scoreReceipt(dailyScore,d,input.ids,input.next,'恢复审核IC证据无效');
   assertPair(original,shadow,'恢复审核基础与沙盒样本覆盖不一致','恢复审核IC证据无效');
   if(original.days===1){
    paired.push({date:d.day,baseline:original.meanIC,shadow:shadow.meanIC,
