@@ -26,7 +26,7 @@ function pendingBuyOrderBudget(book,item,tradeDate=null){
  const fees=tradingFees({side:'buy',quantity:state.remainingQuantity,price:order.limitPrice,tradeDate:executionDay,
   policy:book.feePolicy,schedules:book.feeSchedules||null,priorFills:item.events.filter(event=>event?.type==='fill')});
  const budget=state.remainingQuantity*order.limitPrice+fees.total;
- if(!finite(budget)||budget<0)throw Error('待买委托冻结预算不可计算');
+ if(!finite(fees.total)||fees.total<0||!finite(budget)||budget<0)throw Error('待买委托冻结预算不可计算');
  return budget;
 }
 function reconcileAccountSnapshot(book,{tradeDate=null}={}){
@@ -38,8 +38,8 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   scope:['original-cash-and-order-validation','fill-identity-and-idempotency','lot-quantity-and-origin','pending-reservations',...(book?.reconciliationOpening?['opening-plus-fill-and-corporate-quantity-flow']:[])],
   missing:book?.reconciliationOpening?['独立外部托管或券商对账证据未接入']:['历史迁入期初数量未单独封存，不追认完整数量流水','独立外部托管或券商对账证据未接入'],
   canTrade:false,writesAccount:false});
- if(!plain(book?.account)||!plain(book.account.positions)||!Array.isArray(book.account.events)||!plain(book.orders)||!plain(book.account.eventHashes)){
-  fail('INVALID_ACCOUNT_STRUCTURE');return result();
+ if(!plain(book?.account)||!finite(book.account.cash)||book.account.cash<0||!plain(book.account.positions)||!Array.isArray(book.account.events)||!plain(book.orders)||!plain(book.account.eventHashes)){
+  fail('INVALID_ACCOUNT_STRUCTURE');return {...result(),reservedCash:null};
  }
  const byEvent=new Map(),fills=new Map(),corporate=new Map(),reserved=new Map();
  for(const event of book.account.events){
@@ -53,10 +53,11 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   if(!event||corporate.has(event.eventId)||byEvent.has(event.eventId)||!/^\d{6}$/.test(event.symbol||'')||!Number.isSafeInteger(event.shareDelta)||!finite(event.cashDelta)||!day(event.effectiveDate))fail('INVALID_CORPORATE_EVENT');
   else corporate.set(event.eventId,event);
  }
- let reservedCash=0;
+ // Never present the sum of only the computable orders as the full frozen cash.
+ let reservedCash=0,cashBudgetKnown=true;
  for(const [id,item] of Object.entries(book.orders)){
   const order=item?.order,state=item?.state;
-  if(!order||id!==order.orderId||!Array.isArray(item.events)||!state||!quantity(state.remainingQuantity)||typeof state.terminal!=='boolean'){fail('INVALID_ORDER_IDENTITY');continue;}
+  if(!plain(order)||id!==order.orderId||!['buy','sell'].includes(order.side)||!Array.isArray(item.events)||!item.events.every(plain)||!plain(state)||!quantity(state.remainingQuantity)||typeof state.terminal!=='boolean'){fail('INVALID_ORDER_IDENTITY');cashBudgetKnown=false;continue;}
   for(const fill of item.events.filter(event=>event.type==='fill')){
    if(fills.has(fill.eventId))fail('DUPLICATE_ORDER_FILL');
    fills.set(fill.eventId,fill);
@@ -71,10 +72,12 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   if(order.side==='sell'){const symbol=String(order.symbol);reserved.set(symbol,(reserved.get(symbol)||0)+state.remainingQuantity);}
   else if(order.side==='buy')try{
    reservedCash+=pendingBuyOrderBudget(book,item,tradeDate);
-  }catch{restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
+  }catch{cashBudgetKnown=false;if(!restrictions.includes('PENDING_BUY_BUDGET_UNKNOWN'))restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
  }
  if(fills.size!==byEvent.size)fail('ORPHAN_LEDGER_FILL');
  if(!finite(reservedCash)||reservedCash>book.account.cash+.011)restrictions.push('PENDING_CASH_RESERVATION_MISMATCH');
+ const roundedCash=money(reservedCash);
+ if(!finite(roundedCash)){cashBudgetKnown=false;if(!restrictions.includes('PENDING_BUY_BUDGET_UNKNOWN'))restrictions.push('PENDING_BUY_BUDGET_UNKNOWN');}
  for(const [symbol,position] of Object.entries(book.account.positions)){
   if(!/^\d{6}$/.test(symbol)||!quantity(position?.quantity)||!Array.isArray(position?.lots)){fail('INVALID_POSITION');continue;}
   let total=0,lotReserved=0;
@@ -99,7 +102,7 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
    for(const symbol of new Set([...expected.keys(),...Object.keys(book.account.positions)]))if(expected.get(symbol)!==undefined&&(expected.get(symbol)<0||expected.get(symbol)!==(book.account.positions[symbol]?.quantity||0))||expected.get(symbol)===undefined&&book.account.positions[symbol]?.quantity)fail('POSITION_QUANTITY_FLOW_MISMATCH');
   }
  }
- return {...result(),reservedCash:finite(reservedCash)?money(reservedCash):null};
+ return {...result(),reservedCash:cashBudgetKnown?roundedCash:null};
 }
 function assertAccountReconciliation(book,options){
  const report=reconcileAccountSnapshot(book,options);
