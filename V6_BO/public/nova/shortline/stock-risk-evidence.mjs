@@ -20,12 +20,14 @@ const known=s=>typeof s==='string'&&s.trim().length>0&&!['缺失','未知','未�
 const fmt=n=>finite(n)?String(+n.toFixed(2)):'缺失';
 const dayOf=s=>String(s||'').slice(0,10);
 function time(x) {
-  if(Number.isSafeInteger(x)&&x>0)return x;
+  if(Number.isSafeInteger(x)&&x>0&&x<8e15)return x;
   if(typeof x!=='string')return NaN;
   const s=x.replace(' ','T');
-  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return Date.parse(s+'T15:00:00+08:00');
-  if(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(s))return Date.parse(s+'+08:00');
-  return /(?:Z|[+-]\d\d:\d\d)$/.test(s)?Date.parse(s):NaN;
+  if(validDay(s))return Date.parse(s+'T15:00:00+08:00');
+  const m=/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})?$/.exec(s);
+  if(!m||!validDay(m[1])||+m[2]>23||+m[3]>59||(m[4]!==undefined&&+m[4]>59))return NaN;
+  const at=Date.parse(m[5]?s:s+'+08:00');
+  return Number.isSafeInteger(at)&&at>0&&at<8e15?at:NaN;
 }
 const cnDay=t=>new Date(t+8*3600000).toISOString().slice(0,10);
 function visible(row,cutoff){
@@ -35,12 +37,12 @@ function visible(row,cutoff){
   // Legacy absent clocks remain descriptive; explicit unknown or reversed clocks do not.
   return ['knownAt','availableAt'].every(k=>{
     if(!Object.hasOwn(row,k))return true;
-    const v=row[k],at=time(v);
+    const v=row[k],at=planClock(v);
     return (typeof v!=='string'||validDay(v.slice(0,10)))&&finite(at)&&at>=observed&&at<=cutoff;
   });
 }
 function seen(source,observed,received,cutoff){
-  const o=time(observed),r=time(received);
+  const o=planClock(observed),r=planClock(received);
   return known(source)&&finite(o)&&finite(r)&&r>=o&&r<=cutoff;
 }
 const sameSymbol=(b,r)=>r?.code===b.code&&(!r.role||r.role==='stock');
@@ -80,9 +82,10 @@ function planClock(x){
   const at=time(x);
   return Number.isSafeInteger(at)&&at>0&&at<8e15?at:NaN;
 }
-function frozenRiskPlanTime(plan,code,cutoff){
+function frozenRiskPlanTime(plan,code,cutoff,day){
   const frozen=planClock(plan?.frozenAt);
-  if(!plan||plan.code!==code||!finite(cutoff)||!finite(frozen)||frozen>cutoff)return null;
+  if(!plan||rowConflict(plan)||plan.code!==code||!finite(cutoff)||!finite(frozen)||frozen>cutoff||
+      day&&plan.intendedDate!=null&&plan.intendedDate!==day)return null;
   for(const key of ['firstKnownAt','knownAt','availableAt','receivedAt','recordedAt']){
     if(!Object.hasOwn(plan,key))continue;
     const at=planClock(plan[key]);
@@ -93,7 +96,7 @@ function frozenRiskPlanTime(plan,code,cutoff){
 export function selectFrozenRiskPlan(plans,code,day,cutoff){
   if(!Array.isArray(plans)||!validDay(day))return null;
   const eligible=plans.filter(p=>typeof p?.frozenAt==='string')
-    .map(p=>({p,at:frozenRiskPlanTime(p,code,cutoff)}))
+    .map(p=>({p,at:frozenRiskPlanTime(p,code,cutoff,day)}))
     .filter(({p,at})=>at!==null&&(p.intendedDate||cnDay(at))===day);
   if(eligible.length!==1)return null;
   const {p}=eligible[0];
@@ -144,9 +147,9 @@ function priceRisks(b,h,f,m,sector,stage,add){
 }
 
 function executionRisks(b,cutoff,sector,stage,add){
-  const plan=b.frozenPlan,planKnown=frozenRiskPlanTime(plan,b.code,cutoff)!==null;
+  const plan=b.frozenPlan,planKnown=frozenRiskPlanTime(plan,b.code,cutoff,dayOf(b.date))!==null;
   const holding=b.holdingSnapshot;
-  const holds=holding?.code===b.code&&Number.isSafeInteger(holding.shares)&&holding.shares>0&&positive(holding.avgCost)&&
+  const holds=!rowConflict(holding)&&holding?.code===b.code&&Number.isSafeInteger(holding.shares)&&holding.shares>0&&positive(holding.avgCost)&&
     seen(holding.source,holding.observedAt,holding.knownAt,cutoff)&&cnDay(time(holding.observedAt))===dayOf(b.date);
   if(holds&&priceUsable(b)&&positive(b.close)){
     const gain=b.close>holding.avgCost;
@@ -162,7 +165,7 @@ function executionRisks(b,cutoff,sector,stage,add){
   // Motivation is only admissible as the trader's own time-stamped statement
   // linked to this specific decision. No price-series inference supplies intent.
   const record=b.traderRecord;
-  if(record?.code===b.code&&record.source==='本人交易日志'&&known(record.decisionId)&&
+  if(!rowConflict(record)&&record?.code===b.code&&record.source==='本人交易日志'&&known(record.decisionId)&&
       seen(record.source,record.decisionAt,record.recordedAt,cutoff)&&cnDay(time(record.decisionAt))===dayOf(b.date)){
     const keys={'报复性交易':'55:2','亏损后急于回本':'55:3','凭感觉':'59:1','听消息':'59:2',
       '跟风别人标的':'59:3','提前埋伏赌消息':'70:0','赌回流':'70:1','赌修复':'70:2'};
@@ -214,7 +217,7 @@ function abnormalNoticeDays(b,cutoff){
   const groups=new Map();
   for(const a of Array.isArray(b.announcements)?b.announcements:[]){
     if(!a||(a.code??a.symbol)!==b.code||a.code!=null&&a.symbol!=null&&a.code!==a.symbol||!known(a.source)||!known(a.eventId))continue;
-    const received=Object.hasOwn(a,'knownAt')?a.knownAt:a.receivedAt,at=time(received);
+    const received=Object.hasOwn(a,'knownAt')?a.knownAt:a.receivedAt,at=planClock(received);
     if(finite(at)&&at>cutoff)continue;
     const key=JSON.stringify([a.source,a.eventId]),g=groups.get(key)||[];
     g.push({a,at,received});groups.set(key,g);
@@ -244,10 +247,11 @@ function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
   if(noticeDays.length>=3)add('49:1',true,'近10个自然日有至少3个不同披露日的已核对交易异常波动公告：'+noticeDays.join('、'));
   const prev=series.filter(r=>r.date<day).at(-1);
   if(prev&&comparableGap(b)&&m.previousDay===prev.date&&known(b.sector)&&positive(b.limitDown)&&b.open===b.limitDown){
-    const groups=(prev.themes||[]).filter(t=>t.name===b.sector);
+    const groups=(Array.isArray(prev.themes)?prev.themes:[]).filter(t=>t?.name===b.sector);
     const g=groups.length===1?groups[0]:null;
-    if(g?.count>=2&&g.members?.length===g.count&&new Set(g.members.map(r=>r.code)).size===g.count&&
-        g.members.every(r=>validCode(r.code)&&Number.isInteger(r.level))){
+    if(g&&!rowConflict(g)&&Number.isSafeInteger(g.count)&&g.count>=2&&Array.isArray(g.members)&&g.members.length===g.count&&
+        g.members.every(r=>r&&!rowConflict(r)&&validCode(r.code)&&Number.isSafeInteger(r.level)&&r.level>=1)&&
+        new Set(g.members.map(r=>r.code)).size===g.count){
       const first=g.members.filter(r=>r.level===1);
       const times=first.map(r=>String(r.firstSealTime||'').replace(/:/g,''));
       if(times.length>=2&&times.every(t=>/^\d{6}$/.test(t)&&t>='092500'&&t<='150000'&&+t.slice(2,4)<60&&+t.slice(4)<60)){
@@ -256,13 +260,13 @@ function otherRisks(b,f,m,stage,series,minutes,cutoff,add){
       }
     }
   }
-  if(known(m.calendarSource)&&finite(time(m.calendarKnownAt))&&time(m.calendarKnownAt)<=cutoff&&
-      /^\d{4}-\d{2}-\d{2}$/.test(m.nextTradingDay||'')){
+  if(known(m.calendarSource)&&finite(planClock(m.calendarKnownAt))&&planClock(m.calendarKnownAt)<=cutoff&&
+      validDay(m.nextTradingDay)){
     const gap=(time(m.nextTradingDay)-time(day))/86400000;
     if(gap>=1&&gap<=18)add('58:0',gap>=6,'已发布交易日历 '+m.calendarSource+' 的下一个交易日 '+m.nextTradingDay+'，间隔 '+gap+' 个自然日');
   }
   const plan=b.frozenPlan;
-  if(frozenRiskPlanTime(plan,b.code,cutoff)!==null){
+  if(frozenRiskPlanTime(plan,b.code,cutoff,day)!==null){
     if(['退潮','高潮','冰点'].includes(stage)&&known(plan.strategy)){
       if(stage==='退潮'&&['连板接力战法','放量加速战法'].includes(plan.strategy))
         add('67:0',true,'冻结战法 '+plan.strategy+' 与退潮环境错配');
@@ -308,6 +312,9 @@ export function addStockRiskEvidence({b,f={},market={},sector={},stage,history=[
     hist.unshift(priorRows[i]);target=precedingDay(priorRows[i]);
   }
   const marketDay=market?.date===day&&visible(market,cutoff)&&!rowConflict(market)?market:{};
+  // Invalid explicit market evidence cannot support stage-dependent facts.
+  // Legacy stage-only callers remain descriptive, not authenticated.
+  const stageForEvidence=market&&(rowConflict(market)||Object.hasOwn(market,'date')&&marketDay!==market)?undefined:stage;
   const sectorOK=sector&&!rowConflict(sector)&&(!sector.date||dayOf(sector.date)===day&&visible(sector,cutoff))&&
     (!known(sector.sector)||sector.sector===b.sector)&&
     (sector.role!=='sector'||!known(sector.code)||sector.code===b.sector||sector.sector===b.sector);
@@ -320,14 +327,14 @@ export function addStockRiskEvidence({b,f={},market={},sector={},stage,history=[
       if(!facts.has(key)||pass&&!facts.get(key).pass)facts.set(key,{pass,source});
     }
   }
-  if(priceUsable(b))priceRisks(b,hist,f,marketDay,sectorDay,stage,add);
+  if(priceUsable(b))priceRisks(b,hist,f,marketDay,sectorDay,stageForEvidence,add);
   liquidityRisks({...b,changePct:f.change??b.changePct,sectorLeader:f.sectorLeader??b.sectorLeader},hist,cutoff,add);
   balanceSheetRisks(b,cutoff,add);
-  executionRisks(b,cutoff,sectorDay,stage,add);
+  executionRisks(b,cutoff,sectorDay,stageForEvidence,add);
   const marketRows=marketSeries.filter(r=>validDay(r?.date)&&visible(r,cutoff)&&r.date<=day).map(r=>({...r,themeSignature:JSON.stringify(r.themes??null)}));
   const knownMarkets=unambiguousAt(marketRows,['previousDay','indexChange','volume','themeSignature',...conflictFields])
     .filter(r=>!rowConflict(r)).sort((a,z)=>a.date.localeCompare(z.date));
-  otherRisks(b,f,marketDay,stage,knownMarkets,intraday,cutoff,add);
+  otherRisks(b,f,marketDay,stageForEvidence,knownMarkets,intraday,cutoff,add);
   const marketDays=knownMarkets.slice(-3);
   if(marketDays.length===3&&marketDays.every((r,i)=>i===0||marketDays[i-1].date===precedingDay(r))&&marketDays.at(-1).date===day&&
       marketDays.every(r=>finite(r.indexChange))&&marketDay.volume==='放量下跌'&&
