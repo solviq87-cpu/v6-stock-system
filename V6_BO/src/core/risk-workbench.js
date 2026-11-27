@@ -339,7 +339,9 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     impact:health.error?'该账户派生观察缺档，其他账户继续独立核验':'已恢复后续观察；不补造故障期间数据',
     restrictions:health.error?['不从未记录区间推导安全、成交或精确连续回撤']:[],
     checks:['核对该账户权益观察档、提醒持久记录及主实例状态'],
-    releaseConditions:['该账户在原主实例完成一次真实观察与持久核验'],status:health.error?'unknown':'resolved'});
+    releaseConditions:['该账户在原主实例完成一次真实观察与持久核验'],status:health.error?'unknown':'resolved',
+    authorityEvidence:{kind:'risk-observer-health',source:'original-risk-observation-runtime',
+      accountId:health.accountId,observedAt:health.checkedAt,detected:Boolean(health.error)}});
   for(const check of list(system.authorityChecks)){
     if(!['authority-unavailable','quote-reader-failed'].includes(check.kind)||!time(check.checkedAt)||check.checkedAt>now)continue;
     const failed=check.success===false,recovered=check.success===true&&check.recoveryConfirmed===true;
