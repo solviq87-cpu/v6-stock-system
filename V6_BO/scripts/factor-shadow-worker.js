@@ -629,7 +629,7 @@ function evaluateOnce(conf,now,manifest){
  }
  // A handful of still-maturing registered-prefix days are never a new
  // candidate holdout. Wait using features only, before opening H5 outcomes.
- if(preRegistration&&!cooldownOnly&&conf.requirePreRegistration){
+ if(preRegistration&&!cooldownOnly){
   const sealedAt=preRegistration.mode===SEED_MODE?
    Math.max(preRegistration.registeredAt,preRegistration.recordedAt):preRegistration.registeredAt;
   const fresh=frozen.filter(f=>(preRegistration.mode===SEED_MODE&&preRegistration.latestFrozenSignalDay===null||
