@@ -124,3 +124,24 @@ test('labels cannot contradict the original frozen security, model, calendar or 
  assert.equal(evaluate(plan,[f],[label(f,true,identity)],calendar,{now:time(70)}).validationRaw.samples,1);
  assert.equal(evaluate(plan,[f],[label(f)],calendar,{now:time(70)}).validationRaw.samples,1);
 });
+
+test('unlabeled frozen holdout forecasts stay in the full-population coverage denominator',()=>{
+ const {fs,ys}=pairedFixture();
+ for(let i=32;i<52;i++)fs.push(prediction(i,5));
+ const r=evaluate(plan,fs,ys,calendar,{now:time(70)});
+ assert.equal(r.calibratedCoverage,1);
+ assert.deepEqual(r.holdoutCoverage,{frozen:120,eligible:100,calibrated:100,
+  eligibleFraction:100/120,calibratedFraction:100/120});
+ assert.equal(r.pairedComparison.status,'partial-descriptive');
+ assert.equal(evaluate(plan,fs,ys,calendar,{now:time(55)}).holdoutCoverage,null);
+});
+
+test('sealed coverage retains zero counts and withholds ratios for missing or conflicting historical counts',()=>{
+ const {frozenHoldoutCoverage}=require('../src/core/probability-reliability');
+ const report={validationWindowClosed:true,expectedValidation:2,validationRaw:{samples:0},validationCalibrated:{samples:0}};
+ assert.equal(frozenHoldoutCoverage(report).calibratedFraction,0);
+ assert.deepEqual(frozenHoldoutCoverage({...report,expectedValidation:0}),{frozen:0,eligible:0,calibrated:0,eligibleFraction:null,calibratedFraction:null});
+ assert.equal(frozenHoldoutCoverage({...report,expectedValidation:undefined}),null);
+ assert.equal(frozenHoldoutCoverage({...report,validationCalibrated:{samples:1}}),null);
+ assert.equal(frozenHoldoutCoverage({...report,pairedComparison:{expectedValidation:4}}),null);
+});

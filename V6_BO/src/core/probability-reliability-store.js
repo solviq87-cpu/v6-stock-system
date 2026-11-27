@@ -245,6 +245,7 @@ function readProbabilityResearch(root, {scope = 'formal', asOf = Date.now()} = {
       '按预登记窗口收集原冻结预测及成熟标签，窗口结束前不展示保留集指标',
     metrics:s.evaluation ? {calibration:s.evaluation.calibration, validationRaw:s.evaluation.validationRaw,
       validationCalibrated:s.evaluation.validationCalibrated, calibratedCoverage:s.evaluation.calibratedCoverage,
+      holdoutCoverage:probability.frozenHoldoutCoverage(s.evaluation),
       expectedCalibration:s.evaluation.expectedCalibration??null,scheduledPurgedCalibration:s.evaluation.scheduledPurgedCalibration??null,
       calibrationCoverage:s.evaluation.calibrationCoverage??null,completeCalibrationEvidence:s.evaluation.completeCalibrationEvidence??null,
       comparisonOnIdenticalRows:s.evaluation.comparisonOnIdenticalRows, validationWindowClosed:s.evaluation.validationWindowClosed??null,

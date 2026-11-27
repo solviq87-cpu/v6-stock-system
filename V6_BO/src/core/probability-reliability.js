@@ -43,6 +43,18 @@ function freezeWithCalendar(plan,p,input,calendar,now){
 }
 const bin=x=>Math.min(POLICY.bins-1,Math.floor(x*POLICY.bins));
 const average=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
+// A closed study's denominator includes frozen forecasts whose labels never arrived.
+function frozenHoldoutCoverage(report) {
+ if (report?.validationWindowClosed !== true) return null;
+ const registered = report.expectedValidation;
+ const paired = report.pairedComparison?.expectedValidation;
+ if (registered !== undefined && paired !== undefined && registered !== paired) return null;
+ const frozen = registered === undefined ? paired : registered;
+ const eligible = report.validationRaw?.samples;
+ const calibrated = report.validationCalibrated?.samples;
+ if (![frozen,eligible,calibrated].every(n => Number.isSafeInteger(n) && n >= 0) || calibrated > eligible || eligible > frozen) return null;
+ return {frozen,eligible,calibrated,eligibleFraction:frozen ? eligible/frozen : null,calibratedFraction:frozen ? calibrated/frozen : null};
+}
 function enough(rows){const pos=rows.filter(x=>x.y).length;return rows.length>=POLICY.minSamples&&new Set(rows.map(x=>x.signalDay)).size>=POLICY.minDays&&pos>=POLICY.minClass&&rows.length-pos>=POLICY.minClass;}
 // A matching opaque prediction ID is not permission to override its identity.
 // Legacy labels may omit these additive declarations, but cannot contradict them.
@@ -108,6 +120,7 @@ function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
   pairedBaselineBrierDelta:paired.length?pairedCalibrated.brier-pairedBaseline.brier:null,
   improvedBrierOnCompleteHoldout:complete?pairedCalibrated.brier<pairedRaw.brier:null,
   calibrationCertified:false};
- return {schemaVersion:1,mode:'probability-reliability-research',scope:p.scope,target:p.target,targetLabel:TARGETS[p.target],modelVersion:p.modelVersion,modelFingerprint:p.modelFingerprint,planFingerprint:plan.fingerprint,asOf:now,policy:POLICY,status:p.scope==='test'?'fixture-only':ready&&comparable&&completeCalibrationEvidence?'descriptive-holdout-evaluated':'insufficient-or-incomplete-evidence',exclusions,expectedValidation,expectedCalibration,scheduledPurgedCalibration,calibrationCoverage,completeCalibrationEvidence,calibration:metrics(fit),validationWindowClosed,validationRaw:metrics(validationWindowClosed?holdout:[]),validationCalibrated:pairedCalibrated,pairedComparison,calibratedCoverage:validationWindowClosed&&holdout.length?calibrated.length/holdout.length:null,comparisonOnIdenticalRows:comparable,uncertaintyMethod:'leave-one-signal-day-out sensitivity, not a confidence interval',calibrationCertified:false,canTrade:false,canApprove:false,productionWeightsChanged:false,note:'源端真实性及登记存证独立核验尚需原实例；规则分、频率与模型概率不得混用。'};
+ const report = {schemaVersion:1,mode:'probability-reliability-research',scope:p.scope,target:p.target,targetLabel:TARGETS[p.target],modelVersion:p.modelVersion,modelFingerprint:p.modelFingerprint,planFingerprint:plan.fingerprint,asOf:now,policy:POLICY,status:p.scope==='test'?'fixture-only':ready&&comparable&&completeCalibrationEvidence?'descriptive-holdout-evaluated':'insufficient-or-incomplete-evidence',exclusions,expectedValidation,expectedCalibration,scheduledPurgedCalibration,calibrationCoverage,completeCalibrationEvidence,calibration:metrics(fit),validationWindowClosed,validationRaw:metrics(validationWindowClosed?holdout:[]),validationCalibrated:pairedCalibrated,pairedComparison,calibratedCoverage:validationWindowClosed&&holdout.length?calibrated.length/holdout.length:null,comparisonOnIdenticalRows:comparable,uncertaintyMethod:'leave-one-signal-day-out sensitivity, not a confidence interval',calibrationCertified:false,canTrade:false,canApprove:false,productionWeightsChanged:false,note:'源端真实性及登记存证独立核验尚需原实例；规则分、频率与模型概率不得混用。'};
+ return {...report,holdoutCoverage:frozenHoldoutCoverage(report)};
 }
-module.exports={TARGETS,POLICY,register,freezePrediction,evaluate};
+module.exports={TARGETS,POLICY,register,freezePrediction,evaluate,frozenHoldoutCoverage};

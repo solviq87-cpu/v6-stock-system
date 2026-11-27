@@ -106,6 +106,7 @@ test('one sealed evaluation retains worse calibration, spends a trial, and canno
   const summary=read(dir,{scope:'test',asOf:at(63)});
   assert.equal(summary.trials.usedTrials,1); assert.equal(summary.rejectedEvaluations,1); assert.equal(summary.rejectedAttempts,2);
   assert.equal(summary.plans[0].metrics.validationRaw.samples,100);
+  assert.deepEqual(summary.plans[0].metrics.holdoutCoverage,{frozen:100,eligible:100,calibrated:100,eligibleFraction:1,calibratedFraction:1});
   const inspect=value=>{if(!value||typeof value!=='object')return;for(const [key,v] of Object.entries(value)){assert.ok(!['code','predictionId','sourceFingerprint','resultRaw'].includes(key));inspect(v);}};inspect(summary);
   assert.equal(read(dir,{scope:'test',asOf:at(2)}).outcomes,0);
 });
