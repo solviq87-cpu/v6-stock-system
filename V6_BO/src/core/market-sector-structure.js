@@ -106,4 +106,4 @@ function analyzeIntradaySectorStructure(frames,{asOf}={}){
    observations:fs.map(f=>({asOf:f.t,knownAt:f.k,evidenceId:f.evidenceId,membershipEvidenceId:f.membershipEvidenceId})),sectors};
  }catch(e){return fail(e.message);}
 }
-module.exports={analyzeIntradaySectorStructure};
+module.exports={analyzeIntradaySectorStructure,freezeIntradayResearchFrame:freezeFrame};
