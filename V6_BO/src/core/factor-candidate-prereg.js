@@ -14,6 +14,46 @@ const seal=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&
  Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
+// The model receipt binds the exact research proposal, not merely the model name.
+const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x)&&[Object.prototype,null].includes(Object.getPrototypeOf(x));
+const validIds=ids=>Array.isArray(ids)&&ids.length>=2&&ids.length<=100&&new Set(ids).size===ids.length&&
+ Array.from(ids).every(id=>typeof id==='string'&&/^[A-Za-z0-9_][A-Za-z0-9_-]{0,79}$/.test(id)&&!['__proto__','constructor','prototype'].includes(id));
+const weightMap=(w,ids)=>record(w)&&Object.keys(w).length===ids.length&&ids.every(id=>Object.hasOwn(w,id)&&Number.isFinite(w[id])&&w[id]>0);
+function modelCandidateBinding({autoSourceFingerprint,packFingerprint,latestFrozenSignalDay,factorDefinitionsFingerprint,factorIds,acceptedWeights,candidateWeights}){
+ return hash({autoSourceFingerprint,packFingerprint,latestFrozenSignalDay,factorDefinitionsFingerprint,factorIds,
+  acceptedWeights:factorIds.map(id=>acceptedWeights[id]),candidateWeights:factorIds.map(id=>candidateWeights[id])});
+}
+function verifyModelCandidateProvenance(reg){
+ const p=reg?.modelProvenance,ids=reg?.factorIds,review=p?.outputReview;
+ const code=crypto.createHash('sha256').update(fs.readFileSync(path.join(__dirname,'local-model-learning-proposer.js'))).digest('hex');
+ if(!record(p)||p.method!=='ollama-native-structured'||typeof p.modelName!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,127}$/.test(p.modelName)||
+    p.algorithmFingerprint!==code||!['digest','requestFingerprint','responseFingerprint','candidateBindingFingerprint'].every(k=>seal(p[k]))||
+    !record(p.hypothesis)||p.hypothesis.label!=='model-hypothesis'||typeof p.hypothesis.rationale!=='string'||p.hypothesis.rationale.length>120||
+    Object.hasOwn(p,'dictionaryVersion')!==Object.hasOwn(p,'dictionaryFingerprint')||
+    (Object.hasOwn(p,'dictionaryVersion')&&(typeof p.dictionaryVersion!=='string'||!p.dictionaryVersion||p.dictionaryVersion.length>160||!seal(p.dictionaryFingerprint)))||
+    !record(review)||!['structured-reference-interval','legacy-envelope-only'].includes(review.policy)||
+    !['rationaleVerified','sourceAuthenticated','trainingEligible','autoPromotion'].every(k=>review[k]===false)||
+    !seal(reg.autoSourceFingerprint)||!seal(reg.packFingerprint)||!date(reg.latestFrozenSignalDay)||!seal(reg.factorDefinitionsFingerprint)||
+    !validIds(ids)||!weightMap(reg.acceptedWeights,ids)||!weightMap(reg.candidateWeights,ids)||
+    p.candidateBindingFingerprint!==modelCandidateBinding(reg))
+  throw Error('本地模型候选来源、权重绑定或代码指纹无效');
+ return true;
+}
+function verifyUnchangedModelReview(receipt,{cacheKey,sourceFingerprint,sourceLastObservationDay,latestFrozenSignalDay,packFingerprint,factorDefinitionsFingerprint,factorIds,acceptedWeights,modelName,digest,now=Date.now()}={}){
+ const {fingerprint,...body}=receipt||{};
+ if(!record(receipt)||!seal(fingerprint)||fingerprint!==hash(body)||receipt.schemaVersion!==1||
+    receipt.mode!=='v6-local-model-review-v1'||receipt.cacheKey!==cacheKey||receipt.sourceFingerprint!==sourceFingerprint||
+    receipt.status!=='model-retained-unchanged'||receipt.canTrade!==false||receipt.productionWeightsChanged!==false||
+    !date(receipt.latestFrozenSignalDay)||!date(sourceLastObservationDay)||!date(latestFrozenSignalDay)||
+    receipt.latestFrozenSignalDay<sourceLastObservationDay||receipt.latestFrozenSignalDay>latestFrozenSignalDay||
+    !Number.isSafeInteger(now)||!Number.isSafeInteger(receipt.reviewedAt)||receipt.reviewedAt<=0||receipt.reviewedAt>now||
+    receipt.reviewedAt<Date.parse(receipt.latestFrozenSignalDay+'T00:00:00+08:00')||
+    receipt.modelProvenance?.modelName!==modelName||receipt.modelProvenance?.digest!==digest)
+  throw Error('本地模型复核档案完整性无效');
+ return verifyModelCandidateProvenance({autoSourceFingerprint:sourceFingerprint,packFingerprint,
+  latestFrozenSignalDay:receipt.latestFrozenSignalDay,factorDefinitionsFingerprint,factorIds,acceptedWeights,
+  candidateWeights:acceptedWeights,modelProvenance:receipt.modelProvenance});
+}
 const policyFiles=[
  'factor-shadow-evolution.js','factor-learning-reliability.js',
  'factor-redundancy.js','factor-marginal-contribution.js',
@@ -47,7 +87,7 @@ function verifySeedRegistrationMetadata(reg){
  const {fingerprint,...payload}=reg||{};
  const definition=seedDefinition(reg?.seedConfig);
  const prefix=reg.frozenPrefixFingerprints;
- if(reg.mode!==SEED_MODE||reg.schemaVersion!==1||fingerprint!==hash(payload)||
+ if(reg.mode!==SEED_MODE||reg.schemaVersion!==1||fingerprint!==hash(payload)||Object.hasOwn(reg,'modelProvenance')||
     reg.candidateOrigin!=='fixed-pack-seed-v1'||reg.seedPolicy!==SEED_POLICY||
     reg.seedConfigFingerprint!==hash(reg.seedConfig)||reg.packFingerprint!==hash(factorPack)||
     !seal(reg.algorithmFingerprint)||
@@ -144,14 +184,14 @@ function verifySeedCandidate(reg,{sorted,ids,packFingerprint,oldWeights,
 }
 function preregisterCandidate({features,candidateWeights,acceptedWeights,
  registeredAt,parentAcceptedFingerprint=null,parentTrialFingerprint=null,
- packFingerprint,autoSourceFingerprint=null}={}){
+ packFingerprint,autoSourceFingerprint=null,modelProvenance}={}){
  if(!Array.isArray(features)||features.length<36||features.length>400||
     !Number.isSafeInteger(registeredAt)||registeredAt<=0||
     !/^[0-9a-f]{64}$/.test(packFingerprint||'')||
     typeof candidateWeights!=='object'||!candidateWeights||
     typeof acceptedWeights!=='object'||!acceptedWeights||
-    (autoSourceFingerprint!==null&&
-     !/^[a-f0-9]{64}$/.test(autoSourceFingerprint)))
+    (autoSourceFingerprint!==null&&(!seal(autoSourceFingerprint)||autoSourceFingerprint!==(parentTrialFingerprint??parentAcceptedFingerprint)))||
+    (modelProvenance!==undefined&&autoSourceFingerprint===null))
   throw Error('候选预注册输入协议无效');
  const ordered=[...features];
  if(ordered.some(x=>!date(x?.signalDay)))
@@ -159,9 +199,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  ordered.sort((a,b)=>a.signalDay.localeCompare(b.signalDay));
  const latest=ordered.at(-1);
  const ids=ordered[0]?.factors?.map(x=>x.id);
- if(!Array.isArray(ids)||ids.length<2||new Set(ids).size!==ids.length||
-    Object.keys(candidateWeights).length!==ids.length||
-    Object.keys(acceptedWeights).length!==ids.length||
+ if(!validIds(ids)||!weightMap(candidateWeights,ids)||!weightMap(acceptedWeights,ids)||
     new Set(ordered.map(f=>f.fingerprint)).size!==ordered.length||
     ordered.some((f,i)=>!date(f?.signalDay)||
      (i>0&&ordered[i-1].signalDay===f.signalDay)||
@@ -173,8 +211,8 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
      const candidate=candidateWeights[id],accepted=acceptedWeights[id],
       base=ordered[0].factors.find(x=>x.id===id)?.baseWeight;
      return !Number.isFinite(candidate)||!Number.isFinite(accepted)||
-      !Number.isFinite(base)||candidate<=0||accepted<=0||
-      candidate<base*.5||candidate>base*1.5||
+      !Number.isFinite(base)||base<=0||!Number.isFinite(base*1.5)||base*.5<=0||
+      accepted<base*.5||accepted>base*1.5||candidate<base*.5||candidate>base*1.5||
       candidate<accepted*.92-1e-7||candidate>accepted*1.08+1e-7;
     }))
   throw Error('候选预注册冻结样本、权重边界或完整性无效');
@@ -188,9 +226,11 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
   ...(autoSourceFingerprint===null?{}:{
    candidateOrigin:'sealed-historical-training-reliability-v1',
    autoSourceFingerprint}),
+  ...(modelProvenance===undefined?{}:{factorDefinitionsFingerprint:hash(ordered[0].factors),modelProvenance}),
   sealedBeforeFutureSignals:true,
   canTrade:false,productionWeightsChanged:false};
- return {...payload,fingerprint:hash(payload)};
+ if(modelProvenance!==undefined)verifyModelCandidateProvenance(payload);
+ return structuredClone({...payload,fingerprint:hash(payload)});
 }
 function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
  oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={}){
@@ -209,20 +249,22 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
     reg.algorithmFingerprint!==currentResearchCodeFingerprint()||
     reg.parentAcceptedFingerprint!==(previousFingerprint||null)||
     reg.parentTrialFingerprint!==(previousTrialFingerprint||null)||
+    (Object.hasOwn(reg,'candidateOrigin')!==Object.hasOwn(reg,'autoSourceFingerprint'))||
     (reg.candidateOrigin!==undefined&&(
      reg.candidateOrigin!=='sealed-historical-training-reliability-v1'||
-     !/^[a-f0-9]{64}$/.test(reg.autoSourceFingerprint||'')||
-     ![previousTrialFingerprint,previousFingerprint].includes(reg.autoSourceFingerprint)))||
+     !seal(reg.autoSourceFingerprint)||reg.autoSourceFingerprint!==(previousTrialFingerprint??previousFingerprint)))||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
     !Array.isArray(prefix)||prefix.length<36||
     !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt)||
-    ids.some(id=>!Number.isFinite(reg.candidateWeights?.[id])||
-     reg.candidateWeights[id]<=0))
+    !validIds(ids)||!weightMap(reg.acceptedWeights,ids)||!weightMap(reg.candidateWeights,ids)||
+    ids.some(id=>reg.candidateWeights[id]<oldWeights[id]*.92-1e-7||reg.candidateWeights[id]>oldWeights[id]*1.08+1e-7))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
+ if(Object.hasOwn(reg,'modelProvenance'))verifyModelCandidateProvenance(reg);
  return {status:'candidate-committed-before-new-signal',
   registrationFingerprint:fingerprint,registeredAt:reg.registeredAt,
   frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
   canTrade:false,productionWeightsChanged:false};
 }
 module.exports={preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint,
- preregisterSeedCandidate,verifySeedRegistrationMetadata,SEED_MODE,SEED_POLICY};
+ preregisterSeedCandidate,verifySeedRegistrationMetadata,SEED_MODE,SEED_POLICY,
+ modelCandidateBinding,verifyModelCandidateProvenance,verifyUnchangedModelReview};
