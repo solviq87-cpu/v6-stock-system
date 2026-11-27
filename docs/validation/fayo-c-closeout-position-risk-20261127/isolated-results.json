@@ -429,5 +429,126 @@
       "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
       "C24.integration existing automatic recognition derives leader comparison from original daily bars"
     ]
+  },
+  "integration": {
+    "ref": "66370c494d82b9a48e7fef096a7b57e50c151a15",
+    "environment": "Complete 16 original shortline dependency modules and catalog; ESM namespace/live-binding adapter, UTF8 encoder adapter, node:test/assert and exact catalog fs/path adapters; actual code executed. Not native Node, real quotes, or full browser.",
+    "modules": [
+      {
+        "name": "backtest.mjs",
+        "blob": "43b9c66f4323f6f3f62807abbd3372178dd9193d"
+      },
+      {
+        "name": "market.mjs",
+        "blob": "2dfb17a936c9bce7e8e0e736e0dde74be5054a14"
+      },
+      {
+        "name": "settings.mjs",
+        "blob": "506e9c6f4f7a5ec6ecca9b9ea70b42b7caf86559"
+      },
+      {
+        "name": "signal-window.mjs",
+        "blob": "b71506d8cd9cbd5ad8251a6186f7431d9eea598b"
+      },
+      {
+        "name": "backtest-analytics.mjs",
+        "blob": "a6cd6342307f75b744c9bb37bba72f77a4cd282a"
+      },
+      {
+        "name": "sample-quality.mjs",
+        "blob": "cb6cb8f01a837064a4642bf69e9c53beb41a5924"
+      },
+      {
+        "name": "recognize.mjs",
+        "blob": "0d03c05a41e74e1f8dc290898b6a8cc5b3d2396c"
+      },
+      {
+        "name": "pattern-evidence.mjs",
+        "blob": "9d08dc2acfdbadfdab24d850ab97c72a2c91500a"
+      },
+      {
+        "name": "index-evidence.mjs",
+        "blob": "e2ace7bf00bbe157723eeec1ccd3e8e07102d3f3"
+      },
+      {
+        "name": "pressure.mjs",
+        "blob": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6"
+      },
+      {
+        "name": "stock-risk-evidence.mjs",
+        "blob": "e3cd88f74ea717ad270e5870d4648b5d0e4ef5e5"
+      },
+      {
+        "name": "factor-dictionary.mjs",
+        "blob": "672860884918abcad9dee6f1653d624277571f52"
+      },
+      {
+        "name": "numeric-factors.mjs",
+        "blob": "806f990cc3799aa50655ea5f901bd6ad6009d0e8"
+      },
+      {
+        "name": "learning.mjs",
+        "blob": "c03c623cf3b7d17f450c138d6d02e80aabb80447"
+      },
+      {
+        "name": "numeric-factors.js",
+        "blob": "79c3a91420a87c958d45cd613a2ec1d439446c09"
+      },
+      {
+        "name": "factor-performance.mjs",
+        "blob": "13ae7c026ed741a160551245e52faa94982b6563"
+      }
+    ],
+    "catalog": "3ab3c64a40fc0d5a89f4426b76647aafd4d27b59",
+    "results": [
+      {
+        "name": "C23.integration original deriveCheckInput and autoValidate carry read-only evidence",
+        "blob": "39e6dde61a1513987953125f9350473f8675c399",
+        "ok": true
+      },
+      {
+        "name": "C24.integration existing automatic recognition derives leader comparison from original daily bars",
+        "blob": "ba1eec4c48255aa785405c92db855659c169ed1e",
+        "ok": true
+      },
+      {
+        "name": "C28.integration original recognition and historical observations retain identical position metrics",
+        "blob": "a707dcd67f21c9862d98bcfd72fbdb26387033e8",
+        "ok": true
+      },
+      {
+        "name": "CSV经真实自动识别接口触发停牌硬风控，即使竞价战法已全部命中也保持零仓位",
+        "blob": "4306d018147ce7169db9d3be2fc780e281e6a00a",
+        "ok": true
+      }
+    ],
+    "total": 4,
+    "pass": 4
+  },
+  "final": {
+    "newPass": 10,
+    "newTotal": 10,
+    "oldPass": 82,
+    "oldTotal": 82,
+    "totalPass": 92,
+    "total": 92,
+    "fail": 0,
+    "skipped": 0,
+    "fullCI": false
+  },
+  "design": {
+    "windows": [
+      1,
+      5,
+      10,
+      20
+    ],
+    "historicalPercentile": "20 earlier overlapping return endpoints, midrank, current excluded; only full finite sample counts, no risk threshold or probability",
+    "maximumPriorBars": 40,
+    "upstreamLimit": 60,
+    "average": "SMA5/10/20 including current close; scaled finite mean",
+    "atr": "simple mean of 14 true ranges including gap, not Wilder; zero ATR gives unknown distance",
+    "identity": "same declared source and sampleSet/sampleSource, explicit unadjusted daily bars, visible and nonconflicting; missing predecessor terminates",
+    "limits": "Synthetic fixture only, prior chain declared previousDay or weekday, not certified exchange calendar; no sector history percentiles, independent vendor certification, production factor/weights/threshold changes, formal riskAssessment or trade authority. Short 20-endpoint rank is descriptive and not validated predictive performance."
   }
 }
