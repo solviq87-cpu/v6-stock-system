@@ -6,7 +6,7 @@ export const riskNumericFields=[
   'sectorAdvancingCount','sectorObservedCount','sectorTotalCount'
 ];
 export const riskTextFields=[
-  'tradingStatus','quoteSource','quoteAt','quoteReceivedAt','issuerIndustry',
+  'tradingStatus','quoteSource','quoteAt','quoteReceivedAt','issuerIndustry','volumeUnit',
   'fundamentalSource','fundamentalPublishedAt','fundamentalKnownAt','financialPeriodEnd',
   'sectorRole','sectorBreadthSource','sectorBreadthAt','sectorBreadthReceivedAt'
 ];
