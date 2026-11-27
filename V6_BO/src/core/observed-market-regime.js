@@ -3,6 +3,7 @@
 const {analyzeMarketBreadth}=require('./market-breadth');
 const {classifyMarket}=require('./market-regime');
 const {researchInstant,assessObservedTiming}=require('./observed-market-timing');
+const {describeIndexParticipation}=require('./market-participation');
 const SCORE_KEYS=['indexTrendScore','marketVolumeScore','riskScore','volatilityScore','sentimentScore'];
 function classifyObservedMarket(snapshot, options={}){
  const cutoff=researchInstant(options.asOf===undefined?Date.now():options.asOf);
@@ -27,6 +28,7 @@ function classifyObservedMarket(snapshot, options={}){
   return {usable:false,reason:timingEvidence.reason,breadth,timingEvidence,regime:null,weights:null};
  const classified=classifyMarket({...scores,breadthScore:breadth.breadthScore});
  return {usable:true,date:breadth.date,source:breadth.source,scoreSource:options.scoreSource,breadth,timingEvidence,
+  indexParticipation:describeIndexParticipation(snapshot,breadth,timingEvidence,options.indexObservation),
   regime:classified.regime,attackScore:classified.attackScore,defensiveScore:classified.defensiveScore,
   weights:classified.weights,inputs:classified.inputs,
   note:'仅为研究环境分类；不自动更改现有选股阈值或权重'};
