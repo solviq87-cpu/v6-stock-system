@@ -192,6 +192,31 @@ export function decisionWeather(state={}, {day,now=Date.now()}={}){
  return {day:target,status,label,summary,canConsider:!weak,metrics,missing,basis};
 }
 
+// Reuse analysis.js's existing 1:2 reward/risk discipline. This centre
+// uses the highest price in the original plan (the worst entry), never the
+// cheaper MA5 or the old rounded levels.rr. These are gross scenario
+// distances, not a return forecast or a guarantee of a fill at the stop.
+function chaseRisk(row){
+ const price=row?.price,stop=row?.levels?.stop,target=row?.levels?.t1,ma5=row?.levels?.ma5;
+ const base={status:'unknown',minimumGrossRewardRisk:2,ratio:null,riskPct:null,rewardPct:null,
+  maxEntryAtMinimumRatio:null,ma5DistancePct:null,canTrade:false,
+  costBasis:'gross-before-fees-slippage-and-T+1-gap-risk',
+  reason:'缺少可核验的现价、止损和第一目标，追高风险待核验'};
+ if(![price,stop,target].every(positive)||!(stop<price&&price<target))return base;
+ const risk=price-stop,reward=target-price,ratio=reward/risk;
+ const riskPct=risk/price*100,rewardPct=reward/price*100;
+ const maxEntryAtMinimumRatio=stop+(target-stop)/3;
+ const ma5DistancePct=positive(ma5)?(price-ma5)/ma5*100:null;
+ if(![risk,reward,ratio,riskPct,rewardPct,maxEntryAtMinimumRatio].every(finite))return base;
+ // Permit only floating-point roundoff at exact equality; do not turn
+ // a rounded 1.95 into a passing ratio of 2.0.
+ const qualifies=reward>=2*risk||Math.abs(reward-2*risk)<=Number.EPSILON*8*Math.max(price,stop,target);
+ return {...base,status:qualifies?'meets-gross-discipline':'insufficient-gross-reward',
+  ratio,riskPct:round(riskPct),rewardPct:round(rewardPct),maxEntryAtMinimumRatio,
+  ma5DistancePct:finite(ma5DistancePct)?round(ma5DistancePct):null,
+  reason:qualifies?'按原始第一目标与止损计算的毛收益风险比满足1:2；费用、滑点、跳空与T+1风险尚未扣除':
+   '现价追高后毛收益风险比低于原1:2纪律，等待价格或原计划证据重新核验；不自动缩小止损或抬高目标'};
+}
 export function decisionPlan(row,account){
  const levels=row?.levels||{},missing=[],policy=account?.executionPolicy||{};
  const buyLow=positive(levels.ma5)?levels.ma5:null,buyHigh=positive(row?.price)?row.price:null;
@@ -210,7 +235,7 @@ export function decisionPlan(row,account){
  if(account?.enabled===false)missing.push('模拟盘策略跟踪已暂停');
  const max=policy.maxPositions??account?.maxPos;
  if(Number.isSafeInteger(max)&&array(account?.positions).length>=max)missing.push('现有模拟盘持仓已满');
- return {buyLow,buyHigh,stop,target,positionPct,complete:missing.length===0,missing,
+ return {buyLow,buyHigh,stop,target,positionPct,riskReward:chaseRisk(row),complete:missing.length===0,missing,
   priceBasis:'现有 MA5 至本行原始报价；止损与目标取现有 levels.stop / levels.t1',
   positionBasis:positionPct===null?'原模拟盘仓位预算待核验':'取原模拟盘单票预算与可用资金比例较小值；费用、整手和最终仓位由原买入门禁核验'};
 }
@@ -230,9 +255,12 @@ export function stockConclusion(row={}, {day,now=Date.now()}={}){
   {kind:'volume',label:'量价',known:gate.ok,text:gate.ok?'原始价 '+row.price+'；'+(positive(row.amount)?'成交额 '+row.amount+' 元':'成交量 '+row.volume)+(finite(row.pct)?'；涨跌 '+round(row.pct)+'%':''):'报价或量额证据不足'},
   {kind:'position',label:'位置',known:sameDay&&positive(row.levels?.ma5)&&positive(row.price),text:sameDay&&positive(row.levels?.ma5)&&positive(row.price)?'MA5 '+row.levels.ma5+'，'+(row.price>=row.levels.ma5?'位于其上方或附近':'位于其下方')+(positive(row.levels?.r1)?'；第一压力 '+row.levels.r1:''):'位置依据待核验'}
  ];
- const label=!gate.ok||sealed?'回避':broken?'等待回封':'可关注';
- const reason=!gate.ok?gate.reasons.join('；'):sealed?'当前已封板，等待可成交的重新核验':broken?'已有开板证据，等待回封并重新核对量价':pickReasons(row)[0]||'报价与当前条件可核对，按计划继续观察';
- return {label,reason,evidence,day:target};
+ const riskReward=chaseRisk(gate.ok&&sameDay?row:null);
+ const insufficient=riskReward.status==='insufficient-gross-reward';
+ if(riskReward.status!=='unknown')evidence[3].text+='；毛收益风险比 '+riskReward.ratio.toFixed(2)+'（未扣成本）';
+ const label=!gate.ok||sealed||insufficient?'回避':broken?'等待回封':'可关注';
+ const reason=!gate.ok?gate.reasons.join('；'):sealed?'当前已封板，等待可成交的重新核验':insufficient?riskReward.reason:broken?'已有开板证据，等待回封并重新核对量价':pickReasons(row)[0]||'报价与当前条件可核对，按计划继续观察';
+ return {label,reason,evidence,day:target,riskReward};
 }
 
 function readyPool(pool){
@@ -321,6 +349,9 @@ export function buildDecisionBoard(state={}, {now=Date.now()}={}){
   if(sealed.has(row.code)||row.sealed===true||row.isSealed===true){block('当前已封板，原模拟盘不能成交');continue;}
   if(!finite(row.score)||row.score<0||row.score>100||!reasons.length){block('精选评分或入选依据不足');continue;}
   if(!plan.complete){plan.missing.forEach(block);continue;}
+  // A complete price order does not imply attractive remaining upside.
+  // Never automatically resize the original account or move its risk levels.
+  if(plan.riskReward.status!=='meets-gross-discipline'){block(plan.riskReward.reason);continue;}
   const conclusion=stockConclusion(row,{day,now});
   if(conclusion.label!=='可关注'){block(conclusion.reason);continue;}
   const strategies=resonance.get(row.code)||[];
