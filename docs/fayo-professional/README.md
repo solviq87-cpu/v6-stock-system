@@ -150,7 +150,7 @@
 
 本批可下载[现行任务清单](deliverables/checklist.xlsx)和[本批进度卡](deliverables/limit-exit-progress.png)。原 22 页全册及 Word 版保留 #575 时点。本批用同一份报告输入核对了 240 笔结算，并在原账户风险线路上实测了 8 对空闲/后台占用的运行，具体数据见[受控负载回执](deliverables/risk-load.json)。
 
-原报价边界候选 `7a855472b7a351d4435fbb4775fc71092219b4f9` 的 8,033 项独立原生回归、23 项报价专项及 72 项相关兼容通过。六个账户阶段各用两种 Chromium 视口读取。恢复交易后仅按合成可供量成交 100 股，余 200 股和未完成委托保留。[原服务、权限、账本及截图证据](https://github.com/solviq87-cpu/v6-stock-system/tree/7a855472b7a351d4435fbb4775fc71092219b4f9/docs/validation/fayo-limit-quote-20261127)
+原报价边界候选 `ac7b96fbc0bb69ad09dd845521a18620291c4cd2` 的 8,033 项独立原生回归、23 项报价专项及 72 项相关兼容通过。六个账户阶段各用两种 Chromium 视口读取，账户事件按原执行时间显示；历史日期记录保留原精度。恢复交易后仅按合成可供量成交 100 股，余 200 股和未完成委托保留。[原服务、权限、账本及截图证据](https://github.com/solviq87-cpu/v6-stock-system/tree/ac7b96fbc0bb69ad09dd845521a18620291c4cd2/docs/validation/fayo-limit-quote-20261127)
 
 ## 跨专项执行约束 · 高效率开发与系统性能
 
