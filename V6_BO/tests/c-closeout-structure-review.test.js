@@ -4,7 +4,7 @@ const api=import('../public/nova/shortline/stock-risk-evidence.mjs');
 const day='2026-11-27',code='600001',at=day+' 15:00';
 function dates(n){const d=new Date(day+'T12:00:00Z'),out=[];while(out.length<n){if(![0,6].includes(d.getUTCDay()))out.unshift(d.toISOString().slice(0,10));d.setUTCDate(d.getUTCDate()-1);}return out;}
 function series(n=30){
- const ds=dates(n);return ds.map((date,i)=>({code,date,role:'stock',period:'日K',priceBasis:'unadjusted',source:'synthetic-original',open:100,high:105,low:95,close:100,volume:1000,volumeUnit:'shares',...(i?{previousDay:ds[i-1]}:{})}));
+ const ds=dates(n);return ds.map((date,i)=>({code,date,name:'结构复核样例',role:'stock',period:'日K',priceBasis:'unadjusted',source:'synthetic-original',open:100,high:105,low:95,close:100,volume:1000,volumeUnit:'shares',...(i?{previousDay:ds[i-1]}:{})}));
 }
 function set(r,close,high,low,volume=1000,open=close){Object.assign(r,{open,close,high,low,volume});return r;}
 function breakout(rows,index=rows.length-5){set(rows[index],110,112,104,2000);return rows[index];}
@@ -105,4 +105,20 @@ test('C30.integration original recognition and historical observation consume th
  for(const r of [a,b,h]){assert.equal(r.structureReview.path.status,'reclaim-failed-close-below');assert.equal(r.structureReview.anchor.resistance,105);assert.equal(r.canTrade,false);}
  const conflict={...state,bars:[...rows,{...rows[27],close:110}]};
  assert.equal(deriveCheckInput(conflict,{code,date:day}).recognition.chaseRiskResearch.structureReview,null);
+});
+
+test('C30.integration original CSV keeps explicit volume units without guessing units for legacy rows',async()=>{
+ const {parseKCsv,deriveCheckInput}=await import('../public/nova/shortline/backtest.mjs');
+ const catalog=JSON.parse(require('node:fs').readFileSync(require('node:path').resolve(__dirname,'../public/nova/shortline/catalog.json'),'utf8'));
+ const rows=series();breakout(rows);for(const r of rows.slice(26,29))set(r,108,110,106,1300);set(rows[29],107,109,104,800);
+ const header=['date','code','name','open','high','low','close','volume','priceBasis','source'];
+ function csv(withUnit,unitHeader='volumeUnit',currentUnit='shares'){
+  return [header.concat(withUnit?[unitHeader]:[]).join(','),...rows.map((r,i)=>header.map(k=>r[k]).concat(withUnit?[i===rows.length-1?currentUnit:r.volumeUnit]:[]).join(','))].join('\n');
+ }
+ const p=(bars)=>deriveCheckInput({catalog,bars,market:[],trades:[],plans:[]},{code,date:day}).recognition.chaseRiskResearch.structureReview.path;
+ const bars=parseKCsv(csv(true));assert.equal(bars.at(-1).volumeUnit,'shares');assert.equal(p(bars).status,'contracting-retest-close-held');
+ const zh=parseKCsv(csv(true,'成交量单位'));assert.equal(zh.at(-1).volumeUnit,'shares');assert.equal(p(zh).status,'contracting-retest-close-held');
+ const old=parseKCsv(csv(false));assert.equal(old.at(-1).volumeUnit,undefined);assert.equal(p(old).status,'retest-close-held-volume-unknown');
+ const mixed=parseKCsv(csv(true,'volumeUnit','lots'));assert.equal(p(mixed).volumeReview,null);
+ const invalid=parseKCsv(csv(true,'volumeUnit','unknown'));assert.equal(p(invalid).volumeReview,null);
 });
