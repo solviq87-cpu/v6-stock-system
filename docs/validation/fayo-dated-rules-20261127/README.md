@@ -51,3 +51,24 @@ FAYO_STUDY_RECEIPTS=/tmp/fayo-ladder FAYO_DATED_BROWSER=../docs/validation/fayo-
 ```
 
 五份输入由脚本从原合成历史生成。返回普通限幅的正例要求每个历史日都有明确覆盖信息。默认状态缺失或历史日缺口仍保留未知；不能从本专项推断实际发行初期、ST 变更或交易日历已经认证。恢复代码使用修改前 `0f5f24dfe86ec36e0163ccdc2b3f24966a36192a`，继续保留现有研究与账户卷。该项状态仍为局部证据，交总管统一集成。
+
+## 同一候选续接 · F42.1 原逐日股票池资格消费
+
+原历史账本已经核对 `universeObservation`，历史选股解释却没有读取该结果。明确排除、首次可知时间晚于历史评估截点，或股票池区间已有缺口时，原解释仍可能给出观察资格。
+
+历史解释现在复用原 `validateUniverseHistory` 和 `universeObservation`，以原历史行的收盘 15:00 截点核对证券归属与主数据状态。每个证券保存 `pointInTimeUniverse`；不适用证券保留全部原规则和评分供复盘，但不进入观察池，`historicalModelPassed` 和聚合通过数同时受限。`universeExcluded` 独立计数，不混入行情缺失数。原观察优先级复用现有资格条件，无新评分体系。
+
+六组新增反例修前全失败、修后原专项12项通过；加强正例确认原模型通过数由1变0，避免以原本未通过的样本验证排除效果。相关92项与静态检查通过。完整工程及当前提交工作流另按最终SHA核对。
+
+原鉴权 `/api/research/complete-run` 及原电脑、手机历史实验页面使用五种合成输入。允许记录、明确排除、晚于截点1毫秒、区间缺口和没有股票池表的旧研究分别得到观察状态真、假、假、假、真；对应原模型通过数为1、0、0、0、1。规则证据保留。十次双端流程无页面异常，查看者不返回研究报告。
+
+这里的资格是所提供的未认证历史股票池声明。没有表的旧研究保留 `declared=false`、`verified=false` 和原有研究行为，`canTrade=false`。证券类型、ETF误入、交易所身份、跨市场同码和完整真实主数据尚未在本批认证。F42.1只登记局部证据。不会把这次消费修复写成完整证券身份建设完成。
+
+复验从 `V6_BO` 运行，先创建输出目录。
+
+```bash
+node --test --test-reporter=tap tests/research-explanation-projection.test.js
+FAYO_STUDY_RECEIPTS=/tmp/fayo-membership FAYO_DATED_BROWSER=../docs/validation/fayo-dated-rules-20261127/membership-browser.py node ../docs/validation/fayo-dated-rules-20261127/membership-native.cjs
+```
+
+输入由脚本从原合成历史生成。主数据的ST、停牌、退市与可用时间边界还通过直接调用原解释验证，真实发行主体和历史资料仍待。回退以本续接前 `bf02b02b7ba87c5948e3caff7924b5aa65f097e9` 恢复代码，保留原账户及研究卷。源回执 `baseline` 为当时Git父提交，`sourceFiles` 是实际运行代码摘要；最终组合和工作流独立绑定精确提交。
