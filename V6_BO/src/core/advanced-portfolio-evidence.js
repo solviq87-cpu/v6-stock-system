@@ -14,7 +14,7 @@ const report=(data)=>({status:"estimated-unverified",canTrade:false,writesAccoun
 const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
 const round=x=>Math.round(x*1e8)/1e8;
 function liquidityKnown(prior,asOf){
- return !!(prior&&day(prior.date)&&label(prior.source)&&label(prior.dataVersion)&&stamp(prior.availableAt)&&prior.availableAt<=asOf&&Date.parse(prior.date+"T15:00:00+08:00")<=prior.availableAt&&prior.date<new Date(asOf+28800000).toISOString().slice(0,10)&&prior.evidenceKind==="historical"&&positive(prior.amount)&&positive(prior.volume)&&prior.volumeUnit==="shares"&&(prior.priceBasis==="unadjusted"||prior.turnoverBasis==="original-turnover"&&prior.amountUnit==="CNY"));
+ return !!(prior&&day(prior.date)&&label(prior.source)&&label(prior.dataVersion)&&stamp(prior.availableAt)&&prior.availableAt<=asOf&&Date.parse(prior.date+"T15:00:00+08:00")<=prior.availableAt&&prior.date<new Date(asOf+28800000).toISOString().slice(0,10)&&prior.evidenceKind==="historical"&&positive(prior.amount)&&positive(prior.volume)&&prior.volumeUnit==="shares"&&(prior.amountUnit===undefined||prior.amountUnit==="CNY")&&(prior.priceBasis==="unadjusted"||prior.turnoverBasis==="original-turnover"&&prior.amountUnit==="CNY"));
 }
 function capacityScenarios({prior,asOf,price,lotSize,capitalLevels,targetWeight,maxParticipationPct,feeBps,impactBpsAtLimit,feeEstimator}={}){
  if(!stamp(asOf)||!positive(price)||!Number.isSafeInteger(lotSize)||lotSize<=0||lotSize>10000||!Array.isArray(capitalLevels)||!capitalLevels.length||capitalLevels.length>50||!capitalLevels.every(x=>positive(x)&&x<=1e12)||!positive(targetWeight)||targetWeight>1||!positive(maxParticipationPct)||maxParticipationPct>100||![feeBps,impactBpsAtLimit].every(x=>finite(x)&&x>=0&&x<=10000))return unknown("INVALID_SCENARIO");
@@ -58,7 +58,7 @@ function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipation
  const restrictedQuantity=position.quantity-position.sellable;
  const subsetKnown=clear&&(position.sellable>0||position.quantity===0);
  const conditionalSellableSessions=subsetKnown?Math.ceil(position.sellable/cap):null;
- const subsetCost=subsetKnown&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
+ const subsetCost=subsetKnown&&conditionalSellableSessions<=1&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
  const estimatedSellableExitCost=finite(subsetCost)?subsetCost:null;
  return report({symbol:position.symbol,sellable:position.sellable,restrictedQuantity,historicalDailyShares:cap,
   conditionalSessions:restrictedQuantity===0?conditionalSellableSessions:null,
@@ -220,4 +220,99 @@ function pointInTimeVersion(rows,{source,id,eventThrough,decisionAt}={}){
  const row=list.filter(x=>x.eventAt<=eventThrough&&x.firstAvailableAt<=decisionAt).at(-1);
  return row?{status:"observed-unverified",canTrade:false,record:{...row}}:unknown("NOT_KNOWN_AT_DECISION");
 }
-module.exports={capacityScenarios,exitRisk,cashFlowPerformance,tailRisk,previewPosition,compareOpportunity,pointInTimeVersion};
+// A group of independently checked plans is not a jointly approved batch.
+// Reuse exact existing per-plan budget receipts, not labels or fresh policy guesses.
+function previewPlanBatch({snapshot,plans,policy=null,accountRevision}={}){
+ const fail=(reason,extra={})=>({status:"unknown",reason,canTrade:false,writesAccount:false,reservesCash:false,requiresSequentialRecheck:true,...extra});
+ const cents=n=>finite(n)&&n>=0&&Number.isSafeInteger(Math.round(n*100))&&Math.abs(n*100-Math.round(n*100))<=0.001?Math.round(n*100):null;
+ const sum=xs=>{let n=0;for(const x of xs){if(x===null||!Number.isSafeInteger(x)||!Number.isSafeInteger(n+x))return null;n+=x;}return n;};
+ const money=n=>Number.isSafeInteger(n)?n/100:null;
+ if(!snapshot||!label(snapshot.evidenceRef)||!Number.isSafeInteger(accountRevision)||accountRevision<1||
+    !Array.isArray(snapshot.positions)||snapshot.positions.length>1000||new Set(snapshot.positions.map(x=>x?.symbol)).size!==snapshot.positions.length||
+    !snapshot.positions.every(x=>symbol(x?.symbol)&&cents(x.marketValue)!==null)||
+    !Array.isArray(plans)||!plans.length||plans.length>20)return fail("BATCH_OR_ACCOUNT_EVIDENCE_UNAVAILABLE");
+ const cash=cents(snapshot.cash),free=cents(snapshot.availableCash),eq=cents(snapshot.equity),held=sum(snapshot.positions.map(x=>cents(x.marketValue)));
+ if([cash,free,eq,held].includes(null)||eq<=0||free>cash||sum([cash,held])!==eq)return fail("BATCH_CASH_OR_EQUITY_UNRECONCILED");
+ const out={status:"estimated-unverified",canTrade:false,writesAccount:false,reservesCash:false,requiresSequentialRecheck:true,
+  accountEvidenceRef:snapshot.evidenceRef,accountRevision,planCount:plans.length,existingReservedCash:money(cash-free),
+  originalAvailableCash:money(free),originalEquity:money(eq),totalAdditionalNotional:null,totalEstimatedFees:null,
+  availableCashAfter:null,afterFeeEquity:null,grossBudget:null,sharedSectorBudget:null,sharedStrategyBudget:null,
+  planIds:[],symbols:[],reasonCodes:[],jointBudgetStatus:"unknown",jointlyApproved:false,
+  note:"所有候选仅假设同时成交；原未成交委托已占用现金；每笔仍由原账户事务重新核验。未获证实的共同分类限额不推定通过。"};
+ const reason=new Set();
+ if(plans.some(p=>!label(p?.planId)||!symbol(p.symbol)||!label(p.gateEvidenceRef)||p.accountEvidenceRef!==snapshot.evidenceRef||
+  p.accountRevision!==accountRevision||p.originalGateStatus!=="allowed"||p.previewBlocked!==false||p.status!=="estimated-unverified"||
+  !Number.isSafeInteger(p.quantity)||p.quantity<=0||!positive(p.price)||cents(p.estimatedFee)===null||cents(p.quantity*p.price)===null))
+  return fail("BATCH_INDIVIDUAL_PREVIEW_UNAVAILABLE",{planCount:plans.length});
+ if(new Set(plans.map(p=>p.planId)).size!==plans.length||new Set(plans.map(p=>p.gateEvidenceRef)).size!==plans.length||
+    new Set(plans.map(p=>p.symbol)).size!==plans.length)return fail("BATCH_DUPLICATE_PLAN_OR_SYMBOL",{planCount:plans.length});
+ const rows=plans.map(p=>({p,gross:cents(p.quantity*p.price),fee:cents(p.estimatedFee)}));
+ const totalGross=sum(rows.map(x=>x.gross)),fees=sum(rows.map(x=>x.fee)),total=sum([totalGross,fees]);
+ if(total===null||fees>=eq)return fail("BATCH_NUMERIC_RANGE");
+ Object.assign(out,{planIds:plans.map(p=>p.planId).sort(),symbols:plans.map(p=>p.symbol).sort(),
+  totalAdditionalNotional:money(totalGross),totalEstimatedFees:money(fees),
+  availableCashAfter:money(free-total),afterFeeEquity:money(eq-fees)});
+ if(total>free)reason.add("SHARED_CASH_BUDGET_EXCEEDED");
+ const policyKnown=policy===null||policy&&label(policy.version);
+ if(!policyKnown)reason.add("ORIGINAL_POLICY_UNAVAILABLE");
+ // Original single plan caps remain relevant after other candidate fees reduce
+ // equity. The aggregate is only a conservative diagnostic, not a new limit.
+ for(const {p,gross,fee} of rows){
+  const cap=p.planAllocationBudgetAfter;
+  const match=Array.isArray(cap?.budgets)?cap.budgets.filter(b=>b?.kind==="single"):[];
+  const b=match[0],previous=cents(snapshot.positions.find(x=>x.symbol===p.symbol)?.marketValue??0);
+  if(cap?.policyScope!=="original-plan-effective-position-cap"||cap.estimatedConstraintsSatisfied!==true||
+     cents(cap.originalEquityBasis)!==eq||cents(cap.afterFeeEquity)!==eq-fee||match.length!==1||
+     !positive(b.limitPct)||b.limitPct>100||cents(b.exposureAfter)!==sum([previous,gross])){
+   reason.add("ORIGINAL_PLAN_CAP_UNAVAILABLE");continue;
+  }
+  if(b.exposureAfter>(eq-fees)/100*b.limitPct/100+1e-9)reason.add("SHARED_AFTER_FEE_PLAN_CAP_EXCEEDED");
+ }
+ if(policyKnown&&policy){
+  const all=rows.map(({p,gross,fee})=>({p,gross,fee,b:p.riskBudgetAfter}));
+  const bound=all.every(({p,fee,b})=>b?.policyScope==="original-account-readonly-preview"&&b.policyVersion===policy.version&&
+   b.estimatedConstraintsSatisfied===true&&b.canTrade===false&&b.writesAccount===false&&label(b.evidenceRef)&&
+   cents(b.originalEquityBasis)===eq&&cents(b.afterFeeEquity)===eq-fee&&Array.isArray(b.budgets));
+  if(!bound)reason.add("ORIGINAL_COMMON_POLICY_RECEIPTS_UNAVAILABLE");
+  else{
+   // The actual common-entry risk receipt includes original pending buy
+   // exposure. Subtract ONLY this candidate addition, then require agreement
+   // across every independently obtained receipt before adding the batch.
+   if(policy.maxGrossExposurePct!=null){
+    const limit=policy.maxGrossExposurePct,baselines=[];
+    for(const {b,gross} of all){
+     const matches=b.budgets.filter(x=>x?.kind==="gross"),v=matches[0],after=cents(v?.exposureAfter);
+     if(matches.length!==1||!positive(limit)||limit>100||v.limitPct!==limit||after===null||after<gross||after-gross<held){
+      reason.add("ORIGINAL_GROSS_BUDGET_UNAVAILABLE");break;
+     }
+     baselines.push(after-gross);
+    }
+    if(baselines.length===rows.length&&new Set(baselines).size===1){
+     const before=baselines[0],after=sum([before,totalGross]);
+     if(after===null)reason.add("ORIGINAL_GROSS_BUDGET_UNAVAILABLE");
+     else{
+      const allowed=after/100<=eq/100*limit/100+1e-9,afterFeeAllowed=after/100<=(eq-fees)/100*limit/100+1e-9;
+      out.grossBudget={limitPct:limit,originalExposureIncludingPending:money(before),originalPendingExposure:money(before-held),
+       exposureAfter:money(after),remainingAtOriginalEquity:round(eq/100*limit/100-after/100),
+       remainingAfterEstimatedFees:round((eq-fees)/100*limit/100-after/100),originalBasisWithinLimit:allowed,afterFeeWithinLimit:afterFeeAllowed};
+      if(!allowed)reason.add("SHARED_GROSS_LIMIT_EXCEEDED");
+      if(!afterFeeAllowed)reason.add("SHARED_AFTER_FEE_GROSS_LIMIT_EXCEEDED");
+     }
+    }else reason.add("ORIGINAL_GROSS_BASELINE_CONFLICT");
+   }
+   if(policy.maxPositionPct!=null)for(const {b} of all){
+    const m=b.budgets.filter(x=>x?.kind==="single"),v=m[0];
+    if(m.length!==1||!positive(policy.maxPositionPct)||policy.maxPositionPct>100||v.limitPct!==policy.maxPositionPct||cents(v.exposureAfter)===null)reason.add("ORIGINAL_SINGLE_BUDGET_UNAVAILABLE");
+    else if(v.exposureAfter>(eq-fees)/100*policy.maxPositionPct/100+1e-9)reason.add("SHARED_AFTER_FEE_SINGLE_LIMIT_EXCEEDED");
+   }
+   // Do not aggregate sector/strategy merely by optional labels. The original
+   // individual receipts are not a simultaneous attribution transaction.
+   if(policy.maxSectorPct!=null)reason.add("SHARED_SECTOR_BUDGET_RECHECK_REQUIRED");
+   if(policy.maxStrategyPct!=null)reason.add("SHARED_STRATEGY_BUDGET_RECHECK_REQUIRED");
+  }
+ }
+ out.reasonCodes=[...reason].sort();
+ out.jointBudgetStatus=out.reasonCodes.some(x=>x.endsWith("_EXCEEDED"))?"conditional-budget-exceeded":out.reasonCodes.length?"unknown":"conditional-cash-and-known-caps-within-limit";
+ return out;
+}
+module.exports={capacityScenarios,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,pointInTimeVersion};

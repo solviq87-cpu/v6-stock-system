@@ -21,21 +21,39 @@ function unavailable(account,reason){
 function selectAdvancedRiskQuotes({codes,stocks,lastPx,now,limitFor}){
  if(!Array.isArray(codes)||codes.length>MAX_HOLDINGS||codes.some(x=>!codeOk(x)))return {};
  const wanted=new Set(codes),byCode=new Map();
- for(const row of Array.isArray(stocks)?stocks:[])if(wanted.has(row?.code)&&!byCode.has(row.code))byCode.set(row.code,row);
+ for(const row of Array.isArray(stocks)?stocks:[])if(wanted.has(row?.code)){
+  const rows=byCode.get(row.code)||[];rows.push(row);byCode.set(row.code,rows);
+ }
  const out={};
  for(const code of wanted){
-  const wire=lastPx?.get?.(code)?.wireQuote,stock=byCode.get(code);
-  const rows=[wire,stock].filter(x=>x?.code===code);
-  const row=rows.find(x=>quoteUseEligibility(x,now).canTrade)||rows[0];
+  const wire=lastPx?.get?.(code)?.wireQuote,stocks=byCode.get(code)||[];
+  const rows=[wire,...stocks].filter(x=>x?.code===code);
+  const usable=rows.filter(x=>quoteUseEligibility(x,now).canTrade);
+  const row=usable[0]||rows[0];
   if(!row)continue;
   const use=quoteUseEligibility(row,now),basis=quoteSnapshotFields(row);
   const raw={...basis,code,price:num(row.price)?row.price:null,canTrade:row.canTrade===true?true:row.canTrade===false?false:null};
-  let limitDown=null;
+  const conflicts=usable.some(x=>x.quoteAt===row.quoteAt&&x.price!==row.price)||
+    rows.some(x=>x.quoteAt===row.quoteAt&&quoteUseEligibility(x,now).quoteStatus==='recent-unverified'&&
+      (typeof x.suspended==='boolean'&&typeof row.suspended==='boolean'&&x.suspended!==row.suspended||
+       x.preClose!=null&&row.preClose!=null&&x.preClose!==row.preClose||
+       x.lowerLimit!=null&&row.lowerLimit!=null&&x.lowerLimit!==row.lowerLimit));
+  if(conflicts){out[code]={quote:{...raw,sourceConflict:true,canTrade:false},limitDown:null,suspended:null,limitEvidenceStatus:'conflict'};continue;}
+  let limitDown=null,limitEvidenceStatus='unknown',lowerLimit=null;
   if(use.canTrade&&num(row.preClose)&&row.preClose>0&&typeof row.name==='string'&&row.name.trim()&&typeof limitFor==='function'){
    const limit=limitFor(code,row.name);
-   if(num(limit)&&limit>0&&limit<1)limitDown=row.price<=Math.round(row.preClose*(1-limit)*100)/100;
+   if(num(limit)&&limit>0&&limit<1){
+    const boundary=Math.round(row.preClose*(1-limit)*100)/100;
+    const special=row.noPriceLimit===true||row.ipoNoLimit===true||row.corporateAction!=null&&row.corporateAction!==false;
+    const explicit=Object.hasOwn(row,'lowerLimit'),same=explicit&&num(row.lowerLimit)&&row.lowerLimit>0&&Math.abs(row.lowerLimit-boundary)<1e-8;
+    // Keep the original server's legacy derived boundary separate from
+    // explicit agreement. No forward rule or no-limit day is inferred.
+    if(special)limitEvidenceStatus='special-session-unverified';
+    else if(explicit&&!same)limitEvidenceStatus='conflict-or-missing';
+    else if(boundary>0){lowerLimit=boundary;limitDown=row.price<=boundary;limitEvidenceStatus=same?'original-rule-and-quote-agree':'original-rule-derived-unverified';}
+   }
   }
-  out[code]={quote:raw,limitDown,suspended:typeof row.suspended==='boolean'?row.suspended:null};
+  out[code]={quote:raw,limitDown,lowerLimit,limitEvidenceStatus,suspended:typeof row.suspended==='boolean'?row.suspended:null};
  }
  return out;
 }
