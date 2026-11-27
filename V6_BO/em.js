@@ -1284,14 +1284,28 @@ async function fetchBatchSnapshot(codes) {
     }
   };
   const missing = () => requested.filter(code => !chosen.has(code));
-  const collect = (rows, wanted, now) => {
-    const allowed = new Set(wanted);
-    for (const row of rows || []) {
+  const collect = (rows, wanted, now, provider) => {
+    if (!Array.isArray(rows)) return;
+    const allowed = new Set(wanted), observations = new Map();
+    const evidenceFields = ['price','preClose','pct','open','high','low','volume','amount','canTrade'];
+    for (const row of rows) {
       if (!row || !allowed.has(row.code)) continue;
       const current = batchQuoteAtPublication(row, now);
       if (current.quoteFreshness !== 'recent-unverified') continue;
-      const previous = chosen.get(row.code);
-      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(row.code, current);
+      // A wrong source label cannot establish recovery of the primary route.
+      const blocked = provider !== 'research' && current.quoteSource !== provider ||
+        ['synthetic','simulated','mock','fixture','testSample','sourceConflict','quoteSourceConflict','conflict'].some(k => row[k] === true) ||
+        row.quoteStatus === 'conflict' || row.evidenceStatus === 'conflict';
+      if (provider === 'research') current.canTrade = false;
+      const prior = observations.get(row.code);
+      if (!prior || current.quoteAt > prior.row.quoteAt) observations.set(row.code, {row:current,blocked});
+      else if (current.quoteAt === prior.row.quoteAt &&
+          (blocked || current.quoteSource !== prior.row.quoteSource || evidenceFields.some(k => !Object.is(current[k] ?? null, prior.row[k] ?? null)))) prior.blocked = true;
+    }
+    for (const [code, result] of observations) {
+      if (result.blocked) continue;
+      const current = result.row, previous = chosen.get(code);
+      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(code, current);
     }
   };
   const fetchMissing = async (provider, fetchRows, wanted) => {
@@ -1300,7 +1314,7 @@ async function fetchBatchSnapshot(codes) {
     try {
       const rows = await fetchRows(wanted), now = Date.now();
       refresh(now);
-      collect(rows, wanted, now);
+      collect(rows, wanted, now, provider);
     } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       lastError = e;
       batchQuoteWarn(provider, wanted, classifyNetErr(String(e && e.message || e)));
@@ -1321,7 +1335,7 @@ async function fetchBatchSnapshot(codes) {
       const rows = require('./src/core/six-photo-backups').photoQuoteFallback(remaining);
       const now = Date.now();
       refresh(now);
-      collect(rows, remaining, now);
+      collect(rows, remaining, now, 'research');
     } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       lastError = e;
       batchQuoteWarn('research', remaining, 'unavailable');

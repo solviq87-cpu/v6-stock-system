@@ -3,7 +3,7 @@ const {classifyQuoteTime,snapshotCaptureWindow}=require('./market-snapshot-quote
 const dayOk=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&Number.isFinite(Date.parse(d))&&new Date(Date.parse(d)).toISOString().slice(0,10)===d;
 const codeOf=row=>String(row?.code??row?.symbol??'');
 const artificial=/simulat|synthetic|fixture|mock|demo/i;
-const badFlags=['suspended','isST','sourceConflict','quoteSourceConflict','synthetic','mock','fixture','simulated'];
+const badFlags=['suspended','isST','sourceConflict','quoteSourceConflict','synthetic','mock','fixture','simulated','testSample','conflict'];
 const identityFields=['code','symbol','pctChange','amount','latestPrice','volumeLots','turnoverPct','mainNetInflow','mainNetInflowPct',
  'vendorQuoteAt','source','provider','suspended','tradable','isST','sourceConflict','quoteSourceConflict','evidenceStatus','quoteStatus','synthetic','mock','fixture','simulated'];
 function usableRow(row){
@@ -15,7 +15,7 @@ function usableRow(row){
 /** Research-only candidate/market intersection. Never converts a market quote into
  * a strategy factor, changes scores, or claims that a quote is exchange-verified. */
 function joinObservedCandidates(snapshot, breadth, candidates=[], {limit=50,asOf}={}) {
-  if (!breadth?.usable) return {usable:false,reason:'市场快照覆盖率不足，拒绝生成行情候选交集',items:[]};
+  if (!breadth?.usable||breadth.decisionUsable===false) return {usable:false,reason:'市场快照覆盖率不足，拒绝生成行情候选交集',items:[]};
   if (!Array.isArray(candidates)) throw Error('候选池必须为数组');
   if (!Number.isInteger(limit)||limit<1||limit>100) throw Error('候选展示上限无效');
   // A breadth receipt belongs to the same source and date as the snapshot.
