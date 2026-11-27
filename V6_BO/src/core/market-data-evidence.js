@@ -259,6 +259,9 @@ function backgroundScope(provider,value){
  }else if(provider==='sec-edgar'){
   keys=['cik','tag','unit','asOf'];scope={cik:value.cik,tag:value.tag,unit:value.unit,asOf:value.asOf};
   if(!Number.isSafeInteger(scope.cik)||scope.cik<1||scope.cik>9999999999||typeof scope.tag!=='string'||!/^[A-Za-z][A-Za-z0-9]{1,63}$/.test(scope.tag)||!['USD','shares','USD/shares'].includes(scope.unit)||!day(scope.asOf)||scope.asOf<'1994-01-01')throw Error('SEC背景数据范围无效');
+ }else if(provider==='us-eia'){
+  keys=['series','start','end'];scope={series:value.series,start:value.start,end:value.end};
+  if(!['RWTC','RBRTE'].includes(scope.series)||!day(scope.start)||!day(scope.end)||scope.start>scope.end)throw Error('EIA背景数据范围无效');
  }else if(provider==='worldbank'){
   keys=['country','indicator','startYear','endYear'];scope={country:value.country,indicator:value.indicator,startYear:value.startYear,endYear:value.endYear};
  }else throw Error('未登记的官方背景数据来源');
@@ -277,6 +280,7 @@ function backgroundProjection(provider,scope,raw,observedAt){
   if(raw.length>12*1024*1024||scope.asOf>new Date(observedAt).toISOString().slice(0,10))throw Error('SEC背景数据范围或响应超限');
   return require('./sec-companyfacts').projectCompanyFact(JSON.parse(text),{...scope,now:observedAt});
  }
+ if(provider==='us-eia')return require('./eia-spot-daily').projectEiaJson(text,{...scope,observedAt});
  if(raw.length>128*1024)throw Error('World Bank背景数据响应超限');
  require('./worldbank-indicators').validate({...scope,now:observedAt});
  return require('./worldbank-indicators').parseWorldBankResponse(JSON.parse(text),{...scope,observedAt});
@@ -331,7 +335,7 @@ function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,reques
  const data={protocol:BACKGROUND_PROTOCOL,provider,upstreamGroup:provider,scope,scopeId,rawEvidence,dataVersion,projectionHash,byteBasis,
   requestStartedAt,observedAt,availableAt,firstKnownAt:first?.recordedAt??availableAt,sourcePublishedAt:null,sourceRevisedAt:null,sourceRevisionKnown:false,
   revisionDetectedAt:previous&&!same?observedAt:null,version:same?previous.data.version:(previous?.data.version??0)+1,previousReceipt:previous?.hash??null,
-  sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+  sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
  const requestId='background-'+store.digest({scopeId,observedAt,dataVersion}).slice(0,64);
  return store.appendEvent(roots(root,true).events,'diagnostic',data,{now:availableAt,requestId,beforeCommitLocked:({events:current,reused})=>{
   if(reused)return true;
@@ -387,11 +391,12 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){
     // arbitrary metadata, or an inferred original publication timestamp.
     const values=records.slice(-5).map(r=>provider==='ecb'?{period:r.date,value:r.unitsPerEuro,unit:projected.currency+' / EUR'}:
      provider==='sec-edgar'?{period:r.reportedEnd,value:r.reportedValue,unit:r.unit,filedDate:r.filedDate,accession:r.accession}:
+      provider==='us-eia'?{period:r.date,value:r.value,unit:r.unit}:
       {period:String(r.year),value:r.value,unit:null});
     const missingValues=records.filter(r=>(provider==='ecb'?r.unitsPerEuro:provider==='sec-edgar'?r.reportedValue:r.value)===null).length;
     checked++;
     return {...row,status:'verified-latest-receipt',scope:backgroundScope(provider,d.scope),byteBasis:d.byteBasis,
-     sourceTimePrecision:provider==='ecb'?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
+     sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
      records:values,recordCount:records.length,missingValues};
    }catch{return row;}
   });
