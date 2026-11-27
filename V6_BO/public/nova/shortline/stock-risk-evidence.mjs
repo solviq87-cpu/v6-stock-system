@@ -253,12 +253,20 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
   const indexSequence=benchmarkSequence(indexRows,'index',b.indexCode);
   if(sectorSequence)out.sectorPositionRisk={sector:b.sector,code:sectorSequence[0].code,...positionMetrics(sectorSequence)};
   if(positionSequence&&(sectorSequence||indexSequence)){
+    const rawCurrent=currentRows===undefined?[b]:currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff));
+    // A valid price duplicate can still disagree on benchmark identity.
+    // Check the consumed identity independently for each comparison window.
+    const identities=field=>new Map(unambiguousAt([...visibleHistory,...rawCurrent],
+      [...priceFields,'sampleSet','sampleSource',field]).map(r=>[r.date,r]));
+    const sectorIdentity=identities('sector'),indexIdentity=identities('indexCode');
     function aligned(benchmark,sessions,role){
       if(!benchmark||positionSequence.length<=sessions||benchmark.length<=sessions)return null;
       for(let i=0;i<=sessions;i++){
         const s=positionSequence[i],r=benchmark[i];
-        if(s.date!==r.date||role==='sector'&&s.sector!==b.sector||
-            role==='index'&&s.indexCode!=null&&s.indexCode!==b.indexCode)return null;
+        const original=(role==='sector'?sectorIdentity:indexIdentity).get(s.date);
+        if(!original||s.date!==r.date||role==='sector'&&(s.sector!==b.sector||original.sector!==b.sector)||
+            role==='index'&&(s.indexCode!=null&&s.indexCode!==b.indexCode||
+              original.indexCode!=null&&original.indexCode!==b.indexCode))return null;
       }
       const stock=clean(100*(b.close/positionSequence[sessions].close-1));
       const reference=clean(100*(benchmark[0].close/benchmark[sessions].close-1));
