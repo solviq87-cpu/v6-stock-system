@@ -203,7 +203,8 @@ function verifyPackage(bundle, candidate, source) {
     names.add(match[2]);
     requireThat(hash(bytes(path.join(bundle, match[2]))) === match[1], 'candidate-package-hash-mismatch');
   }
-  requireThat(JSON.stringify([...names].sort()) === JSON.stringify(enumerate(bundle).filter(file => file !== 'SHA256SUMS.txt')), 'candidate-package-file-set-mismatch');
+  const actualFiles = enumerate(bundle).filter(file => file !== 'SHA256SUMS.txt');
+  requireThat(actualFiles.length === names.size && actualFiles.every(file => names.has(file)), 'candidate-package-file-set-mismatch');
   // Controls are executable too. Bind them to the approved Git source bytes.
   for (const file of [...names].filter(file => !file.startsWith('payload/') && !['source.json', 'manifest.json'].includes(file))) {
     const expected = bytes(path.join(source, 'V6_BO/deploy/windows-host', file));
