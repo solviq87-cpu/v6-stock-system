@@ -1,5 +1,5 @@
 import {h,button,format,money,dateTime,updateReadout} from './ui.js';
-import {validateRiskRead,createRiskViewReceipt,remainingRiskViewMs,riskViewMatches,createRiskScope,boundRiskResearch} from './risk-workbench-read-scope.mjs';
+import {validateRiskRead,createRiskReceiptTracker,remainingRiskViewMs,riskViewMatches,createRiskScope,boundRiskResearch,watchRiskVisibility,boundRiskAlerts,buildRiskAlertMutation,createRiskMutationGate} from './risk-workbench-read-scope.mjs';
 const monotonicNow=()=>globalThis.performance.now();
 const expiredMessage='本次风险证据展示窗口已过期，需重新读取；原风险未解除。';
 
@@ -39,14 +39,18 @@ let viewSequence=0;
 // disposal removes every listener; pageshow rereads after a bfcache return.
 function watchConnectivity(ctx,invalidate,refresh){
   let online=globalThis.navigator?.onLine!==false,pageActive=true;
-  const events=new AbortController(),available=()=>online&&pageActive&&!events.signal.aborted&&!ctx.signal?.aborted;
+  const events=new AbortController();
+  let visibility=null;
+  const available=()=>online&&pageActive&&!events.signal.aborted&&!ctx.signal?.aborted&&visibility?.visible()!==false;
   const listen=(name,fn)=>globalThis.addEventListener?.(name,fn,{signal:events.signal});
   const resume=()=>{if(available()&&edit(ctx))refresh();};
+  visibility=watchRiskVisibility(globalThis.document,{signal:events.signal,
+    onHidden:()=>invalidate('页面已进入后台，当前风险需重新读取；原风险未解除。'),onVisible:resume});
   listen('offline',()=>{online=false;invalidate('连接已断开，当前风险待重新核对。');});
   listen('pagehide',()=>{pageActive=false;invalidate('页面已离开，风险证据需重新读取。');});
   listen('online',()=>{online=true;resume();});
   listen('pageshow',()=>{pageActive=true;online=globalThis.navigator?.onLine!==false;resume();});
-  function dispose(){events.abort();ctx.signal?.removeEventListener('abort',dispose);}
+  function dispose(){events.abort();visibility.dispose();ctx.signal?.removeEventListener('abort',dispose);}
   ctx.signal?.addEventListener('abort',dispose,{once:true});
   if(ctx.signal?.aborted)dispose();
   return {available,dispose};
@@ -57,10 +61,13 @@ async function read(ctx,{accountId='pool',code,signal}={}){
   const query=new URLSearchParams({account:accountId});if(code)query.set('code',code);
   const reply=await ctx.api('/api/risk-workbench?'+query,{signal:signal||ctx.signal});
   if(reply?.ok!==true)throw Error(reply?.error||'未取得同一账户的完整风险回执');
-  return validateRiskRead(reply,accountId,code??null);
+  const report=validateRiskRead(reply,accountId,code??null);
+  // A valid core report does not make a separately mismatched alert archive
+  // readable or editable. Do not display its root causes or preferences.
+  return report.alerts&&!boundRiskAlerts(report)?{...report,alerts:null}:report;
 }
 
-function riskCard(risk,report,{ctx,compact=false,onUpdate,scope='workbench',canAct=()=>false}={}){
+function riskCard(risk,report,{ctx,compact=false,mutate,scope='workbench',canAct=()=>false}={}){
   const group=list(report.alerts?.groups).find(row=>row.rootCauseId===risk.rootCauseId);
   const previous=risk.lastValidRisk||group?.lastValidRisk;
   const currentLabel=levels[risk.riskLevel]||assessment[risk.assessmentState]||'无法评估';
@@ -104,16 +111,10 @@ function riskCard(risk,report,{ctx,compact=false,onUpdate,scope='workbench',canA
     group?.notification?.admissionReason?note(group.notification.admissionReason):null,
     group?.observationGap?note('后续观察缺档，尚未解除原风险。'):null);
   card.append(details);
-  if(!compact&&group&&ctx&&onUpdate){
+  if(!compact&&group&&ctx&&mutate){
     const act=async(action,extra={})=>{
       if(!edit(ctx)||ctx.signal?.aborted||!canAct())return;
-      try{
-        const result=await ctx.api('/api/risk-workbench/alerts',{method:'POST',signal:ctx.signal,
-          body:{action,accountId:report.account.id,accountEpoch:report.accountEpoch,rootCauseId:risk.rootCauseId,
-            expectedRevision:report.alerts.revision,...extra}});
-        if(result.ok!==true)throw Error(result.error||'提醒状态尚未更新');
-        if(canAct())await onUpdate();
-      }catch(error){if(!ctx.signal?.aborted&&canAct())ctx.notify?.(error.message,'error');}
+      await mutate({action,rootCauseId:risk.rootCauseId,...extra});
     };
     const categoryMuted=(report.alerts?.preferences?.[group.classification+'MutedUntil']||0)>Date.now();
     const rootMuted=(group.rootMutedUntil??(!categoryMuted?group.mutedUntil:0))>Date.now();
@@ -136,7 +137,7 @@ export function createRiskSummary(ctx,{title='需要处理的风险',code=null,a
     host.replaceChildren(h('h2',{},title),...(message&&requested?[unknown(message)]:[]));host.hidden=!message||!requested;
   }
   function clear(){requested=false;scopeSignal=null;scopeBinding.detach();invalidate();}
-  const scopeBinding=createRiskScope(clear);
+  const scopeBinding=createRiskScope(clear),receiptTracker=createRiskReceiptTracker();
   const connection=watchConnectivity(ctx,message=>edit(ctx)?invalidate(message):invalidate(),()=>{if(requested)void refresh();});
   function expire(token){
     if(receipt!==token)return;
@@ -161,7 +162,7 @@ export function createRiskSummary(ctx,{title='需要处理的风险',code=null,a
     try{
       const report=await read(ctx,{code:selected,signal:active.signal});
       if(turn!==epoch||active.signal.aborted||scopeSignal?.aborted||!connection.available()||!edit(ctx))return;
-      const next=createRiskViewReceipt({report,accountId:'pool',selectedCode:selected,startedAt,receivedAt:monotonicNow()});
+      const next=receiptTracker.accept({report,accountId:'pool',selectedCode:selected,startedAt,receivedAt:monotonicNow()});
       if(!next)throw Error(expiredMessage);
       dropReceipt();receipt=next;expiryTimer=setTimeout(()=>expire(next),remainingRiskViewMs(next,monotonicNow()));
       lastRead=Date.now();const risks=report.risks.filter(row=>row.status!=='resolved');
@@ -297,6 +298,7 @@ export function renderRiskWorkbench(ctx){
   const content=h('div',{class:'fy-stack'},unknown('正在读取原账户风险证据…'));
   const filters=h('div',{class:'fy-toolbar','aria-label':'风险范围'});
   let report=null,receipt=null,expiryTimer=null;
+  const receiptTracker=createRiskReceiptTracker(),mutationGate=createRiskMutationGate();
   function dropReceipt(){clearTimeout(expiryTimer);expiryTimer=null;receipt=null;}
   function expire(token=receipt){
     if(token!==receipt)return;
@@ -307,8 +309,23 @@ export function renderRiskWorkbench(ctx){
     if(!report||!edit(ctx)||!connection.available())return;
     if(!remainingRiskViewMs(receipt,monotonicNow())){expire();return;}
     const renderedReport=report;
-    const canAct=()=>!busy&&report===renderedReport&&riskViewMatches(receipt,{report:renderedReport,accountId,
+    const canAct=()=>!busy&&mutationGate.available()&&!!boundRiskAlerts(renderedReport)&&report===renderedReport&&riskViewMatches(receipt,{report:renderedReport,accountId,
       now:monotonicNow(),available:connection.available(),editable:edit(ctx),aborted:ctx.signal?.aborted===true});
+    // Both root-cause and category controls share one in-flight gate. A
+    // completed old request must not refresh or mutate a newer account view.
+    const mutate=async input=>{
+      if(!canAct())return;
+      const body=buildRiskAlertMutation(renderedReport,input);if(!body)return;
+      const token=mutationGate.begin();if(!token)return;
+      let failure=null;
+      try{
+        const result=await ctx.api('/api/risk-workbench/alerts',{method:'POST',signal:ctx.signal,body});
+        if(result.ok!==true)throw Error(result.error||'提醒状态未更新');
+      }catch(error){failure=error;}
+      finally{mutationGate.end(token);}
+      if(!canAct())return;
+      if(failure)ctx.notify?.(failure.message,'error');else await load();
+    };
     const open=new Set([...content.querySelectorAll('details[open][id]')].map(node=>node.id));
     const active=report.risks.filter(row=>row.status!=='resolved'&&(!activeCategory||row.category===activeCategory));
     const urgent=active.filter(row=>['critical','warning'].includes(row.severity)||row.riskLevel>0||row.lastValidRisk?.riskLevel>0);
@@ -319,29 +336,24 @@ export function renderRiskWorkbench(ctx){
     const riskList=section('需要处理的事项',note(report.account.label+' · 来源读取 '+dateTime(report.generatedAt)),
       h('div',{class:'fy-metrics'},metric('需要处理',String(report.summary.actionable)),metric('证据未知',String(report.summary.unknown)),
         metric('私密通知',report.runtime?.privateChannel==='configured'?'已配置':report.runtime?.privateChannel==='unconfigured'?'未配置':'配置未知','无接收证据不称送达')),
-      ...primary.map(row=>riskCard(row,report,{ctx,onUpdate:load,canAct})),
+      ...primary.map(row=>riskCard(row,report,{ctx,mutate,canAct})),
       secondary.length?h('details',{class:'fy-details',id:'risk-other-evidence'},h('summary',{},'其他风险与证据缺口（'+secondary.length+'）'),
-        ...secondary.map(row=>riskCard(row,report,{ctx,onUpdate:load,canAct}))):null,
+        ...secondary.map(row=>riskCard(row,report,{ctx,mutate,canAct}))):null,
       ...unseen.flatMap(group=>list(group.risks).slice(0,1).map(row=>riskCard({...row,status:'unknown',evidenceStatus:'unknown',
         riskLevel:null,assessmentState:'unable-to-assess',evidenceState:'unverified',dataState:'missing',actionState:'unconfirmed',
         lastValidRisk:group.lastValidRisk,
-        facts:['后续观察缺档，原风险未解除',...row.facts]},report,{ctx,onUpdate:load,canAct}))),
+        facts:['后续观察缺档，原风险未解除',...row.facts]},report,{ctx,mutate,canAct}))),
       !active.length?note('此范围未返回待处理事项；其他证据仍可在下方核对。'):null);
     const history=h('details',{class:'fy-details',id:'risk-resolved'},h('summary',{},'已解除与一般证据'),
-      ...report.risks.filter(row=>row.status==='resolved').map(row=>riskCard(row,report,{ctx,onUpdate:load,canAct})));
-    const mute=async(classification,mutedUntil)=>{
-      if(!canAct())return;
-      try{const result=await ctx.api('/api/risk-workbench/alerts',{method:'POST',signal:ctx.signal,
-        body:{action:'mute',accountId:renderedReport.account.id,accountEpoch:renderedReport.accountEpoch,classification,
-          mutedUntil,expectedRevision:renderedReport.alerts?.revision}});
-        if(result.ok!==true)throw Error(result.error||'静音状态未更新');if(canAct())await load();}
-      catch(error){if(canAct())ctx.notify?.(error.message,'error');}
-    };
+      ...report.risks.filter(row=>row.status==='resolved').map(row=>riskCard(row,report,{ctx,mutate,canAct})));
+    const mute=(classification,mutedUntil)=>mutate({action:'mute',classification,mutedUntil});
     updateReadout(content,riskList,history,equityPanel(report),rulePanel(report),actionPanel(report),stressPanel(report),
       section('提醒与查看闭环',note('静音只影响通知，站内风险和原后端限制继续保留。'),
+        !boundRiskAlerts(renderedReport)?note('原提醒档案尚未完成账户与期间核对；查看与静音操作不可用。'):null,
         h('div',{class:'fy-toolbar'},...Object.entries({general:'一般信息',critical:'关键风险'}).map(([classification,label])=>{
           const muted=(report.alerts?.preferences?.[classification+'MutedUntil']||0)>Date.now();
-          return button(muted?'恢复'+label+'通知':label+'静音30分钟',()=>mute(classification,muted?null:Date.now()+30*60000),'quiet');
+          const control=button(muted?'恢复'+label+'通知':label+'静音30分钟',()=>mute(classification,muted?null:Date.now()+30*60000),'quiet');
+          control.disabled=!boundRiskAlerts(renderedReport);return control;
         })),
         table(['根因','首次出现','生命周期','通知','查看'],lifecycle.map(row=>[row.risks?.[0]?.facts?.[0]||row.rootCauseId,
           dateTime(row.firstSeenAt),[...list(row.events),...list(row.levelChanges)].sort((a,b)=>a.at-b.at)
@@ -361,7 +373,7 @@ export function renderRiskWorkbench(ctx){
     const turn=++epoch,account=accountId,startedAt=monotonicNow();busy=true;
     controller?.abort();const active=controller=new AbortController();
     try{const value=await read(ctx,{accountId:account,signal:active.signal});if(turn!==epoch||active.signal.aborted||!connection.available()||!edit(ctx))return;
-      const next=createRiskViewReceipt({report:value,accountId:account,startedAt,receivedAt:monotonicNow()});
+      const next=receiptTracker.accept({report:value,accountId:account,startedAt,receivedAt:monotonicNow()});
       if(!next)throw Error(expiredMessage);
       dropReceipt();receipt=next;report=value;lastRead=Date.now();
       expiryTimer=setTimeout(()=>expire(next),remainingRiskViewMs(next,monotonicNow()));render();}

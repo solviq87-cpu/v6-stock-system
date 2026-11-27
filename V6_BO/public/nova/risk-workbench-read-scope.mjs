@@ -21,7 +21,7 @@ function originalAgeBudget(report){
  let budget=RISK_VIEW_MAX_AGE_MS;
  const apply=at=>{budget=Math.min(budget,time(at)&&at<=report.generatedAt?RISK_VIEW_MAX_AGE_MS-(report.generatedAt-at):0);};
  for(const r of Array.isArray(report.risks)?report.risks:[])
-  if(r?.priceDependent===true&&r.dataState==='valid')apply(r.riskContract?.dataAt??r.sourceAt);
+  if(r?.priceDependent===true&&r.dataState==='valid')apply(Object.hasOwn(r.riskContract||{},'dataAt')?r.riskContract.dataAt:r.sourceAt);
  for(const p of Array.isArray(report.equity?.positions)?report.equity.positions:[])
   if(p?.evidenceStatus==='available')apply(p.quote?.quoteAt);
  for(const q of Array.isArray(report.rules?.quoteEvidence)?report.rules.quoteEvidence:[])
@@ -82,4 +82,62 @@ export function boundRiskResearch(report,key){
     x.accountId!==report.account.id||x.accountEpoch!==report.accountEpoch||x.accountRevision!==report.accountRevision||
     x.equityEvidenceId!==e.fingerprint||x.authoritySnapshotFingerprint!==e.source.snapshotFingerprint||x.asOf!==report.generatedAt)return null;
  return x;
+}
+
+// A replay of the same server generation cannot renew its presentation clock.
+// Keep only two account clocks, never cached private report contents.
+export function createRiskReceiptTracker(){
+ const clocks=new Map();
+ return {accept(input={}){
+  const {report,accountId,selectedCode=null,startedAt,receivedAt}=input;
+  try{validateRiskRead({ok:true,result:report},accountId,selectedCode);}catch{return null;}
+  if(!elapsed(startedAt)||!elapsed(receivedAt)||receivedAt<startedAt)return null;
+  const old=clocks.get(accountId),at=report.generatedAt;
+  if(old&&(at<old.at||receivedAt<old.receivedAt))return null;
+  const first=old?.at===at?Math.min(old.first,startedAt):startedAt;
+  clocks.set(accountId,{at,first,receivedAt});
+  return createRiskViewReceipt({...input,startedAt:first});
+ }};
+}
+// A backgrounded document is not a current private risk display. Observe the
+// document itself, not a window event that mobile browsers need not deliver.
+export function watchRiskVisibility(doc,{signal,onHidden,onVisible}={}){
+ const visible=()=>doc?.visibilityState!=='hidden'&&signal?.aborted!==true;
+ let previous=visible();
+ function change(){
+  if(signal?.aborted)return;
+  const next=visible();if(next===previous)return;previous=next;
+  if(next)onVisible?.();else onHidden?.();
+ }
+ if(!signal?.aborted)doc?.addEventListener('visibilitychange',change,{signal});
+ return {visible,dispose:()=>doc?.removeEventListener('visibilitychange',change)};
+}
+// Notification state is a separate original receipt. Missing or wrong epoch
+// never becomes a mutable empty archive. Zero is a valid initial revision.
+export function boundRiskAlerts(report){
+ const a=report?.alerts;
+ if(!account(report?.account?.id)||!hash(report.accountEpoch)||a?.schemaVersion!==1||
+  a.accountId!==report.account.id||a.accountEpoch!==report.accountEpoch||
+  !Number.isSafeInteger(a.revision)||a.revision<0||a.canTrade!==false||a.ledgerOwned!==false||
+  !Array.isArray(a.groups)||!a.preferences||typeof a.preferences!=='object'||Array.isArray(a.preferences))return null;
+ const ids=a.groups.map(g=>g?.rootCauseId);
+ if(ids.some(id=>typeof id!=='string'||!id.trim()||id.length>240)||new Set(ids).size!==ids.length)return null;
+ return a;
+}
+export function buildRiskAlertMutation(report,{action,rootCauseId,classification,mutedUntil}={}){
+ const a=boundRiskAlerts(report);if(!a)return null;
+ const root=typeof rootCauseId==='string'&&a.groups.some(g=>g.rootCauseId===rootCauseId);
+ const category=['general','critical'].includes(classification);
+ if(action==='view'){if(!root||classification!=null||mutedUntil!==undefined)return null;}
+ else if(action==='mute'){
+  if(root===category||rootCauseId!=null&&!root||classification!=null&&!category||!(mutedUntil===null||time(mutedUntil)))return null;
+ }else return null;
+ return {action,accountId:a.accountId,accountEpoch:a.accountEpoch,expectedRevision:a.revision,
+  ...(root?{rootCauseId}:{}),...(category?{classification}:{}),...(action==='mute'?{mutedUntil}:{})};
+}
+export function createRiskMutationGate(){
+ let current=null;
+ return {available:()=>current===null,begin(){
+  if(current!==null)return null;current=Object.freeze({});return current;
+ },end(token){if(!token||current!==token)return false;current=null;return true;}};
 }
