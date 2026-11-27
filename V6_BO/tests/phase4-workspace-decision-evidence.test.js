@@ -112,3 +112,25 @@ test('pre-close streak count cannot be frozen as a final closed-session fourteen
  proof.knownAt=Date.parse(date+'T15:00:00+08:00');
  assert.equal(buildWorkspaceDecision(f,{fourteenEvidence:proof}).conditions.find(x=>x.id==='fourteen:11').status,'pass');
 });
+
+test('eight-word workspace funds require the latest three complete same-stock sessions',()=>{
+ const f=fixture(),days=f.stock.bars.slice(-3).map(b=>b.date);
+ const flow={symbol:f.stock.symbol,source:'eastmoney',unit:'CNY',fundsMethod:'vendor-order-size-estimate',
+  retrievedAt:f.asOf,records:days.map(tradeDate=>({tradeDate,mainNetInflow:1e8,dailyResearchEligible:true}))};
+ const original=JSON.parse(JSON.stringify(flow)),fund=r=>r.conditions.find(x=>x.id==='bazi:fund');
+ const build=proof=>{const x=fixture();x.marketContext={funds:{stock:proof}};return fund(buildWorkspaceDecision(x));};
+ const noFunds=build(null),good=build(flow);
+ assert.equal(noFunds.status,'unknown');
+ assert.equal(good.status,'pass');
+ assert.ok(good.value>0);
+ for(const patch of [{partial:true},{unit:'USD'},{simulated:true},{retrievedAt:Date.parse(days.at(-1)+'T14:59:00+08:00')}])
+  assert.deepEqual(build({...flow,...patch}),noFunds);
+ for(const patch of [{dailyResearchEligible:false},{closed:false},{symbol:'000001'},{sourceTimestamp:Date.parse(days.at(-1)+'T14:59:00+08:00')},{mainInflow:999}]){
+  const records=flow.records.map((r,i)=>i===2?{...r,...patch}:r);
+  assert.deepEqual(build({...flow,records}),noFunds);
+ }
+ assert.deepEqual(build({...flow,records:[flow.records[0],flow.records[0],flow.records[2]]}),noFunds);
+ assert.deepEqual(build({...flow,records:[{tradeDate:f.stock.bars.at(-4).date,mainNetInflow:1e8},...flow.records.slice(0,2)]}),noFunds);
+ assert.equal(build({...flow,records:flow.records.map(r=>({...r,mainNetInflow:0}))}).status,'pass');
+ assert.deepEqual(flow,original);
+});

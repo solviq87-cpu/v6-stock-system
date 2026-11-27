@@ -35,6 +35,40 @@ function nativeReceiptVisible(row,symbol,date,cutoff){
   if(own(row,k)&&!known(row[k],cutoff))return false;
  return true;
 }
+// Match the existing public-funds projection: incomplete daily totals are
+// display-only, not three-day funds evidence for the native eight-word rule.
+function closedWorkspaceFundDays(flow,symbol,bars,at){
+ const flags=['simulated','synthetic','mock','fixture','testSample','retracted','fundsConflict','fundsSourceConflict'];
+ const receiptClocks=['sourceTimestamp','firstObservedAt','retrievedAt','observedAt','knownAt','receivedAt','availableAt','recordedAt','fundsRetrievedAt','fundsSourceTimestamp'];
+ const validMetadata=row=>row&&typeof row==='object'&&!Array.isArray(row)&&
+  !flags.some(k=>[true,1,'true','1','是'].includes(row[k]))&&
+  !['unknown','unavailable','not-requested','retracted','simulated','conflict','partial-evidence'].includes(row.status)&&
+  row.partial!==true&&row.closed!==false&&row.isClosed!==false&&row.dailyResearchEligible!==false&&
+  ['symbol','code'].every(k=>row[k]==null||row[k]===symbol)&&
+  ['source','provider','upstream','fundsSource'].every(k=>row[k]==null||row[k]==='eastmoney')&&
+  ['unit','fundsUnit','amountUnit','currency'].every(k=>row[k]==null||row[k]==='CNY')&&
+  (row.fundsMethod==null||row.fundsMethod==='vendor-order-size-estimate');
+ if(!validMetadata(flow)||flow.symbol!==symbol||!known(flow.retrievedAt,at)||evidenceProblem(flow,symbol,at)||
+   !Array.isArray(flow.records)||flow.records.length>120||bars.length<3)return [];
+ const dates=bars.slice(-3).map(b=>b.date);
+ // Keep the exact latest three sessions; never skip a missing/unfinished
+ // session and silently replace it with an older favorable observation.
+ const selected=flow.records.filter(row=>dates.includes(row?.tradeDate));
+ if(selected.length!==3||new Set(selected.map(row=>row.tradeDate)).size!==3)return [];
+ const out=[];
+ for(const date of dates){
+  const row=selected.find(r=>r.tradeDate===date),end=Date.parse(date+'T15:10:00+08:00');
+  if(!validMetadata(row)||!finite(row.mainNetInflow)||flow.retrievedAt<end||evidenceProblem(row,symbol,flow.retrievedAt)||
+    row.fundsTradeDate!=null&&row.fundsTradeDate!==date)return [];
+  // Never let receipt of a later batch certify an explicitly pre-close
+  // observation. Legacy absent clocks remain unverified as before.
+  if([flow,row].some(x=>receiptClocks.some(k=>x[k]!=null&&(!known(x[k],flow.retrievedAt)||x[k]<end))))return [];
+  const aliases=['mainNetInflow','mainInflow','mainInflowYuan','netInflowYuan'].filter(k=>row[k]!=null);
+  if(aliases.some(k=>!finite(row[k])||row[k]!==row.mainNetInflow))return [];
+  out.push({date,main:row.mainNetInflow});
+ }
+ return out;
+}
 const SYSTEMS=['fourteen','bazi','gpt','python'];
 function assessResearchAlignment(groups,{linked=false,marketRegime='unknown'}={}){
  const list=array(groups),rows=SYSTEMS.map(id=>{
@@ -110,7 +144,7 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
  const statusRows=r.stockStatus?.securities||[];
  const actual={code:stock.symbol,name:stock.name,price:last.close};
  const flow=r.marketContext?.funds?.stock;
- const fundDays=flow?.symbol===stock.symbol&&known(flow.retrievedAt,at)?array(flow.records).filter(f=>f.tradeDate<=last.date).map(f=>({date:f.tradeDate,main:finite(f.mainNetInflow)?f.mainNetInflow:null})):[];
+ const fundDays=closedWorkspaceFundDays(flow,stock.symbol,bars,at);
  const nativeRows=bars.map((b,i)=>({...b,pct:i?100*(b.close/bars[i-1].close-1):null}));
  let fourteen={stock:actual,rows:nativeRows};
  if(fourteenEvidence!==undefined){
