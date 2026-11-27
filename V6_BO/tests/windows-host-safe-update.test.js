@@ -240,3 +240,34 @@ test('native post-start verification checks both actual entries and every manife
  wrongEntry=true;await assert.rejects(updater.installedAssets(f.root,{sha:NEW},deps),{code:'candidate-home-wrong-content'});
  wrongEntry=false;wrongModule=true;await assert.rejects(updater.installedAssets(f.root,{sha:NEW},deps),{code:'candidate-served-resource-mismatch'});
 });
+
+test('offline package verification compares full path membership across nested and sibling names', t => {
+ const base = fs.mkdtempSync(path.join(os.tmpdir(),'fayo-package-paths-'));
+ t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
+ const bundle = path.join(base,'bundle');
+ const source = path.join(base,'source');
+ const payload = {
+  'server.js':'// test server\n',
+  'public/nova/shortline/chart.mjs':'export const chart = 1;\n',
+  'public/nova/shortline-host.mjs':'export const host = 1;\n'
+ };
+ const files = Object.entries(payload).map(([name,data])=>{
+  write(path.join(bundle,'payload',name),data);
+  write(path.join(source,'V6_BO',name),data);
+  return {path:name,sha256:digest(data)};
+ });
+ write(path.join(bundle,'manifest.json'),{schemaVersion:1,sourceSha:NEW,files});
+ write(path.join(bundle,'source.json'),{sourceSha:NEW,controlsSourceSha:NEW});
+ const sums = updater.treeManifest(bundle).map(({sha256,path:name})=>sha256+'  '+name).sort().join('\n')+'\n';
+ write(path.join(bundle,'SHA256SUMS.txt'),sums);
+ const verify = ()=>updater.verifyPackage(bundle,NEW,source);
+ assert.equal(verify().manifest.files.length,3);
+ write(path.join(bundle,'unexpected.js'),'// extra');
+ assert.throws(verify,{code:'candidate-package-file-set-mismatch'});
+ fs.unlinkSync(path.join(bundle,'unexpected.js'));
+ write(path.join(bundle,'SHA256SUMS.txt'),sums.split('\n').filter(line=>!line.endsWith('  source.json')).join('\n'));
+ assert.throws(verify,{code:'candidate-package-file-set-mismatch'});
+ write(path.join(bundle,'SHA256SUMS.txt'),sums);
+ write(path.join(bundle,'source.json'),{sourceSha:NEW,controlsSourceSha:NEW,other:true});
+ assert.throws(verify,{code:'candidate-package-hash-mismatch'});
+});
