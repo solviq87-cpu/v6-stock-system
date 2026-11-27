@@ -69,7 +69,7 @@ function renderReport(result,ctx){
   if(!r||typeof r!=='object')return empty('尚无完整研究结果','本次服务未返回可核验的结果。');
   const overview=['status','tradeDate','date','source','provider','asOf','totalScanned','accepted','selected','note','reason','warning'].filter(key=>r[key]!==undefined&&r[key]!==null&&typeof r[key]!=='object').map(key=>[labels[key]||key,key==='asOf'?clock(r[key]):r[key]]);
   if(overview.length)el.append(facts(overview));
-  if(r.publicReview?.day===r.tradeDate){
+  if(r.publicReview?.day&&r.publicReview.day===r.tradeDate&&r.publicReview.facts){
     const proof=r.publicReview,f=proof.facts,items=[f.tier,f.status,f.performance,f.history,...(f.patterns||[]),...(f.risks||[]),...(f.themes||[])].filter(Boolean);
     if(items.length)el.append(box('同日复盘依据',proof.day+' · '+proof.source+' · 取得 '+clock(proof.knownAt),n('p',[...new Set(items)].join(' · '))));
   }

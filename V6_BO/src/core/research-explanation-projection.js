@@ -10,6 +10,7 @@ const {assessWeakMarketSectorPreference}=require('../strategy/weak-market-sector
 const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
 const {evaluateDailySectorStrength}=require('../strategy/daily-sector-strength');
+const {historicalSecurityState}=require('../strategy/historical-session');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={},announcements=[]}={}){
  if(!Array.isArray(announcements)||announcements.length>500)throw Error('上市公司公告研究输入数量无效');
@@ -23,7 +24,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
  const source=history.source==='imported'?'imported':'simulated';
  const stocks=history.stocks.map(s=>{
    const latest=s.bars.at(-1);
-   return {...s,symbol:String(s.symbol||s.code),close:latest.close,price:latest.close,
+   return {...s,...historicalSecurityState(s,latest),symbol:String(s.symbol||s.code),close:latest.close,price:latest.close,
      volume:latest.volume,bars:s.bars,feed:{source,timestamp}};
  });
  const scan=scanUniverseWithRationale({stocks,market,now:timestamp,maxAgeMs:0,requireReal:false});
