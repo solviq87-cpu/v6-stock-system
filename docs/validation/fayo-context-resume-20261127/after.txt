@@ -1,0 +1,23 @@
+
+> v6-stock-workspace@1.0.0 context:resume
+> node scripts/resume-context.js
+
+部署交接（接手前先读）=DEPLOYMENT.md
+当前分支=docs/fayo-review-ledger-through-573
+HEAD=35216d05d1142e7e9fceac95586f76e5917979bf
+origin/dev（本地缓存）=b936ebdddb8c11948dd0e63f95332898dd5c1cf5；落后0，领先30
+工作区（2项，最多显示12项）：
+M DEPLOYMENT.md
+ M HANDOFF.md
+上述 Git 状态为本地实读；本命令不联网，不能证明远端 CI、合并或生产发布。
+
+当前检查点（历史快照，先与上方实际 SHA 核对）：
+## 当前检查点 · 2026-11-27 · 统一任务台账，非发布
+
+- 本工作树属于原台账 PR [#574](https://github.com/solviq87-cpu/v6-stock-system/pull/574)，本轮父提交 `35216d05d1142e7e9fceac95586f76e5917979bf`。当前 HEAD、脏文件及 origin/dev 的本地缓存由 `npm run context:resume` 实读；不得将父提交回执移用到新提交。
+- 总管 dev 基线 `b936ebdddb8c11948dd0e63f95332898dd5c1cf5`。继续使用[统一执行任务书](docs/fayo-professional/README.md)、[228 项索引](docs/fayo-professional/TASKS.md)及[同一工作簿](docs/fayo-professional/deliverables/checklist.xlsx)。228 项仍为 33 项局部证据、195 项待逐项验收、0 项总管完整签收；6 合同、36 场景及自主运行/UI/效率约束分别登记。
+- 最新源候选 [#578](https://github.com/solviq87-cpu/v6-stock-system/pull/578) 精确 `a3c189692f932915b13f29bf60fadf09a63fd27c`。F42.1 将被替代、撤稿、关联移除和本页链不完整分别显示。合成修订与三份实际 PDF 的兼容回执分开；不认证正式证券身份，不授予交易或推送权限。[原生回执、实际视口截图及回退](https://github.com/solviq87-cpu/v6-stock-system/tree/a3c189692f932915b13f29bf60fadf09a63fd27c/docs/validation/fayo-dated-rules-20261127)。
+- 已冻结组合 `5521d49abd51c3a4911976c4228911b4741265d5`，tree `0383d145c1018a35e94ff6f8ce5b3c4cfeb45641`。原生全量 8180/8180、内核禁出站专项 33/33；恢复的是 68 条隔离事件的规范内容，不是生产恢复。源候选 8059/8059、相关 37/37、三屏宽 30 流程均通过，真机另验。
+- 上述 #574 父提交及 #578 精确提交的 push/PR CI、浏览器、逐提交覆盖与冒烟共 12 工作流已成功。验收包 SHA256 `adcc95f70a0fd453a7b5b135fb8a7789933da135fa973f45a8d815eb8ebb3621`，125 文件。源候选、组合、当前台账及生产状态分开，未合 dev、未部署。
+- 当前批次修正本检查点标记与内容的位置，历史逐字保留在下方；复现及验证见[续接入口专项](docs/validation/fayo-context-resume-20261127/README.md)。最终 UI/UX 待统一集成基线及主要设计稿确认；大陆真实网络、实体设备、供应商许可、成熟前向样本、正式身份与原总管签收分别待验。
+- 下一批从 F03.6/G01/G02 的原市场异常状态和现有持久化入口核对跨重启恢复；先复现及确认消费者，再决定是否需要增量。账户、15 秒报价门禁、原审批和唯一发布者保持。不得重跑无变化旧 PR 或重装依赖；新代码按影响范围逐级验证。

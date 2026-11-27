@@ -1,0 +1,11 @@
+✔ the checked-in handoff has a usable current checkpoint (2.5692ms)
+✔ resume reads only one bounded current checkpoint, excluding historical payloads (1.667508ms)
+✔ resume shows actual local SHA and dirty state without claiming remote verification (38.287074ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 121.563565
