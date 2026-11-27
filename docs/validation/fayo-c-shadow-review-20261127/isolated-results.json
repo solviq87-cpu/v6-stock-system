@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/a-share-calendar.js",
+      "blob": "de3cf5148e6694ba72770800a779f6099052acb9"
+    },
+    {
+      "path": "V6_BO/src/core/account-equity-evidence.js",
+      "blob": "83b8028dc12db4abc41f05a707958328c179ad70"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-store.js",
+      "blob": "9f42c186d3b9453570dadc5c2375a291405b27f0"
+    }
+  ],
+  "engine": "Isolated V8 actual new module, original calendar and extracted equity validation/canonicalization; deterministic digest substitute and test/assert harness. Not native Node or full repository.",
+  "tests": [
+    {
+      "name": "C9.1 two comparable deteriorations after observed crowding identify a shadow collapse candidate only",
+      "pass": true
+    },
+    {
+      "name": "C9.1 one decline is divergence, never confirmed collapse",
+      "pass": true
+    },
+    {
+      "name": "C9.1 single snapshot or repeated quote cannot manufacture consecutive evidence",
+      "pass": true
+    },
+    {
+      "name": "C9.1 mismatched member source or membership breaks continuity",
+      "pass": true
+    },
+    {
+      "name": "C9.1 latest missing, conflict, stale or future receipt cannot resurrect older current risk claim",
+      "pass": true
+    },
+    {
+      "name": "C9.1 a gap or cross-session transition cannot be counted as continuous decline",
+      "pass": true
+    },
+    {
+      "name": "C9.1 two genuine improvements may show repair candidate, never automatic recovery",
+      "pass": true
+    },
+    {
+      "name": "C9.2 eight distinct dimensions stay unknown without their own evidence, no fabricated score",
+      "pass": true
+    },
+    {
+      "name": "C9.2 missing, future, wrong-symbol and incomplete evidence never mark a dimension not triggered",
+      "pass": true
+    },
+    {
+      "name": "C9.2 conflicting evidence cannot produce a safe dimension and shared roots are not independent votes",
+      "pass": true
+    },
+    {
+      "name": "C9.3 original enabled restriction and retained severe risk override any model agreement or positive score",
+      "pass": true
+    },
+    {
+      "name": "C9.3 current original data/rule uncertainty remains first priority, another security risk is not attributed to candidate",
+      "pass": true
+    },
+    {
+      "name": "C9.4 original held quantity, zero sellable and partial sellability stay separate",
+      "pass": true
+    },
+    {
+      "name": "C9.4 flat and active order without holding are distinct, unknown active order is not free budget",
+      "pass": true
+    },
+    {
+      "name": "C9.4 cross-account, replica, stale or damaged sealed equity never supplies private holding quantities",
+      "pass": true
+    },
+    {
+      "name": "C9.5 model disagreement, different horizons and future data actively abstain",
+      "pass": true
+    },
+    {
+      "name": "C9.5 identical model copies are not multiple opinions, conflicting copies remain conflict",
+      "pass": true
+    },
+    {
+      "name": "C9.5 agreement does not authorize or calibrate a probability, even when all eight dimensions appear clear",
+      "pass": true
+    },
+    {
+      "name": "C9.1 later wrapper cannot refresh stale member quote or rollback revision into continuous decline",
+      "pass": true
+    },
+    {
+      "name": "C9.2 visible invalid or retracted dimension row cannot vanish beside old clear evidence, future row remains invisible",
+      "pass": true
+    },
+    {
+      "name": "C9.3 same root retains both hard original and unknown evidence with top priority, not duplicate reasons",
+      "pass": true
+    },
+    {
+      "name": "C9.5 different model names cannot multiply one copied output reference",
+      "pass": true
+    }
+  ],
+  "passed": 22,
+  "failed": 0
+}
