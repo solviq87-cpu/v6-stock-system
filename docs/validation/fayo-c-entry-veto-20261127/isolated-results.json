@@ -1,0 +1,156 @@
+{
+  "base": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+  "engine": "V8 isolated actual full decision adapter, decision-model and system-picks (ESM loading adapted), complete common-entry-risk, portfolio-risk-gate, quote view, calendar; exact original observer dateOk/sessions extraction. Unused paper-fill-evidence and journal imports empty. Test/assert harness substitute. No native Node, actual service or network. Callback sentinel never executes account operation.",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "blob": "9f86485246c43124188ba6ad18bf92a7c2390b58"
+    },
+    {
+      "path": "V6_BO/src/core/decision-model.mjs",
+      "blob": "88fd44c0437fbd41941e471b520fb47d438777d5"
+    },
+    {
+      "path": "V6_BO/public/nova/system-picks.mjs",
+      "blob": "2b6342a68247ed7982f40d7f64fdf94cf5bb4a27"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "blob": "d58f39e685d145b313723a66e2459b468d01d56b"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "blob": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "blob": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    },
+    {
+      "path": "V6_BO/src/core/a-share-calendar.js",
+      "blob": "de3cf5148e6694ba72770800a779f6099052acb9"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "blob": "bb9974b6e90961c0a3761ff1530c88c4f9e94702"
+    }
+  ],
+  "tests": [
+    {
+      "name": "C20.1 original valid frozen gross-discipline plan reaches only the isolated callback",
+      "pass": true
+    },
+    {
+      "name": "C20.1 maximum score and favorable model or bull-market text cannot cancel an explicit original candidate restriction",
+      "pass": true
+    },
+    {
+      "name": "C20.2 a more restrictive original cash or position cap remains binding despite favorable research",
+      "pass": true
+    },
+    {
+      "name": "C20.2 increasing pending exposure cannot make the same original hard budget pass",
+      "pass": true
+    },
+    {
+      "name": "C20.2 multiple approved hard reasons survive partial removal; a high score has no balancing authority",
+      "pass": true
+    },
+    {
+      "name": "C20.3 unknown position mark and frozen order amount cannot improve original budget evidence",
+      "pass": true
+    },
+    {
+      "name": "C20.3 quote age boundary is original 15000ms, not new wrapper time",
+      "pass": true
+    },
+    {
+      "name": "C20.3 current adapter blocks wrong security, source, stale or future quote before callback",
+      "pass": true
+    },
+    {
+      "name": "C20.4 same-day prior quote cannot authorize after lunch or after the original continuous-auction close",
+      "pass": true
+    },
+    {
+      "name": "C20.4 revised original authority or out-of-range frozen price invalidates the old plan",
+      "pass": true
+    },
+    {
+      "name": "C20.4 original gross reward/risk discipline is unrounded and does not turn a score into probability",
+      "pass": true
+    },
+    {
+      "name": "C20.5 original persisted prior-period entry is a read-only retry, not new execution",
+      "pass": true
+    },
+    {
+      "name": "C20.5 original close-loss restriction needs actual prior-close evidence and is not canceled by a research score",
+      "pass": true
+    }
+  ],
+  "passed": 13,
+  "failed": 0,
+  "contractAudit": {
+    "scope": "isolated original adapter callback, no real execution or ledger mutation",
+    "results": [
+      {
+        "id": "LATEST_CARD_INCOMPLETE",
+        "scope": "inconsistent card injected; real producer reachability unproven",
+        "proposedExpected": "reject-before-buy-callback",
+        "observed": {
+          "reached": true,
+          "status": "callback-reached-not-executed",
+          "reason": null
+        },
+        "reviewRequired": true
+      },
+      {
+        "id": "CURRENT_INTERVAL_DISAGREES",
+        "scope": "inconsistent card/quote injected; real producer reachability unproven",
+        "proposedExpected": "reject-before-buy-callback",
+        "observed": {
+          "reached": true,
+          "status": "callback-reached-not-executed",
+          "reason": null
+        },
+        "reviewRequired": true
+      },
+      {
+        "id": "FROZEN_PROTECTION_REVISED",
+        "scope": "current price geometry separately valid; authoritative producer/transaction route still needs end-to-end proof",
+        "proposedExpected": "reject-before-buy-callback",
+        "observed": {
+          "reached": true,
+          "status": "callback-reached-not-executed",
+          "reason": null
+        },
+        "reviewRequired": true
+      },
+      {
+        "id": "UNAPPROVED_C_SPECIALIST_VETO",
+        "scope": "proposed shared field not yet approved or consumed, not a proven existing security bypass",
+        "proposedExpected": "reject-before-buy-callback",
+        "observed": {
+          "reached": true,
+          "status": "callback-reached-not-executed",
+          "reason": null
+        },
+        "reviewRequired": true
+      },
+      {
+        "id": "MISSING_EXPLICIT_QUOTE_PERMISSION",
+        "scope": "adapter reaches callback; original transaction may still reject absent fill authority",
+        "proposedExpected": "reject-before-buy-callback",
+        "observed": {
+          "reached": true,
+          "status": "callback-reached-not-executed",
+          "reason": null
+        },
+        "reviewRequired": true
+      }
+    ],
+    "unresolved": 5,
+    "formalContractApproved": false
+  }
+}
