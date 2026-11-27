@@ -155,7 +155,7 @@
 
 历史制度候选 `bf02b02b7ba87c5948e3caff7924b5aa65f097e9` 在原两条鉴权接口分别处理五种合成输入，双端十次实际流程验证首板战法及逐日覆盖。无限幅与制度缺口保留限制，正常输入继续命中。专项73项、源工程8038项通过；最终组合与当前CI分别核验。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/bf02b02b7ba87c5948e3caff7924b5aa65f097e9/docs/validation/fayo-dated-rules-20261127)
 
-F42.1 原资格消费保留，当前续接 `a578e2e4aad8e5fa57aa4c24b8aef3f88b3eb5da` 把实际公开PDF节选送入原新闻CLI及双端证据室，按明确原文字段绑定普通股、优先股和ETF线索。类型不传播到同文档其他代码，不签发证券主数据或交易资格。正式类型、交易所和有效期仍待认证。[实际来源、专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/a578e2e4aad8e5fa57aa4c24b8aef3f88b3eb5da/docs/validation/fayo-dated-rules-20261127)
+F42.1 原资格和真实原文字样消费保留，当前续接 `a3c189692f932915b13f29bf60fadf09a63fd27c` 将被替代、撤稿、关联移除及本页修订链不完整分别解释，避免把新修订的未知状态显示成旧版。原分页、历史截点和三屏宽30次流程通过；合成修订状态与三份实际PDF兼容分别登记，正式身份资格不变。[专项、来源与实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/a3c189692f932915b13f29bf60fadf09a63fd27c/docs/validation/fayo-dated-rules-20261127)
 
 ## 跨专项执行约束 · 高效率开发与系统性能
 
