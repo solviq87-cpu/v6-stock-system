@@ -136,3 +136,20 @@ test('C24.integration existing automatic recognition derives leader comparison f
  const ambiguous={...state,bars:[...state.bars,{...b,close:11}]};
  assert.equal(deriveCheckInput(ambiguous,{code,date:day}).recognition.chaseRiskResearch.reversal,null);
 });
+
+test('C24.3 sealed high board with explicit contradictory streak does not invent a continuation',async()=>{
+ for(const streak of [0,3,6,-1,1.5]){
+  const r=await scan({b:bar(day,{close:12,limitUp:12,streak}),history:[high]});
+  assert.equal(r.relayFailure,null);
+ }
+ const r=await scan({b:bar(day,{close:12,limitUp:12}),history:[high]});
+ assert.equal(r.relayFailure.closedAtLimit,true);
+});
+test('C24.4 bounded individual flow ratios stay finite even if aggregate turnover overflows',async()=>{
+ const r=await scan({b:flow(day,-9e307,1e308),history:[flow(older,-1e307,1e308),flow(prev,-2e307,1e308)]});
+ assert.equal(r.flowPersistence.days[0].sharePct,-10);
+ assert.equal(r.flowPersistence.days[1].sharePct,-20);
+ assert.equal(r.flowPersistence.days[2].sharePct,-90);
+ assert.equal(r.flowPersistence.turnoverWeightedSharePct,null);
+ assert.equal(r.flowPersistence.strictlyWeakeningShares,true);
+});
