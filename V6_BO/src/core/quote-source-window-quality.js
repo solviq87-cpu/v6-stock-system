@@ -25,6 +25,11 @@ const blocked = reason => ({schemaVersion:1,mode:'quote-source-window-quality-re
  canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,canAutoSelectProvider:false,
  providerIndependenceVerified:false,qualityProvesPriceAccuracy:false});
 function auditQuoteSourceWindow(input={}) {
+ return auditWindow(input,new Map());
+}
+// Each history review shares a fresh-quote high-water mark across its windows.
+// Standalone reviews remain independent; no external caller can supply state.
+function auditWindow(input,latestFreshByProvider) {
  if(!object(input)||unsafe(input))return blocked('invalid-or-unsafe-window');
  const {registeredAt,asOf,expectedSlots,observations,maxReportLagMs=30000,maxPairSkewMs=3000}=input;
  if (!validTime(registeredAt)||!validTime(asOf)||registeredAt>=asOf||
@@ -105,7 +110,6 @@ function auditQuoteSourceWindow(input={}) {
  // Overlapping lag windows must not turn reused or regressing reports
  // into separate successful samples. Enforce the registered slot order.
  let previousReportAt=null;
- const latestFreshByProvider=new Map();
  for(const slot of expectedSlots){
   const entry=seen.get(slot),reportAt=entry?.reportAt;
   if(reportAt===undefined)continue;
@@ -208,10 +212,11 @@ function auditQuoteSourceHistory(input={}){
   return historyBlock('invalid-history-scope-policy-or-clock');
  const {asOf,code,policy,windows}=input,ids=new Map(),summaries=[];
  let priorEnd=null,priorReview=null,scope=null;
+ const latestFreshByProvider=new Map();
  for(const w of windows){
   if(!object(w)||unsafe(w)||!token(w.windowId)||ids.has(w.windowId)||!object(w.evidence))
    return historyBlock('invalid-or-duplicate-window-identity');
-  const x=w.evidence,r=auditQuoteSourceWindow(x);
+  const x=w.evidence,r=auditWindow(x,latestFreshByProvider);
   if(r.status==='blocked'||(r.code!==null&&r.code!==code)||x.asOf>asOf)
    return historyBlock('unreplayable-window-or-security-conflict');
   const first=x.expectedSlots[0],last=x.expectedSlots.at(-1),lag=r.maxReportLagMs;

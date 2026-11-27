@@ -183,3 +183,57 @@ test('D74 explicit source conflict and quote date contradictions cannot earn a q
  const x=window().evidence;x.observations[0].report.sourceStatuses[0].sourceTradeDate='2026-11-23';
  assert.equal(audit(x).status,'limited-alignment-unverified');
 });
+
+function adjacentHistory(){
+ const x=review(),a=x.windows[0].evidence,last=a.expectedSlots.at(-1);
+ a.observations[2].report=report(last);
+ const tail=a.observations[2].report;
+ tail.asOf=new Date(last+29000).toISOString();
+ tail.sourceStatuses[0].quoteAt=last+28000;
+ tail.sourceStatuses[1].quoteAt=last+27900;
+ tail.quoteAt=last+27900;tail.quoteTimeGapMs=100;
+ const first=last+30001,slots=[first,first+60000,first+120000];
+ x.windows[1].evidence={registeredAt:base-10000,asOf:first+180000,expectedSlots:slots,
+  observations:slots.map(slotAt=>({slotAt,report:report(slotAt)}))};
+ return x;
+}
+function firstPairTimes(x,a,b){
+ const r=x.windows[1].evidence.observations[0].report;
+ r.sourceStatuses[0].quoteAt=a;r.sourceStatuses[1].quoteAt=b;
+ r.quoteAt=Math.min(a,b);r.quoteTimeGapMs=Math.abs(a-b);
+}
+test('D55 adjacent mature history windows cannot count the same original fresh quote twice',()=>{
+ const x=adjacentHistory(),tail=x.windows[0].evidence.observations[2].report;
+ firstPairTimes(x,...tail.sourceStatuses.map(s=>s.quoteAt));
+ assert.equal(audit(x.windows[0].evidence).status,'limited-alignment-unverified');
+ assert.equal(audit(x.windows[1].evidence).status,'limited-alignment-unverified');
+ assert.equal(history(x).status,'blocked');
+});
+test('D55 one provider regressing across nonoverlapping mature windows blocks cumulative cost and grade',()=>{
+ const x=adjacentHistory(),tail=x.windows[0].evidence.observations[2].report;
+ firstPairTimes(x,tail.sourceStatuses[0].quoteAt-500,tail.sourceStatuses[1].quoteAt+500);
+ x.costEvidence=[cost('w0','tencent',100,'CNY','a'),cost('w1','tencent',100,'CNY','b')];
+ assert.equal(audit(x.windows[1].evidence).status,'limited-alignment-unverified');
+ const r=history(x);assert.equal(r.status,'blocked');
+ assert.equal(r.providerCoverage,undefined);
+});
+test('D55 adjacent distinct fresh quotes and out of order observation arrays remain valid',()=>{
+ const x=adjacentHistory();
+ x.windows.forEach(w=>w.evidence.observations.reverse());
+ const r=history(x);
+ assert.equal(r.status,'descriptive-history-reviewed-unverified');
+ assert.equal(r.providerCoverage[0].freshSlots,6);
+ assert.equal(r.providerCoverage[1].freshSlots,6);
+ assert.equal(r.canAutoSelectProvider,false);
+});
+test('D54 adjacent repeated dated observations remain nonfresh and do not poison later distinct quotes',()=>{
+ const x=adjacentHistory(),tail=x.windows[0].evidence.observations[2].report;
+ const first=x.windows[1].evidence.observations[0];
+ first.report=report(first.slotAt,['dated-snapshot','dated-snapshot']);
+ first.report.sourceStatuses.forEach((s,i)=>s.quoteAt=tail.sourceStatuses[i].quoteAt);
+ const r=history(x);
+ assert.equal(r.status,'historical-quality-watch');
+ assert.equal(r.providerCoverage[0].freshSlots,5);
+ assert.equal(r.providerCoverage[0].datedSlots,1);
+ assert.equal(r.jointCoverage.bothDatedSlots,1);
+});
