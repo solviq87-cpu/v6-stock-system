@@ -1,0 +1,39 @@
+✔ C16.1 original worker installation includes the new public eager risk dependency (39.561804ms)
+✔ C16.1 new public shell dependency never makes private API or authenticated resource cacheable (4.9342ms)
+✔ C16.2 a partial document adapter cannot crash the original parent page or enable private risk reads (9.736993ms)
+✔ C16.2 unknown document visibility remains unavailable, real visibility transitions recover (2.24497ms)
+✔ C16.3 disposed visibility listener cannot revive a route even with a retained callback (0.347562ms)
+✔ C16.4 switching to a narrower same-generation report cannot expand the shortest already-observed quote budget (1.870816ms)
+✔ C16.4 a same-generation missing clock cannot be restored by dropping that row (1.108327ms)
+✔ C12.1 same server generation never renews receipt, including code changes (10.516992ms)
+✔ C12.1 first response already expired cannot be revived by another request (0.346943ms)
+✔ C12.1 clock rollback rejected, genuinely newer generation and different account separated (0.721846ms)
+✔ C12.2 an explicit missing original data clock cannot use a newer wrapper time (0.461283ms)
+✔ C12.2 replay cannot restore the portion of the original quote budget already consumed (0.664242ms)
+✔ C12.3 hiding or restoring a document emits only actual transitions (1.434372ms)
+✔ C12.3 hidden initial document or aborted scope cannot appear available (0.732778ms)
+✔ C12.4 correct notification receipt binds explicit account epoch and revision zero (0.979249ms)
+✔ C12.4 absent mixed or damaged alert receipts cannot become empty editable archives (0.909493ms)
+✔ C12.4 unknown root, ambiguous scope, unknown actions and fake confirmation rejected (0.66461ms)
+✔ C12.5 single in-flight mutation token cannot be replaced or released by old completion (0.30707ms)
+✔ C11.1 exact same-account security response accepted; wrong, absent or extra code rejected (16.150979ms)
+✔ C11.1 malformed observation time or incomplete core report cannot be read as current (0.574644ms)
+✔ C11.2 scope abort after request completion still invalidates the selected security (0.299963ms)
+✔ C11.2 old scope abort cannot invalidate a replacement; disposal removes listeners (0.225297ms)
+✔ C11.2 already-aborted scope refuses to read (0.275231ms)
+✔ C11.3 freshness is bounded from request start, not the later receipt or redraw (0.64417ms)
+✔ C11.3 elapsed time ignores historical server clock but never renews an old receipt (3.494699ms)
+✔ C11.4 old account, old report, detached role or connectivity cannot act on a different current report (0.626946ms)
+✔ C11.5 correct research projections are subordinate to one original report; no new authority (0.831539ms)
+✔ C11.5 mixed account, epoch, equity fingerprint, revision, clock or permission hides only optional research (2.013894ms)
+✔ C11.5 mismatch in parent report or missing original equity makes research unknown, never default zero (0.249915ms)
+✔ C11.3 original quote age shortens the remaining presentation lifetime, expired or future claimed current price cannot renew it (0.528477ms)
+✔ C11.3 explicit historical or unavailable risk rows do not fabricate current clocks or erase valid original report (0.154612ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 170.711034
