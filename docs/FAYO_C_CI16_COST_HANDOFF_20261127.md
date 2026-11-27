@@ -1,0 +1,5 @@
+# C组第十六批 B：退出成本契约冲突修复（未发布）
+固定#472@264a766768f08aef4d203dd354679fb1b3050a41（#442→#466→#472→本增量），原始dev 0c45291d7156be8a1206f0bb272f3c719d5d2336。原任务书22.9–22.11、EX25/39/52已实读。实际远端#466 V6 CI 45943744044，verify job 140323613413，6129通过2失败0跳过；两个失败均来自第5批c-exit-scope-integrity旧多时段固定20bps计算期望6元，而第13批明确多时段完整退出成本保持null。不是数据源或收费接口问题。
+保留原6元数学结果，新增明确固定当前价与显式bps的研究字段 assumedSellableExitFriction、assumedWholeExitFriction、assumedExitBps、assumedFrictionBasis；原一时段估算和真实零持仓保持；T+1/冻结、缺/旧价、未知限价、非CNY等仍不可生成退出估算。多时段完整估算继续null，不把固定摩擦率当作真实逐日佣金/成交/滑点。原生产调用没有传入固定bps，原权威成本与交易约束不变。
+原10个测试全部保留；仅两个冲突断言迁移到明确假设字段，仍精确断言6元，同时新增完整成本null、局部/整仓范围、假设依据断言；第13批15个测试原样保留。新增5项反例。实际V8执行完整目标及原依赖，测试/断言替身，未用到账户及费用依赖空替身。旧10项8过2失败与真实CI一致；新5项旧实现均因新增字段未实现失败（不称独立漏洞）；修后原10+原15+新5=30/30通过，0失败。实际逐项结果见 validation/fayo-c-ci16-cost-20261127/isolated-results.json。复现：cd V6_BO && node --test tests/c-exit-scope-integrity.test.js tests/c-batch-budget-exit.test.js tests/c-exit-cost-contract.test.js。完整原生、运行链、全仓及真实成本仍待；不删测试、不改原阈值、不修改权威账本。
+A补丁#483独立依赖#464，按两条链分别接入总管组合。本批只修复已知CI阻塞，不能宣布原18项主任务全部验收；未合并dev、未发布。回滚撤本增量，原档案保留。

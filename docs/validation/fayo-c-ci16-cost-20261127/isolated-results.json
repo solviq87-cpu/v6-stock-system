@@ -1,0 +1,237 @@
+{
+  "base": "264a766768f08aef4d203dd354679fb1b3050a41",
+  "engine": "Isolated V8: actual full original/modified advanced-portfolio-evidence, original quote, execution, entry-risk and portfolio-risk-gate modules, original advanced-account-risk selector. Test/assert harness substitute; unused trading-fees and account-safety-state empty imports. Not native Node, full repository or actual execution.",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-evidence.js",
+      "blob": "9cc81410e8d48dfd68e58eeae61112371b8b7f16"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-account-risk.js",
+      "blob": "d0e0e506b1ca8711be3dcc95ed08b11c2e022bb3"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "blob": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    },
+    {
+      "path": "V6_BO/src/core/execution-risk.js",
+      "blob": "9184aef08f7237e6592b7e0b864cb41e3e72d027"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "blob": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "blob": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    },
+    {
+      "path": "V6_BO/tests/c-exit-scope-integrity.test.js",
+      "blob": "368cf4ca8bb2320497127d110af6caf6462d8aba"
+    },
+    {
+      "path": "V6_BO/tests/c-batch-budget-exit.test.js",
+      "blob": "2f884968e322d004f519fb3020448fe5c86eabeb"
+    }
+  ],
+  "beforeOriginal": [
+    {
+      "name": "C EX04 all positive holdings locked cannot report zero sessions or zero exit cost",
+      "pass": true
+    },
+    {
+      "name": "C EX39 partial sellable subset cannot certify whole holding exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 subset multi-session estimate stays separate from whole holding",
+      "pass": false,
+      "error": "expected 6 got null"
+    },
+    {
+      "name": "C EX04 restriction cannot improve whole-position exit evidence",
+      "pass": true
+    },
+    {
+      "name": "C EX39 no price-capacity estimate for suspended, limit-down or unknown status",
+      "pass": true
+    },
+    {
+      "name": "C EX39 stale, future, wrong-symbol and observation-only quotes retain unknown exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 missing liquidity, no capacity or invalid participation retain unknown exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 all mature holding retains original capacity and costs, without execution permission",
+      "pass": false,
+      "error": "expected 6 got null"
+    },
+    {
+      "name": "C EX39 real zero holding remains distinct from a locked holding",
+      "pass": true
+    },
+    {
+      "name": "C EX39 invalid quantities stay unknown",
+      "pass": true
+    }
+  ],
+  "beforeNew": [
+    {
+      "name": "C16.5 fixed-bps arithmetic remains available without claiming multi-session complete cost",
+      "pass": false,
+      "error": "expected 6 got undefined"
+    },
+    {
+      "name": "C16.5 partial mature lot has fixed-mark friction for its own scope only",
+      "pass": false,
+      "error": "expected 6 got undefined"
+    },
+    {
+      "name": "C16.5 one-session explicit bps retains existing conditional estimates and zero remains genuine zero",
+      "pass": false,
+      "error": "expected 2 got undefined"
+    },
+    {
+      "name": "C16.5 invalid or absent bps never supplies a fictional scenario cost",
+      "pass": false,
+      "error": "expected null got undefined"
+    },
+    {
+      "name": "C16.5 stale price, no liquidity or locked quantity cannot get even a fixed-mark exit friction estimate",
+      "pass": false,
+      "error": "expected null got undefined"
+    }
+  ],
+  "afterLegacy": [
+    {
+      "name": "C EX04 all positive holdings locked cannot report zero sessions or zero exit cost",
+      "pass": true
+    },
+    {
+      "name": "C EX39 partial sellable subset cannot certify whole holding exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 subset multi-session estimate stays separate from whole holding",
+      "pass": true
+    },
+    {
+      "name": "C EX04 restriction cannot improve whole-position exit evidence",
+      "pass": true
+    },
+    {
+      "name": "C EX39 no price-capacity estimate for suspended, limit-down or unknown status",
+      "pass": true
+    },
+    {
+      "name": "C EX39 stale, future, wrong-symbol and observation-only quotes retain unknown exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 missing liquidity, no capacity or invalid participation retain unknown exit",
+      "pass": true
+    },
+    {
+      "name": "C EX39 all mature holding retains original capacity and costs, without execution permission",
+      "pass": true
+    },
+    {
+      "name": "C EX39 real zero holding remains distinct from a locked holding",
+      "pass": true
+    },
+    {
+      "name": "C EX39 invalid quantities stay unknown",
+      "pass": true
+    }
+  ],
+  "afterC13": [
+    {
+      "name": "C13.1 independent candidate previews share original free cash only once",
+      "pass": true
+    },
+    {
+      "name": "C13.1 cash deficit and gross exposure become joint conditional conflicts, not separate approvals",
+      "pass": true
+    },
+    {
+      "name": "C13.1 missing or mismatched original authority and cash not treated as zero",
+      "pass": true
+    },
+    {
+      "name": "C13.2 repeated symbol, plan id, or original receipt is not a joint batch",
+      "pass": true
+    },
+    {
+      "name": "C13.2 original blocked or incomplete candidate remains unknown, not silently dropped from expected batch",
+      "pass": true
+    },
+    {
+      "name": "C13.3 common gross baseline conflict cannot manufacture available exposure",
+      "pass": true
+    },
+    {
+      "name": "C13.3 fee-adjusted individual cap remains relevant after every proposed fee",
+      "pass": true
+    },
+    {
+      "name": "C13.3 sector and strategy shared attribution never guessed from individual receipts",
+      "pass": true
+    },
+    {
+      "name": "C13.3 individually clear plans can have a conditional joint view, never an execution permission",
+      "pass": true
+    },
+    {
+      "name": "C13.4 multi-session cost is unknown, one-session conditional friction stays known",
+      "pass": true
+    },
+    {
+      "name": "C13.4 explicit wrong currency unit never becomes CNY liquidity merely due to unadjusted prices",
+      "pass": true
+    },
+    {
+      "name": "C13.5 same original time conflicting eligible prices are not a current exit mark regardless of order",
+      "pass": true
+    },
+    {
+      "name": "C13.5 distinct original quote times do not by themselves create a conflict, old wire cannot override current stock",
+      "pass": true
+    },
+    {
+      "name": "C13.5 explicit dated boundary mismatch, null or special session cannot generate confirmed limit classification",
+      "pass": true
+    },
+    {
+      "name": "C13.5 original distinct limit rule values and matching explicit boundary are not universally ten percent",
+      "pass": true
+    }
+  ],
+  "afterNew": [
+    {
+      "name": "C16.5 fixed-bps arithmetic remains available without claiming multi-session complete cost",
+      "pass": true
+    },
+    {
+      "name": "C16.5 partial mature lot has fixed-mark friction for its own scope only",
+      "pass": true
+    },
+    {
+      "name": "C16.5 one-session explicit bps retains existing conditional estimates and zero remains genuine zero",
+      "pass": true
+    },
+    {
+      "name": "C16.5 invalid or absent bps never supplies a fictional scenario cost",
+      "pass": true
+    },
+    {
+      "name": "C16.5 stale price, no liquidity or locked quantity cannot get even a fixed-mark exit friction estimate",
+      "pass": true
+    }
+  ],
+  "passed": 30,
+  "failed": 0
+}

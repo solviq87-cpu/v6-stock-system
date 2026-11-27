@@ -58,14 +58,21 @@ function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipation
  const restrictedQuantity=position.quantity-position.sellable;
  const subsetKnown=clear&&(position.sellable>0||position.quantity===0);
  const conditionalSellableSessions=subsetKnown?Math.ceil(position.sellable/cap):null;
- const subsetCost=subsetKnown&&conditionalSellableSessions<=1&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
- const estimatedSellableExitCost=finite(subsetCost)?subsetCost:null;
+ // Preserve the original fixed-bps arithmetic separately from an estimate
+ // of complete exit cost. A multi-session path has unknown future prices,
+ // commission minima, slippage and time; the fixed-mark friction is not that path.
+ const assumedFriction=subsetKnown&&finite(assumedExitBps)&&assumedExitBps>=0&&assumedExitBps<=10000?round(position.sellable*quote.price*assumedExitBps/10000):null;
+ const assumedSellableExitFriction=finite(assumedFriction)?assumedFriction:null;
+ const estimatedSellableExitCost=conditionalSellableSessions!==null&&conditionalSellableSessions<=1?assumedSellableExitFriction:null;
  return report({symbol:position.symbol,sellable:position.sellable,restrictedQuantity,historicalDailyShares:cap,
   conditionalSessions:restrictedQuantity===0?conditionalSellableSessions:null,
   estimatedExitCost:restrictedQuantity===0?estimatedSellableExitCost:null,
   conditionalSellableSessions,estimatedSellableExitCost,exitEstimateQuantity:subsetKnown?position.sellable:null,
+  assumedExitBps:assumedSellableExitFriction!==null?assumedExitBps:null,
+  assumedFrictionBasis:assumedSellableExitFriction!==null?"fixed-current-mark-and-explicit-bps-only":null,
+  assumedSellableExitFriction,assumedWholeExitFriction:restrictedQuantity===0?assumedSellableExitFriction:null,
   alerts,guaranteedFill:false,quoteAt:q?.quoteAt??null,liquiditySource:liquidity?prior.source:null,liquidityVersion:liquidity?prior.dataVersion:null,
-  assumptions:["历史容量及成本仅为压力预演；止损不保证成交","存在T+1或冻结数量时整仓退出时间及成本未知；局部估计只覆盖明确可卖部分"]});
+  assumptions:["历史容量及成本仅为压力预演；止损不保证成交","存在T+1或冻结数量时整仓退出时间及成本未知；局部估计只覆盖明确可卖部分","固定当前价和显式基点的摩擦成本单列；多时段完整退出成本未知，不代表未来手续费或成交价"]});
 }
 function cashFlowPerformance({initialAt,initialEquity,rows,benchmark,asOf=Date.now(),dailyEvidence}={}){
  if(!stamp(asOf)||!stamp(initialAt)||initialAt>asOf||!positive(initialEquity)||!Array.isArray(rows)||!rows.length||rows.length>10000)return unknown("MISSING_EQUITY_BOUNDARIES");
