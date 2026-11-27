@@ -7,7 +7,22 @@ function prediction(e=origin(),patch={}){const input=F.prepareInput(e);return {s
  model:{id:'M05',revision:'synthetic-only-v1',weightsHash:'a'.repeat(64),trainingCutoff:dates[69],seed:0,temperature:0,sampleCount:5,latencyMs:0},
  forecasts:[{horizon:1,targetDate:dates[71],point:11,quantiles:[{level:.1,value:10},{level:.5,value:11},{level:.9,value:12}]}],...patch};}
 function setup(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-model-forward-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return path.join(dir,'workspace');}
-function save(root,e=origin(),p=prediction(e),id='forecast_test_001',now=e.recordedAt+2000){return F.freezeForecast(root,[e],{action:'freeze-forecast',runId:e.hash,requestId:id,prediction:p},{now});}
+// Synthetic receipt dates must also be the wall clock seen by the production
+// publication guard. Restore the real clock synchronously even on rejection.
+function withForecastClock(clock,fn){const realNow=Date.now;Date.now=clock;try{return fn();}finally{Date.now=realNow;}}
+function save(root,e=origin(),p=prediction(e),id='forecast_test_001',now=e.recordedAt+2000){return withForecastClock(()=>now,()=>F.freezeForecast(root,[e],{action:'freeze-forecast',runId:e.hash,requestId:id,prediction:p},{now}));}
+test('real publication clock crossing the deadline after staging rejects and leaves no event',t=>{
+ const root=setup(t),e=origin(),p=prediction(e),now=e.recordedAt+2000,deadline=F.prepareInput(e).freezeDeadline;
+ let clock=now,checks=0;const realNow=Date.now;
+ assert.throws(()=>withForecastClock(()=>clock,()=>F.freezeForecast(root,[e],{action:'freeze-forecast',runId:e.hash,requestId:'clock_crossing_001',prediction:p},{now,beforeCommit:()=>{if(++checks===3)clock=deadline;return true;}})),{code:'FORECAST_LATE'});
+ assert.equal(checks,3);assert.equal(Date.now,realNow);assert.equal(S.readEvents(F.rootFor(root)).length,0);
+ assert.ok(!fs.readdirSync(F.rootFor(root)).some(name=>name.startsWith('.stage-')));
+});
+test('wall clock rollback refuses publication without changing the forecast archive',t=>{
+ const root=setup(t),e=origin(),p=prediction(e),now=e.recordedAt+2000;let clock=now,checks=0;
+ assert.throws(()=>withForecastClock(()=>clock,()=>F.freezeForecast(root,[e],{action:'freeze-forecast',runId:e.hash,requestId:'clock_rollback_001',prediction:p},{now,beforeCommit:()=>{if(++checks===2)clock=now-1;return true;}})),{code:'FORECAST_TIME'});
+ assert.equal(S.readEvents(F.rootFor(root)).length,0);
+});
 test('forecast input binds exact frozen identity, calendar and closed prices, without copying holdings or factor defaults',()=>{
  const e=origin(),input=F.prepareInput(e);assert.equal(input.runId,e.hash);assert.equal(input.originDate,dates[70]);assert.equal(input.targets[0].targetDate,dates[71]);assert.equal(input.freezeDeadline,at(71,'09:30'));assert.match(input.inputFingerprint,/^[a-f0-9]{64}$/);
  assert.ok(!Object.hasOwn(input,'conditions'));assert.ok(!Object.hasOwn(input,'positions'));const changed=structuredClone(e);changed.data.bars.at(-1).close+=.01;assert.notEqual(F.prepareInput(changed).inputFingerprint,input.inputFingerprint);
