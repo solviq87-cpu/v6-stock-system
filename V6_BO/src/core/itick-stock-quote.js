@@ -29,11 +29,14 @@ async function requestQuote({region,code,exchange,token,fetchImpl,timeoutMs,stri
   if(declared!=null&&(typeof declared!=='string'||!/^\d+$/.test(declared)||!Number.isSafeInteger(Number(declared))||Number(declared)>LIMIT))throw issue('invalid-length',200);
   const encoding=response.headers?.get?.('content-encoding'),ct=response.headers?.get?.('content-type');
   if(encoding!=null&&typeof encoding!=='string'||ct!=null&&(typeof ct!=='string'||!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|\s*$)/i.test(ct)))throw issue('invalid-content-type',200);
+  // Fetch exposes decoded bytes; only recognized single encodings may relax wire-length equality.
+  if(strictStream&&encoding!=null&&!/^(?:identity|gzip|deflate|br)$/i.test(encoding))throw issue('invalid-content-encoding',200);
   let body,byteBasis;
   if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
-   let bytes=0;const chunks=[];
+   let bytes=0,count=0;const chunks=[];
    for await(const chunk of response.body){
     sample();if(!(chunk instanceof Uint8Array))throw issue('invalid-byte-stream',200);
+    if(strictStream&&++count>4096)throw issue('too-many-chunks',200);
     bytes+=chunk.byteLength;if(bytes>LIMIT)throw issue('response-too-large',200);
     chunks.push(Buffer.from(chunk));
    }
@@ -76,6 +79,17 @@ async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalT
 // exchange or currency metadata. Keep operator declarations separate from
 // returned fields; never infer an exchange or currency from the symbol alone.
 const MARKETS=Object.freeze({HK:{code:/^[1-9]\d{0,4}$/,currencies:['HKD','USD','CNY']},US:{code:/^[A-Z][A-Z0-9]{0,7}(?:[.-][A-Z0-9]{1,3})?$/,currencies:['USD']},JP:{code:/^\d{4}$/,currencies:['JPY']}});
+// Only explicit own data properties count as local display declarations.
+function matchesDisplayScope(scope,region,code,currency,exchange){
+ try{
+  if(!scope||typeof scope!=='object'||Array.isArray(scope))return false;
+  const keys=Object.getOwnPropertyDescriptors(scope);
+  const own=(k,v)=>Object.hasOwn(keys,k)&&Object.hasOwn(keys[k],'value')&&keys[k].value===v;
+  const exchangeMatches=Object.hasOwn(keys,'exchange')?(own('exchange',exchange)||exchange===null&&own('exchange',undefined)):exchange===null&&!('exchange' in scope);
+  return own('displayAuthorized',true)&&own('region',region)&&own('code',code)&&own('currency',currency)&&exchangeMatches;
+ }catch{return false;}
+}
+const validExchange=x=>typeof x==='string'&&/^[A-Z][A-Z0-9_-]{0,23}$/.test(x);
 const STATES=Object.freeze({0:'normal',1:'halted',2:'delisted',3:'circuit-breaker'});
 async function fetchItickGlobalStockQuote({region,code,exchange=null,currency,displayScope,token,clock=Date.now,fetchImpl=globalThis.fetch,timeoutMs=6000}={}){
  const market=typeof region==='string'&&Object.hasOwn(MARKETS,region)?MARKETS[region]:null;
@@ -86,9 +100,8 @@ async function fetchItickGlobalStockQuote({region,code,exchange=null,currency,di
   declaredCurrency:currency,currencyVerified:false,exchangeVerified:false,marketIdentityVerified:false,
   displayAuthorizationIndependentlyVerified:false,providerLicensed:false,marketSessionVerified:false,
   canTrade:false,canNotify:false,canTrain:false,verifiedLive:false,quote:null,requestStartedAt:null,receivedAt:null,quoteAgeMs:null};
- const scoped=displayScope&&typeof displayScope==='object'&&!Array.isArray(displayScope)&&displayScope.displayAuthorized===true&&
-  displayScope.region===region&&displayScope.code===code&&displayScope.currency===currency&&(displayScope.exchange??null)===exchange;
- if(!scoped)return {...base,status:'authorization-unconfirmed'};
+ const scoped=()=>matchesDisplayScope(displayScope,region,code,currency,exchange);
+ if(!scoped())return {...base,status:'authorization-unconfirmed'};
  if(!presentToken(token))return {...base,status:'unconfigured'};validateToken(token);
  let high=0,started=null;
  const sample=()=>{let at;try{at=clock();}catch{throw issue('invalid-clock');}if(!validTime(at)||at<high)throw issue('invalid-clock');high=at;return at;};
@@ -96,8 +109,11 @@ async function fetchItickGlobalStockQuote({region,code,exchange=null,currency,di
   started=sample();
   const {data:q,receivedAt,byteBasis}=await requestQuote({region,code,exchange,token,fetchImpl,timeoutMs,strictStream:true,sample});
   const publishedAt=sample();
+  if(!scoped())throw issue('authorization-changed');
   if(!validQuote(q,code,receivedAt)||!Number.isSafeInteger(q.ts)||!Object.hasOwn(STATES,q.ts)||
      q.r!==undefined&&q.r!==region||q.region!==undefined&&q.region!==region||
+     q.e!==undefined&&!validExchange(q.e)||q.exchange!==undefined&&!validExchange(q.exchange)||
+     q.e!==undefined&&q.exchange!==undefined&&q.e!==q.exchange||
      exchange!==null&&(q.e!==undefined&&q.e!==exchange||q.exchange!==undefined&&q.exchange!==exchange)||
      q.currency!==undefined&&q.currency!==currency)throw issue('invalid-quote',200);
   // This is age of the last original trade, not evidence that the exchange
@@ -106,10 +122,10 @@ async function fetchItickGlobalStockQuote({region,code,exchange=null,currency,di
   const state=STATES[q.ts];
   return {...base,status:state==='normal'?(quoteAgeMs<=15000?'recent-reference-unverified':'dated-reference-only'):'nontrading-reference-only',
    requestStartedAt:started,receivedAt,publishedAt,quoteAgeMs,byteBasis,
-   quote:{region,code,requestedExchange:exchange,reportedExchange:typeof q.e==='string'&&/^[A-Z][A-Z0-9_-]{0,23}$/.test(q.e)?q.e:null,
+   quote:{region,code,requestedExchange:exchange,reportedExchange:q.e??q.exchange??null,
     currency:null,declaredCurrency:currency,adjustment:null,volumeUnit:null,status:state,price:q.ld,previousClose:q.p,quoteAt:q.t,receivedAt}};
  }catch(error){
-  const known=['redirect-refused','access-denied','rate-limited','invalid-http','invalid-length','invalid-content-type','invalid-byte-stream','response-too-large','invalid-utf8','missing-byte-stream','invalid-response','invalid-json','vendor-rejected','timeout','invalid-clock','invalid-quote'];
+  const known=['redirect-refused','access-denied','rate-limited','invalid-http','invalid-length','invalid-content-type','invalid-content-encoding','too-many-chunks','authorization-changed','invalid-byte-stream','response-too-large','invalid-utf8','missing-byte-stream','invalid-response','invalid-json','vendor-rejected','timeout','invalid-clock','invalid-quote'];
   return {...base,status:'unavailable',requestStartedAt:started,reason:known.includes(error?.reason)?error.reason:'transport-error',httpStatus:Number.isInteger(error?.httpStatus)&&error.httpStatus>=100&&error.httpStatus<=599?error.httpStatus:null};
  }
 }
