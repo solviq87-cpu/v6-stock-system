@@ -314,5 +314,214 @@
         "ok": true
       }
     ]
+  },
+  "finalSourceTestHead": "831cb1abd79df353524a2b4008b1cff4cc851d91",
+  "integration": {
+    "total": 10,
+    "pass": 10,
+    "fail": 0,
+    "environment": "Actual full 18 CJS core modules and client read scope in isolated V8; sealed synthetic account, SHA-256 UTF8 adapter checked empty/abc known vectors, node:test/assert adapters, unused fs/path/lock calls throw. Not native Node, account reducer transaction or real browser.",
+    "blobs": [
+      {
+        "path": "V6_BO/src/core/account-equity-evidence.js",
+        "sha": "83b8028dc12db4abc41f05a707958328c179ad70"
+      },
+      {
+        "path": "V6_BO/src/core/research-workspace-store.js",
+        "sha": "9f42c186d3b9453570dadc5c2375a291405b27f0"
+      },
+      {
+        "path": "V6_BO/src/core/a-share-calendar.js",
+        "sha": "de3cf5148e6694ba72770800a779f6099052acb9"
+      },
+      {
+        "path": "V6_BO/src/core/quote-observation-view.js",
+        "sha": "134a6ecfa772a996aa06199fc57265095206f5ae"
+      },
+      {
+        "path": "V6_BO/src/core/effective-risk-evidence.js",
+        "sha": "b8042a88e70a56bc029a776cba0f3db856453477"
+      },
+      {
+        "path": "V6_BO/src/core/common-entry-risk.js",
+        "sha": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+      },
+      {
+        "path": "V6_BO/src/core/portfolio-risk-gate.js",
+        "sha": "df22848143147ed3b26a4d0588c2ea7b53471714"
+      },
+      {
+        "path": "V6_BO/src/core/imported-risk-evidence.js",
+        "sha": "a902f5cd2973421b1c19b6f64806254634ecc618"
+      },
+      {
+        "path": "V6_BO/src/core/trading-fees.js",
+        "sha": "1528cfe435c44fd27e4f918c6417a4c9156b02da"
+      },
+      {
+        "path": "V6_BO/src/core/risk-action-evidence.js",
+        "sha": "002f3bf894efe62c13ef1e5c5f5a36cde8242199"
+      },
+      {
+        "path": "V6_BO/src/core/paper-plan-observer.js",
+        "sha": "c06d4fb215f2037553d08a8b60344d39c155401b"
+      },
+      {
+        "path": "V6_BO/src/core/paper-decision-plan.js",
+        "sha": "efb02315656248df13dee6136589182b54e20f45"
+      },
+      {
+        "path": "V6_BO/src/core/paper-fill-evidence.js",
+        "sha": "724f5f5d1c44713406640ca1f8b4a474fda8bb06"
+      },
+      {
+        "path": "V6_BO/src/core/paper-input-provenance.js",
+        "sha": "4f709e7ad85d70e232fbd1cbcbfe338feaa672bb"
+      },
+      {
+        "path": "V6_BO/src/core/portfolio-stress-evidence.js",
+        "sha": "5dfe78738bb0c60d67826884ee8bf8cd16d3486a"
+      },
+      {
+        "path": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+        "sha": "a401bf4b0caf2ab8edd687e647fa9dc9f76caf58"
+      },
+      {
+        "path": "V6_BO/src/core/risk-workbench.js",
+        "sha": "71d9eea4b904715bcbe6a6d0162a2d56c49d0f6b"
+      },
+      {
+        "path": "V6_BO/src/core/risk-state-contract.js",
+        "sha": "0e8332e37611934a6553157eb1780906e6f623f2"
+      },
+      {
+        "path": "V6_BO/public/nova/risk-workbench-read-scope.mjs",
+        "sha": "a6c668622e59764342ebf485fcfbc9298f77f41c"
+      },
+      {
+        "path": "V6_BO/tests/c-closeout-account-stress.test.js",
+        "sha": "e36dad5c2eccf489dbf19b81768dc79e77c9bab1"
+      }
+    ],
+    "results": [
+      {
+        "name": "C26 original account/equity/actions/stress projection shares partial-fill and freeze identity",
+        "ok": true
+      },
+      {
+        "name": "C26 confirmed terminal cancellation releases remaining order exposure but not held lots",
+        "ok": true
+      },
+      {
+        "name": "C26 unknown or excessive original sell freeze retains mark risk but no trusted sellable split",
+        "ok": true
+      },
+      {
+        "name": "C26 stale or conflicting marks invalidate the current pressure values without inventing zeros",
+        "ok": true
+      },
+      {
+        "name": "C26 missing or conflicting classification does not erase no-exit account pressure",
+        "ok": true
+      },
+      {
+        "name": "C26 contradictory original gross-rule exceeded flag is not certified by the C projection",
+        "ok": true
+      },
+      {
+        "name": "C26 exact original strict exposure limit is retained even when displayed usage is rounded",
+        "ok": true
+      },
+      {
+        "name": "C26 browser cannot reuse optional pressure evidence from another revision, account, or original valuation",
+        "ok": true
+      },
+      {
+        "name": "C31 original account cost and locked-lot protection survive the original risk workbench read scope",
+        "ok": true
+      },
+      {
+        "name": "C31 original held action producer and exact same account mark support only hypothetical staged exposure",
+        "ok": true
+      }
+    ]
+  },
+  "viewProbe": {
+    "pass": 4,
+    "total": 4,
+    "environment": "Actual full view and ui source in V8 with minimal Node/document adapter; not native browser or persisted test cases. Excluded from cumulative new test count.",
+    "blobs": [
+      {
+        "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+        "sha": "9e3d9e12a33de8a07f86ad438af14568833e56e6"
+      },
+      {
+        "path": "V6_BO/public/nova/ui.js",
+        "sha": "486cd673ccdfcbeca92c9131592b458bc2470f8c"
+      },
+      {
+        "path": "V6_BO/tests/c-closeout-protection-review.test.js",
+        "sha": "c8fe534fb1bd68fe96e6993dadbf079f7c034e26"
+      }
+    ],
+    "results": [
+      {
+        "name": "candidate expiry and signed P&L",
+        "ok": true
+      },
+      {
+        "name": "original full-exit scenario, no actual order",
+        "ok": true
+      },
+      {
+        "name": "blocked original action cannot render partial execution",
+        "ok": true
+      },
+      {
+        "name": "no evidence remains unknown",
+        "ok": true
+      }
+    ]
+  },
+  "final": {
+    "newPass": 14,
+    "newTotal": 14,
+    "oldPass": 30,
+    "oldTotal": 30,
+    "pass": 44,
+    "total": 44,
+    "fail": 0,
+    "skipped": 0,
+    "additionalViewProbes": 4,
+    "fullCI": false
+  },
+  "pr520Checkpoint": {
+    "head": "048c82c570e234168106486bfb0be17c54838afd",
+    "main": {
+      "id": 45970566789,
+      "conclusion": "success",
+      "verifyJob": 140409691027,
+      "tests": 6435,
+      "pass": 6435,
+      "fail": 0,
+      "skipped": 0
+    },
+    "browser": {
+      "id": 45970566592,
+      "conclusion": "success"
+    },
+    "coverage": {
+      "id": 45970566686,
+      "conclusion": "failure",
+      "job": 140409690233,
+      "reason": "048c82c570e2 missing-smoke-status",
+      "actualCombinedStatuses": []
+    },
+    "scope": "Earlier C combined candidate only; not current C31 head; no release."
+  },
+  "design": {
+    "price": "Distance to original frozen entry range, stop and target, gross odds; no new dynamic stop or cost-adjusted ratio. Held price must match original current valuation time/source/amount.",
+    "profit": "Same current marked value versus original remaining lot cost, existing scenario steps; not historical peak drawdown or actual realized loss.",
+    "stage": "Full-holding-only, original allowed check and same account lot, session, capacity, limit, no pending order, whole-lot independent 0/50/100% hypothetical scenarios. No permission to trade, no sequential fills or cost estimate. Blocked/unknown retain no-exit only."
   }
 }
