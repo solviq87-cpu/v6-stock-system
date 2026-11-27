@@ -191,6 +191,52 @@ function researchRowsAt(series,date){
   for(let i=lo;i<series.length&&series[i].date===date;i++)out.push(series[i]);
   return out;
 }
+// Bounded daily research lookup. Build once per historical traversal and
+// retain all visible same-day versions, including different period aliases.
+function researchBenchmarkMaps(bars){
+  const codes=new Map(),sectors=new Map();
+  for(const r of bars){
+    if(!['index','sector'].includes(r.role)||typeof r.date!=='string'||r.date.length!==10)continue;
+    const key=r.role+'/'+r.code;
+    if(!codes.has(key))codes.set(key,[]);codes.get(key).push(r);
+    if(r.role==='sector'){
+      const label=r.sector||r.code;
+      if(!sectors.has(label))sectors.set(label,[]);sectors.get(label).push(r);
+    }
+  }
+  for(const map of [codes,sectors])for(const arr of map.values())arr.sort((a,b)=>compare(a.date,b.date));
+  function window(series,date,point){
+    if(!Array.isArray(series))return [];
+    let lo=0,hi=series.length;
+    while(lo<hi){const mid=(lo+hi)>>>1;if(series[mid].date<=date)lo=mid+1;else hi=mid;}
+    const out=[],days=new Set();
+    // More than 240 inspected rows is an ambiguous bounded input, not
+    // permission to silently select a subset of conflicting revisions.
+    let inspected=0;
+    for(let i=lo-1;i>=0;i--){
+      const r=series[i];
+      if(!days.has(r.date)&&days.size>=60)break;
+      days.add(r.date);
+      if(++inspected>240)return null;
+      if(knownBy(r,point))out.push(r);
+    }
+    return out;
+  }
+  return (b,point)=>{
+    if(typeof b.date!=='string'||b.date.length!==10)return {};
+    const sector=window(sectors.get(b.sector),b.date,point);
+    let sectorRows=[];
+    if(sector){
+      const identities=[...new Set(sector.filter(r=>r.date===b.date).map(r=>r.code))];
+      if(identities.length===1){
+        const sameCode=window(codes.get('sector/'+identities[0]),b.date,point);
+        if(sameCode)sectorRows=[...new Set([...sector,...sameCode])];
+      }
+    }
+    const indexRows=b.indexCode?window(codes.get('index/'+b.indexCode),b.date,point)||[]:[];
+    return {sectorRows,indexRows};
+  };
+}
 function extract(b,history,ctx,settings={}){
   history=history.slice(-20);
   const prev=history.at(-1), closes=history.map(v=>v.close), prices=[...closes,b.close];
@@ -360,7 +406,7 @@ function purposeArchive(state,requested=state[researchPartition]||'real'){
 export function observations(state,asOf,options={}){
   state=purposeArchive(state,options.sampleSet);
   const until=cutoff(asOf), raw=(state.bars||[]).filter(b=>officialReceipt(state,b)&&stamp(b.date)<=until&&knownBy(b,until)), by=groups(raw), context=contextMaps(state,by), result=[];
-  const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw);
+  const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw),benchmarks=researchBenchmarkMaps(raw);
   for(const check of state.checks||[]){
     if(!check.capture||!check.createdAt||!check.matches?.length)continue;
     const registered=new Date(check.createdAt).getTime();
@@ -413,7 +459,7 @@ export function observations(state,asOf,options={}){
       const frozenPlan=planAt(state.plans,b.code,day,point+':00');
       const leaderSeries=by.get(['stock',b.sectorLeader,period].join('/'))||[];
       features.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point,plan:frozenPlan,
-        currentRows:researchRowsAt(series,b.date),
+        currentRows:researchRowsAt(series,b.date),...benchmarks(b,point),
         leaderRows:[...researchRowsAt(leaderSeries,history.at(-1)?.date),...researchRowsAt(leaderSeries,b.date)]});
       completeEvidence({b:{...b,frozenPlan},history,f:features,market,stage,sector,catalog:state.catalog||[],intraday:sessionRows(minutes,b),marketSeries,asOf:point},inferred.facts);
       const keys=new Set([...inferred.facts].filter(([,v])=>v.pass).map(([k])=>k));
@@ -519,7 +565,7 @@ export function deriveCheckInput(state,input){
  const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
  b.frozenPlan=planAt(state.plans,code,date,seconds);
   f.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point,
-    currentRows:stocks.filter(r=>r.date===date),
+    currentRows:stocks.filter(r=>r.date===date),...researchBenchmarkMaps(raw)(b,point),
     leaderRows:raw.filter(r=>(!r.role||r.role==='stock')&&r.code===b.sectorLeader)});
  const minutes=[...(state.bars||[]),...(current?obs.minuteBars||[]:[])].filter(r=>officialReceipt(state,r) && r.date.length>10 && r.date.slice(0,10)===date &&
    (r.role==='sector'?(r.sector||r.code)===b.sector:(!r.role||r.role==='stock')&&(r.code===code||b.sector&&r.sector===b.sector)));
