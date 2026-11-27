@@ -5,6 +5,7 @@
  * exchange authenticity, exchange calendar or actual tradability.
  */
 const {probePublicQuotes,projectProbe}=require('./public-quote-probe');
+const {quoteClock}=require('./public-market');
 function session(now){
  if(!Number.isSafeInteger(now)||now<=0)throw Error('无效检查时间');
  const d=new Date(now+8*3600000),day=d.getUTCDay();
@@ -17,7 +18,7 @@ async function checkTwoPublicSources({code,now:fixedNow,clock=Date.now,probe=pro
  if(typeof code!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(code))
   throw Error('证券代码格式不合法');
  if(typeof probe!=='function')throw Error('探测器无效');
- const readClock=fixedNow===undefined?clock:()=>fixedNow;
+ const timing=quoteClock(fixedNow===undefined?clock:()=>fixedNow),readClock=()=>timing.read();
  const startedAt=readClock();
  const base={schemaVersion:1,mode:'two-source-public-quote-diagnostic',
   code,asOf:new Date(startedAt).toISOString(),source1:'tencent',source2:'eastmoney',
@@ -28,10 +29,12 @@ async function checkTwoPublicSources({code,now:fixedNow,clock=Date.now,probe=pro
   note:'未处于中国大陆常规工作日连续竞价时段；节假日未认证，不进行联网探测。'};
  const raw=await probe({code,providers:['tencent','eastmoney'],clock:readClock});
  const now=readClock();
- if(now<startedAt)throw Error('检查时钟倒退');
+ if(timing.failed||now<startedAt)throw Error('检查时钟倒退或无效');
  base.asOf=new Date(now).toISOString();
  if(!session(now))return {...base,status:'outside-weekday-session-window',
   discrepancyBps:null,quoteAt:null,sourceStatuses:[],note:'采集结束时已离开交易时段。'};
+ if(raw?.code!==code||!Array.isArray(raw.sources)||raw.sources.length!==2||
+  !['tencent','eastmoney'].every(id=>raw.sources.some(s=>s?.id===id)))throw Error('双源检查证券或来源范围不一致');
  const projected=projectProbe(raw,now);
  const sources=projected.sources||[];
  const entries=['tencent','eastmoney'].map(id=>sources.find(s=>s.id===id));
