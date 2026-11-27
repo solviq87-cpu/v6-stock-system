@@ -26,3 +26,18 @@
 
 ## 待处理
 原未映射编号 D05/D06/D07/D11/D46/D47/D50/D51/D52/D65/D67/D68/D69/D71/D72/D75；需找回原任务书或由用户/总管重新确认原定义后逐项关闭。不得用本清账的10份候选冒充10项原任务完成。后续优先原任务缺口、真实CI和正式验收，不再单纯增加已有模块的边界补丁。此次仅提交#541后置增量与清账记录，不合并、不部署、不启用接口、不改变策略或权限，不动原60项。
+
+## 续接：第39批隔离实测与CI更新（覆盖上文早期状态）
+- #553 V6 CI 45994724951 已失败，verify job 140491153132 实报6629项、6622通过、7失败、0取消0跳过。失败名称为 real HTTP queue is private, read-only until explicitly created, and the background adapter commits once through the original ledger；outside-range and stale prices keep a durable intent waiting; cancellation cannot later fill；revoking the device through the original HTTP API stops its queued intent before any original buy；a changed strategy batch or removed candidate cannot execute an older frozen plan through the HTTP background path；original full-position and minimum-lot budget gates reject queued execution without extra ledger events；original T+1 sale ends monitoring and a later same-stock round trip cannot inherit the earlier plan；HTTP preparation binds the current server decision, and confirmed retries reuse one original durable fill。未见新增EIA专项失败。其余9份核查状态不变。
+- 已在V8隔离执行器实际复跑原8项测试体。相同生产源码、原测试blob 6e6edf56babcf2803cd0d2803e3f4d2adcccb230：7/8通过，同一资金历史反例失败，实际score 60.4；修正测试blob 14c53631bc4bed0cc40de76495f5ba531df93b65：8/8通过。验证原八字评分字段全部不变、fundDays和fundReceipt拒绝诊断正确。未改任何生产代码。实际加载的9个JS生产模块及策略JSON blob见下，非Node原生全量回归。
+  - native-strategy-daily-runner.js a818c7f3c47b47f3c4400f89a119d86e34a69681
+  - bazi.js ddbee35aa0b3992ef78a1c013f3556321a32c7a3
+  - myrules.js 8957643b4d9cdce3084ecc2e41ebfe94b4432689
+  - analysis.js a1f83ad1cf78059edf89dc9dc756f397796ccae1
+  - native-fourteen-evidence.js 53a30849a05fef97dcc8e3d9cec71ec6eed9581b
+  - python-three-round-evidence.js b9d4de2aecefb3b02e6263f47c0135c9026ad6ac
+  - multi-strategy-engine.js a1f1095bf5965768475a5492bc399e1ccc904dd2
+  - strategy-engine.js cae0fed9f5eaf174d5991ff23440df844d1f8dbe
+  - market-regime.js fbc11156b4d5a3d1586ddc2fbfdd4897375fb7f4
+  - a-share-strategy-pack.json aaab1d62217d8f37419fc9a205481e85c6619534
+- 限制：真实评分模块与证据投影运行；数据集校验替为股数/行数，回放和crypto摘要为夹具，小型同步assert执行器；未验证完整历史校验、回测和加密。当前容器不能直接git拉取（DNS不可用）。不宣称旧全量CI已通过，不扩大原编号覆盖，不合并部署。#556旧head 590716d2f3043da8f551801612075707fc1571db 的CI/UI/coverage均处排队，后续应绑定新精确head。
