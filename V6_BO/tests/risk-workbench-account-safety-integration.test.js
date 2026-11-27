@@ -101,13 +101,29 @@ test('missing controls, unapproved open events and unverified receipts never cer
   assert.equal(row(absent,'account/defensive-control').status,'unknown');
   assert.equal(row(absent,'account/defensive-control').actionEvidence.allowed,null);
   app.setDefensiveControl({expectedRevision:app.read().revision,state:'restricted',reason:'隔离对账检查'});
-  h.f.setNow(h.f.now+1000);const book=app.read();
-  appendDefensiveEvent(book,{state:'open',reason:'无审批反例',at:h.f.now,approved:false});sealBook(book);
-  const unapproved=buildAccountSafetyRiskEvidence({book,now:h.f.now});
-  assert.equal(unapproved.defensive.receiptVerified,true);assert.equal(unapproved.defensive.approvedRelease,false);
+  h.f.setNow(h.f.now+1000);const book=app.read(),before=JSON.stringify(book);
+  // The strengthened writer must reject an unapproved release without mutation.
+  assert.throws(()=>appendDefensiveEvent(book,{state:'open',reason:'无审批反例',at:h.f.now,approved:false}),/审批/);
+  assert.equal(JSON.stringify(book),before);
+  // A historical, correctly hashed but unapproved receipt must also fail on read.
+  // Construct it explicitly instead of asking the production writer to bypass its gate.
+  const approvedBook=JSON.parse(before);
+  appendDefensiveEvent(approvedBook,{state:'open',reason:'隔离审批反例基准',at:h.f.now,approved:true});sealBook(approvedBook);
+  const valid=buildAccountSafetyRiskEvidence({book:approvedBook,now:h.f.now});
+  assert.equal(valid.defensive.receiptVerified,true);assert.equal(valid.defensive.approvedRelease,true);
+  const historical=JSON.parse(JSON.stringify(approvedBook)),events=historical.defensiveControl.events;
+  const {hash:ignored,...payload}=events.at(-1);payload.approved=false;
+  events[events.length-1]={...payload,hash:require('node:crypto').createHash('sha256').update(JSON.stringify(payload)).digest('hex')};
+  sealBook(historical);
+  const unapproved=buildAccountSafetyRiskEvidence({book:historical,now:h.f.now});
+  assert.equal(unapproved.defensive,null);
   assert.equal(row(unapproved,'account/defensive-control').status,'unknown');
-  book.defensiveControl.events.at(-1).hash='0'.repeat(64);sealBook(book);
-  const damaged=buildAccountSafetyRiskEvidence({book,now:h.f.now});
+  assert.equal(row(unapproved,'account/defensive-control').actionEvidence.allowed,null);
+  assert.equal(row(unapproved,'account/defensive-control').recoveryEvidence,null);
+  // Corrupt an otherwise approved receipt independently of the approval test.
+  const damagedBook=JSON.parse(JSON.stringify(approvedBook));
+  damagedBook.defensiveControl.events.at(-1).hash='0'.repeat(64);sealBook(damagedBook);
+  const damaged=buildAccountSafetyRiskEvidence({book:damagedBook,now:h.f.now});
   assert.equal(damaged.defensive,null);assert.equal(row(damaged,'account/defensive-control').status,'unknown');
   const missing=buildAccountSafetyRiskEvidence({book:null,now:h.f.now});
   assert.ok(missing.risks.every(risk=>risk.status==='unknown'&&risk.actionEvidence.allowed===null));
