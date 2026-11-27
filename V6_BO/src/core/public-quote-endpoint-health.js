@@ -5,7 +5,7 @@
  * is ever used to construct a second request.
  */
 const {performance}=require('node:perf_hooks');
-const {address,parse}=require('./public-market');
+const {address,parse,quoteTransportFailureKind}=require('./public-market');
 const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const {session}=require('./quote-dual-source-diagnostic');
 const IDS=Object.freeze(['tencent','eastmoney','sina']);
@@ -67,11 +67,12 @@ async function inspectOne({id,code,clock,fetchImpl,timeoutMs}){
    return {status:fresh?'fresh-source-unverified':'dated-snapshot',
     httpStatus,quoteAt:q.timestamp,quoteAgeMs:age,
     price:q.price,previousClose:q.previousClose};
-  }catch{return reason(controller.signal.aborted?'timeout':'transport-error');}
+  }catch(e){return {...reason(controller.signal.aborted?'timeout':'transport-error'),
+   failureKind:controller.signal.aborted?'timeout':quoteTransportFailureKind(e)};}
  })();
  try{
   const timed=new Promise(resolve=>{
-   timer=setTimeout(()=>{controller.abort();resolve(reason('timeout'));},timeoutMs);
+   timer=setTimeout(()=>{controller.abort();resolve({...reason('timeout'),failureKind:'timeout'});},timeoutMs);
   });
   const result=await Promise.race([work,timed]);
   return {provider:id,...result,elapsedMs:elapsed(started)};

@@ -1,7 +1,7 @@
 'use strict';
 // Explicit, bounded, account-free diagnostic. Never starts a poller or activates a production feed.
 const fs = require('node:fs');
-const { createPublicMarket } = require('./public-market');
+const { createPublicMarket, summarizePublicQuoteFailure } = require('./public-market');
 const { validateSnapshot } = require('./parallel-market');
 const links = require('../../public/assets/stock-provider-links');
 const IDS = ['tencent', 'eastmoney', 'sina'];
@@ -44,7 +44,8 @@ function projectProbe(input, now = Date.now()) {
       fresh ? 'fresh-unverified' : 'dated-snapshot';
     return { id: s.id, status, quote: q ? { ...q,
       status: normalTrading ? 'market-state-unverified' : q.status, quoteAt: q.timestamp,
-      quoteTime: new Date(q.timestamp).toISOString(), freshness: fresh ? 'within-15-seconds-unverified' : 'not-realtime' } : null };
+      quoteTime: new Date(q.timestamp).toISOString(), freshness: fresh ? 'within-15-seconds-unverified' : 'not-realtime' } : null,
+      ...(!q ? summarizePublicQuoteFailure(s) : {}) };
   });
   return { schemaVersion: 1, status: now - input.generatedAt > 15000 ? 'check-expired' : sources.some(s => s.status === 'fresh-unverified') ? 'observed-unverified' : sources.some(s => s.quote) ? 'snapshot-only' : 'unavailable',
     code: input.code, checkedAt: input.generatedAt, canTrade: false, verifiedLive: false,
@@ -68,7 +69,7 @@ async function probePublicQuotes({ code, providers = ['tencent', 'eastmoney'], t
       const observedAt = s.snapshot?.observedAt ?? generatedAt;
       if (q.timestamp > observedAt || observedAt > generatedAt) throw Error('time');
       return s;
-    } catch { return { id: s.id, status: 'unavailable', error: '证券、原始时点或报价结构无效' }; }
+    } catch { return { id: s.id, status: 'unavailable', error: '证券、原始时点或报价结构无效', failureKind: 'invalid-quote-evidence' }; }
   });
   const result = { schemaVersion: 1, mode: 'public-quote-probe', code, generatedAt,
     probeOnly: true, canTrade: false, verifiedLive: false, paidServicesUsed: false,
