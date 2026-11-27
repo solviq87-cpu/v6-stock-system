@@ -223,6 +223,26 @@ function actionPanel(report){
         fill.eventId,fill.orderId,dateTime(fill.executionAt),val(fill.quantity),yuan(fill.price)])))),
     !report.actions?.items?.length?unknown('没有已读取的计划或可核验持仓动作；不据此断言无风险。'):null);
 }
+function adversePathPanel(stress){
+  const path=stress?.adversePaths,odds=stress?.planOdds,theme=path?.simultaneousThemeRetreat,budget=path?.pendingBudget;
+  const statusLabel={unknown:'证据不足',partial:'部分证据',estimated:'固定假设估算','price-geometry-only':'未扣费价格空间',
+    'entry-range-expired':'原买入区间失效','stop-reached':'原止损触及','target-reached':'原目标触及','already-held-unlinked':'已有持仓，未关联计划'};
+  return h('details',{class:'fy-details',id:'risk-adverse-paths'},h('summary',{},'隔夜、连续下跌及冻结买单压力'),
+    note('当前状态：'+(statusLabel[path?.status]||'证据不足')+' · 版本 '+(path?.assumptions?.version||'未知')+
+      ' · 每段价格冲击 '+percent(path?.assumptions?.shockPerStepPct)+'；不代表真实逐股跌停价或成交保证。'),
+    table(['假设路径','持仓盯市损失','当前受限批次损失','买单全成后情景损失（含费）','情景权益'],
+      list(path?.paths).map(row=>[row.title,yuan(row.heldMarkLoss),yuan(row.currentlyRestrictedLotLoss),yuan(row.allPendingFillLoss),yuan(row.allPendingFillEquityAfter)])),
+    note('原剩余买单金额 '+yuan(budget?.remainingBuyNotional)+' · 原估算费用 '+yuan(budget?.estimatedRemainingFees)+' · 原冻结现金 '+yuan(budget?.reservedCash)),
+    note('原总仓位限额 '+percent(path?.grossLimit?.limitPct)+'；当前原占用 '+percent(path?.grossLimit?.currentOriginalUsedPct)+'。情景不是额度释放回执。'),
+    table(['假设路径','假设全部成交后仓位','是否超原限额'],list(path?.paths).map(row=>[row.title,percent(row.allPendingFillGrossAfterPct),row.aboveOriginalGrossLimit===true?'是（情景）':row.aboveOriginalGrossLimit===false?'否（情景，非执行许可）':'未知'])),
+    note('共同题材同时退潮（按股票去重，未含买单）：'+(theme?.status==='no-observed-overlap'?'未观察到重叠；不等于无风险':theme?.status==='estimated'?list(theme.symbols).join('、')+' · '+val(theme.themeCount)+' 个题材':'证据不足')+' · 假设损失 '+yuan(theme?.loss)),
+    note(path?.note||'缺少同一时点原账户及行情，不能确认情景损失。'),
+    h('h4',{},'冻结计划当前价格赔率'),
+    table(['标的','适用范围','当前/止损/目标','未扣费收益风险比','状态'],list(odds?.rows).map(row=>[
+      row.symbol,row.scope==='held-position'?'持仓':row.scope==='held-unlinked'?'持仓（未关联）':'未持仓候选',[yuan(row.currentPrice),yuan(row.stopPrice),yuan(row.targetPrice)].join(' / '),val(row.grossRewardRiskRatio),statusLabel[row.status]||'证据不足'])),
+    odds?.omittedPlans?note('受界面范围限制另有 '+odds.omittedPlans+' 条计划未展示，不能据此判定其他计划安全。'):null,
+    note(odds?.note||'尚未取得可用冻结计划与当时报价；胜率及期望收益未知。'));
+}
 function stressPanel(report){
   const stress=report.stress,coverage=stress?.classificationCoverage;
   return section('多题材重叠与压力情景',
@@ -232,6 +252,7 @@ function stressPanel(report){
     table(['情景假设','损失估计','可卖部分','暂不可卖部分','覆盖'],list(stress?.scenarios).map(row=>[
       row.title,yuan(row.estimatedLoss),yuan(row.potentiallySellableLoss),yuan(row.temporarilyUnsellableLoss),
       finite(row.coveredPositions)?row.coveredPositions+' / '+(row.affectedPositions??row.portfolioPositions??'未知')+' 个持仓':row.status==='unknown'?'证据不足':'见情景证据'])),
+    adversePathPanel(stress),
     ...list(report.stressMissingMessages).map(value=>note(value)),
     note(stress?.note||'压力情景证据不足；不能将估计值视为最大损失保证。'),
     h('details',{class:'fy-details',id:'risk-stress-assumptions'},h('summary',{},'假设版本、来源与逐仓可卖约束'),
