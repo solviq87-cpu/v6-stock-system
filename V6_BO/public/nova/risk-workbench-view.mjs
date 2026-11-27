@@ -241,7 +241,9 @@ function actionPanel(report){
     !report.actions?.items?.length?unknown('没有已读取的计划或可核验持仓动作；不据此断言无风险。'):null);
 }
 function adversePathPanel(stress){
-  const path=stress?.adversePaths,odds=stress?.planOdds,theme=path?.simultaneousThemeRetreat,budget=path?.pendingBudget;
+  const path=stress?.adversePaths,odds=stress?.planOdds,theme=path?.simultaneousThemeRetreat,budget=path?.pendingBudget,protection=path?.heldProtection;
+  const rangeLabel={'below-frozen-entry':'低于原区间','above-frozen-entry':'超过原上界','inside-frozen-entry':'区间内（非许可）','not-applicable-held':'持仓，不适用入场'};
+  const stageLabel={'estimated-unverified':'原整仓检查通过，情景非许可','original-full-exit-blocked':'原整仓退出受限','unknown':'证据不足'};
   const statusLabel={unknown:'证据不足',partial:'部分证据',estimated:'固定假设估算','price-geometry-only':'未扣费价格空间',
     'entry-range-expired':'原买入区间失效','stop-reached':'原止损触及','target-reached':'原目标触及','already-held-unlinked':'已有持仓，未关联计划'};
   return h('details',{class:'fy-details',id:'risk-adverse-paths'},h('summary',{},'隔夜、连续下跌及冻结买单压力'),
@@ -257,6 +259,27 @@ function adversePathPanel(stress){
     h('h4',{},'冻结计划当前价格赔率'),
     table(['标的','适用范围','当前/止损/目标','未扣费收益风险比','状态'],list(odds?.rows).map(row=>[
       row.symbol,row.scope==='held-position'?'持仓':row.scope==='held-unlinked'?'持仓（未关联）':'未持仓候选',[yuan(row.currentPrice),yuan(row.stopPrice),yuan(row.targetPrice)].join(' / '),val(row.grossRewardRiskRatio),statusLabel[row.status]||'证据不足'])),
+    h('h4',{},'原冻结保护条件与当前价格距离'),
+    table(['标的','原买入区间','距上界余量','距止损 / 目标','适用状态'],list(odds?.rows).map(row=>{
+      const p=row.priceReview;
+      return [row.symbol,p?.entryRangeStatus==='not-applicable-held'?'不适用':[yuan(p?.frozenEntryMin),yuan(p?.frozenEntryMax)].join(' / '),
+        percent(p?.remainingRiseToFrozenEntryCapPct),[percent(p?.signedDistanceToStopPct),percent(p?.signedDistanceToTargetPct)].join(' / '),
+        rangeLabel[p?.entryRangeStatus]||'证据不足'];
+    })),
+    note('价格距离只基于原冻结条件，负值表示已越过相应边界；不自动修改止损、重新入场或解除风险。'),
+    h('h4',{},'持仓浮盈回吐及无退出压力'),
+    table(['标的','原剩余成本','当前浮盈亏','回吐至成本跌幅','第一段 / 第三段情景浮盈亏'],list(protection?.rows).map(row=>[
+      row.symbol,yuan(row.originalRemainingCostBasis),yuan(row.currentUnrealizedPnl),percent(row.priceDeclineToErasePositivePnlPct),
+      [yuan(row.scenarios?.[0]?.unrealizedPnlAfter),yuan(row.scenarios?.[2]?.unrealizedPnlAfter)].join(' / ')])),
+    protection?.omittedPositions?note('另有 '+protection.omittedPositions+' 只持仓未展示，不代表无风险。'):null,
+    note(protection?.note||'缺少同一原账户成本及当前估值，浮盈回吐未知。'),
+    h('h4',{},'持仓分段防御假设（非委托）'),
+    table(['标的','原整仓检查','假设移除 / 剩余股数','剩余市值'],list(odds?.rows).filter(row=>row.scope==='held-position').flatMap(row=>{
+      const d=row.stagedDefense;
+      if(d?.status!=='estimated-unverified')return [[row.symbol,stageLabel[d?.status]||'证据不足','不推定部分成交','未知']];
+      return list(d.scenarios).map(s=>[row.symbol,stageLabel[d.status],val(s.hypotheticalRemovedQuantity)+' / '+val(s.residualQuantity),yuan(s.residualMarketValue)]);
+    })),
+    note('各分段是同一时点独立假设，不是连续订单、实际卖出金额、费用或可执行权限；原整仓检查受限时不推断部分可执行。'),
     odds?.omittedPlans?note('受界面范围限制另有 '+odds.omittedPlans+' 条计划未展示，不能据此判定其他计划安全。'):null,
     note(odds?.note||'尚未取得可用冻结计划与当时报价；胜率及期望收益未知。'));
 }
