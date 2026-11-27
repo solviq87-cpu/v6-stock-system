@@ -8,7 +8,7 @@ const {evolveShadowFactors,verifyEpisode}=require('../src/core/factor-shadow-evo
 const {verifyCanonicalManifestLineage,discoverCaptures}=require('../src/core/factor-maturity-manifest');
 const {assessGlobalTrialBudget}=require('../src/core/factor-global-trial-budget');
 const {assessShadowRuntimeHealth}=require('../src/core/factor-shadow-runtime-health');
-const {preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint,verifyModelCandidateProvenance,verifyUnchangedModelReview}=
+const {preregisterCandidate,verifyPreregisteredCandidate,verifyPendingCandidateRegistration,currentResearchCodeFingerprint,verifyModelCandidateProvenance,verifyUnchangedModelReview}=
  require('../src/core/factor-candidate-prereg');
 const {preregisterSeedCandidate,verifySeedRegistrationMetadata,SEED_MODE}=
  require('../src/core/factor-candidate-prereg');
@@ -540,26 +540,15 @@ function pendingRegistrationStatus(reg,{conf,manifest,frozen,previous,previousTr
  const prefix=reg.frozenPrefixFingerprints;
  if(!Array.isArray(prefix)||prefix.length<frozen.length)return null;
  const all=registrationFeatures(manifest,frozen,conf.captureDir,now);
- const edge=all[prefix.length-1];
- if(reg.mode===SEED_MODE){
-  verifySeedRegistrationMetadata(reg);
-  if(reg.algorithmFingerprint!==currentResearchCodeFingerprint()||previous||previousTrial||
-     prefix.length>all.length||prefix.some((fp,i)=>fp!==all[i]?.fingerprint)||
-     (prefix.length>0&&(reg.latestFrozenSignalDay!==edge?.signalDay||reg.lastFrozenCapturedAt!==edge?.capturedAt))||
-     all.slice(prefix.length).some(f=>f.capturedAt<=Math.max(reg.registeredAt,reg.recordedAt)))
-   throw Error('待执行固定种子与真实冻结证据或研究代码不一致');
-  return {ok:true,status:prefix.length>frozen.length?
-   'skipped-awaiting-preregistered-prefix-maturity':'skipped-awaiting-post-prereg-signals',
-   pendingPrefixDays:prefix.length-frozen.length,preregistrationFingerprint:reg.fingerprint,
-   canTrade:false,productionWeightsChanged:false};
- }
- if(!Number.isSafeInteger(reg.registeredAt)||reg.registeredAt<=0||prefix.length>all.length||prefix.some((fp,i)=>fp!==all[i]?.fingerprint)||
-    reg.algorithmFingerprint!==currentResearchCodeFingerprint()||reg.packFingerprint!==hash(factorPack)||
-    reg.parentAcceptedFingerprint!==(previous?.fingerprint||null)||
-    reg.parentTrialFingerprint!==(previousTrial?.fingerprint||null)||
-    reg.latestFrozenSignalDay!==edge?.signalDay||
-    reg.lastFrozenCapturedAt!==edge?.capturedAt||reg.registeredAt<edge?.capturedAt)
-  throw Error('待执行候选预注册与全部冻结证据或研究代码已不一致');
+ const defs=all[0]?.factors;
+ if(!Array.isArray(defs))throw Error('待执行候选缺少原冻结因子定义');
+ verifyPendingCandidateRegistration(reg,{
+  sorted:all.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt})),
+  ids:defs.map(f=>f.id),packFingerprint:hash(factorPack),
+  oldWeights:previous?.shadowWeights||Object.fromEntries(defs.map(f=>[f.id,f.baseWeight])),
+  previousFingerprint:previous?.fingerprint||null,
+  previousTrialFingerprint:previousTrial?.fingerprint||null
+ });
  return {ok:true,status:prefix.length>frozen.length?
   'skipped-awaiting-preregistered-prefix-maturity':'skipped-awaiting-post-prereg-signals',
   pendingPrefixDays:prefix.length-frozen.length,preregistrationFingerprint:reg.fingerprint,
@@ -612,7 +601,7 @@ function evaluateOnce(conf,now,manifest){
  // A newly committed candidate cannot have a future test signal yet.
  // Do not read old H5 reports while simply waiting for the first new
  // frozen signal; this also avoids spuriously re-testing the old holdout.
- if(conf.requirePreRegistration&&preRegistration&&!cooldownOnly){
+ if(preRegistration&&!cooldownOnly){
   const waiting=pendingRegistrationStatus(preRegistration,{conf,manifest,frozen,previous,previousTrial,now});
   if(waiting)return waiting;
  }
