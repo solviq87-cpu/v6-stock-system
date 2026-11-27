@@ -4,6 +4,7 @@
  * Requires an operator-provisioned token and explicitly permitted A-share scope.
  * Never logs tokens, guesses endpoints or certifies a tradable live feed.
  */
+const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const ENDPOINT='https://api.itick.org/stock/quote';
 async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalThis.fetch,timeoutMs=6000}={}){
  if(typeof code!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(code)||
@@ -12,7 +13,7 @@ async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalT
   throw Error('iTick 股票诊断参数无效');
  const empty=(status)=>({id:'itick',status,quote:null,verifiedLive:false,canTrade:false});
  if(typeof token!=='string'||!token.trim())return empty('unconfigured');
- if(token.length>512||/[\r\n]/.test(token))throw Error('iTick 凭据格式无效');
+ if(token.length>512||token!==token.trim()||/[\x00-\x1f\x7f-\x9f]/.test(token))throw Error('iTick 凭据格式无效');
  const exchange=code.startsWith('6')?'SH':'SZ',url=new URL(ENDPOINT);
  url.searchParams.set('region',exchange);url.searchParams.set('code',code);
  const controller=new AbortController();
@@ -20,7 +21,8 @@ async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalT
  try{
   const response=await fetchImpl(url.toString(),{redirect:'error',signal:controller.signal,
    headers:{accept:'application/json',token}});
-  if(!response?.ok)return empty('unavailable');
+  // A successful transport is not proof of a complete response from the requested source.
+  if(response?.ok!==true||response.status!==200||hasQuoteRedirect(response,url.toString()))return empty('unavailable');
   // Bound response bytes *while streaming*, before building a body in memory.
   // A late length check after response.text() would not cap attacker-sized input.
   const limit=65536;
@@ -42,7 +44,7 @@ async function fetchItickStockQuote({code,token,now=Date.now(),fetchImpl=globalT
    if(Buffer.byteLength(body,'utf8')>limit)return empty('unavailable');
   }
   const r=JSON.parse(body),q=r?.data;
-  if(r.code!==0||!q||String(q.s)!==code||
+  if(r.code!==0||!q||typeof q.s!=='string'||q.s!==code||
      !Number.isFinite(q.ld)||q.ld<=0||
      !Number.isFinite(q.p)||q.p<=0||
      !Number.isSafeInteger(q.t)||q.t<=0||q.t>now||
