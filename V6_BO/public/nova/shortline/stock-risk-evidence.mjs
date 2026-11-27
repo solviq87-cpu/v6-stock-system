@@ -108,9 +108,10 @@ export function selectFrozenRiskPlan(plans,code,day,cutoff){
 
 
 /** Read-only point-in-time diagnostics, not verified vendor evidence or order permission. */
-export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan}={}){
+export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows}={}){
   const out={basis:'historical-research-only',canTrade:false,priceRange:null,
-    relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null};
+    relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
+    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null};
   const cutoff=time(asOf??b?.date);
   const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
   const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
@@ -118,9 +119,29 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
     r.high>=Math.max(r.open,r.close)&&r.low<=r.high;
   if(!b||!validCode(b.code)||!sameSymbol(b,b)||!finite(cutoff)||!visible(b,cutoff)||!price(b))return out;
   const day=b.date, clean=n=>finite(n)?n:null;
-  const rows=unambiguousAt((Array.isArray(history)?history:[]).filter(r=>sameSymbol(b,r)&&daily(r)&&r.date<day&&visible(r,cutoff)),
-    ['previousDay','period','open','high','low','close','priceBasis','corporateAction','noPriceLimit','ipoNoLimit','referencePriceConflict',
-      'amount','netActiveBuy','source','suspended','tradingStatus',...conflictFields]);
+  const priceFields=['previousDay','period','open','high','low','close','priceBasis','corporateAction','noPriceLimit','ipoNoLimit','referencePriceConflict',
+    'amount','netActiveBuy','source','suspended','tradingStatus',...conflictFields];
+  const themeFields=['sector','sectorRole','sectorLeader','sectorAssists','sectorAdvancingCount','sectorObservedCount','sectorTotalCount',
+    'sectorBreadthSource','sectorBreadthAt','sectorBreadthReceivedAt'];
+  const limitFields=['streak','limitUp','limitDown'];
+  // The original check can pick the first same-day bar. Do not present the
+  // new research projection if the actually visible current rows disagree.
+  if(currentRows!==undefined){
+    if(!Array.isArray(currentRows))return out;
+    const observed=currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff));
+    const unique=unambiguousAt(observed,[...priceFields,...themeFields,...limitFields]);
+    if(unique.length!==1||!price(unique[0]))return out;
+    // Enrichment of fields absent from the original bar is descriptive, but
+    // an explicitly different original observation is not interchangeable.
+    if([...priceFields,...themeFields,...limitFields].some(k=>Object.hasOwn(unique[0],k)&&
+        Object.hasOwn(b,k)&&!Object.is(unique[0][k],b[k])))return out;
+  }
+  const visibleHistory=(Array.isArray(history)?history:[]).filter(r=>sameSymbol(b,r)&&daily(r)&&r.date<day&&visible(r,cutoff));
+  const rows=unambiguousAt(visibleHistory,priceFields);
+  function past(day,fields){
+    const r=unambiguousAt(visibleHistory.filter(r=>r.date===day),[...priceFields,...fields])[0];
+    return price(r)?r:null;
+  }
   const byDay=new Map(rows.map(r=>[r.date,r])),prior=[];
   let target=precedingDay(b);
   while(target&&prior.length<20){
@@ -157,6 +178,95 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
         currentSharePct:now,priorSharePct:before,deltaPctPoints:now-before,turnedNegative:prev.netActiveBuy>0&&b.netActiveBuy<0,
         basis:'declared-net-active-buy-not-independent-fund-flow-verification'};
     }
+  }
+  // Theme deterioration: coverage and declared seal assists are different
+  // measurements; never fill absent breadth with a limit-up count.
+  if(prev&&known(b.sector)){
+    const old=past(prev.date,themeFields);
+    const breadth=r=>r&&seen(r.sectorBreadthSource,r.sectorBreadthAt,r.sectorBreadthReceivedAt,cutoff)&&
+      planClock(r.sectorBreadthAt)===time(r.date)&&Number.isSafeInteger(r.sectorTotalCount)&&r.sectorTotalCount>=10&&
+      r.sectorObservedCount===r.sectorTotalCount&&Number.isSafeInteger(r.sectorAdvancingCount)&&
+      r.sectorAdvancingCount>=0&&r.sectorAdvancingCount<=r.sectorTotalCount;
+    if(old&&old.sector===b.sector){
+      let fullBreadth=null,sealAssists=null;
+      if(breadth(b)&&breadth(old)&&b.sectorBreadthSource===old.sectorBreadthSource&&b.sectorTotalCount===old.sectorTotalCount){
+        const currentPct=100*b.sectorAdvancingCount/b.sectorTotalCount,priorPct=100*old.sectorAdvancingCount/old.sectorTotalCount;
+        fullBreadth={source:b.sectorBreadthSource,declaredTotal:b.sectorTotalCount,currentAdvancing:b.sectorAdvancingCount,
+          priorAdvancing:old.sectorAdvancingCount,currentPct,priorPct,deltaPctPoints:currentPct-priorPct,
+          basis:'same-declared-full-count-not-frozen-membership'};
+      }
+      const count=n=>Number.isSafeInteger(n)&&n>=0;
+      if(known(b.source)&&b.source===old.source&&count(b.sectorAssists)&&count(old.sectorAssists)){
+        sealAssists={source:b.source,current:b.sectorAssists,prior:old.sectorAssists,delta:b.sectorAssists-old.sectorAssists,
+          basis:'declared-seal-assists-not-full-breadth'};
+      }
+      if(fullBreadth||sealAssists)out.themeDeterioration={from:prev.date,to:day,sector:b.sector,fullBreadth,sealAssists};
+      // Compare two original daily rows for the same explicitly identified
+      // leader, not a guessed leader or a same-name member quotation.
+      const lead=b.sectorLeader;
+      if(b.sectorRole==='跟风'&&old.sectorRole==='跟风'&&validCode(lead)&&lead!==b.code&&old.sectorLeader===lead){
+        const peer=unambiguousAt((Array.isArray(leaderRows)?leaderRows:[]).filter(r=>
+          r?.code===lead&&sameSymbol({code:lead},r)&&daily(r)&&(r.date===day||r.date===prev.date)&&visible(r,cutoff)),
+          [...priceFields,'sector']);
+        const now=peer.find(r=>r.date===day),before=peer.find(r=>r.date===prev.date);
+        if(price(now)&&price(before)&&now.sector===b.sector&&before.sector===b.sector&&precedingDay(now)===prev.date){
+          const leaderChange=clean(100*(now.close/before.close-1)),stockChange=clean(100*(b.close/prev.close-1));
+          if(leaderChange!==null&&stockChange!==null)out.leaderCoDecline={from:prev.date,to:day,sector:b.sector,leaderCode:lead,
+            leaderChange,stockChange,stockMinusLeaderPctPoints:clean(stockChange-leaderChange),bothDown:leaderChange<0&&stockChange<0,
+            basis:'two-declared-daily-returns-not-causal-transmission'};
+        }
+      }
+    }
+  }
+  // Prior high-board state and today's actual daily limit-price evidence.
+  if(prev){
+    const old=past(prev.date,limitFields);
+    const limit=r=>r&&positive(r.limitUp)&&r.high<=r.limitUp&&
+      (!Object.hasOwn(r,'limitDown')||positive(r.limitDown)&&r.limitDown<r.limitUp&&r.low>=r.limitDown);
+    if(limit(old)&&limit(b)&&old.high===old.limitUp&&old.close===old.limitUp&&Number.isSafeInteger(old.streak)&&old.streak>=3&&
+        (!Object.hasOwn(b,'streak')||Number.isSafeInteger(b.streak)&&b.streak>=0&&(b.close===b.limitUp||b.streak===0))){
+      const touched=b.high===b.limitUp,closed=b.close===b.limitUp;
+      out.relayFailure={priorDay:prev.date,day,priorStreak:old.streak,priorLimitUp:old.limitUp,currentLimitUp:b.limitUp,
+        touchedLimit:touched,closedAtLimit:closed,failedAfterTouch:touched&&!closed,failedToContinue:!closed,
+        touchToClosePct:touched?clean(100*(b.limitUp-b.close)/b.limitUp):null,
+        basis:'prior-sealed-high-board-and-daily-limit-evidence-not-fill'};
+    }
+  }
+  // Three consecutive daily measurements from one declared source. Zero is
+  // an observation, not negative flow; missing or conflicting days stay null.
+  if(prior.length>=2){
+    const flowRows=[prior[1],prior[0],b];
+    const active=r=>known(r.source)&&positive(r.amount)&&finite(r.netActiveBuy)&&Math.abs(r.netActiveBuy)<=r.amount;
+    if(flowRows.every(r=>active(r)&&r.source===b.source)){
+      const days=flowRows.map(r=>({date:r.date,netCny:r.netActiveBuy,sharePct:100*r.netActiveBuy/r.amount}));
+      const totalAmount=flowRows.reduce((sum,r)=>sum+r.amount,0),totalNet=flowRows.reduce((sum,r)=>sum+r.netActiveBuy,0);
+      const negativeDays=days.filter(r=>r.netCny<0).length;
+      out.flowPersistence={source:b.source,days,negativeDays,allNegative:negativeDays===3,
+        strictlyWeakeningShares:days[0].sharePct>days[1].sharePct&&days[1].sharePct>days[2].sharePct,
+        totalNetCny:clean(totalNet),turnoverWeightedSharePct:finite(totalAmount)&&finite(totalNet)?clean(100*(totalNet/totalAmount)):null,
+        basis:'three-declared-net-active-buy-days-not-verified-main-force-outflow'};
+    }
+  }
+  // Holding evidence is a declared snapshot, not the authoritative current
+  // account. A trigger or a declared sellable count never authorizes an exit.
+  const holding=b.holdingSnapshot;
+  if(holding?.code===b.code&&!rowConflict(holding)&&Number.isSafeInteger(holding.shares)&&holding.shares>0&&positive(holding.avgCost)&&
+      seen(holding.source,holding.observedAt,holding.knownAt,cutoff)&&cnDay(planClock(holding.observedAt))===day){
+    const knownPlan=frozenRiskPlanTime(plan,b.code,cutoff,day)!==null;
+    const levels=knownPlan&&positive(plan.stopPrice)&&positive(plan.targetPrice)&&plan.stopPrice<plan.targetPrice;
+    const stopReached=levels?b.close<=plan.stopPrice:null,targetReached=levels?b.close>=plan.targetPrice:null;
+    const declaredSellable=Number.isSafeInteger(holding.sellableShares)&&holding.sellableShares>=0&&holding.sellableShares<=holding.shares?
+      holding.sellableShares:null;
+    const floatingReturnPct=clean(100*(b.close/holding.avgCost-1));
+    const breadth=out.themeDeterioration?.fullBreadth,assists=out.themeDeterioration?.sealAssists;
+    const weakness=breadth?.deltaPctPoints<0||assists?.delta<0||out.leaderCoDecline?.bothDown===true||
+      out.relayFailure?.failedAfterTouch===true||out.flowPersistence?.allNegative===true;
+    const reviewLevel=stopReached===true?'frozen-stop-review':targetReached===true?'frozen-target-review':
+      weakness?'weakness-review':levels?'no-frozen-price-trigger-observed':'unassessed';
+    out.holdingExitReview={snapshotSource:holding.source,observedAt:holding.observedAt,knownAt:holding.knownAt,
+      declaredShares:holding.shares,declaredSellableShares:declaredSellable,averageCost:holding.avgCost,referenceClose:b.close,
+      floatingReturnPct,stopReached,targetReached,reviewLevel,canExecuteExit:null,
+      basis:'historical-holding-review-not-authoritative-account-or-sellability'};
   }
   const range=b.high-b.low;
   out.reversal={high:b.high,close:b.close,drawdownFromHighPct:clean(100*((b.high-b.close)/b.high)),
