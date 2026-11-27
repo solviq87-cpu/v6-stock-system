@@ -124,7 +124,26 @@
 
 单项状态分别记录设计决定、工程实现、运行证据、实际消费、价值结论、用途授权与现场状态。验收包应含源及授权、原始/接收/决策时点、输入指纹、成本与预算、策略/模型/账户版本、输出及有效期、消费者、拒绝理由、成熟结果、命令与日志、阻塞、恢复与审批责任。模拟交易与实盘授权独立。完整验收由原总管签收。
 
-## 七、本轮可复核证据
+## 七、截至 #573 的证据与交付
+
+总管已将 ABCD 统一成果通过 #563 合入 dev，基线为 `b936ebdddb8c11948dd0e63f95332898dd5c1cf5`。本次冻结的本地组合树为 `7ef2df6c6e63f204bcb0c7bbb179db7ca119c250`。228 项中有 26 项取得局部证据，202 项待逐项验收，总管完整签收 0 项。下表列出各研究候选的复核入口。查单项时可从 [逐项验收索引](TASKS.md) 或 [Excel 统一清单](deliverables/checklist.xlsx) 开始。
+
+|候选|实际研究或核验范围|
+|---|---|
+|[#562](https://github.com/solviq87-cpu/v6-stock-system/pull/562)|既有指数异动、市场广度与统一任务映射|
+|[#564](https://github.com/solviq87-cpu/v6-stock-system/pull/564)|深交所月报、ETF 月度成交额对照与双端研究|
+|[#565](https://github.com/solviq87-cpu/v6-stock-system/pull/565)|宏观初值与修订按可知时间查询|
+|[#566](https://github.com/solviq87-cpu/v6-stock-system/pull/566) / [#567](https://github.com/solviq87-cpu/v6-stock-system/pull/567)|推荐出队前重验、打开旧通知重验与原账户风控|
+|[#568](https://github.com/solviq87-cpu/v6-stock-system/pull/568) / [#569](https://github.com/solviq87-cpu/v6-stock-system/pull/569) / [#570](https://github.com/solviq87-cpu/v6-stock-system/pull/570)|断网重开、离线研究环境与完整宿主包更新校验|
+|[#571](https://github.com/solviq87-cpu/v6-stock-system/pull/571)|冻结预测群体的覆盖率与校准复核|
+|[#572](https://github.com/solviq87-cpu/v6-stock-system/pull/572)|降准宣布、实施及人民银行后续执行报告的历史回放|
+|[#573](https://github.com/solviq87-cpu/v6-stock-system/pull/573)|个股三个五分钟窗与前 20 个开市日比较。实际获取 240 根缺成交额分钟条的案例中，原编辑者接口和双端页面均显示未知|
+
+此次冻结的本地组合在 Linux 原生全量回归中 8,141 项通过，失败、取消、跳过均为 0。
+
+36 个场景分别记录输入、原时点、证据及剩余验证。大陆网络现场、实体设备、生产前向观察与正式使用授权按原总管流程单独签收。原60项、历史66与78项目录以及双端实测入口见工作簿的专表。
+
+## 八、早期开发批次的复核记录
 
 - 基线为 `dev@8c90f77f58f90d98d348a5d8c3d9bca4d0121928`，对应已合并的 #526。核对时 #558 为 `663ead83804b9a4bd095fd2bf2b8d62552abe381`、#559 为 `2119555300f0f9353f6729ca363cdf976d884e6f`、#560 为 `ea16c13e39e686325f1186b3feb37b460a70d093`、#561 为 `796974991ab33eba7ce36dbd0679d016746ac155`，四项当时均开放。
 - 本轮候选代码 `74c03d8d8a6c8dd77b38edd56029422752ded5ee`。原五秒指数采集器按1/5/15分钟消费已调和的同源观测。取分钟开头十秒内首个合格观测，要求最近20个已观测日均有同源同窗完整分钟端点。超过历史绝对变动范围才生成当分钟研究线索，核对现有消息缓存中的当时收件。未校准告警预算；重启须重新积累，历史样本未持久化。此项不具有外发及交易权限。
@@ -152,8 +171,8 @@ node --test V6_BO/tests/{recent-market-structure,index-window-research,market-br
 
 逐项工作及恢复条件见[任务登记与验收索引](TASKS.md)。原60项、66项、78项、ABCD及后续功能的最终映射列为UX22的集成输入，由总管以最终源树逐条签收。
 
-[三份任务总体进度图](deliverables/combined-overview.png) · [20页全任务进度卡](deliverables/combined-progress.pdf)
+[三份任务总体进度图](deliverables/combined-overview.png) · [22页全任务进度卡](deliverables/combined-progress.pdf)
 
-[Word 整合版](deliverables/brief.docx) · [Excel 逐项清单](deliverables/checklist.xlsx) · [11页分段进度卡](deliverables/progress.pdf) · [总览图](deliverables/overview.png)
+[Word 整合版](deliverables/brief.docx) · [Excel 逐项清单](deliverables/checklist.xlsx) · [早期批次的11页分段进度卡](deliverables/progress.pdf) · [总览图](deliverables/overview.png)
 
 [电脑视口隔离运行截图](deliverables/fayo-recent-market-structure-1366.png) · [手机视口隔离运行截图](deliverables/fayo-recent-market-structure-390.png)
