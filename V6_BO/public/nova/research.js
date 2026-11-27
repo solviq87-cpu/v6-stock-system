@@ -311,15 +311,16 @@ function evidence(ctx){
     if(!Number.isSafeInteger(asOf)||asOf>now||asOf!==requestedAsOf||r.offset!==offset||anchor!==null&&anchor!==asOf)return empty('新闻回执未通过截点核验');anchor=asOf;
     const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
     if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
-    else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
+    else root.append(metrics([['最新归档版本',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
     root.append(n('p',projection.missing.join('；'),'fy-muted'));
     if(projection.status==='unknown')return root;
     for(const event of projection.rows){
       const row=event.row;
       const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'摘要或节选':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
       const identity=event.securityIdentity;
-      if(identity?.rows.some(x=>x.type||x.status==='conflict'))card.append(box('证券类型线索','原文声明，正式证券身份未核实',
-        facts(identity.rows.map(x=>[x.symbol,x.label+' · '+({inactive:'旧版本，当前停用',conflict:'冲突待核对','manual-review':'需人工复核','source-claim':'原文字样',unknown:'未知'}[x.status]||'未知')])),
+      const inactiveLabel=arr(identity?.inactiveReasons).map(x=>x.label).filter(x=>typeof x==='string'&&x).join('；')||'使用条件未确认，待核对';
+      if(identity?.rows.some(x=>x.type||x.typeConflict||x.status==='conflict'))card.append(box('证券类型线索','原文声明，正式证券身份未核实',
+        facts(identity.rows.map(x=>[x.symbol,x.label+' · '+(x.status==='inactive'?inactiveLabel:({conflict:'冲突待核对','manual-review':'需人工复核','source-claim':'原文字样',unknown:'未知'}[x.status]||'未知'))])),
         n('p',identity.note,'fy-note'),detail('查看类型原文片段',...identity.rows.filter(x=>x.quotes.length).map(x=>n('p',x.symbol+' · '+x.quotes.join('；'))))));
       card.append(detail('分析线索与待核实事项',facts(event.clues.map(x=>[x.label,x.quote])),n('p',event.missing.join('；'),'fy-muted'),n('p','关键词仅供核对，不代表利好、利空或执行资格。','fy-note')));
       if(e.url)card.append(linked('查看原始来源',e.url));

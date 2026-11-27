@@ -1,7 +1,11 @@
 // Bounded original-text clues only. No security-master or trading qualification.
-export function projectSecurityIdentity(e,{active=true}={}){
+export function projectSecurityIdentity(e,{active=true,inactiveReasons=[]}={}){
   const flags={sourceVerified:false,canQualify:false,canTrade:false,canTrain:false,canNotify:false};
   const labels={'ordinary-a-share':'普通股A股','preferred-share':'优先股',etf:'ETF基金','convertible-bond':'可转换债券'};
+  const reasonLabels={superseded:'该截点已被后续版本替代','association-removed':'本次查询的证券关联已移除',retracted:'来源已撤稿','incomplete-chain':'本页修订链不完整，待核对',unconfirmed:'使用条件未确认，待核对'};
+  const codes=active?[]:[...new Set((Array.isArray(inactiveReasons)?inactiveReasons.slice(0,8):[]).filter(c=>typeof c==='string'&&Object.hasOwn(reasonLabels,c)))];
+  if(!active&&!codes.length)codes.push('unconfirmed');
+  const reasons=codes.map(code=>({code,label:reasonLabels[code]}));
   const unknown=()=>({status:'unknown',rows:[],note:'原文范围或证券关联无效',...flags});
   if(!e||typeof e.body!=='string'||e.body.length>50000||!Array.isArray(e.securities)||e.securities.length>100||
     Array.from(e.securities,(c,i)=>!Object.hasOwn(e.securities,i)||typeof c!=='string'||!/^\d{6}$/.test(c)).some(Boolean)||new Set(e.securities).size!==e.securities.length)return unknown();
@@ -36,11 +40,11 @@ export function projectSecurityIdentity(e,{active=true}={}){
     const found=claims.get(symbol)||[],types=[...new Set(found.map(x=>x.type))];
     const conflict=types.length>1||ambiguousFund&&funds.includes(symbol);
     const type=types.length===1&&!conflict?types[0]:null;
-    return {symbol,type,label:conflict?'类型冲突，待核对':type?labels[type]:'未从该文档绑定类型',
+    return {symbol,type,typeConflict:conflict,label:conflict?'类型冲突，待核对':type?labels[type]:'未从该文档绑定类型',
       status:!active?'inactive':conflict?'conflict':review?'manual-review':type?'source-claim':'unknown',
       quotes:[...new Set(found.map(x=>x.quote))].slice(0,3)};
   });
-  return {status:!active?'inactive':rows.some(x=>x.type)?'source-mentions':'unknown',rows,
+  return {status:!active?'inactive':rows.some(x=>x.type)?'source-mentions':'unknown',rows,inactiveReasons:reasons,
     note:'仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。',...flags};
 }
 
@@ -96,8 +100,10 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
     if(row.associated===false)missing.push('该截点的最新修订已移除此证券关联');
     if(!e.publishedAt)missing.push('原始发布时间未知');
     if(!body||e.bodyScope==='provider-summary')missing.push('完整原文待核对');
+    const inactiveReasons=[row.current===false?'superseded':null,row.associated===false?'association-removed':null,
+      e.kind==='retracted'?'retracted':null,!chainComplete?'incomplete-chain':null].filter(Boolean);
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,
-      securityIdentity:projectSecurityIdentity(e,{active:chainComplete&&row.current!==false&&row.associated!==false&&e.kind!=='retracted'}),
+      securityIdentity:projectSecurityIdentity(e,{active:inactiveReasons.length===0,inactiveReasons}),
       effectiveAt:null,effectiveDate:effective?.date??null,effectiveQuote:effective?.quote??null,formalDisclosure:disclosure,chainComplete,missing,
       revisionStatus:row.current===false?'已被后续版本替代':row.associated===false?'证券关联已移除':e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
       researchOnly:true,canTrade:false,canNotify:false});

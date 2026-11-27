@@ -97,3 +97,23 @@ FAYO_STUDY_RECEIPTS=/tmp/fayo-types FAYO_DATED_BROWSER=../docs/validation/fayo-d
 输入 `type-news-input.json` 为原始页内字样节选，`bodyScope=provider-summary`，页面显示“摘要或节选”。`type-source-receipts.json` 指向PDF摘要及来源；原PDF在独立验收包保存。源运行`baseline`是当时Git父提交，实际源码摘要位于回执。回退可用本续接前 `a4f4ed47048689ee02e47ecd40cafd26ec2ce80f` 恢复代码，保留原新闻、账户及研究数据卷。
 
 最终复核去除新增正则后行断言，沿用原浏览器语法基线。同一普通股行出现多个代码而无明确逐列绑定时保留未知；新增反例修前失败，修后通过。此前8052项阶段回执保留，最终以8053项源全量、最终组合及当前提交CI分别核验。
+
+## 同一候选续接 · F42.1 类型线索停用原因
+
+在原事件投影中区分被后续版本替代、来源撤稿、本次查询关联移除、本页修订链不完整，以及未声明的待核对原因。多个原因同时保留，不把新修订的“本页缺少前版”显示成“旧版本”。完整返回范围补齐后可展示该页原文字样，所有资格和交易标记仍为false。停用状态下的类型冲突继续可见。
+
+原页面直接消费原因标签，并将“当前事件”改为“最新归档版本”，避免把刚导入的历史资料误当最近发生的事件。原档案、哈希链、查询截点、分页、权限及原交易门禁不变，没有新增状态中心。
+
+六组新回归修前失败，修后原事件专项19项及相关新闻/鉴权/隐私37项通过。源完整回归8059项通过，静态检查通过；最终组合及当前提交CI另行冻结。
+
+原追加式档案构造57个同源修订版本，真实原接口分别返回最新50条和更早7条，在原页面点击“更早版本”验证链不完整与旧版被替代的区别。另外验证撤稿、关联移除、完整链、停用时的冲突，以及撤稿前历史截点。修订样本是明确标注的隔离合成数据，不是真实撤稿或政策事实。此前三份实际公开PDF节选再次经原CLI、鉴权接口及双端页面消费。三个屏宽共30次流程通过，未见页面异常或横向溢出。
+
+首次浏览器脚本使用了错误的“下一页”按钮名而中止；实际控件为“更早版本”，脚本改正后完成全流程。失败日志与成功回执分别保存，不把中止操作算作通过。
+
+```bash
+# 从V6_BO运行，先创建输出目录
+node --test --test-reporter=tap tests/fayo-event-research.test.mjs tests/news-evidence-journal.test.js tests/news-evidence-http.test.js tests/news-evidence-ui-privacy.test.js
+FAYO_STUDY_RECEIPTS=/tmp/fayo-states FAYO_DATED_BROWSER=../docs/validation/fayo-dated-rules-20261127/state-browser.py node ../docs/validation/fayo-dated-rules-20261127/state-native.cjs
+```
+
+源码摘要见`state-summary.json`，完整运行回执、原始响应及全部图片在独立验收包；复验脚本生成`state-native.json`。源运行Git父提交与实际工作树摘要分开，最终组合绑定精确提交。该增量仍为F42.1局部证据，正式身份、原始发布时间、完整主数据、大陆真机及总管签收未完成。回退代码可用本续接前`a578e2e4aad8e5fa57aa4c24b8aef3f88b3eb5da`，保留现有新闻、账户及研究数据卷。

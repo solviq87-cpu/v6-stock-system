@@ -83,3 +83,51 @@ test('普通股行出现多个代码且无逐列绑定时保持未知',async()=>
  const r=await identity(declared('股票种类  股票上市交易所 股票简称 股票代码\n普通股 A股    示例    600000    600001',['600000','600001']));
  assert.ok(r.rows.every(x=>x.type===null));
 });
+
+const typedOriginal=()=>({...original,evidence:{...original.evidence,title:'类型资料',body:'优先股代码：360003',securities:['360003']}});
+const typedRevision=()=>({...retract,evidence:{...retract.evidence,kind:'revised',title:'资料修订',body:'优先股代码：360003',securities:['360003']}});
+test('仅返回最新修订时说明本页链不完整，不断言它是旧版本',()=>{
+ const row={...typedRevision(),current:true,associated:true};
+ const e=projectNewsEvents([row],t+1000,t+2000).rows[0];
+ assert.equal(e.revisionStatus,'已修订');assert.equal(e.chainComplete,false);
+ assert.deepEqual(e.securityIdentity.inactiveReasons.map(x=>x.code),['incomplete-chain']);
+ assert.match(e.securityIdentity.inactiveReasons[0].label,/本页.*不完整/);
+ assert.ok(e.securityIdentity.inactiveReasons.every(x=>!x.label.includes('旧版本')));
+});
+test('补齐修订链后恢复本页线索展示，历史截点保留原版',()=>{
+ const a=typedOriginal(),b=typedRevision();
+ const current=projectNewsEvents([a,b],t+1000,t+2000).rows[0];
+ assert.equal(current.chainComplete,true);assert.equal(current.securityIdentity.rows[0].status,'source-claim');
+ assert.deepEqual(current.securityIdentity.inactiveReasons,[]);
+ const old=projectNewsEvents([a,b],t,t+2000).rows[0];assert.equal(old.row.eventHash,a.eventHash);
+ assert.deepEqual(old.securityIdentity.inactiveReasons,[]);assert.equal(current.securityIdentity.canQualify,false);
+});
+test('被替代版本与来源撤稿分别保留明确原因',()=>{
+ const a=typedOriginal(),old=projectNewsEvents([{...a,current:false}],t,t+2000).rows[0];
+ assert.deepEqual(old.securityIdentity.inactiveReasons.map(x=>x.code),['superseded']);
+ const b={...typedRevision(),evidence:{...typedRevision().evidence,kind:'retracted'}};
+ const removed=projectNewsEvents([a,b],t+1000,t+2000).rows[0];
+ assert.deepEqual(removed.securityIdentity.inactiveReasons.map(x=>x.code),['retracted']);
+ assert.match(removed.securityIdentity.inactiveReasons[0].label,/撤稿/);
+});
+test('查询证券关联被移除不能被显示为旧版本或已撤稿',()=>{
+ const e=projectNewsEvents([{...typedOriginal(),current:true,associated:false}],t,t+2000).rows[0];
+ assert.deepEqual(e.securityIdentity.inactiveReasons.map(x=>x.code),['association-removed']);
+ assert.match(e.securityIdentity.inactiveReasons[0].label,/本次查询.*关联已移除/);
+ assert.equal(e.securityIdentity.rows[0].status,'inactive');
+});
+test('多个停用原因及类型冲突同时保留，不签发资格',()=>{
+ const b={...typedRevision(),current:false,associated:false,evidence:{...typedRevision().evidence,kind:'retracted',body:'优先股代码：360003\n股票种类  股票上市交易所 股票简称 股票代码\n普通股 A股    示例    360003    -'}};
+ const e=projectNewsEvents([b],t+1000,t+2000).rows[0],v=e.securityIdentity;
+ assert.deepEqual(v.inactiveReasons.map(x=>x.code),['superseded','association-removed','retracted','incomplete-chain']);
+ assert.equal(v.rows[0].typeConflict,true);assert.equal(v.rows[0].type,null);
+ assert.equal(v.canQualify,false);assert.equal(v.canTrade,false);assert.equal(v.canTrain,false);assert.equal(v.canNotify,false);
+});
+test('未声明或不支持的停用原因返回待核对，外部文字不能变成批准',async()=>{
+ const {projectSecurityIdentity}=await import('../public/nova/event-research.mjs');
+ for(const inactiveReasons of [undefined,['approved-to-trade'],['incomplete-chain','incomplete-chain']]){
+  const r=projectSecurityIdentity(declared('优先股代码：360003',['360003']),{active:false,inactiveReasons});
+  assert.equal(r.inactiveReasons.length,1);assert.ok(['unconfirmed','incomplete-chain'].includes(r.inactiveReasons[0].code));
+  assert.equal(r.rows[0].status,'inactive');assert.equal(r.canQualify,false);
+ }
+});
