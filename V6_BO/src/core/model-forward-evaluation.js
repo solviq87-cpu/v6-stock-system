@@ -19,6 +19,8 @@ const errors={INPUT:'缺少有效的封存股票与闭合日K',CALENDAR:'缺少�
  OUTPUT:'预测周期、目标日期、点值或分位数无效',ARCHIVE:'预测档案不可用或保存失败，原研究保留',REQUEST:'预测请求ID或字段无效'};
 function fail(code){const e=Error(errors[code]);e.code='FORECAST_'+code;throw e;}
 const own=(o,k)=>Object.hasOwn(o,k);
+const readOnlyEvidence=o=>Object.entries(S.FLAGS).every(([k,v])=>!own(o,k)||o[k]===v);
+const barIdentity=(b,d)=>['symbol','provider','priceBasis'].every(k=>!own(b,k)||b[k]===d[k]);
 const record=o=>o!==null&&typeof o==='object'&&[Object.prototype,null].includes(Object.getPrototypeOf(o))&&
  Reflect.ownKeys(o).every(k=>{const d=Object.getOwnPropertyDescriptor(o,k);return typeof k==='string'&&d.enumerable&&own(d,'value');});
 const dense=a=>Array.isArray(a)&&Array.from({length:a.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(a,i);return !!d&&own(d,'value');}).every(Boolean);
@@ -31,10 +33,10 @@ function predictionStructure(p){
 }
 const rootFor=workspace=>{const root=S.privateRoot(workspace);return path.join(path.dirname(root),path.basename(root)+'-forecasts');};
 function prepareInput(event){
- if(!record(event)||!record(event.data))fail('INPUT');
+ if(!record(event)||!record(event.data)||!readOnlyEvidence(event)||!readOnlyEvidence(event.data))fail('INPUT');
  const d=event.data,bars=array(d.bars),dates=array(d.tradeDates);
  if(event.kind!=='analysis'||!sha(event.hash)||typeof d.symbol!=='string'||!/^\d{6}$/.test(d.symbol)||!['tencent','eastmoney'].includes(d.provider)||d.priceBasis!=='unadjusted'||
-  !stamp(d.asOf)||!stamp(event.recordedAt)||event.recordedAt<d.asOf||!sha(d.observationHash)||!bars.length||bars.length>500||!dense(bars)||bars.some(b=>!record(b))||bars.at(-1).date!==d.tradeDate||
+  !stamp(d.asOf)||!stamp(event.recordedAt)||event.recordedAt<d.asOf||!sha(d.observationHash)||!bars.length||bars.length>500||!dense(bars)||bars.some(b=>!record(b)||!barIdentity(b,d))||bars.at(-1).date!==d.tradeDate||
   bars.some((b,i)=>!date(b.date)||i&&bars[i-1].date>=b.date||!stamp(b.knownAt)||b.knownAt>d.asOf||b.knownAt<close(b.date)||
    !['open','high','low','close'].every(k=>price(b[k])&&b[k]>0)||!finite(b.volume)||b.volume<0||b.high<Math.max(b.open,b.close,b.low)||b.low>Math.min(b.open,b.close,b.high)))fail('INPUT');
  if(!dates.length||dates.length>1000||!dense(dates)||dates.some((v,i)=>!date(v)||i&&dates[i-1]>=v)||!dates.includes(d.tradeDate)||bars.some(b=>!dates.includes(b.date))||!dates[dates.indexOf(d.tradeDate)+1])fail('CALENDAR');
@@ -104,11 +106,13 @@ function freezeForecast(workspace,events,request,{now=Date.now(),beforeCommit}={
 // First dated post-close receipt is retained even if its price or status is
 // unusable. A later repaired observation is not a new first label.
 function outcomeReason(b,d,e){
+ if(!readOnlyEvidence(e)||!readOnlyEvidence(d))return 'outcome-authority-mismatch';
  if(!stamp(b.knownAt)||b.knownAt<close(b.date)||b.knownAt>d.asOf||b.knownAt>e.recordedAt)return 'invalid-outcome-time';
  if(!price(b.close)||b.close<.01)return 'invalid-close';
  if(!finite(b.volume)||b.volume<=0)return 'zero-or-invalid-volume';
+ if(['suspended','tradable'].some(k=>own(b,k)&&b[k]!=null&&typeof b[k]!=='boolean'))return 'invalid-session-status';
  if(b.suspended===true||b.tradable===false)return 'blocked-session';
- if(own(b,'priceBasis')&&b.priceBasis!==d.priceBasis||own(b,'provider')&&b.provider!==d.provider||own(b,'symbol')&&b.symbol!==d.symbol)return 'outcome-identity-mismatch';
+ if(!barIdentity(b,d))return 'outcome-identity-mismatch';
  return null;
 }
 function observations(events,asOf){
@@ -124,7 +128,7 @@ function observations(events,asOf){
 }
 function validateArchive(event){
  const d=event.data;
- if(!record(event)||!record(d)||!sha(event.hash)||d.mode!=='frozen-model-forecast'||d.evaluationVersion!==VERSION||!sha(d.runId)||!sha(d.inputFingerprint)||
+ if(!record(event)||!record(d)||!readOnlyEvidence(event)||!readOnlyEvidence(d)||d.schemaVersion!==1||!sha(event.hash)||d.mode!=='frozen-model-forecast'||d.evaluationVersion!==VERSION||!sha(d.runId)||!sha(d.inputFingerprint)||
   typeof d.symbol!=='string'||!/^\d{6}$/.test(d.symbol)||!['tencent','eastmoney'].includes(d.provider)||d.priceBasis!=='unadjusted'||!date(d.originDate)||
   !stamp(d.asOf)||d.asOf<close(d.originDate)||!stamp(event.recordedAt)||d.asOf>event.recordedAt||!stamp(d.freezeDeadline)||!price(d.lastClose)||d.lastClose<=0||
   !Array.isArray(d.tradeDates)||!d.tradeDates.length||d.tradeDates.length>1000||!dense(d.tradeDates)||d.tradeDates.some((v,i)=>!date(v)||i&&d.tradeDates[i-1]>=v)||
