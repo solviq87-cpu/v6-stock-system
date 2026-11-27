@@ -6,7 +6,7 @@ function fixture(clock=now){
  const authority='fayo-decision-center',decisionId='a'.repeat(64),quoteAt=clock-1000,receivedAt=clock-500;
  const quoteBasis={code,price:10,quoteAt,receivedAt,source:'tencent',mode:'public-live-unverified'};
  const conclusion={authority,schemaVersion:1,code,day,asOf:clock,quoteAt,label:'可关注',reason:'原证据',evidence:[]};
- const plan={authority,decisionId,asOf:clock,buyLow:9.8,buyHigh:10,stop:9,target:11,positionPct:19.6,
+ const plan={authority,decisionId,asOf:clock,buyLow:9.8,buyHigh:10,stop:9.7,target:11,positionPct:19.6,
   lineage:Object.fromEntries(['buyLow','buyHigh','stop','target','positionPct'].map(k=>[k,{source:'原证据',derivedBy:'原规则',sourceAt:clock-2000}]))};
  const card={authority,decisionId,code,day,calculatedAt:clock,quoteBasis,quoteAt,receivedAt,quoteSource:'tencent',
   quoteMode:quoteBasis.mode,price:10,canTrade:true,canNotify:true,score:80,resonanceScore:1,resonanceStrategies:[{id:'original',label:'原策略'}],plan,conclusion};
@@ -52,4 +52,36 @@ test('valid server card keeps original values and unchanged evidence at the 15s 
  const r=readDecisionBoard(p,{now});assert.equal(r.cards.length,1);
  assert.equal(r.cards[0].plan,p.cards[0].plan);
  assert.equal(r.cards[0].quoteAt,now-15000);assert.equal(JSON.stringify(p),before);
+});
+
+function attachRisk(p){
+ const c=p.cards[0],plan=c.plan;
+ const rr={status:'meets-gross-discipline',minimumGrossRewardRisk:2,ratio:(plan.target-plan.buyHigh)/(plan.buyHigh-plan.stop),
+  canTrade:false,costBasis:'gross-before-fees-slippage-and-T+1-gap-risk'};
+ plan.riskReward={...rr};c.conclusion.riskReward={...rr};return p;
+}
+const riskCases=[
+ ['legacy valid geometry remains compatible without inventing a new receipt',p=>{},true],
+ ['ordered legacy plan with reward below risk discipline is withheld',p=>{p.cards[0].plan.stop=9;},false],
+ ['true equality including floating-point roundoff survives',p=>{p.cards[0].plan.target=10.6;attachRisk(p);},true],
+ ['rounded 1.9667 cannot become an actionable ratio of two',p=>{p.cards[0].plan.target=10.59;attachRisk(p);p.cards[0].plan.riskReward.ratio=2;p.cards[0].conclusion.riskReward.ratio=2;},false],
+ ['valid server plan and conclusion evidence survive unchanged',p=>attachRisk(p),true],
+ ['tampered target cannot keep an older positive receipt',p=>{attachRisk(p);p.cards[0].plan.target=10.8;},false],
+ ['server plan risk receipt differs from the original arithmetic',p=>{attachRisk(p);p.cards[0].plan.riskReward.ratio=99;},false],
+ ['server conclusion risk receipt conflicts',p=>{attachRisk(p);p.cards[0].conclusion.riskReward.status='insufficient-gross-reward';},false],
+ ['explicitly missing risk receipt must not act like a legacy field',p=>{attachRisk(p);p.cards[0].plan.riskReward=null;},false],
+ ['only one of the two new receipts is present',p=>{attachRisk(p);delete p.cards[0].conclusion.riskReward;},false],
+ ['new receipt cannot relax the fixed gross discipline',p=>{attachRisk(p);p.cards[0].plan.riskReward.minimumGrossRewardRisk=1;},false],
+ ['descriptive risk receipt cannot claim trade authority',p=>{attachRisk(p);p.cards[0].conclusion.riskReward.canTrade=true;},false],
+ ['gross scenario ratio cannot be relabelled as net performance',p=>{attachRisk(p);p.cards[0].plan.riskReward.costBasis='net-confirmed-return';},false]
+];
+for(const [name,alter,allowed] of riskCases)test('dual-client reward risk: '+name,()=>{
+ const p=fixture();alter(p);const before=JSON.stringify(p),out=readDecisionBoard(p,{now});
+ assert.equal(out.cards.length,allowed?1:0);
+ if(allowed)assert.equal(out.cards[0].plan,p.cards[0].plan);
+ assert.equal(JSON.stringify(p),before);
+});
+test('an explicit insufficient gross reward receipt cannot remain a positive stock drawer conclusion',()=>{
+ const p=attachRisk(fixture()),c=p.cards[0].conclusion;c.riskReward.status='insufficient-gross-reward';
+ assert.equal(stockConclusion({code,conclusion:c},{day,now}).label,'回避');
 });

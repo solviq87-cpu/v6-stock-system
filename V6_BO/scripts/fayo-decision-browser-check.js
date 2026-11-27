@@ -307,7 +307,7 @@ async function run(){
     for(const rejected of ['tampered-plan','stale-package']){
      mode=rejected;await page.reload({waitUntil:'domcontentloaded'});
      await page.locator('.fy-decision-empty').waitFor({timeout:5000});
-     const reason=rejected==='tampered-plan'?'完整计划未通过复核':'日期或时点已失效';
+     const reason=rejected==='stale-package'?'日期或时点已失效':'完整计划未通过复核';
      await page.waitForFunction(message=>document.querySelector('.fy-decision-empty')?.textContent.includes(message),reason,{timeout:5000});
      assert.equal(await page.locator('.fy-decision-card').count(),0,rejected+' never produces cards');
      report.rejections.push({path:viewport.path,case:rejected,text:await page.locator('.fy-decision-empty').innerText()});

@@ -30,7 +30,8 @@ function currentConclusion(value,day,now,code){
  return value&&value.authority===AUTHORITY&&value.schemaVersion===SCHEMA&&decisionDay(value.day)===day&&
   codeOk(code)&&value.code===code&&
   ['可关注','等待回封','回避'].includes(value.label)&&typeof value.reason==='string'&&Array.isArray(value.evidence)&&
-  time(value.asOf)&&value.asOf<=now&&now-value.asOf<=15000;
+  time(value.asOf)&&value.asOf<=now&&now-value.asOf<=15000&&
+  !(value.label==='可关注'&&value.riskReward?.status==='insufficient-gross-reward');
 }
 
 export function stockConclusion(row={}, {day,now=Date.now()}={}){
@@ -38,12 +39,31 @@ export function stockConclusion(row={}, {day,now=Date.now()}={}){
  return currentConclusion(value,target,now,row.code)?value:{label:'回避',reason:'尚未取得有效后台结论，等待核验',day:target,evidence:fourEvidence()};
 }
 
+// Independent display verification of the server's existing 1:2 gross
+// discipline. No plan, score, authority or risk estimate is created here.
+// A legacy receipt lacking both new risk fields is kept only if its own
+// frozen numeric plan satisfies the same rule. Never repair an inconsistent
+// explicit risk receipt or use a rounded score in place of its price geometry.
+function validRewardRisk(plan,conclusion){
+ const price=plan.buyHigh,stop=plan.stop,target=plan.target;
+ const risk=price-stop,reward=target-price,ratio=reward/risk;
+ if(![risk,reward,ratio].every(finite)||risk<=0||reward<=0||
+  !(reward>=2*risk||Math.abs(reward-2*risk)<=Number.EPSILON*8*Math.max(price,stop,target)))return false;
+ const explicitPlan=Object.hasOwn(plan,'riskReward'),explicitConclusion=!!conclusion&&Object.hasOwn(conclusion,'riskReward');
+ if(!explicitPlan&&!explicitConclusion)return true;
+ if(!explicitPlan||!explicitConclusion)return false;
+ return [plan.riskReward,conclusion.riskReward].every(receipt=>receipt&&typeof receipt==='object'&&!Array.isArray(receipt)&&
+  receipt.status==='meets-gross-discipline'&&receipt.minimumGrossRewardRisk===2&&receipt.canTrade===false&&
+  receipt.costBasis==='gross-before-fees-slippage-and-T+1-gap-risk'&&finite(receipt.ratio)&&
+  Math.abs(receipt.ratio-ratio)<=Number.EPSILON*8*Math.max(1,Math.abs(ratio)));
+}
 function validCard(card,day,now,calculatedAt){
  if(!card||card.authority!==AUTHORITY||!/^[a-f0-9]{64}$/.test(card.decisionId||'')||!/^\d{6}$/.test(card.code||'')||card.day!==day||card.calculatedAt!==calculatedAt)return false;
  const plan=card.plan,q=card.quoteBasis;
  if(!plan||plan.authority!==AUTHORITY||plan.decisionId!==card.decisionId||!time(plan.asOf)||plan.asOf!==calculatedAt||plan.asOf>now||now-plan.asOf>15000||!plan.lineage)return false;
  if(!['buyLow','buyHigh','stop','target','positionPct'].every(key=>finite(plan[key]))||
   !(plan.stop>0&&plan.stop<plan.buyLow&&plan.buyLow<=plan.buyHigh&&plan.buyHigh<plan.target&&plan.positionPct>0&&plan.positionPct<=100))return false;
+ if(!validRewardRisk(plan,card.conclusion))return false;
  if(!['buyLow','buyHigh','stop','target','positionPct'].every(key=>{
   const basis=plan.lineage[key];return basis&&typeof basis.source==='string'&&basis.source.trim()&&
    typeof basis.derivedBy==='string'&&basis.derivedBy.trim()&&time(basis.sourceAt)&&basis.sourceAt<=plan.asOf;
