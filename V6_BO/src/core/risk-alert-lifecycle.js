@@ -148,7 +148,11 @@ function normalizeRisk(row, now) {
       source: textOk(source?.source, 240) ? source.source : '来源未知', sourceAt: timeOk(source?.sourceAt) ? source.sourceAt : null})) : [],
     planId: textOk(row.planId, 240) ? row.planId : null, orderId: textOk(row.orderId, 240) ? row.orderId : null,
     eventId: textOk(row.eventId, 240) ? row.eventId : null,...copyStateEvidence(row)};
-  return canonical({...normalized,...riskState(normalized,now)});
+  let state=riskState(normalized,now);
+  if(normalized.status==='resolved'&&state.assessmentState!=='not-triggered'){
+    normalized.status='unknown';state=riskState(normalized,now);
+  }
+  return canonical({...normalized,...state});
 }
 
 function groupRows(rows) {
@@ -162,7 +166,8 @@ function groupRows(rows) {
   return [...grouped].map(([rootCauseId, risks]) => {
     risks.sort((a, b) => a.id.localeCompare(b.id));
     const severity = [...risks].sort((a, b) => LEVEL[b.severity] - LEVEL[a.severity])[0].severity;
-    const status = risks.every(row => row.status === 'resolved') ? 'resolved' :
+    const status = risks.every(row => row.status === 'resolved'&&row.assessmentState==='not-triggered'&&
+      row.evidenceState==='complete'&&row.dataState==='valid') ? 'resolved' :
       risks.some(row => row.status === 'active') ? 'active' : 'unknown';
     const evidenceStatus = risks.every(row => row.evidenceStatus === 'available') ? 'available' :
       ['conflict', 'stale', 'missing', 'unknown', 'partial'].find(value => risks.some(row => row.evidenceStatus === value));
@@ -172,6 +177,42 @@ function groupRows(rows) {
   }).sort((a, b) => a.rootCauseId.localeCompare(b.rootCauseId));
 }
 
+// Preserve the original complete evidence of an unresolved scope. A new row
+// for a different object, authority or policy version cannot overwrite it.
+function riskScopeKey(row){
+  const a=row.authorityEvidence||{};
+  return JSON.stringify([row.id,row.rootCauseId,row.object?.type,row.object?.id,
+    a.kind??null,a.source??null,a.ruleId??null,a.ruleVersion??null]);
+}
+function mergeLastValidRisk(previous,incoming,current,now,replace){
+  if(replace||!previous)return current;
+  if(!current)return previous;
+  const retained=new Map(previous.risks.map(row=>[riskScopeKey(row),row]));
+  for(const [k,row] of retained){
+    if(incoming.risks.some(next=>next.status==='resolved'&&
+      resolutionCheck({risks:[next]},{risks:[row],sourceAt:row.sourceAt},now).allowed))retained.delete(k);
+  }
+  for(const row of current.risks){
+    const k=riskScopeKey(row),prior=retained.get(k);
+    if(prior&&(row.sourceAt<prior.sourceAt||
+      row.sourceAt===prior.sourceAt&&row.riskLevel<=prior.riskLevel))continue;
+    if(prior&&row.riskLevel<prior.riskLevel&&
+      !reductionCheck({risks:[row]},{risks:[prior],sourceAt:prior.sourceAt,riskLevel:prior.riskLevel},now).allowed)continue;
+    retained.set(k,row);
+  }
+  const risks=[...retained.values()].sort((a,b)=>riskScopeKey(a).localeCompare(riskScopeKey(b)));
+  return risks.length?{risks:clone(risks),sourceAt:Math.max(...risks.map(row=>row.sourceAt)),
+    riskLevel:Math.max(...risks.map(row=>row.riskLevel))}:null;
+}
+function originalBaseline(rows,now){
+  return Math.max(0,...rows.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now;
+}
+function olderThanResolved(incoming,group,now){
+  if(group.status!=='resolved'||incoming.status!=='active')return false;
+  const cutoff=originalBaseline(group.risks,now),active=incoming.risks.filter(row=>row.status==='active');
+  return active.length>0&&active.every(row=>timeOk(row.sourceAt)&&row.sourceAt<cutoff&&
+    (!timeOk(row.authorityEvidence?.observedAt)||row.authorityEvidence.observedAt<cutoff));
+}
 function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => false} = {}) {
   const dir = privateRoot(root);
   if (typeof clock !== 'function' || typeof canWrite !== 'function') throw Error('风险提醒存储配置无效');
@@ -322,13 +363,14 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           group = {...incoming, id: digest([key, incoming.rootCauseId]), firstSeenAt: now, lastSeenAt: now, lastCheckedAt: now,
             maxSeverity: incoming.severity, revision: 1, occurrence: 1, observationGap: false, resolvedAt: null,
             maxRiskLevel:incoming.riskLevel,lastValidRisk:lastValidRisk(incoming.risks,now),resolutionBlockedReason:null,
-            resolutionBaselineAt:Math.max(0,...incoming.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now,
+            resolutionBaselineAt:originalBaseline(incoming.risks,now),
             mutedUntil: null, viewedBy: {}, events: [],levelChanges:[]};
           eventFor(state, group, 'first-seen', now); state.groups.push(group); changed = true; continue;
         }
+        if(olderThanResolved(incoming,group,now))continue;
         const oldStatus = group.status, oldMax = group.maxSeverity,oldRiskLevel=group.riskLevel||group.lastValidRisk?.riskLevel||null;
         const oldMaxRiskLevel=group.maxRiskLevel||group.lastValidRisk?.riskLevel||0;
-        let resolutionBlockedReason=null;
+        let resolutionBlockedReason=null,verifiedDowngrade=false;
         if(oldStatus!=='resolved'&&incoming.status==='resolved'){
           const checked=resolutionCheck(incoming,group.lastValidRisk||{risks:group.risks,
             sourceAt:group.resolutionBaselineAt||Math.max(0,...group.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||group.firstSeenAt},now);
@@ -340,6 +382,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           const checked=reductionCheck(incoming,group.lastValidRisk,now);
           if(!checked.allowed){resolutionBlockedReason='不能确认风险降级：'+checked.reason;
             incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
+          else verifiedDowngrade=true;
         }
         const sameEvidence = digest({risks: group.risks, status: group.status, observationGap: group.observationGap}) ===
           digest({risks: incoming.risks, status: incoming.status, observationGap: false});
@@ -355,7 +398,9 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           digest({risks: comparable(incoming.risks), status: incoming.status, observationGap: false});
         Object.assign(group, incoming, {lastSeenAt: now, lastCheckedAt: now, observationGap: false,resolutionBlockedReason});
         const currentValid=lastValidRisk(incoming.risks,now);
-        if(currentValid&&(!group.lastValidRisk||currentValid.sourceAt>=group.lastValidRisk.sourceAt))group.lastValidRisk=currentValid;
+        const reopened=oldStatus==='resolved'&&incoming.status!=='resolved';
+        group.lastValidRisk=mergeLastValidRisk(group.lastValidRisk,incoming,currentValid,now,reopened||verifiedDowngrade);
+        if(reopened)group.resolutionBaselineAt=originalBaseline(incoming.risks,now);
         if (meaningfulChange) group.revision++;
         if (oldStatus === 'resolved' && incoming.status !== 'resolved') {
           group.occurrence++; group.maxSeverity = incoming.severity;group.maxRiskLevel=incoming.riskLevel; group.resolvedAt = null;
