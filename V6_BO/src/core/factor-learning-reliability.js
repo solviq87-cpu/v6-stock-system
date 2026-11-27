@@ -52,6 +52,11 @@ function assessFactorReliability(daily){
  for(let i=0;i+HORIZON_BLOCK_DAYS<=n;i+=HORIZON_BLOCK_DAYS)
   blockMeans.push(mean(ics.slice(i,i+HORIZON_BLOCK_DAYS)));
  const latestBlockMean=blockMeans.length?blockMeans.at(-1):null;
+ // The last complete block anchored to the oldest observation can be stale
+ // by four observations. Keep its count, but inspect a trailing full window
+ // as a separate diagnostic rather than double counting it as another block.
+ const latestRollingMean=n>=HORIZON_BLOCK_DAYS?mean(ics.slice(-HORIZON_BLOCK_DAYS)):null;
+ const incompleteTail=ics.slice(n-n%HORIZON_BLOCK_DAYS);
  const blockAgreement=blockMeans.length?
   blockMeans.filter(x=>x*direction>0).length/blockMeans.length:0;
  // A single exceptional day must not supply the whole training signal.
@@ -71,6 +76,20 @@ function assessFactorReliability(daily){
  const a=rawRegimes[REGIMES[0]],b=rawRegimes[REGIMES[1]];
  const contradictory=a.days>=MIN_REGIME_DAYS&&b.days>=MIN_REGIME_DAYS&&
   Math.abs(a.meanIC)>=.08&&Math.abs(b.meanIC)>=.08&&a.meanIC*b.meanIC<0;
+ // A regime-specific reversal can hide inside positive aggregate IC.
+ // Split the same regime's chronological observations, preserving the
+ // existing minimum of eight and 0.08 signal threshold on BOTH halves.
+ const regimeStability=Object.fromEntries(REGIMES.map(key=>{
+  const observed=rows.filter(r=>r.regime===key),half=Math.floor(observed.length/2);
+  const first=observed.slice(0,half),last=observed.slice(half);
+  const firstMean=mean(first.map(x=>x.ic)),lastMean=mean(last.map(x=>x.ic));
+  const comparable=first.length>=MIN_REGIME_DAYS&&last.length>=MIN_REGIME_DAYS;
+  const reversal=comparable&&Math.abs(firstMean)>=.08&&Math.abs(lastMean)>=.08&&firstMean*lastMean<0;
+  return [key,{earlyDays:first.length,recentDays:last.length,earlyMeanIC:round(firstMean),
+   recentMeanIC:round(lastMean),comparable,reversal,firstObservationDay:observed[0]?.day??null,
+   lastObservationDay:observed.at(-1)?.day??null}];
+ }));
+ const regimeReversals=REGIMES.filter(key=>regimeStability[key].reversal);
  const reasons=[];
  if(n<MIN_DAYS)reasons.push('insufficient-independent-days');
  if(n>=MIN_DAYS&&Math.abs(overall)<.03)reasons.push('weak-average-information');
@@ -83,10 +102,13 @@ function assessFactorReliability(daily){
  if(n>=MIN_DAYS&&(!finite(latestBlockMean)||
     latestBlockMean*direction<=0))
   reasons.push('latest-five-session-block-reversal');
+ if(n>=MIN_DAYS&&(!finite(latestRollingMean)||latestRollingMean*direction<=0))
+  reasons.push('latest-five-observation-rolling-reversal');
  if(n>=MIN_DAYS&&(!finite(outlierRemovedMean)||
     outlierRemovedMean*direction<MIN_ROBUST_IC))
   reasons.push('single-day-influence-dominates');
  if(contradictory)reasons.push('opposing-market-regime-effects');
+ if(regimeReversals.length)reasons.push('within-market-regime-sign-reversal');
  const reliable=reasons.length===0;
  // Shrink toward zero when the number of observed days, directional
  // consistency or recent performance are weak. Never increase a factor
@@ -105,8 +127,12 @@ function assessFactorReliability(daily){
   completeBlockCount:blockMeans.length,
   blockDirectionConsistencyPct:round(blockAgreement*100,2),
   latestBlockMeanIC:round(latestBlockMean),
+  latestRollingFiveMeanIC:round(latestRollingMean),
+  incompleteTailDays:incompleteTail.length,
+  incompleteTailMeanIC:round(mean(incompleteTail)),
+  observationBlocksProveIndependence:false,
   outlierRemovedMeanIC:round(outlierRemovedMean),
-  assessedRegimes:byRegime,
+  assessedRegimes:byRegime,regimeStability,regimeReversals,
   regimeCoverageDays:rows.filter(r=>REGIMES.includes(r.regime)).length,
   opposingRegimeEffects:contradictory,
   confidence:round(confidence,6),reliable,
@@ -126,16 +152,18 @@ function pairedStability(days,ids,baseline,proposed,dailyScore){
    deltas.push({date:d.day,delta:next.meanIC-old.meanIC});
   }
  }
- if(deltas.length<5)return {comparableDays:deltas.length,
+ const coverage={requestedDays:days.length,comparableDays:deltas.length,
+  missingDays:days.length-deltas.length,coverageComplete:deltas.length===days.length};
+ if(deltas.length<5)return {...coverage,
   earlyDeltaIC:null,recentDeltaIC:null,positiveDayFractionPct:null,
   halfPeriodsConsistent:false};
  const split=Math.floor(deltas.length/2);
  const first=mean(deltas.slice(0,split).map(x=>x.delta));
  const second=mean(deltas.slice(split).map(x=>x.delta));
  const plus=deltas.filter(x=>x.delta>0).length/deltas.length;
- return {comparableDays:deltas.length,earlyDeltaIC:round(first,7),
+ return {...coverage,earlyDeltaIC:round(first,7),
   recentDeltaIC:round(second,7),positiveDayFractionPct:round(plus*100,2),
-  halfPeriodsConsistent:first>=-0.001&&second>=-0.001&&mean(deltas.map(x=>x.delta))>.002};
+  halfPeriodsConsistent:coverage.coverageComplete&&first>=-0.001&&second>=-0.001&&mean(deltas.map(x=>x.delta))>.002};
 }
 /**
  * Audit an already-accepted shadow version on later, unseen matured days.
@@ -159,7 +187,9 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
   }
  }
  const base={status:'insufficient-fresh-evidence',assessedDays:pairs.length,
-  windowDays:window.length,baselineMeanIC:null,shadowMeanIC:null,
+  windowDays:window.length,missingDays:window.length-pairs.length,
+  coverageComplete:pairs.length===window.length,
+  baselineMeanIC:null,shadowMeanIC:null,
   deltaIC:null,negativeDeltaPct:null,firstHalfDeltaIC:null,
   recentHalfDeltaIC:null,alert:false,rollbackReviewSuggested:false,
   canTrade:false,productionWeightsChanged:false};
@@ -175,7 +205,9 @@ function assessShadowDecay(days,ids,baseWeights,acceptedWeights,dailyScore){
  // deteriorating together. No automatic production or shadow rollback.
  const alert=shadowMeanIC<-.02&&overall<=-.02&&
   negativeFraction>=.8&&first<=-.01&&recent<=-.01;
- return {...base,status:alert?'decay-alert-unverified':'no-decay-detected',
+ // A real deterioration alert may be raised from at least five valid pairs,
+ // but absent pairs cannot be used to declare that no decay was detected.
+ return {...base,status:alert?'decay-alert-unverified':!base.coverageComplete?'insufficient-fresh-evidence':'no-decay-detected',
   baselineMeanIC:round(baselineMeanIC,6),
   shadowMeanIC:round(shadowMeanIC,6),deltaIC:round(overall,6),
   negativeDeltaPct:round(negativeFraction*100,2),
@@ -203,7 +235,9 @@ function assessShadowRecovery(days,ids,baseWeights,acceptedWeights,dailyScore){
   }
  }
  const base={status:'cooldown-insufficient-fresh-evidence',
-  requiredDays:10,assessedDays:paired.length,firstBlock:null,secondBlock:null,
+  requiredDays:10,assessedDays:paired.length,windowDays:recent.length,
+  missingDays:recent.length-paired.length,coverageComplete:recent.length===10&&paired.length===10,
+  firstBlock:null,secondBlock:null,
   recovered:false,canTrade:false,productionWeightsChanged:false};
  if(paired.length<10)return base;
  function block(xs){

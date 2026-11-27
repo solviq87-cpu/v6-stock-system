@@ -74,7 +74,7 @@ test('revocation is checked again immediately before execution, and never resume
 });
 test('resetting the original account epoch cancels earlier pending intentions without touching its new balance',t=>{
  const x=setup(t);x.book.revision=4;x.create();
- x.book.archives=[{revision:4,account:{fingerprint:'prior-original-period'}}];x.book.revision=5;
+ x.book.archives=[{revision:4,account:{fingerprint:'prior-original-period',events:[]}}];x.book.revision=5;
  const before=JSON.stringify(x.book);x.tick();assert.equal(x.executions,0);assert.equal(x.store.read().orders[0].status,'cancelled');
  assert.match(x.store.read().orders[0].lastReason,/期次/);assert.equal(JSON.stringify(x.book),before);
  const y=setup(t);y.book.revision=8;y.create();y.book.revision=1;y.tick();assert.equal(y.executions,0);assert.equal(y.store.read().orders[0].status,'cancelled');
@@ -215,4 +215,53 @@ test('a real original fill committed milliseconds after the tick start reconcile
  const result=x.tick({execute:()=>{x.setTime(open+5);return x.args().execute();}});
  assert.equal(x.executions,1);assert.equal(result.orders[0].status,'executed');assert.equal(result.orders[0].fill.executionAt,open+5);
  assert.equal(x.tick().orders[0].status,'executed');assert.equal(x.executions,1);
+});
+
+test('conditional intent never executes into an account reset after the durable trigger',t=>{
+ const x=setup(t);x.book.revision=4;x.create();let checks=0;
+ const out=x.tick({authorized:()=>{if(++checks===2){
+  x.book.archives=[{revision:4,account:{fingerprint:'previous-period',events:[]}}];x.book.revision=5;
+ }return true;}});
+ assert.equal(x.executions,0);assert.equal(out.orders[0].status,'cancelled');assert.match(out.orders[0].lastReason,/期次/);
+ assert.equal(x.book.account.events.length,0);
+});
+test('pre-execution original revision regression and same-revision replacement are both refused',t=>{
+ for(const sameRevision of [false,true]){
+  const x=setup(t);x.book.revision=4;x.book.fingerprint='initial';x.create();
+  x.book.revision=7;x.book.fingerprint='newer';
+  let checks=0;
+  const result=x.tick({authorized:()=>{if(++checks===2){
+   x.book.revision=sameRevision?7:6;x.book.fingerprint='changed';
+  }return true;}});
+  assert.equal(x.executions,0);assert.equal(result.orders[0].status,'cancelled');
+ }
+});
+test('matching fill appearing after trigger is reconciled instead of repeating the original callback',t=>{
+ const x=setup(t);x.create();let checks=0,callback=0;
+ const result=x.tick({authorized:()=>{if(++checks===2)x.args().execute();return true;},execute:()=>{callback++;}});
+ assert.equal(callback,0);assert.equal(x.executions,1);assert.equal(result.orders[0].status,'executed');
+ assert.equal(x.book.account.events.length,1);
+});
+test('previously acknowledged original fill cannot silently disappear or change after restart',t=>{
+ for(const change of [b=>b.account.events=[],b=>b.account.events[0].eventId='different-event',
+  b=>b.account.events.push({...b.account.events[0],eventId:'duplicate-plan-fill'})]){
+  const x=setup(t);x.create();x.tick();const file=path.join(x.root,'conditional-orders.json'),before=fs.readFileSync(file);
+  change(x.book);
+  const reopened=createConditionalOrderStore({root:x.root,clock:()=>open});
+  assert.throws(()=>reopened.tick(x.args()),/原持久账本|原持久成交冲突/);
+  assert.deepEqual(fs.readFileSync(file),before);assert.equal(x.executions,1);
+ }
+});
+test('clock rollback after a persisted observation never rewrites coverage or invokes the original buy',t=>{
+ const x=setup(t);x.create();x.setTime(open+1000);x.setQuote({price:10.5});x.tick();
+ const file=path.join(x.root,'conditional-orders.json'),before=fs.readFileSync(file);
+ x.setTime(open+999);x.setQuote({});
+ assert.throws(()=>x.tick(),/条件计划时钟倒退/);
+ assert.deepEqual(fs.readFileSync(file),before);assert.equal(x.executions,0);
+ x.setTime(open+2000);assert.equal(x.tick().orders[0].status,'executed');assert.equal(x.executions,1);
+});
+test('authorization withdrawn during the original account reread is checked before execution',t=>{
+ const x=setup(t);x.create();let reads=0;
+ const result=x.tick({readBook:()=>{if(++reads===2)x.setAllowed(false);return x.readBook();}});
+ assert.equal(result.orders[0].status,'unauthorized');assert.equal(x.executions,0);
 });

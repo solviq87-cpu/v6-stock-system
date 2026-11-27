@@ -126,3 +126,17 @@ test('箱体先在历史区间验证两侧，再在当前放量突破；同根�
   const s={catalog,bars:[...history,b],market:[],plans:[],trades:[],checks:[],versions:[],corrections:[],notes:[]};
   assert.ok(autoValidate(s,{code,date:day}).matches.includes('箱体震荡战法'));
 });
+
+test('risk/reward needs a valid same-session frozen plan, not late metadata or impossible stop price',async()=>{
+ const p={code,frozenAt:day+' 09:15',entryPrice:10,stopPrice:9,targetPrice:13,exitStyle:'反弹止盈'};
+ for(const patch of [{stopPrice:0},{stopPrice:-1},{knownAt:day+' 16:00'},{receivedAt:day+' 09:14'},
+  {frozenAt:'2026-02-30 09:15'},{frozenAt:'2026-11-19 09:15'},{intendedDate:'2026-11-21'},
+  {retracted:true},{simulated:true},{targetPrice:Infinity}]){
+  const f=await analyze({b:{...base.b,frozenPlan:{...p,...patch}}});
+  assert.equal(f.has('18:3'),false,JSON.stringify(patch));
+ }
+ const f=await analyze({b:{...base.b,frozenPlan:{...p,knownAt:day+' 09:16',intendedDate:day}}});
+ assert.equal(f.get('18:3')?.pass,true);
+ const prior=await analyze({b:{...base.b,frozenPlan:{...p,frozenAt:'2026-11-19 15:30',intendedDate:day}}});
+ assert.equal(prior.get('18:3')?.pass,true);
+});

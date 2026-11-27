@@ -23,12 +23,31 @@ test('盈亏变化不改变客观纪律；事前计划覆盖五项检查',()=>{
 });
 test('截止时刻不使用尚未平仓或尚未登记的样本；隔离样本不参与预测',()=>{
   const trade={...base,id:'a',factors:['突破'],repeatable:true,snapshotVerified:true,pnl:4,createdAt:'2024-02-03T00:00:00Z'};
-  const state={trades:[trade,{...trade,blackSwan:true}]};
+  // A distinct quarantined trade does not invalidate an unrelated real settlement.
+  const state={trades:[trade,{...trade,id:'b',blackSwan:true}]};
   const input={factors:['突破'],strategy:'趋势突破'};
   assert.equal(predict(state,{...input,asOf:'2024-02-02'}).n,0);
   assert.equal(predict(state,{...input,asOf:'2024-02-03'}).n,0);
   assert.equal(predict(state,{...input,asOf:'2024-02-04'}).n,1);
   assert.equal(stats([trade]).payoff,null);
+});
+test('同一成交身份的质量冲突必须整体隔离，完全相同重试只计一次',()=>{
+  const trade={...base,id:'a',factors:['突破'],repeatable:true,snapshotVerified:true,pnl:4,createdAt:'2024-02-03T00:00:00Z'};
+  const input={factors:['突破'],strategy:'趋势突破',asOf:'2024-02-04'};
+  for(const trades of [[trade,{...trade,blackSwan:true}],[{...trade,blackSwan:true},trade]]){
+    const state={trades};
+    const before=JSON.stringify(state);
+    assert.equal(predict(state,input).n,0);
+    assert.equal(JSON.stringify(state),before);
+  }
+  assert.equal(predict({trades:[trade,{...trade}]},input).n,1);
+});
+test('无有效候选的审批拒绝不创建空档案字段',()=>{
+  for(const state of [{},{candidates:[]}]){
+    const before=JSON.stringify(state);
+    assert.throws(()=>learningAction(state,'learn:decision',{id:'absent',decision:'approve',reviewer:'复核',reason:'不存在'}),/仅允许审批/);
+    assert.equal(JSON.stringify(state),before);
+  }
 });
 function candidatesFixture(){
   const trades=[];

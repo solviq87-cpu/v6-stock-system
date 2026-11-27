@@ -1,12 +1,14 @@
 'use strict';
 const crypto=require('node:crypto');
+const {isDeepStrictEqual}=require('node:util');
+const {quoteSnapshotFields}=require('./quote-observation-view');
 const fs=require('node:fs'),path=require('node:path');
 const AUTHORITY='fayo-decision-center',SCHEMA=1;
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const validTime=value=>Number.isSafeInteger(value)&&value>0&&value<8e15;
 const list=value=>Array.isArray(value)?value:[];
 const chinaDay=at=>new Date(at+28800000).toISOString().slice(0,10);
-const quoteKeys=['price','pct','volume','amount','amountUnit','quoteUnits','turnover','mktcap','floatCap','high','low','open','preClose','quoteAt','vendorQuoteAt','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','quoteFreshness','quoteStatus','tradeDate'];
+const quoteKeys=['price','pct','volume','amount','amountUnit','quoteUnits','turnover','mktcap','floatCap','high','low','open','preClose','quoteAt','vendorQuoteAt','quoteTimestamp','receivedAt','quoteSource','quoteMode','mode','canTrade','canNotify','quoteFreshness','quoteStatus','tradeDate','sourceTradeDate'];
 const model=()=>import('./decision-model.mjs');
 
 function centerConfig(given){
@@ -15,12 +17,42 @@ function centerConfig(given){
  catch{return {schemaVersion:1,enabled:false,ruleVersion:'fayo-center-unavailable',configurationError:'独立决策配置无法读取，等待核验。',weather:{positionCaps:{green:0,yellow:0,red:0,unknown:0}}};}
 }
 
+// Source-owned current observations are not a last-row-wins map. Establish
+// the latest original clock before applying eligibility. A newer bad batch
+// cannot revive an older good quote, and contradictory same-clock rows are
+// not averaged. Exact comparable retransmissions may share a source clock.
+const quoteComparisonKeys=[...quoteKeys.filter(k=>k!=='receivedAt'),'name','source','quoteProvider','fundsSource',
+ 'sourceConflict','quoteSourceConflict','conflict','evidenceStatus','retracted','historicalClose','readOnlyBackup',
+ 'simulated','imported','fixture','mock','synthetic','tradable','suspended','halt','riskWarning','isST',
+ 'blocked','bad','riskBlocked','blacklisted','currentSourceConfirmed','canOpen','excluded','selectionEvidenceStatus'];
+function selectDecisionQuotes(quotes,now){
+ const groups=new Map();
+ for(const quote of quotes){
+  if(!quote||typeof quote.code!=='string'||!/^\d{6}$/.test(quote.code))continue;
+  const group=groups.get(quote.code)||{rows:[],invalidClock:false};
+  if(!validTime(quote.quoteAt)||quote.quoteAt>now)group.invalidClock=true;
+  group.rows.push(quote);groups.set(quote.code,group);
+ }
+ const selected=new Map();
+ for(const [code,group] of groups){
+  const visible=group.rows.filter(q=>validTime(q.quoteAt)&&q.quoteAt<=now);
+  const latest=visible.reduce((at,q)=>Math.max(at,q.quoteAt),0);
+  const same=visible.filter(q=>q.quoteAt===latest);
+  const row=same.reduce((best,q)=>!best||(validTime(q.receivedAt)?q.receivedAt:0)>(validTime(best.receivedAt)?best.receivedAt:0)?q:best,null)||group.rows[0];
+  const projection=q=>quoteComparisonKeys.map(k=>[k,q[k]]);
+  const conflicting=same.some(q=>!isDeepStrictEqual(projection(q),projection(row))||
+   !validTime(q.receivedAt)||q.receivedAt<q.quoteAt||q.receivedAt>now);
+  selected.set(code,{row,reason:group.invalidClock?'同股报价组含未来或未知原始时点':
+   conflicting?'同股同原始时点报价或用途证据冲突':null});
+ }
+ return selected;
+}
 // Strategy provenance and current quote provenance are separate records. A new
 // quote replaces the whole quote group, never just the timestamp of an old price.
-function currentCandidates(state,now,normalizeDay,pickDay){
+function currentCandidates(state,now,normalizeDay,pickDay,quoteGate){
  const input=state.decisionQuotes;
  const quotes=input instanceof Map?[...input.values()]:Array.isArray(input)?input:input&&typeof input==='object'?Object.values(input):[];
- const byCode=new Map(quotes.filter(q=>q&&/^\d{6}$/.test(q.code)).map(q=>[q.code,q]));
+ const byCode=selectDecisionQuotes(quotes,now);
  return list(state.pool).filter(Boolean).map(original=>{
   const row={...original},strategyDay=pickDay(original,normalizeDay(state.poolDay||state.snapshotFieldDays?.candidatePool),now);
   const evaluations=list(original.conditionInputs).map(e=>e?.evaluatedAt).filter(at=>validTime(at)&&at<=now&&chinaDay(at)===strategyDay);
@@ -28,9 +60,14 @@ function currentCandidates(state,now,normalizeDay,pickDay){
   row.strategyBasis={day:strategyDay,quoteAt:original.quoteAt??null,calculatedAt:evaluations.length?strategyAt:null,score:original.score??null,
    source:'V6 原策略候选',timestampKind:evaluations.length?'strategy-evaluation':'strategy-quote-anchor'};
   row.strategyAt=strategyAt;
-  const quote=byCode.get(original.code);
+  const selected=byCode.get(original.code),quote=selected?.row;
+  const originalReceipt=quoteSnapshotFields(original);
+  if(originalReceipt.sourceConflict===true)row.sourceConflict=true;
+  if(originalReceipt.canTrade===false)row.blocked=true;
   const explicitlyBlocked=original.canTrade===false||original.canNotify===false||original.tradable===false||original.suspended===true||
-   ['readOnlyBackup','imported','historicalClose','simulated','fixture','mock','synthetic'].some(key=>original[key]===true)||
+   ['readOnlyBackup','imported','historicalClose','simulated','fixture','mock','synthetic','sourceConflict','quoteSourceConflict','conflict','retracted'].some(key=>original[key]===true)||
+   originalReceipt.sourceConflict===true||originalReceipt.canTrade===false||
+   ['quoteStatus','quoteFreshness','evidenceStatus'].some(k=>['conflict','conflicting'].includes(original[k]))||
    /simulat|research|readonlybackup|cost|carried|histor|import|fixture|mock|test|synthetic/i.test(String(original.quoteSource||'')+' '+String(original.quoteMode||original.mode||''));
   if(quote&&!explicitlyBlocked&&strategyDay===chinaDay(now)&&validTime(strategyAt)&&strategyAt<=now){
    for(const key of quoteKeys)delete row[key];
@@ -39,7 +76,14 @@ function currentCandidates(state,now,normalizeDay,pickDay){
    if(typeof quote.name==='string'&&quote.name.trim())row.name=quote.name;
    if(!finite(row.pct)&&finite(quote.preClose)&&quote.preClose>0&&finite(quote.price))row.pct=(quote.price/quote.preClose-1)*100;
    row.poolDay=strategyDay;
-   if(quote.canTrade!==true)row.blocked=true;
+   // Reuse the exact source row's existing gate before reducing its fields.
+   // In particular, source aliases and secondary mode flags must not vanish
+   // when a strategy row is refreshed. Original strategy vetoes stay intact.
+   const receipt=quoteSnapshotFields(quote),originalGate=quoteGate(quote,{day:strategyDay,now,poolDay:strategyDay});
+   if(receipt.sourceConflict===true)row.sourceConflict=true;
+   if(quote.canTrade!==true||receipt.canTrade===false)row.blocked=true;
+   if(!originalGate.ok)row.decisionBlockReasons=[...list(row.decisionBlockReasons),...originalGate.reasons];
+   if(selected.reason)row.decisionBlockReasons=[...list(row.decisionBlockReasons),selected.reason];
    row.quoteBasis={code:quote.code,price:quote.price,quoteAt:quote.quoteAt,receivedAt:quote.receivedAt,source:quote.quoteSource,
     mode:quote.quoteMode||quote.mode,kind:'independent-current-original-row'};
   }else row.quoteBasis={code:row.code,price:row.price,quoteAt:row.quoteAt,receivedAt:row.receivedAt,source:row.quoteSource,
@@ -156,7 +200,7 @@ async function buildDecisionCenter(state={}, {now=Date.now(),config}={}){
  const engine=await model(),policy=centerConfig(config||state.decisionPolicy),ruleVersion=policy.ruleVersion||'fayo-center-v1';
  const account=accountEvidence(state,now);
  const {enrichDecisionEvidence}=require('./decision-evidence');
- const pool=currentCandidates(state,now,engine.decisionDay,engine.systemPickDay).map(row=>enrichDecisionEvidence(row,{
+ const pool=currentCandidates(state,now,engine.decisionDay,engine.systemPickDay,engine.decisionQuoteGate).map(row=>enrichDecisionEvidence(row,{
   financials:state.decisionFinancials?.byCode?.[row.code],financialMissing:state.decisionFinancials?.missingByCode?.[row.code],
   day:chinaDay(now),now,account:state.paper?.pool,accountEvidence:account})),prepared={...state,pool};
  if(!account)for(const row of pool)row.decisionBlockReasons=[...list(row.decisionBlockReasons),'仓位计划缺少原模拟账户快照时点'];

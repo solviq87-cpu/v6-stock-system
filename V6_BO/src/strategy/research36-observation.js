@@ -59,10 +59,10 @@ function compileObservation(observation,{tradingDates=[],config={},publicHistory
   features.priorBreakoutRetestHeld=proof(retest.length>0&&retest.some(b=>b.low<=level)&&retest.every(b=>b.close>=level),'boolean');
  }
  const context=observation.marketContext,flow=context?.funds?.stock;
- if(last&&flow?.simulated!==true&&flow?.retracted!==true&&flow?.symbol===code&&flow.source==='eastmoney'&&flow.unit==='CNY'&&flow.fundsMethod==='vendor-order-size-estimate'&&hash(flow.rawHash)&&
+ if(last&&flow?.partial!==true&&flow?.simulated!==true&&flow?.retracted!==true&&flow?.symbol===code&&flow.source==='eastmoney'&&flow.unit==='CNY'&&flow.fundsMethod==='vendor-order-size-estimate'&&hash(flow.rawHash)&&
    clock(flow.retrievedAt)&&flow.retrievedAt<=asOf&&flow.retrievedAt>=last.observedAt+600000&&Array.isArray(flow.records)&&flow.records.length<=120){
   const dates=range(tradingDates,last.date,5),rows=flow.records.filter(r=>day(r?.tradeDate)&&dates.includes(r.tradeDate));
-  if(dates.length===5&&rows.length===5&&new Set(rows.map(r=>r.tradeDate)).size===5&&rows.every(r=>finite(r.mainNetInflow))){
+  if(dates.length===5&&rows.length===5&&new Set(rows.map(r=>r.tradeDate)).size===5&&rows.every(r=>finite(r.mainNetInflow)&&r.dailyResearchEligible!==false&&r.partial!==true&&r.closed!==false&&r.isClosed!==false&&r.simulated!==true&&r.retracted!==true)){
    rows.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));let positive=0;
    for(let i=4;i>=0&&rows[i].mainNetInflow>0;i--)positive++;
    const total=rows.reduce((n,r)=>n+r.mainNetInflow,0),p=(value,unit)=>proof(value,unit,'eastmoney-order-size-estimate',flow.rawHash,last.observedAt,flow.retrievedAt);

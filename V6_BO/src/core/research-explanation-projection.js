@@ -2,6 +2,7 @@
 // Only dated historical research inputs can supply a dated explanation.
 // Reuse existing strategy/linkage engines; never grant a live/official trading status.
 const {scanUniverseWithRationale}=require('../strategy/scan-with-rationale');
+const {candidateReviewPriority,compareResearchPriority}=require('../strategy/candidate-rationale');
 const {catalog:openSourceCatalog,evaluateOpenSourceRules}=require('../strategy/open-source-research-signals');
 const {catalog:linkedResearchCatalog,evaluateLinkedResearch}=require('../strategy/linked-factor-research');
 const {catalog:qualityResearchCatalog,evaluateQualityMomentumResearch}=require('../strategy/quality-volume-reversal-research');
@@ -63,7 +64,9 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
     linked.strategies.some(x=>x.status==='risk_blocked')||
     quality.strategies.some(x=>x.status==='risk_blocked');
   const watchEligible=!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
-    item.quality?.fresh===true&&item.quality?.simulated!==true&&rules.length>0;
+    item.quality?.fresh===true&&item.quality?.simulated===false&&rules.length>0&&
+    stocksByCode.has(item.symbol)&&item.rationale.reviewPriority?.sourceStatus!=='ambiguous'&&
+    item.strategy?.riskFilter?.pass!==false;
   const relative=linked.contextEvidence?.metrics;
   const relativeNote=relative&&relative.stockExcessOverSectorPct>=2&&
     relative.sectorExcessOverMarketPct>=2&&item.rationale.whyUp?.observedRise===true?
@@ -89,6 +92,8 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
     watchEligible,officialCandidate:false,status:'historical-research-only',historicalOnly:true,
     researchDeprioritized:preference.researchDeprioritized,
     preferenceReason:preference.researchDeprioritized?preference.reason:null}};
+  rationale.reviewPriority=candidateReviewPriority(item,rationale,{
+   sourceStatus:stocksByCode.has(item.symbol)?'unique':'ambiguous',studyBlocked});
   return {
    symbol:item.symbol,name:item.name,score:item.score,
    historicalModelPassed:item.tradable===true,
@@ -105,16 +110,12 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
    sectorCohortStudy:cohort,
    ...(dailySector?{dailySectorStudy:dailySector}:{}),
    researchWatchlist:candidates.filter(x=>x.rationale.selection.watchEligible)
-    .sort((a,b)=>Number(a.rationale.selection.researchDeprioritized)-
-      Number(b.rationale.selection.researchDeprioritized)||
-      b.rationale.selection.independentFamilyCount-a.rationale.selection.independentFamilyCount||
-      b.rationale.selection.ruleCount-a.rationale.selection.ruleCount||
-      (b.score??-1)-(a.score??-1)||a.symbol.localeCompare(b.symbol))
+    .sort(compareResearchPriority)
     .map(x=>({symbol:x.symbol,name:x.name,officialCandidate:false,historicalOnly:true,
       matchedRuleCount:x.rationale.selection.ruleCount,
       independentFamilyCount:x.rationale.selection.independentFamilyCount,
       matchedRules:x.rationale.selection.rules.map(r=>({id:r.id,name:r.name})),
-      riskCount:x.rationale.risks.length,asOf:date,dataStatus:x.dataStatus,
+      riskCount:x.rationale.risks.length,reviewPriority:x.rationale.reviewPriority,asOf:date,dataStatus:x.dataStatus,
       researchDeprioritized:x.rationale.selection.researchDeprioritized,
       note:x.rationale.selection.researchDeprioritized?
        '用户弱市板块偏好：观察顺序降低；保留全部规则及历史信号，不构成交易指令':

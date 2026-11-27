@@ -28,9 +28,22 @@ export function updateReadout(parent,...children){
    if(old===next)continue;
    if(old.nodeName!==next.nodeName||key(old)!==id){host.insertBefore(next,old);if(!key(old)||!nodes.some(n=>key(n)===key(old)))old.remove();continue;}
    if(old.nodeType===3){if(old.data!==next.data)old.data=next.data;continue;}
-   if(old.nodeType!==1||old.matches('input,textarea,select'))continue;
-   const managed=eventBindings.get(next);
+   if(old.nodeType!==1)continue;
+   const managed=eventBindings.get(next),previous=eventBindings.get(old);
+   // Keep one listener per event name. Disable only handlers owned by h()
+   // when the next readout no longer exposes them, without removing unrelated
+   // listeners or adding duplicate wrappers if the action later returns.
+   if(previous)for(const name of previous.keys())if(!managed?.has(name))previous.set(name,null);
    if(managed)for(const [name,fn] of managed)bindEvent(old,name,fn);
+   if(old.matches('input,textarea,select')){
+    // The user's draft/selection stays local. Availability and accessibility
+    // attributes, however, belong to the newest view, not a previous render.
+    for(const name of ['disabled','readonly','required','hidden','aria-disabled','aria-invalid','aria-label','aria-describedby','title']){
+     if(next.hasAttribute(name)){if(old.getAttribute(name)!==next.getAttribute(name))old.setAttribute(name,next.getAttribute(name));}
+     else if(old.hasAttribute(name))old.removeAttribute(name);
+    }
+    continue;
+   }
    for(const attr of [...old.attributes])if(attr.name!=='open'&&!next.hasAttribute(attr.name))old.removeAttribute(attr.name);
    for(const {name,value} of next.attributes)if(name!=='open'&&old.getAttribute(name)!==value)old.setAttribute(name,value);
    sync(old,[...next.childNodes]);

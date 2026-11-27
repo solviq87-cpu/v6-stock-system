@@ -7,6 +7,7 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {createPaperApplicationService} = require('../core/paper-application-service');
 const {executionTimeOf} = require('../core/paper-fill-evidence');
+const {quoteSourceAllowsUse,quoteObservationView} = require('../core/quote-observation-view');
 const {validatePlan,planIdOf} = require('../core/paper-decision-plan');
 
 const CN = 8 * 3600000;
@@ -80,16 +81,41 @@ function linkDecisionPlan(sample, state, events, now) {
   if(matches.length!==1)return sample;
   const plan=matches[0],at=Math.min(...legs.map(leg=>leg.time)),basis=plan.decisionEvidence;
   try{validatePlan(plan,now);}catch{return sample;}
-  const frozen=Date.parse(plan.frozenAt);
-  if(plan.code!==sample.code||frozen>at||entries.some(event=>event.tradeDate!==plan.intendedDate)||
-    !Number.isSafeInteger(basis?.calculatedAt)||basis.calculatedAt>frozen||
-    !Number.isSafeInteger(basis?.strategyAt)||basis.strategyAt<=0||basis.strategyAt>frozen||
-    !Number.isSafeInteger(basis?.quoteBasis?.quoteAt)||basis.quoteBasis.quoteAt<=0||basis.quoteBasis.quoteAt>frozen||
-    typeof basis?.quoteBasis?.source!=='string'||!basis.quoteBasis.source)return sample;
-  const frozenCheck=(state.checks||[]).find(check=>check.id===plan.checkId&&check.code===plan.code&&
-    Number.isFinite(Date.parse(check.createdAt))&&Date.parse(check.createdAt)<=frozen);
+  const frozen=Date.parse(plan.frozenAt),q=basis?.quoteBasis;
+  const stamp=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
+  // A valid settlement proves cash and shares, not a causal research plan.
+  // Preserve that settlement if the original decision clocks do not agree.
+  if(plan.code!==sample.code||frozen>at||wall(frozen).slice(0,10)!==plan.intendedDate||
+    entries.some(event=>event.tradeDate!==plan.intendedDate)||
+    !stamp(basis?.calculatedAt)||basis.calculatedAt>frozen||
+    !stamp(basis?.strategyAt)||basis.strategyAt>basis.calculatedAt||
+    !stamp(q?.quoteAt)||q.quoteAt>basis.calculatedAt||basis.calculatedAt-q.quoteAt>15000||
+    wall(q.quoteAt).slice(0,10)!==plan.intendedDate||
+    typeof q.source!=='string'||!q.source.trim()||
+     /mock|synthetic|fixture|demo/i.test(q.source)||/demo/i.test(q.mode||'')||
+     !quoteSourceAllowsUse({...q,quoteSource:q.source})||
+     // Replay the frozen observation at its original decision clock, not the
+     // import clock. A legacy omitted receipt/price remains an unknown field,
+     // but an explicit identity, clock or provider contradiction is not proof.
+     quoteObservationView({...q,quoteSource:q.source},basis.calculatedAt).missingReason==='conflicting-quote-evidence'||
+     [q.quoteStatus,q.quoteFreshness,q.freshness].some(status=>['stale','future','unknown','conflict'].includes(status))||
+     q.symbol!=null&&q.symbol!==plan.code||q.quoteSource!=null&&q.quoteSource!==q.source||
+     q.provider!=null&&q.provider!==q.source||q.timestamp!=null&&q.timestamp!==q.quoteAt||
+     entries.some(event=>event.fillEvidence!=null&&(event.fillEvidence.executionKind!=='automatic-paper'||
+       event.fillEvidence.mode!=='public-live-unverified'))||
+    q.code!==undefined&&q.code!==plan.code||
+    q.price!==undefined&&(!Number.isFinite(q.price)||q.price<=0)||
+    q.receivedAt!==undefined&&(!stamp(q.receivedAt)||q.receivedAt<q.quoteAt||q.receivedAt>basis.calculatedAt)||
+    basis.strategyBasis?.day!==undefined&&basis.strategyBasis.day!==plan.intendedDate)return sample;
+  // Do not choose one of several conflicting check records or borrow its
+  // factors. A valid frozen plan may still be linked without that optional check.
+  const checks=plan.checkId?(state.checks||[]).filter(check=>check.id===plan.checkId):[];
+  const check=checks.length===1?checks[0]:null,checkAt=Date.parse(check?.createdAt);
+  const frozenCheck=check&&check.code===plan.code&&stamp(checkAt)&&checkAt<=frozen&&
+    (check.sampleSet===undefined||check.sampleSet===plan.sampleSet)?check:null;
   const strings=value=>[...new Set((Array.isArray(value)?value:[]).filter(item=>typeof item==='string'&&item&&item.length<=100))].slice(0,64);
   const codes=strings(frozenCheck?.factorCodes).filter(code=>/^[A-Z]{2,6}-\d{2,4}$/.test(code));
+  const factors=strings([...strings(plan.factors),...codes]);
   const within=legs.every(leg=>leg.price>=plan.entryMin&&leg.price<=plan.entryMax);
   const facts=[
     {rule:'计划外交易',status:'符合',evidence:'原账本买入事件关联事前冻结计划 '+plan.id},
@@ -102,12 +128,12 @@ function linkDecisionPlan(sample, state, events, now) {
   return {...sample,sampleSet:'real',planId:plan.id,planStatus:'已冻结',planVerified:true,
     planLinkedAt:new Date(now).toISOString(),entryTimestamp:at,exitTimestamp:sample.paperSettlement.exitTimestamp,
     strategy:plan.strategy,strategies:[plan.strategy],trend:plan.trend||'未判定',
-    factors:strings([...(plan.factors||[]),...codes]),knownRiskFactors:strings(plan.knownRiskFactors),
+    factors,knownRiskFactors:strings(plan.knownRiskFactors),
     checkId:frozenCheck?.id||null,customTags:strings(plan.customTags),
     frozenLabels:structuredClone(plan.labels||{}),labels:{...sample.labels,...structuredClone(plan.labels||{})},
     snapshotVerified:true,reviewable:true,disciplineFacts:facts,violations:facts.filter(f=>f.status==='触发').map(f=>f.rule),
     decisionLink:{planId:plan.id,decisionId:plan.decisionId,planFingerprint:digest(plan),
-      entryEventIds:entries.map(event=>event.eventId),knownAt:now,factorsMissing:!strings([...(plan.factors||[]),...codes]).length}};
+      entryEventIds:entries.map(event=>event.eventId),knownAt:now,factorsMissing:!factors.length}};
 }
 
 // Rebuild FIFO exactly at the ledger's cent precision. Unknown opening lots,
@@ -183,9 +209,19 @@ function accountSamples(book,key,now,report,state){
     }
     const events=new Map(ledger.events.map(event=>[event.eventId,event]));
     for(const [symbol,rows] of groups)result.push(...projectSymbol(period,key,symbol,rows,actions.get(symbol)||[],now,report,names)
-      .map(sample=>linkDecisionPlan(sample,state,events,now)));
+      .map(settlement=>({settlement,sample:linkDecisionPlan(settlement,state,events,now)})));
   }
   return result;
+}
+
+// Compare only the causal link and frozen learning inputs, not the collection clock.
+function samePlanProjection(a,b){
+  if(!a||!b||a.planVerified!==true||b.planVerified!==true||!a.decisionLink?.planFingerprint||!b.decisionLink?.planFingerprint)return false;
+  const basis=row=>({planId:row.planId,decisionId:row.decisionLink?.decisionId,planFingerprint:row.decisionLink?.planFingerprint,
+    entryEventIds:row.decisionLink?.entryEventIds,checkId:row.checkId??null,factors:row.factors,
+    knownRiskFactors:row.knownRiskFactors,customTags:row.customTags,frozenLabels:row.frozenLabels,
+    strategy:row.strategy,trend:row.trend});
+  return digest(basis(a))===digest(basis(b));
 }
 
 function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNTS_DIR||path.resolve(__dirname,'../../data/order-accounts'),now=Date.now()}={}){
@@ -203,15 +239,32 @@ function importSettledPaperTrades(state,{accountDir=process.env.V6_ORDER_ACCOUNT
       if(e.code==='ENOENT'){report.missing++;continue;}
       report.issues.push(key+' 模拟账本未通过完整性核对');continue;
     }
-    for(const sample of samples){
+    for(const {settlement,sample} of samples){
       if(state.ledgerStartAt&&sample.paperSettlement.entryFills.some(f=>f.time<=state.ledgerStartAt))continue;
       const old=records.get(sample.id);
       if(old){
         if(old.source===source&&old.sourceFingerprint===sample.sourceFingerprint){
-          if(!old.planVerified&&sample.planVerified){
-            // Repair only this derived projection; retain its first collection
-            // time and use today's knowledge time for the newly linked evidence.
-            const next={...sample,firstCollectedAt:old.firstCollectedAt||old.createdAt};
+          const review=old.planEvidenceReview,active=old.planVerified===true||old.snapshotVerified===true;
+          const firstCollectedAt=old.firstCollectedAt||old.createdAt;
+          let next=null;
+          if(active&&!samePlanProjection(old,sample)){
+            // Revalidate old learning links too. Keep the original settlement and
+            // the first verified projection for audit, but no stale factors in the
+            // current sample. A changed plan with the same ID is not new evidence.
+            const {planEvidenceReview:previousReview,...previousProjection}=old;
+            next={...settlement,firstCollectedAt,planEvidenceReview:{
+              status:'quarantined',firstQuarantinedAt:review?.firstQuarantinedAt||settlement.createdAt,
+              lastQuarantinedAt:settlement.createdAt,priorProjection:review?.priorProjection||previousProjection,
+              reason:sample.planVerified?'frozen-link-changed':'frozen-link-not-verifiable'}};
+          }else if(!active&&sample.planVerified&&(!review||samePlanProjection(review.priorProjection,sample))){
+            // A first link can be added; after quarantine only the exact original
+            // attribution may be restored, not a replacement frozen plan.
+            next={...sample,firstCollectedAt,...(review?{planEvidenceReview:{...review,status:'revalidated',revalidatedAt:sample.createdAt}}:{})};
+          }
+          if(next){
+            if(!Number.isFinite(Date.parse(old.createdAt))||Date.parse(old.createdAt)>now){
+              report.skipped++;report.issues.push(key+' 学习关联复核时间无效或回退');continue;
+            }
             state.trades[state.trades.indexOf(old)]=next;records.set(next.id,next);
             report.updated++;days.add(next.exitDate);
           }else report.existing++;

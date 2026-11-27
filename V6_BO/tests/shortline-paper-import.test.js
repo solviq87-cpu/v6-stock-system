@@ -186,3 +186,97 @@ test('同股多计划合并卖出不套用单一计划，已导入衍生记录�
  assert.equal(linked.firstCollectedAt,initial.createdAt);assert.ok(linked.createdAt>initial.createdAt);assert.equal(linked.planId,p.id);
  assert.equal(y.run().existing,1);assert.deepEqual(fs.readFileSync(y.file),ledger);
 });
+
+test('native plan adapter, persistent account, T+1 settlement and repeated learning review share the original evidence',t=>{
+ const x=setup(t),at=Date.parse('2026-11-04T10:00:15+08:00'),plan=automaticPlan(x,{at}),day=aShareCalendarDate(at),code='600000';
+ const {executeDecisionPlan}=require('../src/core/paper-decision-plan');
+ x.service.adoptLegacy({initial:100000,cash:100000,enabled:true,positions:{},trades:[],realized:0});
+ x.setTime(at);x.state.plans.push(plan);
+ const quote={symbol:code,price:10,quoteAt:at-1000,timestamp:at-1000,receivedAt:at-500,quoteSource:'tencent',provider:'tencent',
+  mode:'public-live-unverified',tradeDate:day,volume:1000000,volumeUnit:'shares',upperLimit:20,lowerLimit:5,suspended:false,tradable:true,canTrade:true};
+ let calls=0;
+ const input={input:{action:'executePlan',account:'pool',planId:plan.id},plan,now:at,day,replica:false,continuous:true,
+  candidate:{code},eligiblePick:()=>true,systemPickDay:()=>day,poolDay:day,newsBlocked:false,account:x.service.legacy(),
+  policy:{maxPos:5},equity:100000,quote,authoritative:plan.decisionEvidence,readBook:()=>x.service.read(),
+  buy(row,reason){calls++;assert.equal(row.code,code);assert.equal(reason,'作战台计划['+plan.id+'] '+code+' · 原账户风控');nativeBuy(x,plan,at);}};
+ const opened=fs.readFileSync(x.file);
+ assert.throws(()=>executeDecisionPlan({...input,quote:{...quote,symbol:'600001'}}),/只读、来源冲突或时点不一致/);
+ assert.equal(calls,0);assert.deepEqual(fs.readFileSync(x.file),opened);
+ const executed=executeDecisionPlan(input);assert.equal(executed.status,'executed');assert.equal(calls,1);
+ const bought=fs.readFileSync(x.file),retry=executeDecisionPlan(input);assert.equal(retry.status,'already-executed');
+ assert.equal(retry.eventId,executed.eventId);assert.equal(calls,1);assert.deepEqual(fs.readFileSync(x.file),bought);
+ x.fill('integrated-exit','sell',11,100,'2026-11-05T11:00:00');
+ const settled=fs.readFileSync(x.file),book=x.service.read();
+ assert.equal(x.run().imported,1);const original=structuredClone(x.state.trades[0]);
+ assert.equal(original.planId,plan.id);assert.equal(original.snapshotVerified,true);
+ assert.equal(original.decisionLink.entryEventIds[0],executed.eventId);
+ assert.equal(original.pnlAmount,book.account.events.at(-1).realizedPnl);
+ // Model a previously accepted but no longer eligible saved research projection.
+ // The original durable account bytes are never rewritten by this importer.
+ plan.decisionEvidence.quoteBasis.mode='historical-replay';
+ assert.equal(x.run().updated,1);const row=x.state.trades[0];assert.equal(row.snapshotVerified,false);
+ assert.equal(row.planId,null);assert.deepEqual(row.factors,[]);assert.equal(row.pnlAmount,original.pnlAmount);
+ assert.deepEqual(row.planEvidenceReview.priorProjection,original);assert.equal(x.run().existing,1);
+ assert.deepEqual(fs.readFileSync(x.file),settled);
+});
+
+
+test('integrated learning consumes the verified settlement, excludes quarantine and never backdates restored evidence',async t=>{
+ const x=setup(t),plan=automaticPlan(x);
+ x.state.plans.push(plan);roundTrip(x,plan);
+ const {readLearningRows,predict}=await import('../public/nova/shortline/learning.mjs');
+ const first='2026-11-13T15:00:00+08:00',review='2026-11-14T15:00:00+08:00',restored='2026-11-15T15:00:00+08:00';
+ const when=s=>Date.parse(s),ledger=fs.readFileSync(x.file);
+ const training=s=>readLearningRows(x.state,when(s)).filter(r=>r.learningOutcomeBasis==='recorded-settlement');
+ const experience=s=>predict(x.state,{asOf:when(s)}).experience.cohorts.find(c=>c.basis==='recorded-settlement');
+ assert.equal(x.run(first).imported,1);
+ const original=structuredClone(x.state.trades[0]);
+ assert.equal(training(first).length,1);
+ assert.equal(experience(first).n,1);
+ assert.ok(training(first)[0].factors.includes('YZ-08'));
+ plan.decisionEvidence.quoteBasis.mode='historical-replay';
+ assert.equal(x.run(review).updated,1);
+ assert.equal(training(review).length,0);assert.equal(experience(review).n,0);
+ assert.equal(x.state.trades[0].pnlAmount,original.pnlAmount);
+ assert.equal(x.state.trades[0].sourceFingerprint,original.sourceFingerprint);
+ assert.deepEqual(x.state.trades[0].planEvidenceReview.priorProjection,original);
+ assert.equal(x.run(review).existing,1);
+ delete plan.decisionEvidence.quoteBasis.mode;
+ assert.equal(x.run(restored).updated,1);
+ assert.equal(training(review).length,0);
+ assert.equal(training(restored).length,1);
+ assert.equal(experience(restored).n,1);
+ assert.equal(training(restored)[0].labelKnownAt,'2026-11-15T15:00');
+ assert.equal(x.state.trades[0].firstCollectedAt,original.createdAt);
+ assert.equal(x.state.trades[0].sourceFingerprint,original.sourceFingerprint);
+ assert.equal(x.run(restored).existing,1);
+ assert.deepEqual(fs.readFileSync(x.file),ledger);
+});
+
+
+test('original decision quote 15-second boundary survives native settlement and rejects stale learning in both research consumers',async t=>{
+ const {readLearningRows,predict}=await import('../public/nova/shortline/learning.mjs');
+ const research=require('../src/core/intelligence-research');
+ const {dictionaryVersion}=await import('../public/nova/shortline/factor-dictionary.mjs');
+ const day='2026-11-13',clock=Date.parse(day+'T15:00:00+08:00');
+ for(const age of [15000,15001,3600000]){
+  const x=setup(t),plan=automaticPlan(x);
+  // Freeze a historical quote at its own original decision clock. Keep
+  // the actual buy execution receipt and source settlement separate.
+  plan.decisionEvidence.quoteBasis.quoteAt=plan.decisionEvidence.calculatedAt-age;
+  x.state.plans.push(plan);roundTrip(x,plan);
+  const ledger=fs.readFileSync(x.file);
+  assert.equal(x.run(day+'T15:00:00+08:00').imported,1);
+  const row=x.state.trades[0],eligible=age===15000;
+  assert.equal(row.snapshotVerified,eligible);
+  assert.equal(row.planId,eligible?plan.id:null);
+  assert.equal(row.pnlAmount,x.service.read().account.events.at(-1).realizedPnl);
+  assert.equal(readLearningRows(x.state,clock).filter(r=>r.learningOutcomeBasis==='recorded-settlement').length,eligible?1:0);
+  assert.equal(predict(x.state,{asOf:clock}).experience.cohorts.find(c=>c.basis==='recorded-settlement').n,eligible?1:0);
+  const report=research.buildIntelligenceResearch({archive:{...x.state,dictionaryVersion},day,now:clock});
+  assert.equal(report.feedback.matureTrades,eligible?1:0);
+  assert.equal(report.canTrade,false);
+  assert.equal(x.run(day+'T15:00:00+08:00').existing,1);
+  assert.deepEqual(fs.readFileSync(x.file),ledger);
+ }
+});

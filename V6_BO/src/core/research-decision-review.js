@@ -58,12 +58,14 @@ function summarizeRuleDisagreement(systems) {
   const rows=[];
   function add(id,label,s,coverageOnly=false){
     const rules=arr(s?.rules||s?.dimensions), available=s?.available!==false && rules.length>0;
+    const state=r=>available&&['pass','fail'].includes(r?.status)?r.status:'unknown';
+    const labelOf=r=>text(r?.label||r?.id,100);
     const counts={pass:0,fail:0,unknown:0};
-    for(const r of rules)counts[['pass','fail'].includes(r.status)?r.status:'unknown']++;
+    for(const r of rules)counts[state(r)]++;
     rows.push({id,label,available,coverageOnly,counts,
-      support:coverageOnly?[]:rules.filter(r=>r.status==='pass').map(r=>text(r.label||r.id,100)),
-      opposition:coverageOnly?[]:rules.filter(r=>r.status==='fail').map(r=>text(r.label||r.id,100)),
-      missing:rules.filter(r=>!['pass','fail'].includes(r.status)).map(r=>text(r.label||r.id,100)),
+      support:coverageOnly?[]:rules.filter(r=>state(r)==='pass').map(labelOf),
+      opposition:coverageOnly?[]:rules.filter(r=>state(r)==='fail').map(labelOf),
+      missing:rules.filter(r=>state(r)==='unknown').map(labelOf),
       reason:!available?text(s?.reason)||'未提供可核对条件':coverageOnly?'八字维度的pass表示有评分证据，不自动解释为看多':'条件命中与未命中分别保留'});
   }
   add('fourteen','十四条',systems?.fourteen);add('bazi','八字口诀',systems?.bazi,true);

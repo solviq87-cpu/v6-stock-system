@@ -221,6 +221,7 @@ function buildRiskActionEvidence({book = null, plans = [], observations = [], qu
       for (const record of observations) if (record?.planId === plan.id && record.entryEventId === item.entryEventId) {
         try {
           observer.validateObservation(record, {now, plan});
+          observer.assertObservationLedger(record, context);
           if (record.day !== day || seenObservations.has(record.fingerprint)) continue;
           seenObservations.add(record.fingerprint);
           item.observationCoverage.status = 'sampled-points'; item.observationCoverage.count++;
@@ -237,6 +238,7 @@ function buildRiskActionEvidence({book = null, plans = [], observations = [], qu
         if (quote?.sourceConflict === true || quote?.conflict === true) throw Error('当前报价来源冲突，暂停依赖该报价的新判断');
         const evidence = observer.quoteEvidence(quote, plan.code, day, now);
         if (quote.quoteAt < Date.parse(plan.frozenAt)) throw Error('当前报价早于冻结计划');
+        observer.assertPostEntryQuote(context, quote.quoteAt);
         quoteReady = true;
         item.constraints.price = {current: quote.price, stop: plan.stop, target: plan.target,
           upperLimit: quote.upperLimit, lowerLimit: quote.lowerLimit, source: evidence.source, quoteAt: evidence.quoteAt};

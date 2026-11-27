@@ -38,13 +38,13 @@ test('HTTP preparation binds the current server decision, and confirmed retries 
     if(!S.paperPlanHttpSeeded){
       S.paperPlanHttpSeeded=true;
       const day='2026-11-16',at=Date.now();
-      const row={code:'600000',name:'隔离链路验证',price:10.4,pct:4,preClose:10,open:10.3,high:10.6,low:10.2,
+      const row={code:'600000',name:'隔离链路验证',price:10.4,pct:4,preClose:10,open:10.3,high:10.4,low:10.2,
         volume:1000000,amount:10400000,score:88,paths:['横盘放量'],pathWhy:{横盘放量:'原策略已有量价条件'},
         poolDay:day,sector:'芯片',quoteSource:'tencent',quoteMode:'public-live-unverified',canTrade:true,canNotify:true,
         quoteAt:at-1000,receivedAt:at-500};
       S.stocks=[row];S.stocksAt=at-500;S.candidatePool=[row];ingestPx([row]);
       const rows=Array.from({length:30},(_,i)=>({date:new Date(Date.parse(day)-(29-i)*86400000).toISOString().slice(0,10),
-        open:10.2,high:11,low:10,close:10.2,volume:100000,amount:1020000}));
+        open:10.2,high:i===29?row.high:11.6,low:10,close:10.2,volume:100000,amount:1020000}));
       klineSet(row.code,{rows,src:'tencent',adjust:'qfq',receivedAt:at-2000});
     }
   `).replace(projection,`({...sharedMarketRead('state',includePrivate),
@@ -56,6 +56,7 @@ test('HTTP preparation binds the current server decision, and confirmed retries 
   const decision=await f.request('/api/decision-center');assert.equal(decision.body.ok,true);
   assert.equal(decision.body.cards.length,1,JSON.stringify(decision.body.reasons));
   const card=decision.body.cards[0],file=path.join(f.tmp,'data/order-accounts/pool.json'),before=fs.readFileSync(file);
+  assert.equal(card.plan.riskReward.status,'meets-gross-discipline');assert.ok(card.plan.riskReward.ratio>=2);
   const body={action:'preparePlan',account:'pool',code:card.code,day:card.day,decisionId:card.decisionId};
   const prepared=await f.request('/api/paper','POST',body);assert.equal(prepared.body.ok,true,JSON.stringify(prepared.body));
   const plan=prepared.body.plan;assert.equal(plan.entryMin,card.plan.buyLow);assert.equal(plan.entryMax,card.plan.buyHigh);

@@ -9,10 +9,63 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const stamp=x=>Number.isSafeInteger(x)?x:typeof x==='string'&&/T.*(?:Z|[+-]\d\d:\d\d)$/.test(x)?Date.parse(x):NaN;
 const flags={canTrade:false,canNotify:false,verifiedLive:false,productionWeightsChanged:false,autoPromotion:false};
 
+const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const flowClock=x=>Number.isSafeInteger(x)&&x>0&&x<8e15;
+const flowDay=x=>new Date(x+8*3600000).toISOString().slice(0,10);
+const dateOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
+function flowTime(value){
+ if(flowClock(value))return value;
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)||!dateOK(value.slice(0,10)))return null;
+ const x=Date.parse(value);return flowClock(x)?x:null;
+}
+function flowMetadataOK(row){
+ if(!record(row)||['simulated','synthetic','mock','retracted','fundsConflict','fundsSourceConflict'].some(k=>row[k]===true)||
+    ['unknown','unavailable','not-requested','retracted','simulated','conflict','partial-evidence'].includes(row.status))return false;
+ if(['source','provider','upstream','fundsSource'].some(k=>row[k]!=null&&row[k]!=='eastmoney')||
+    ['unit','fundsUnit','amountUnit','currency'].some(k=>row[k]!=null&&row[k]!=='CNY')||
+    row.fundsMethod!=null&&row.fundsMethod!=='vendor-order-size-estimate')return false;
+ const aliases=['mainNetInflow','mainInflow','mainInflowYuan','netInflowYuan'].filter(k=>row[k]!=null).map(k=>row[k]);
+ return aliases.length<2||aliases.every(x=>finite(x)&&x===aliases[0]);
+}
+const fundTimes=['sourceTimestamp','firstObservedAt','retrievedAt','observedAt','knownAt','receivedAt','availableAt','recordedAt','fundsRetrievedAt','fundsSourceTimestamp'];
+function flowClocksOK(row,upper,tradeDate=null){
+ if(!flowClock(upper))return false;
+ const times={};
+ for(const k of fundTimes){
+  if(row[k]==null)continue;
+  const t=flowTime(row[k]);if(t===null||t>upper||tradeDate&&flowDay(t)<tradeDate)return false;
+  times[k]=t;
+ }
+ for(const [a,b] of [['sourceTimestamp','retrievedAt'],['sourceTimestamp','receivedAt'],['sourceTimestamp','knownAt'],
+  ['sourceTimestamp','availableAt'],['observedAt','knownAt'],['observedAt','availableAt'],
+  ['availableAt','recordedAt'],['firstObservedAt','retrievedAt'],['fundsSourceTimestamp','fundsRetrievedAt']]){
+  if(times[a]!==undefined&&times[b]!==undefined&&times[a]>times[b])return false;
+ }
+ return !(times.fundsRetrievedAt!==undefined&&times.retrievedAt!==undefined&&times.fundsRetrievedAt!==times.retrievedAt||
+    times.fundsSourceTimestamp!==undefined&&times.sourceTimestamp!==undefined&&times.fundsSourceTimestamp!==times.sourceTimestamp);
+}
+function flowIdentityOK(row,kind,parent){
+ if(kind==='stock')return typeof parent.symbol==='string'&&/^\d{6}$/.test(parent.symbol)&&
+   ['symbol','code'].every(k=>row[k]==null||row[k]===parent.symbol);
+ if(kind==='sector')return typeof parent.sectorCode==='string'&&/^BK\d{4}$/.test(parent.sectorCode)&&
+   ['sectorCode','code'].every(k=>row[k]==null||row[k]===parent.sectorCode);
+ return true;
+}
+function closedFlowResearch(row,flow,received){
+ const cutoff=Date.parse(row.tradeDate+'T15:10:00+08:00');
+ // A batch receipt must not turn an unfinished or older original observation
+ // into a completed daily estimate. The cutoff is local, not provider certification.
+ if(!flowClock(flowTime(flow.retrievedAt))||received<cutoff||flow.partial===true||row.partial===true||
+    flow.closed===false||flow.isClosed===false||row.closed===false||row.isClosed===false||
+    flow.dailyResearchEligible===false||row.dailyResearchEligible===false)return false;
+ return [flow.sourceTimestamp,flow.fundsSourceTimestamp,flow.firstObservedAt,flow.observedAt,
+  row.sourceTimestamp,row.fundsSourceTimestamp,row.observedAt,row.retrievedAt,row.receivedAt,row.firstObservedAt]
+  .every(t=>t==null||flowTime(t)>=cutoff);
+}
 function publicContextView(context,asOf){
  const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
  const available=e=>['sourceTimestamp','firstObservedAt','retrievedAt','observedAt','knownAt'].every(k=>e?.[k]==null||Number.isFinite(stamp(e[k]))&&stamp(e[k])>0&&stamp(e[k])<=asOf);
- const retrievedAt=stamp(context?.retrievedAt),usable=Number.isFinite(retrievedAt)&&retrievedAt>0&&retrievedAt<=asOf&&available(context)&&context.source==='eastmoney'&&day(context.tradeDate)&&context.tradeDate<=new Date(asOf+8*3600000).toISOString().slice(0,10);
+ const retrievedAt=flowTime(context?.retrievedAt),usable=flowClock(asOf)&&flowClock(retrievedAt)&&retrievedAt<=asOf&&available(context)&&context.source==='eastmoney'&&day(context.tradeDate)&&context.tradeDate<=new Date(asOf+8*3600000).toISOString().slice(0,10);
  const out={status:usable?'observed-unverified':'unknown',tradeDate:usable?context.tradeDate:null,
   retrievedAt:usable?context.retrievedAt:null,source:usable?context.source:null,sourceTimestamp:null,
   indices:null,funds:{market:null,sector:null,stock:null},sentiment:{status:'unknown',reason:'缺少同日完整涨停和炸板未封池'},
@@ -20,17 +73,21 @@ function publicContextView(context,asOf){
  if(!usable)return out;
  for(const [key,input] of [['market','marketFlow'],['sector','sectorFlow'],['stock','stockFlow']]){
   const flow=context[input];
-  if(!flow||typeof flow!=='object'||!available(flow))continue;
-  const received=flow.retrievedAt===undefined?retrievedAt:stamp(flow.retrievedAt);
-  const sourceAt=flow.sourceTimestamp==null?null:stamp(flow.sourceTimestamp);
-  if(!Number.isFinite(received)||received<=0||received>asOf||sourceAt!==null&&(!Number.isFinite(sourceAt)||sourceAt<=0||sourceAt>received))continue;
-  const rows=flow.records;
-  if(flow.source!=='eastmoney'||flow.fundsMethod!=='vendor-order-size-estimate'||!Array.isArray(rows)||rows.length>120)continue;
-  if(rows.some(r=>!day(r.tradeDate)||r.tradeDate>context.tradeDate||!available(r))||new Set(rows.map(r=>r.tradeDate)).size!==rows.length)continue;
+  if(!flowMetadataOK(context)||!flowMetadataOK(flow)||!flowIdentityOK(flow,key,flow))continue;
+  const received=flow.retrievedAt===undefined?retrievedAt:flowTime(flow.retrievedAt);
+  const sourceAt=flow.sourceTimestamp==null?null:flowTime(flow.sourceTimestamp);
+  if(!flowClock(received)||received>retrievedAt||!flowClocksOK(flow,received))continue;
+  const rawRows=flow.records;
+  if(flow.source!=='eastmoney'||flow.fundsMethod!=='vendor-order-size-estimate'||!Array.isArray(rawRows)||!rawRows.length||rawRows.length>120)continue;
+  if(rawRows.some(r=>!flowMetadataOK(r)||!flowIdentityOK(r,key,flow)||!day(r.tradeDate)||r.tradeDate>context.tradeDate||
+    r.tradeDate>flowDay(received)||!flowClocksOK(r,received,r.tradeDate)||
+    r.fundsTradeDate!=null&&r.fundsTradeDate!==r.tradeDate)||new Set(rawRows.map(r=>r.tradeDate)).size!==rawRows.length)continue;
+  const rows=[...rawRows].sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
   out.funds[key]={source:'eastmoney',fundsMethod:flow.fundsMethod,symbol:/^\d{6}$/.test(flow.symbol||'')?flow.symbol:null,
    sectorCode:/^BK\d{4}$/.test(flow.sectorCode||'')?flow.sectorCode:null,rawHash:/^[a-f0-9]{64}$/.test(flow.rawHash||'')?flow.rawHash:null,
-   retrievedAt:received,sourceTimestamp:sourceAt,status:'observed-unverified',unit:'CNY',...flags,
-   records:rows.map(r=>({tradeDate:r.tradeDate,...Object.fromEntries(['mainNetInflow','smallNetInflow','midNetInflow','bigNetInflow','superNetInflow'].map(k=>[k,finite(r[k])?r[k]:null]))}))};
+   retrievedAt:received,sourceTimestamp:sourceAt,status:'observed-unverified',unit:'CNY',
+   partial:flow.partial===true?true:null,finalityBasis:'local-1510-cutoff-not-provider-certified',...flags,
+   records:rows.map(r=>({tradeDate:r.tradeDate,dailyResearchEligible:closedFlowResearch(r,flow,received),...Object.fromEntries(['mainNetInflow','smallNetInflow','midNetInflow','bigNetInflow','superNetInflow'].map(k=>[k,finite(r[k])?r[k]:null]))}))};
   if(key==='market')out.indices={source:'eastmoney',tradeDate:rows.at(-1)?.tradeDate||null,retrievedAt:received,sourceTimestamp:sourceAt,
    rawHash:out.funds.market.rawHash,records:rows.map(r=>({tradeDate:r.tradeDate,...Object.fromEntries(['shanghaiClose','shanghaiChangePct','shenzhenClose','shenzhenChangePct'].map(k=>[k,finite(r[k])?r[k]:null]))})),...flags};
  }
@@ -90,8 +147,8 @@ function buildLinkedIntelligence(input,{memoryRoot}={}){
   const flowSymbol=String(flow?.symbol||flow?.code||'');
   const records=Array.isArray(flow?.records)?flow.records:[];
   const date=forecast.lastBarDate,record=records.find(r=>r.tradeDate===date);
-  const flowKnown=flowSymbol===symbols[i]&&flow?.source==='eastmoney'&&flow?.fundsMethod==='vendor-order-size-estimate'&&finite(record?.mainNetInflow);
-  conditions.push(condition('observed-stock-flow','同日订单规模估算主力净额为正',flowKnown?(record.mainNetInflow>0?'met':'not_met'):'unknown','东财订单大小分类口径；不等于机构真实资金进出'));
+  const flowKnown=flowSymbol===symbols[i]&&flow?.source==='eastmoney'&&flow?.fundsMethod==='vendor-order-size-estimate'&&record?.dailyResearchEligible===true&&finite(record.mainNetInflow);
+  conditions.push(condition('observed-stock-flow','同日订单规模估算主力净额为正',flowKnown?(record.mainNetInflow>0?'met':'not_met'):'unknown','东财订单大小分类口径；日累计证据须满足本地收盘时点，不等于机构真实资金进出'));
   const patternStudy=studyPatternOutcomes(stock,{asOf,tradeDates});
   return {symbol:symbols[i],name:String(stock.name||'').slice(0,64),forecast,patternStudy,linkage,conditions,
    contextConflict:linkage.riskConflict,memory:{status:'not-requested'},...flags};

@@ -88,3 +88,34 @@ test('same redundant cluster chooses strongest reliable member deterministically
  assert.deepEqual(r.suppressedFactorIds,['c','a']);
  assert.ok(r.suppressedFactors.every(x=>x.duplicateOf==='b'));
 });
+
+test('redundancy uses valid strictly chronological training days before computing correlation',()=>{
+ for(const change of [d=>d.reverse(),d=>d[0].day='2026-02-30',d=>d[0].day='unknown',d=>d[1].day=d[0].day]){
+  const d=days(25);change(d);
+  assert.throws(()=>assessFactorRedundancy(d,id,reliability),/日期|重复/);
+ }
+});
+test('declared cross-section security identity must be complete and unique, with market separation',()=>{
+ const input=days(25);
+ for(const d of input)d.rows.forEach((row,j)=>row.symbol='60000'+j);
+ const before=JSON.stringify(input);
+ assert.deepEqual(assessFactorRedundancy(input,id,reliability).suppressedFactorIds,['b']);
+ assert.equal(JSON.stringify(input),before);
+ for(const change of [d=>d[0].rows[1].symbol=d[0].rows[0].symbol,
+  d=>delete d[0].rows[1].symbol,d=>d[0].rows[0].code='600999',d=>d[0].rows[0].symbol='']){
+  const bad=JSON.parse(before);change(bad);assert.throws(()=>assessFactorRedundancy(bad,id,reliability),/证券/);
+ }
+ const mixed=JSON.parse(before);mixed[0].rows[0].market='CN';mixed[0].rows[1].market='HK';
+ mixed[0].rows[1].symbol=mixed[0].rows[0].symbol;
+ assert.deepEqual(assessFactorRedundancy(mixed,id,reliability).suppressedFactorIds,['b']);
+});
+test('correlation rejects nonfinite inputs and suppression never coerces malformed IC',()=>{
+ assert.equal(spearman([1,2,3,4,NaN],[1,2,3,4,5]),null);
+ assert.equal(spearman([1,2,3,4,Infinity],[1,2,3,4,5]),null);
+ assert.equal(spearman([1,2,3,4,'5'],[1,2,3,4,5]),null);
+ for(const meanIC of ['0.21',Infinity,2,NaN,null]){
+  const r=assessFactorRedundancy(days(25),id,{...reliability,b:{reliable:true,meanIC}});
+  assert.equal(r.pairs[0].relationship,'strong-positive');assert.equal(r.pairs[0].eligibleForSuppression,false);
+  assert.deepEqual(r.suppressedFactorIds,[]);
+ }
+});

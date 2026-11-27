@@ -27,7 +27,7 @@ async function setup(t,{quote=wire()}={}){
   vm.runInContext([section('function paperAuthorityQuotes(){','refreshPaperAuthority();'),section("function savePaper(action=",'// ---------------- 模拟盘对账'),section('function ingestPx(rows)','function paperEquity(key, pm)'),section('function paperBuy(key, cands, pm, reasonOf)','// ---------------- A股 T+1')].join('\n'),context);
   if(quote)context.ingestPx([quote]);
   const rules=await import('../public/nova/system-picks.mjs'),card=authority(),frozen=plan(card);
-  const run=(patch={})=>executeDecisionPlan({input:{action:'executePlan',account:'pool',planId},plan:frozen,now,day,replica:false,continuous:true,
+  const run=(patch={})=>executeDecisionPlan({input:{action:'executePlan',account:'pool',planId},plan:frozen,now,day,clock:()=>now,replica:false,continuous:true,
     candidate:wire(),eligiblePick:rules.eligiblePick,systemPickDay:rules.systemPickDay,poolDay:day,newsBlocked:false,
     account:context.PAPER.pool,policy:context.PAPER_CFG.pool,equity:10000,quote:context.paperAuthorityQuotes()['600000'],authoritative:card,
     readBook:()=>app.read(),buy:(row,reason)=>context.paperBuy('pool',[row],new Map(),()=>reason),...patch});

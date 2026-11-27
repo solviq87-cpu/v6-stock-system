@@ -5,6 +5,41 @@ const catalog = require('../../config/six-photo-sources.json');
 const entries = new Map(catalog.entries.map(e => [e.id, e]));
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const number = x => finite(x) ? x : typeof x === 'string' && /^-?\d+(?:\.\d+)?$/.test(x.trim()) ? Number(x) : null;
+const clock=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
+const dayOf=x=>new Date(x+28800000).toISOString().slice(0,10);
+function quoteFreshness(stamp,receivedAt,now){
+ if(!clock(stamp)||!clock(receivedAt)||!clock(now))return 'unknown';
+ if(stamp>receivedAt||receivedAt>now)return 'future';
+ return now-stamp>15000||dayOf(stamp)!==dayOf(now)?'stale':'recent-unverified';
+}
+const negativeQuote=row=>row?.simulated===true||row?.synthetic===true||row?.retracted===true||
+ row?.conflict===true||row?.sourceConflict===true||row?.canTrade===true||row?.verifiedLive===true||
+ ['simulation','synthetic','fixture','mock','test'].includes(row?.mode);
+function priceAliases(row,keys,{required=false}={}){
+ const values=keys.filter(k=>row[k]!=null&&row[k]!=='').map(k=>number(row[k]));
+ if(!values.length)return null;
+ if(values.some(v=>!finite(v)||v<=0)){
+  if(required||values.length>1)throw Error('price');
+  return null;
+ }
+ if(values.some(v=>v!==values[0]))throw Error('quote-price-conflict');
+ return values[0];
+}
+// Re-evaluate at use time, never trust the cached freshness string. One
+// newest observation per symbol; simultaneous conflicting prices are rejected.
+function newestQuote(source,code,now){
+ if(!clock(source.observedAt)||source.observedAt>now||!Array.isArray(source.records)||
+    !source.records.length||source.records.length>200||negativeQuote(source))return null;
+ const dated=source.records.filter(r=>r&&r.code===code&&clock(r.timestamp));
+ if(dated.some(r=>r.timestamp>source.observedAt))return null;
+ if(!dated.length)return null;
+ const latest=Math.max(...dated.map(r=>r.timestamp)),rows=dated.filter(r=>r.timestamp===latest);
+ const r=rows[0];
+ if(rows.some(x=>negativeQuote(x)||!finite(x.price)||x.price<=0||x.price!==r.price||
+   x.previousClose!==r.previousClose))return null;
+ const freshness=quoteFreshness(latest,source.observedAt,now);
+ return freshness==='recent-unverified'?{...r,freshness}:null;
+}
 function date(value) {
   const d = typeof value === 'string' ? value.slice(0, 10) : '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !Number.isFinite(Date.parse(d+'T00:00:00Z')) || new Date(d+'T00:00:00Z').toISOString().slice(0,10)!==d) throw Error('date');
@@ -35,10 +70,21 @@ function normalize(e, source, report, now) {
       if (e.kind==='minute' && (!timestamp||timestamp>source.observedAt)) continue;
       out.push({date:d,...(timestamp?{timestamp}:{}),open,high,low,close,volume,amount:finite(amount)?amount:null});
     } else if (e.kind==='quote') {
-      const price=number(r.now??r['最新价']);if(!finite(price)||price<=0)throw Error('price');
+      if(negativeQuote(r)||negativeQuote(source)||negativeQuote(report))throw Error('unverified-quote');
+      const price=priceAliases(r,['now','最新价'],{required:true});
+      if(!finite(price)||price<=0)throw Error('price');
       const stamp=time((r.date||'')+' '+(r.time||''));
-      if (stamp && stamp>source.observedAt) throw Error('future');
-      out.push({code:report.code,price,previousClose:number(r.close??r['昨日收盘']),timestamp:stamp,freshness:stamp===null?'unknown':now-stamp>15000?'stale':'recent-unverified',volume:null});
+      if(stamp&&stamp>source.observedAt)throw Error('future');
+      // An explicitly supplied alternative clock/identity may not contradict
+      // the supported source clock. Do not use it to fill an absent clock.
+      for(const k of ['quoteAt','timestamp','sourceTimestamp']){
+        if(r[k]!=null&&(!clock(r[k])||r[k]!==stamp))throw Error('quote-time-conflict');
+      }
+      if(r.tradeDate!=null&&(!stamp||r.tradeDate!==dayOf(stamp)))throw Error('quote-date-conflict');
+      if(r.symbol!=null&&r.symbol!==report.code)throw Error('symbol');
+      if(r.upstream!=null&&r.upstream!==e.upstream||r.provider!=null&&r.provider!==e.provider)throw Error('quote-source-conflict');
+      out.push({code:report.code,price,previousClose:priceAliases(r,['close','昨日收盘']),timestamp:stamp,
+        freshness:quoteFreshness(stamp,source.observedAt,now),volume:null});
     } else if(e.kind==='fund-nav') {
       const d=date(r['日期']);if(d>new Date(source.observedAt+28800000).toISOString().slice(0,10))throw Error('future');
       const nav=number(r['单位净值']);if(!finite(nav)||nav<=0)throw Error('nav');out.push({date:d,nav,cumulativeNav:number(r['累计净值'])});
@@ -47,14 +93,24 @@ function normalize(e, source, report, now) {
       out.push({code:report.code,id:r.announcementId,title:r.announcementTitle.replace(/<[^>]*>/g,'').slice(0,240),publishedAt:r.announcementTime,url:'https://static.cninfo.com.cn/'+r.adjunctUrl});
     } else throw Error('no-validated-adapter');
   }
-  if(!out.length)throw Error('no-valid-rows');return out;
+  if(!out.length)throw Error('no-valid-rows');
+  if(e.kind==='quote'){
+    const byTime=new Map();
+    for(const row of out){
+      if(row.timestamp===null)continue;
+      const prior=byTime.get(row.timestamp);
+      if(prior&&(prior.price!==row.price||prior.previousClose!==row.previousClose))throw Error('quote-time-conflict');
+      byTime.set(row.timestamp,row);
+    }
+  }
+  return out;
 }
 function buildBank(report, now=Date.now()) {
-  if(!finite(now)||!report||report.schemaVersion!==1||report.mode!=='six-photo-source-backups'||report.scope!==catalog.scope||report.canTrade!==false||report.verifiedLive!==false||report.paidServicesUsed!==false||!finite(report.generatedAt)||report.generatedAt>now||report.generatedAt<=0||!Array.isArray(report.sources)||report.sources.length!==entries.size||new Set(report.sources.map(x=>x?.id)).size!==entries.size||!/^(?:60|68|00|30)\d{4}$/.test(report.code))throw Error('bank');
+  if(!clock(now)||!report||report.schemaVersion!==1||report.mode!=='six-photo-source-backups'||report.scope!==catalog.scope||report.canTrade!==false||report.verifiedLive!==false||report.paidServicesUsed!==false||!clock(report.generatedAt)||report.generatedAt>now||!Array.isArray(report.sources)||report.sources.length!==entries.size||new Set(report.sources.map(x=>x?.id)).size!==entries.size||!/^(?:60|68|00|30)\d{4}$/.test(report.code))throw Error('bank');
   date(report.start);date(report.end);if(report.start>report.end||report.end>new Date(report.generatedAt+28800000).toISOString().slice(0,10))throw Error('range');
   const sources=report.sources.map(s=>{
     const e=entries.get(s.id),interfaces=e?[e.interface,...(e.legacyInterfaces||[])]:[];
-    if(!e||s.provider!==e.provider||s.kind!==e.kind||s.upstream!==e.upstream||!interfaces.includes(s.interface)||s.interfaceUsed!==undefined&&!interfaces.includes(s.interfaceUsed)||!finite(s.observedAt)||s.observedAt>report.generatedAt||s.observedAt<=0||!['returned','unavailable','timeout','credentials-required','client-required','dependency-missing'].includes(s.status))throw Error('source');
+    if(!e||s.provider!==e.provider||s.kind!==e.kind||s.upstream!==e.upstream||!interfaces.includes(s.interface)||s.interfaceUsed!==undefined&&!interfaces.includes(s.interfaceUsed)||!clock(s.observedAt)||s.observedAt>report.generatedAt||!['returned','unavailable','timeout','credentials-required','client-required','dependency-missing'].includes(s.status))throw Error('source');
     const basic={id:e.id,photo:e.photo,provider:e.provider,kind:e.kind,upstream:e.upstream,interface:e.interface,reportedInterface:s.interface,interfaceUsed:s.interfaceUsed??null,
       sdkVersion:typeof s.sdkVersion==='string'&&/^[0-9][A-Za-z0-9.+-]{0,63}$/.test(s.sdkVersion)?s.sdkVersion:null,
       status:s.status,observedAt:s.observedAt,records:[],canTrade:false,verifiedLive:false};
@@ -78,16 +134,37 @@ function readSixPhotoBank(file,now=Date.now()) {
   const empty={status:'unconfigured',canTrade:false,verifiedLive:false,sources:[],availableCount:0};if(!file)return empty;
   try{const stat=fs.lstatSync(file);if(!stat.isFile()||stat.isSymbolicLink()||stat.size>8*1024*1024)throw Error('file');return buildBank(JSON.parse(fs.readFileSync(file,'utf8')),now);}catch{return {...empty,status:'invalid'};}
 }
-function selectBackup(bank,{kind,code,adjustment='unadjusted-requested',frequency,excludeUpstreams=[]}={}) {
-  if(bank?.status!=='research-bank'||!['daily','minute','quote','fund-nav','announcements'].includes(kind))return null;
-  const s=bank.sources.find(s=>s.status==='research-backup'&&s.kind===kind&&s.instrument?.code===code&&(!frequency||s.frequency===frequency)&&!excludeUpstreams.includes(s.upstream)&&(!['daily','minute'].includes(kind)||s.adjustment===adjustment)&&(kind!=='quote'||s.records.some(r=>r.freshness==='recent-unverified')));
-  return s?{...s,records:s.records.filter(r=>kind!=='quote'||r.freshness==='recent-unverified')}:null;
+function selectBackup(bank,{kind,code,adjustment='unadjusted-requested',frequency,excludeUpstreams=[],now=Date.now()}={}) {
+  if(bank?.status!=='research-bank'||!Array.isArray(bank.sources)||!Array.isArray(excludeUpstreams)||
+     !['daily','minute','quote','fund-nav','announcements'].includes(kind))return null;
+  // Historical research remains anchored to its imported bank. Quotes alone
+  // are time-sensitive at every read, including an already-normalized bank.
+  if(kind==='quote'&&(!clock(now)||!clock(bank.generatedAt)||bank.generatedAt>now||
+     now-bank.generatedAt>86400000||bank.code!==code||negativeQuote(bank)))return null;
+  for(const s of bank.sources){
+    if(!s||s.status!=='research-backup'||s.kind!==kind||s.instrument?.code!==code||
+       frequency&&s.frequency!==frequency||excludeUpstreams.includes(s.upstream)||
+       ['daily','minute'].includes(kind)&&s.adjustment!==adjustment||!Array.isArray(s.records))continue;
+    if(kind!=='quote')return {...s,records:s.records.slice()};
+    const e=entries.get(s.id);
+    if(!e||e.kind!=='quote'||e.requires!=='public'||s.provider!==e.provider||s.upstream!==e.upstream||
+       s.observedAt>bank.generatedAt)continue;
+    const q=newestQuote(s,code,now);
+    if(q)return {...s,records:[q],canTrade:false,verifiedLive:false};
+  }
+  return null;
 }
 function photoQuoteFallback(codes,file=process.env.V6_SIX_PHOTO_FILE,now=Date.now()) {
   const bank=readSixPhotoBank(file,now),rows=[];
   for(const code of new Set(codes||[])) {
-    const source=selectBackup(bank,{kind:'quote',code});if(!source)continue;
-    for(const q of source.records)rows.push({code,price:q.price,preClose:q.previousClose,pct:finite(q.previousClose)&&q.previousClose>0?(q.price/q.previousClose-1)*100:null,mainInflow:null,mainPct:null,volume:null,quoteAt:q.timestamp,receivedAt:source.observedAt,quoteSource:source.id,quoteFreshness:'recent-unverified',canTrade:false});
+    const source=selectBackup(bank,{kind:'quote',code,now});if(!source)continue;
+    for(const q of source.records){
+      const delta=finite(q.previousClose)&&q.previousClose>0?(q.price/q.previousClose-1)*100:null;
+      rows.push({code,price:q.price,preClose:finite(q.previousClose)&&q.previousClose>0?q.previousClose:null,
+        pct:finite(delta)?delta:null,mainInflow:null,mainPct:null,volume:null,quoteAt:q.timestamp,
+        receivedAt:source.observedAt,quoteSource:source.id,tradeDate:dayOf(q.timestamp),
+        quoteFreshness:'recent-unverified',quoteMode:'research-backup',canTrade:false,canNotify:false,verifiedLive:false,canTrain:false});
+    }
   }
   return rows;
 }
