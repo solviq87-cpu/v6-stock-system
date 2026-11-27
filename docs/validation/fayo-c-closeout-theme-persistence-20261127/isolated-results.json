@@ -1,0 +1,121 @@
+{
+  "base": "05f822919522529102ba90a8784eb3b7f1881f74",
+  "sourceTestHead": "3fe636973d76e0069d8ac394591f4e9fe543dfe2",
+  "sourceBlobsBefore": {
+    "stock": "e3cd88f74ea717ad270e5870d4648b5d0e4ef5e5",
+    "backtest": "43b9c66f4323f6f3f62807abbd3372178dd9193d"
+  },
+  "sourceBlobsAfter": {
+    "stock": "c2dbd24bccffb1282784353bb699c044019de5ad",
+    "backtest": "d803ee695e14f3f2dc011011a5ea10bb2573aa9f"
+  },
+  "environment": "Exact fetched original/new stock-risk-evidence full source; isolated V8 ESM/test/assert adapters. Synthetic fixtures. Before new fields absent, not 10 independently confirmed defects. Integration and original regressions pending.",
+  "before": {
+    "total": 10,
+    "pass": 0,
+    "results": [
+      {
+        "name": "C29.1 original sector series has own-history position metrics, distinct from stock and index",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'sector')"
+      },
+      {
+        "name": "C29.2 multi-window comparisons use identical dates and own-series returns with distinct vendors",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'windows')"
+      },
+      {
+        "name": "C29.2 relative resilience remains distinct from an absolute stock loss",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'windows')"
+      },
+      {
+        "name": "C29.3 missing, conflicted, changed source or price basis terminates only that benchmark",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'contiguousPriorBars')"
+      },
+      {
+        "name": "C29.3 explicit sector identity, current duplicate conflict and sample isolation are fail closed",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C29.3 exact intermediate session dates and historical theme continuity are required, not endpoint-only",
+        "ok": false,
+        "error": "Error: not ok"
+      },
+      {
+        "name": "C29.4 breadth and seal assists have independent three and five daily persistence evidence",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'windows')"
+      },
+      {
+        "name": "C29.4 missing breadth, changed denominator or delayed receipt does not fabricate full counts from assists",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'windows')"
+      },
+      {
+        "name": "C29.4 same-day conflicting theme versions cannot renew persistence; true flat counts are not decline",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'windows')"
+      },
+      {
+        "name": "C29.5 no benchmark data does not manufacture context from existing derived change fields",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      }
+    ],
+    "skipped": [
+      "C29.integration existing recognition and historical replay consume original bounded sector and explicit index series"
+    ]
+  },
+  "after": {
+    "total": 10,
+    "pass": 10,
+    "results": [
+      {
+        "name": "C29.1 original sector series has own-history position metrics, distinct from stock and index",
+        "ok": true
+      },
+      {
+        "name": "C29.2 multi-window comparisons use identical dates and own-series returns with distinct vendors",
+        "ok": true
+      },
+      {
+        "name": "C29.2 relative resilience remains distinct from an absolute stock loss",
+        "ok": true
+      },
+      {
+        "name": "C29.3 missing, conflicted, changed source or price basis terminates only that benchmark",
+        "ok": true
+      },
+      {
+        "name": "C29.3 explicit sector identity, current duplicate conflict and sample isolation are fail closed",
+        "ok": true
+      },
+      {
+        "name": "C29.3 exact intermediate session dates and historical theme continuity are required, not endpoint-only",
+        "ok": true
+      },
+      {
+        "name": "C29.4 breadth and seal assists have independent three and five daily persistence evidence",
+        "ok": true
+      },
+      {
+        "name": "C29.4 missing breadth, changed denominator or delayed receipt does not fabricate full counts from assists",
+        "ok": true
+      },
+      {
+        "name": "C29.4 same-day conflicting theme versions cannot renew persistence; true flat counts are not decline",
+        "ok": true
+      },
+      {
+        "name": "C29.5 no benchmark data does not manufacture context from existing derived change fields",
+        "ok": true
+      }
+    ],
+    "skipped": [
+      "C29.integration existing recognition and historical replay consume original bounded sector and explicit index series"
+    ]
+  }
+}
