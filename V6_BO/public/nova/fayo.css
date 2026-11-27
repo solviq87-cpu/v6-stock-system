@@ -123,6 +123,15 @@ hr{height:1px;border:0;background:var(--fy-border);margin:24px 0}
 .fy-muted{color:var(--fy-muted)}
 .fy-faint{color:var(--fy-faint)}
 .fy-number{font-variant-numeric:tabular-nums;font-feature-settings:'tnum';letter-spacing:-.025em}
+
+@media (max-width: 600px) {
+  .fy-etf-monthly .fy-table { width: 100%; min-width: 0; table-layout: fixed; }
+  .fy-etf-monthly .fy-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; padding: 8px 4px; }
+  .fy-etf-monthly .fy-table :is(th, td):first-child { width: 37%; }
+  .fy-etf-monthly .fy-table :is(th, td):nth-child(2) { width: 24%; }
+  .fy-etf-monthly .fy-table :is(th, td):last-child { text-align: right; font-variant-numeric: tabular-nums; }
+}
+
 .fy-table-wrap{max-width:100%;overflow:auto;border:1px solid #463050;border-radius:14px;background:#1b1224;overscroll-behavior-x:contain}
 .fy-table{width:100%;border-collapse:collapse;min-width:560px;font-size:12px;font-variant-numeric:tabular-nums;text-align:left}
 .fy-table th{padding:14px 16px;background:#26172f;color:#ae93c1;font-size:10px;font-weight:500;white-space:nowrap;border-bottom:1px solid #4d315b}
@@ -2518,12 +2527,4 @@ body{background:linear-gradient(165deg,#051026 0%,#08142b 55%,#050e20 100%);colo
 }
 .fy-reference-shell :is(button,a,summary,input,select,textarea):focus-visible {
  outline:2px solid var(--fy-action-focus);outline-offset:2px;
-}
-
-@media (max-width: 600px) {
-  .fy-etf-monthly .fy-table { width: 100%; min-width: 0; table-layout: fixed; }
-  .fy-etf-monthly .fy-table :is(th, td) { white-space: normal; overflow-wrap: anywhere; padding: 8px 4px; }
-  .fy-etf-monthly .fy-table :is(th, td):first-child { width: 37%; }
-  .fy-etf-monthly .fy-table :is(th, td):nth-child(2) { width: 24%; }
-  .fy-etf-monthly .fy-table :is(th, td):last-child { text-align: right; font-variant-numeric: tabular-nums; }
 }
