@@ -43,26 +43,27 @@ function riskState(row,now){
  const raw=row.evidenceStatus,sourceKnown=time(row.sourceAt)&&row.sourceAt<=now;
  const authority=row.authorityEvidence;
  const authorityKnown=plain(authority)&&time(authority.observedAt)&&authority.observedAt<=now&&text(authority.source);
- const emergency=authorityKnown&&['authority-unavailable','quote-reader-failed'].includes(authority.kind)&&
-   authority.detected===true&&row.status==='active';
+ const emergencyDetected=authorityKnown&&['authority-unavailable','quote-reader-failed'].includes(authority.kind)&&authority.detected===true;
+ const emergency=emergencyDetected&&row.status==='active';
  const ruleKnown=authorityKnown&&authority.kind==='effective-rule'&&authority.enabled===true&&
    authority.configurationStatus==='active'&&text(authority.ruleId)&&text(authority.ruleVersion);
- const ruleTriggered=ruleKnown&&authority.exceeded===true&&row.status==='active'&&raw==='available';
+ const ruleBreach=ruleKnown&&authority.exceeded===true;
+ const ruleTriggered=ruleBreach&&row.status==='active'&&raw==='available';
  const evidenceState=emergency?'complete':({available:'complete',partial:'partial',conflict:'conflict'})[raw]||'unverified';
  const dataAt=Object.hasOwn(row,'dataAt')?row.dataAt:row.sourceAt;
- const dataState=emergency?(authority.kind==='quote-reader-failed'?'interrupted':'missing'):
+ const dataState=emergencyDetected?(authority.kind==='quote-reader-failed'?'interrupted':'missing'):
    raw==='stale'||row.priceDependent&&time(dataAt)&&now-dataAt>15000?'stale':
    raw==='missing'||!sourceKnown||!time(dataAt)||dataAt>now?'missing':'valid';
  const evaluable=emergency||sourceKnown&&dataState==='valid'&&['available','partial','conflict'].includes(raw);
- const assessmentState=row.status==='resolved'&&raw==='available'&&evaluable?'not-triggered':
+ const assessmentState=row.status==='resolved'&&!ruleBreach&&!emergencyDetected&&raw==='available'&&evaluable?'not-triggered':
    row.status==='active'&&evaluable?'risk-detected':'unable-to-assess';
  const riskLevel=assessmentState!=='risk-detected'?null:emergency?4:ruleTriggered?3:
    accumulated(row.accumulationEvidence,now)?2:1;
  const action=row.actionEvidence;
  const actionKnown=plain(action)&&time(action.checkedAt)&&action.checkedAt<=now&&now-action.checkedAt<=15000&&action.evidenceStatus==='available';
- const actionState=ruleTriggered?'blocked':actionKnown&&action.allowed===true?'allowed':
+ const actionState=ruleBreach&&raw==='available'?'blocked':actionKnown&&action.allowed===true&&!emergencyDetected?'allowed':
    actionKnown&&action.allowed===false?'blocked':'unconfirmed';
- const actionReasons=ruleTriggered?['原账户已启用规则限制新增风险；原允许的处置仍须逐项核验']:
+ const actionReasons=ruleBreach&&raw==='available'?['原账户已启用规则限制新增风险；原允许的处置仍须逐项核验']:
    [text(action?.reason)?action.reason:'此记录没有当前原后端动作许可回执，提交时仍须重新核验'];
  const ruleVersion=ruleKnown?authority.ruleVersion:row.accumulationEvidence?.ruleVersion||row.references?.policyVersion||row.references?.strategyVersion||null;
  const firstKnowableAt=time(row.firstKnowableAt)&&row.firstKnowableAt<=now?row.firstKnowableAt:null;
@@ -98,21 +99,33 @@ function freshRecoveryReceipt(receipt,at,next,proof,oldTime,now){
    at>oldTime&&(!time(proof.observedAt)||at>proof.observedAt)&&at>=next.sourceAt&&at<=now;
 }
 
+function sameRecoveryScope(next,former){
+ return (!text(former.rootCauseId)||next.rootCauseId===former.rootCauseId)&&
+   (!text(former.object?.type)||next.object?.type===former.object.type)&&
+   (!text(former.object?.id)||next.object?.id===former.object.id);
+}
 function resolutionCheck(incoming,previous,now){
- const former=list(previous?.risks),oldTime=previous?.sourceAt??Math.max(0,...former.map(row=>time(row.sourceAt)?row.sourceAt:0));
- const rows=list(incoming.risks);
+ const former=list(previous?.risks),oldTime=Math.max(time(previous?.sourceAt)?previous.sourceAt:0,
+   ...former.map(row=>time(row?.sourceAt)?row.sourceAt:0));
+ if(!time(now)||!former.length||former.some(row=>!plain(row))||!time(oldTime)||oldTime>now)
+  return {allowed:false,reason:'缺少有效的原风险证据和解除时间基线'};
+ const rows=list(incoming?.risks);
  if(!rows.length||rows.some(row=>row.assessmentState!=='not-triggered'||row.evidenceState!=='complete'||
-   row.dataState!=='valid'||!time(row.sourceAt)||row.sourceAt<=oldTime||row.sourceAt>now))
+   row.dataState!=='valid'||!time(row.sourceAt)||row.sourceAt<=oldTime||row.sourceAt>now||
+   !time(row.riskContract?.dataAt??row.dataAt??row.sourceAt)||(row.riskContract?.dataAt??row.dataAt??row.sourceAt)<=oldTime||
+   (row.riskContract?.dataAt??row.dataAt??row.sourceAt)>now))
   return {allowed:false,reason:'解除需要晚于上次有效风险的全新有效证据'};
  for(const row of former){
+  const matching=rows.filter(next=>sameRecoveryScope(next,row));
+  if(!matching.length)return {allowed:false,reason:'缺少同一原风险根因与对象的恢复证据'};
   const proof=row.authorityEvidence;
   if(['authority-unavailable','quote-reader-failed'].includes(proof?.kind)){
    const expected=proof.kind==='authority-unavailable'?'account-reconciled':'original-quotes-restored';
-   if(!rows.some(next=>next.recoveryEvidence?.kind===expected&&next.recoveryEvidence.confirmed===true&&
+   if(!matching.some(next=>next.recoveryEvidence?.kind===expected&&next.recoveryEvidence.confirmed===true&&
      freshRecoveryReceipt(next.recoveryEvidence,next.recoveryEvidence.checkedAt,next,proof,oldTime,now)))
     return {allowed:false,reason:'尚缺对应原账户对账或原数据链恢复回执，其他行情恢复不能解除此事故'};
   }
-  if(proof?.kind==='effective-rule'&&!rows.some(next=>next.authorityEvidence?.kind==='effective-rule'&&
+  if(proof?.kind==='effective-rule'&&!matching.some(next=>next.authorityEvidence?.kind==='effective-rule'&&
     next.authorityEvidence.ruleId===proof.ruleId&&next.authorityEvidence.ruleVersion===proof.ruleVersion&&
     next.authorityEvidence.configurationStatus==='active'&&next.authorityEvidence.enabled===true&&next.authorityEvidence.exceeded===false&&
     freshRecoveryReceipt(next.authorityEvidence,next.authorityEvidence.observedAt,next,proof,oldTime,now)))
@@ -124,7 +137,11 @@ function resolutionCheck(incoming,previous,now){
 function reductionCheck(incoming,previous,now){
  // Lowering a grade must not discard a still-unreconciled authority incident
  // or an installed restriction. Reuse the same evidence and recovery checks.
- return resolutionCheck({risks:list(incoming.risks).map(row=>({...row,
+ const rows=list(incoming?.risks),oldLevel=previous?.riskLevel??Math.max(0,...list(previous?.risks).map(row=>row?.riskLevel||0));
+ const active=rows.filter(row=>row?.assessmentState==='risk-detected');
+ if(![2,3,4].includes(oldLevel)||!active.length||active.some(row=>![1,2,3,4].includes(row.riskLevel)||row.riskLevel>=oldLevel))
+  return {allowed:false,reason:'风险降级必须保留真实的较低有效风险等级'};
+ return resolutionCheck({risks:rows.map(row=>({...row,
   assessmentState:row.assessmentState==='risk-detected'?'not-triggered':row.assessmentState}))},previous,now);
 }
 
