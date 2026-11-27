@@ -3,6 +3,7 @@
 const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:fs');
 const {performance}=require('node:perf_hooks');
 const {proposeFromSealedResearch}=require('./factor-shadow-candidate-proposer');
+const {modelCandidateBinding}=require('./factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const REASONS=new Set(['insufficient-independent-days','weak-average-information','unstable-daily-sign','recent-factor-decay-or-sign-reversal','unstable-five-session-block-direction','latest-five-session-block-reversal','single-day-influence-dominates','opposing-market-regime-effects']);
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
@@ -111,6 +112,9 @@ async function proposeLocalModel(input,options){
  const weightChanges=prior.weightChanges.map(row=>({...row,referenceCandidateWeight:row.proposedWeight,proposedWeight:candidateWeights[row.factorId]}));
  const outputReview={policy:structured?'structured-reference-interval':'legacy-envelope-only',
   rationaleVerified:false,sourceAuthenticated:false,trainingEligible:false,autoPromotion:false};
- return {...prior,status,candidateWeights,weightChanges,outputReview,modelProvenance:{modelName:cfg.model,digest,...(dict?{dictionaryVersion:dict.version,dictionaryFingerprint:hash(entries)}:{}),requestFingerprint:exchange.fingerprint,responseFingerprint:hash(result),hypothesis:{label:'model-hypothesis',rationale:result.rationale},method:'ollama-native-structured',algorithmFingerprint:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex')}};
+ const candidateBindingFingerprint=modelCandidateBinding({autoSourceFingerprint:prior.sourceFingerprint,packFingerprint:input.packFingerprint,
+  latestFrozenSignalDay:input.latestFrozenDay,factorDefinitionsFingerprint:hash(input.definitions),factorIds:ids,
+  acceptedWeights:input.acceptedWeights,candidateWeights});
+ return {...prior,status,candidateWeights,weightChanges,outputReview,modelProvenance:{modelName:cfg.model,digest,...(dict?{dictionaryVersion:dict.version,dictionaryFingerprint:hash(entries)}:{}),requestFingerprint:exchange.fingerprint,responseFingerprint:hash(result),hypothesis:{label:'model-hypothesis',rationale:result.rationale},candidateBindingFingerprint,outputReview,method:'ollama-native-structured',algorithmFingerprint:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex')}};
 }
 module.exports={proposeLocalModel};
