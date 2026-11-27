@@ -433,6 +433,10 @@ test('decay cooldown persists, needs ten subsequent recovered days, then five un
  const tested=evolveShadowFactors(five,{now:finalClock,previous,previousCooldown:waiting});
  assert.ok(['shadow-updated','shadow-retained'].includes(tested.status));
  assert.equal(tested.postRecoveryHoldoutDays,5);
+ assert.equal(tested.testDays,5);
+ assert.equal(tested.holdout.firstFreshDay,dates[71]);
+ assert.equal(tested.trialAudit.firstHoldoutDay,tested.holdout.firstFreshDay);
+ assert.equal(tested.trialAudit.holdoutDays,tested.testDays);
  assert.equal(tested.pausedForShadowDecay,false);
  assert.equal(tested.productionWeightsChanged,false);
 });
