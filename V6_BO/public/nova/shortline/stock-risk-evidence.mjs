@@ -111,7 +111,7 @@ export function selectFrozenRiskPlan(plans,code,day,cutoff){
 export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,plan=b?.frozenPlan,leaderRows=[],currentRows}={}){
   const out={basis:'historical-research-only',canTrade:false,priceRange:null,
     relativeStrength:null,activeBuy:null,reversal:null,grossPayoff:null,
-    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null};
+    themeDeterioration:null,leaderCoDecline:null,relayFailure:null,flowPersistence:null,holdingExitReview:null,positionRisk:null};
   const cutoff=time(asOf??b?.date);
   const daily=r=>validDay(r?.date)&&(!r.period||['日K','日线','1d','daily'].includes(r.period));
   const price=r=>daily(r)&&priceUsable(r)&&r.priceBasis==='unadjusted'&&comparableGap(r)&&
@@ -150,6 +150,63 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
     prior.push(r);target=precedingDay(r);
   }
   const prev=prior[0];
+  // Fixed descriptive windows, never a fitted high-position threshold.
+  // The historical percentile compares 20 earlier endpoints, excludes today,
+  // and keeps the same declared source/sample family and unadjusted continuity.
+  // A 20-session return plus its 20 historical endpoints needs 40 prior bars.
+  if(known(b.source)){
+    const positionFields=[...priceFields,'sampleSet','sampleSource'];
+    const current= currentRows===undefined ? b :
+      unambiguousAt(currentRows.filter(r=>sameSymbol(b,r)&&daily(r)&&r.date===day&&visible(r,cutoff)),positionFields)[0];
+    const comparable=r=>price(r)&&r.source===b.source&&r.sampleSet===b.sampleSet&&r.sampleSource===b.sampleSource;
+    if(comparable(current)&&positionFields.every(k=>!Object.hasOwn(current,k)||Object.is(current[k],b[k]))){
+      const positionsByDay=new Map(unambiguousAt(visibleHistory,positionFields).map(r=>[r.date,r]));
+      const sequence=[b];
+      while(sequence.length<=40){
+        const priorDay=precedingDay(sequence.at(-1)),r=positionsByDay.get(priorDay);
+        if(!comparable(r))break;
+        sequence.push(r);
+      }
+      const historicalCount=sequence.length-1;
+      const returnPct=(newer,older)=>positive(newer)&&positive(older)?clean(100*(newer/older-1)):null;
+      // Use an average of scaled prices to avoid overflowing a finite sum.
+      const mean=values=>{
+        const maximum=Math.max(...values);
+        if(!finite(maximum)||maximum<0||!values.length)return null;
+        return maximum===0?0:clean(maximum*(values.reduce((sum,value)=>sum+value/maximum,0)/values.length));
+      };
+      const returns=[1,5,10,20].map(sessions=>{
+        const value=historicalCount>=sessions?returnPct(b.close,sequence[sessions].close):null;
+        const sample=historicalCount>=sessions+20?Array.from({length:20},(_,i)=>
+          returnPct(sequence[i+1].close,sequence[i+1+sessions].close)):[];
+        const complete=sample.length===20&&sample.every(finite)&&value!==null;
+        const rank=complete?100*(sample.filter(n=>n<value).length+sample.filter(n=>n===value).length/2)/20:null;
+        return {sessions,returnPct:value,from:value!==null?sequence[sessions].date:null,to:day,
+          historicalEndpointCount:complete?20:0,requiredHistoricalEndpointCount:20,
+          historicalRankPct:rank,historyFrom:complete?sequence[20].date:null,historyTo:complete?sequence[1].date:null};
+      });
+      const movingAverages=[5,10,20].map(sessions=>{
+        const average=sequence.length>=sessions?mean(sequence.slice(0,sessions).map(r=>r.close)):null;
+        return {sessions,average,deviationPct:returnPct(b.close,average),
+          from:average!==null?sequence[sessions-1].date:null,to:day};
+      });
+      const trueRanges=historicalCount>=14?sequence.slice(0,14).map((r,i)=>{
+        const previousClose=sequence[i+1].close;
+        return Math.max(r.high-r.low,Math.abs(r.high-previousClose),Math.abs(r.low-previousClose));
+      }):[];
+      const atr=trueRanges.length===14?mean(trueRanges):null,ma20=movingAverages[2].average;
+      out.positionRisk={source:b.source,priceBasis:'unadjusted',referenceClose:b.close,day,
+        contiguousPriorBars:historicalCount,returns,movingAverages,
+        atr14:atr===null?null:{value:atr,pctOfClose:clean(100*(atr/b.close)),
+          distanceFromMa20:positive(atr)&&positive(ma20)?clean((b.close-ma20)/atr):null,
+          from:sequence[13].date,to:day,basis:'simple-average-of-14-true-ranges-including-gap-not-Wilder'},
+        openingGapPct:historicalCount?returnPct(b.open,sequence[1].close):null,
+        basis:'same-declared-source-and-sample-family-historical-research-only',
+        continuity:'declared-previous-day-or-weekday-chain-not-calendar-certified',
+        historicalPercentileBasis:'20-prior-overlapping-return-endpoints-midrank-not-probability',
+        canTrade:false};
+    }
+  }
   if(prior.length===20){
     const high=Math.max(...prior.map(r=>r.high)),low=Math.min(...prior.map(r=>r.low));
     const less=prior.filter(r=>r.close<b.close).length,equal=prior.filter(r=>r.close===b.close).length;
