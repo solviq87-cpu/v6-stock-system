@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 const { reducePaperOrderEvents } = require('./paper-order-state-machine');
 const hash = v => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
 
@@ -15,6 +16,15 @@ function readRegular(file) {
   const st = fs.lstatSync(file);
   if (st.isSymbolicLink() || !st.isFile() || st.size > 10 * 1024 * 1024) throw new Error('订单存储文件无效');
   return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+// Verify the same journal and derived snapshot on every read and under the
+// existing writer lock, before either an idempotent return or a replacement.
+function verifyRecord(record, orderId) {
+  if (!record || record.schemaVersion !== 1 || !Array.isArray(record.events) || !record.order || record.journalHash !== hash(record.events)) throw new Error('订单日志指纹校验失败');
+  const rebuilt = reducePaperOrderEvents(record.order, record.events);
+  if (rebuilt.orderId !== safeName(orderId)) throw new Error('订单标识与文件不一致');
+  if (!isDeepStrictEqual(rebuilt, record.state)) throw new Error('订单状态与事件日志不一致');
+  return rebuilt;
 }
 function atomicReplace(file, data) {
   const dir = path.dirname(file);
@@ -59,12 +69,12 @@ function createPaperOrderStore(root) {
     const file = fileOf(orderId);
     return withLock(file, () => {
       const record = readRegular(file);
-      if (record.schemaVersion !== 1 || !Array.isArray(record.events) || !record.order) throw new Error('订单日志结构无效');
+      const rebuilt = verifyRecord(record, orderId);
       const id = String(event && event.eventId || '');
       const old = record.events.find(x => String(x.eventId) === id);
       if (old) {
         if (hash(old) !== hash(event)) throw new Error('相同 eventId 对应不同事件内容，拒绝幂等冲突');
-        return record.state;
+        return rebuilt;
       }
       const events = [...record.events, event];
       const state = reducePaperOrderEvents(record.order, events);
@@ -75,9 +85,7 @@ function createPaperOrderStore(root) {
   }
   function get(orderId) {
     const record = readRegular(fileOf(orderId));
-    if (record.schemaVersion !== 1 || !Array.isArray(record.events) || record.journalHash !== hash(record.events)) throw new Error('订单日志指纹校验失败');
-    const rebuilt = reducePaperOrderEvents(record.order, record.events);
-    if (rebuilt.fingerprint !== record.state.fingerprint) throw new Error('订单状态与事件日志不一致');
+    const rebuilt = verifyRecord(record, orderId);
     return { ...record, state: rebuilt, paperOnly: true, brokerConnected: false };
   }
   return Object.freeze({ create, append, get });
