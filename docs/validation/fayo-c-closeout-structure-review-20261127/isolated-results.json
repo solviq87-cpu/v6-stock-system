@@ -1,0 +1,118 @@
+{
+  "base": "e57b3d5d3d87df01e538283f0ff15b345926cb7d",
+  "sourceTestHead": "199f01472d9214a91da7c135387c49374e6315db",
+  "sourceBlobBefore": "81ddbb1d056ca8a968faea8022b5f0a225653588",
+  "sourceBlobAfter": "12261625dcaf903e55615a222e0487f377208084",
+  "environment": "Full actual stock-risk-evidence.mjs in V8, ESM and node:test/assert adapters; synthetic fixtures. Old implementation lacks the feature, not 11 independently confirmed defects. Original regressions and integration pending.",
+  "before": {
+    "total": 11,
+    "pass": 0,
+    "results": [
+      {
+        "name": "C30.1 current frozen prior twenty range separates high touch, close return, boundary, and range floor",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'current')"
+      },
+      {
+        "name": "C30.1 present close breakout reconstructs prior range without current high or later data",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'anchor')"
+      },
+      {
+        "name": "C30.2 clean contracting retest holds the original ceiling and is not confirmed healthy or a buy instruction",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.2 volume missing, incomparable or not contracting is never inferred from the close",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.2 equality at frozen ceiling is distinct from a reclaimed or held-above close",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.3 break then reclaim then rebreak stays tied to the earliest anchor",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.3 reclaim after breach is not clean retest or confirmed recovery; boundary stays separate",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.4 insufficient prior window, changed source or missing predecessor cannot invent an anchor",
+        "ok": false,
+        "error": "Error:  expected null got undefined"
+      },
+      {
+        "name": "C30.4 later available historical rows may support present range but not earlier anchor selection",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'current')"
+      },
+      {
+        "name": "C30.4 price-identical conflicting volume versions remove contraction only, late conflicts do not rewrite",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      },
+      {
+        "name": "C30.5 no healthy/failed label from guessed intraday order or uncertified actual outcomes",
+        "ok": false,
+        "error": "TypeError: Cannot read properties of undefined (reading 'path')"
+      }
+    ]
+  },
+  "after": {
+    "total": 11,
+    "pass": 11,
+    "results": [
+      {
+        "name": "C30.1 current frozen prior twenty range separates high touch, close return, boundary, and range floor",
+        "ok": true
+      },
+      {
+        "name": "C30.1 present close breakout reconstructs prior range without current high or later data",
+        "ok": true
+      },
+      {
+        "name": "C30.2 clean contracting retest holds the original ceiling and is not confirmed healthy or a buy instruction",
+        "ok": true
+      },
+      {
+        "name": "C30.2 volume missing, incomparable or not contracting is never inferred from the close",
+        "ok": true
+      },
+      {
+        "name": "C30.2 equality at frozen ceiling is distinct from a reclaimed or held-above close",
+        "ok": true
+      },
+      {
+        "name": "C30.3 break then reclaim then rebreak stays tied to the earliest anchor",
+        "ok": true
+      },
+      {
+        "name": "C30.3 reclaim after breach is not clean retest or confirmed recovery; boundary stays separate",
+        "ok": true
+      },
+      {
+        "name": "C30.4 insufficient prior window, changed source or missing predecessor cannot invent an anchor",
+        "ok": true
+      },
+      {
+        "name": "C30.4 later available historical rows may support present range but not earlier anchor selection",
+        "ok": true
+      },
+      {
+        "name": "C30.4 price-identical conflicting volume versions remove contraction only, late conflicts do not rewrite",
+        "ok": true
+      },
+      {
+        "name": "C30.5 no healthy/failed label from guessed intraday order or uncertified actual outcomes",
+        "ok": true
+      }
+    ]
+  }
+}
