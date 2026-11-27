@@ -95,4 +95,11 @@ function validateRegistry(){
  // The same validated immutable snapshot is used for resolution and audit.
  return sourceSummary();
 }
-module.exports={sourceLineage,resolveUpstream,sourceSummary,validateRegistry};
+// Readiness and lineage must use the same validated snapshot, not a mutable
+// require() configuration object. Return detached primitive-only projections.
+function registeredSourceRows(){
+ requireCatalogue();
+ return [...routes.values()].map(({id,upstreamGroup,market,dataClass,access,adapter})=>
+  ({id,upstreamGroup,market,dataClass,access,adapter}));
+}
+module.exports={sourceLineage,resolveUpstream,sourceSummary,validateRegistry,registeredSourceRows};

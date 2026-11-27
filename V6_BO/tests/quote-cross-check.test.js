@@ -45,11 +45,12 @@ test('three sources share a per-process request budget, same-stock callers and o
 });
 
 test('holidays, lunch, close and an in-flight boundary cannot publish a reference price',async()=>{
-  const f=fixture();
+  // Independent session cases must not rewind one process clock.
   for(const clock of ['2026-11-20T09:25:00+08:00','2026-11-20T11:30:00+08:00','2026-11-20T15:00:00+08:00','2026-11-21T10:00:00+08:00']){
-    f.setTime(Date.parse(clock));assert.equal((await f.check('600001')).status,'session-closed');
+    const f=fixture();f.setTime(Date.parse(clock));assert.equal((await f.check('600001')).status,'session-closed');
+    assert.equal(f.reads.length,0);
   }
-  f.setTime(time);f.halt();assert.equal((await f.check('600001')).status,'session-closed');
+  const f=fixture();f.setTime(time);f.halt();assert.equal((await f.check('600001')).status,'session-closed');
   assert.equal(f.reads.length,0);
   const g=fixture(),release=g.delay(),pending=g.check('600001');
   g.setTime(Date.parse('2026-11-20T11:30:00+08:00'));release();
@@ -64,4 +65,14 @@ test('a 429 is recorded without retry or promotion of the remaining single sourc
   assert.equal(f.governor.state('https://push2.eastmoney.com').cooldownUntil,time+120000);
   f.setTime(time+30000);await f.check('600001');
   assert.equal(f.reads.filter(id=>id==='eastmoney').length,1);
+});
+
+test('a clock rollback from a later closed session rejects even if the earlier day is also closed',async()=>{
+  const f=fixture();
+  f.setTime(Date.parse('2026-11-21T10:00:00+08:00'));
+  assert.equal((await f.check('600001')).status,'session-closed');
+  f.setTime(Date.parse('2026-11-20T09:25:00+08:00'));
+  const result=await f.check('600001');
+  assert.equal(result.status,'clock-invalid');assert.equal(result.checkedAt,null);
+  assert.equal(result.referencePrice,null);assert.equal(f.reads.length,0);
 });

@@ -15,7 +15,7 @@ const issue=(code,message)=>Object.assign(new Error(message),{code});
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const numeric=v=>typeof v==='number'&&Number.isFinite(v)?v:typeof v==='string'&&/^-?(?:\d+(?:\.\d*)?|\.\d+)$/.test(v)&&Number.isFinite(Number(v))?Number(v):null;
 const text=v=>typeof v==='string'?v.slice(0,2000):null;
-function clockValue(clock){const t=clock();if(!Number.isSafeInteger(t)||t<=0)throw issue('invalid-clock','采集时钟无效');return t;}
+function clockValue(clock){let t;try{t=clock();}catch{t=null;}if(!Number.isSafeInteger(t)||t<=0||t>8e15)throw issue('invalid-clock','采集时钟无效');return t;}
 function reportUrl(kind,symbol,date,page){
  return EM+'?'+new URLSearchParams({sortColumns:kind==='dividendEvents'?'REPORT_DATE':'SUSPEND_START_DATE',sortTypes:'-1',pageSize:'500',pageNumber:String(page),reportName:REPORTS[kind],columns:'ALL',source:'WEB',client:'WEB',filter:kind==='dividendEvents'?`(SECURITY_CODE="${symbol}")`:`(MARKET="全部")(DATETIME='${date}')`});
 }
@@ -47,6 +47,10 @@ function temporal(value){
 }
 function record(kind,row,symbol,receivedAt){
  if(!row||typeof row!=='object'||Array.isArray(row)||typeof row.SECURITY_CODE!=='string'||!/^\d{6}$/.test(row.SECURITY_CODE)||row.SECUCODE!==undefined&&!(typeof row.SECUCODE==='string'&&new RegExp('^'+row.SECURITY_CODE+'\\.(?:SH|SZ|BJ)$').test(row.SECUCODE)))throw issue('source-identity','报告缺少有效证券身份');
+ // A market suffix on a supported security must agree with the same code
+ // mapping used for the quote request; another exchange is not an alias.
+ if(symbolOK(row.SECURITY_CODE)&&row.SECUCODE!==undefined&&row.SECUCODE!==row.SECURITY_CODE+'.'+market(row.SECURITY_CODE).toUpperCase())
+  throw issue('source-identity','报告证券交易所与代码不一致');
  if(kind==='dividendEvents'&&row.SECURITY_CODE!==symbol)throw issue('source-identity','分红报告证券不一致');
  if(row.SECURITY_CODE!==symbol)return null;
  const fields=kind==='dividendEvents'?['REPORT_DATE','PLAN_NOTICE_DATE','EQUITY_RECORD_DATE','EX_DIVIDEND_DATE','NOTICE_DATE','PUBLISH_DATE']:['SUSPEND_START_TIME','SUSPEND_END_TIME','SUSPEND_START_DATE','PREDICT_RESUME_DATE'];
@@ -71,11 +75,18 @@ async function fetchPublicStockStatusEvidence({symbol,date}={}, {now=Date.now,re
  if(!symbolOK(symbol))throw Error('A股代码无效');
  const clock=typeof now==='function'?now:()=>now,startedAt=clockValue(clock);date=date===undefined?chinaDay(startedAt):date;
  if(!dateOK(date)||date>chinaDay(startedAt))throw Error('查询日期无效或来自未来');
- const errors=[],rawEvidence=[],deadline=performance.now()+MAX_TOTAL_MS,queue=[];let active=0,requestCount=0;
+ const errors=[],rawEvidence=[],deadline=performance.now()+MAX_TOTAL_MS,queue=[];let active=0,requestCount=0,lastAt=startedAt,clockFault=null;
+ // All concurrent routes share one observed clock high-water mark. Once a
+ // capture has a clock fault, no later recovered sample can certify that batch.
+ function sampleClock(){
+  if(clockFault)throw clockFault;
+  try{const at=clockValue(clock);if(at<lastAt)throw issue('invalid-clock','采集时钟倒退');lastAt=at;return at;}
+  catch(e){clockFault=e;throw e;}
+ }
  const request=createResearchRequest(requestJson,requestPublicStockStatusRaw,requestGovernor);
  const addError=(source,e)=>errors.push({source,code:typeof e.code==='string'?e.code:'source-failed',message:String(e.stderr||e.message||e).trim().slice(0,240),...restrictionFields(e)});
  const capture=(response,target,source)=>{
-  const receivedAt=clockValue(clock);if(receivedAt<startedAt)throw issue('invalid-clock','响应接收时钟早于请求');
+  const receivedAt=sampleClock();
   if(!response||!(Buffer.isBuffer(response.raw)||typeof response.raw==='string'))throw issue('missing-raw-bytes','证据请求必须返回原始字节');
   const raw=Buffer.isBuffer(response.raw)?response.raw:Buffer.from(response.raw,'utf8');if(raw.length>MAX_BYTES)throw issue('response-too-large','证据响应超过2MiB');
   rawEvidence.push({encoding:'base64',data:raw.toString('base64'),sha256:sha(raw),byteLength:raw.length,source,url:target,receivedAt});return {raw,receivedAt};
@@ -84,8 +95,9 @@ async function fetchPublicStockStatusEvidence({symbol,date}={}, {now=Date.now,re
  function fetchRaw(target,source){return new Promise((resolve,reject)=>{queue.push(async()=>{
   let timer;const controller=new AbortController();
   try{
+   sampleClock();
    const remaining=Math.floor(deadline-performance.now());if(remaining<=0)throw issue('total-time-budget','证据采集超过35秒总预算');if(requestCount>=MAX_REQUESTS)throw issue('request-budget','证据采集超过8次总请求预算');requestCount++;
-   const beforeStart=()=>{const left=Math.floor(deadline-performance.now());if(left<=0)throw issue('total-time-budget','证据采集超过35秒总预算');return {timeoutMs:Math.min(12000,left),processTimeoutMs:Math.min(13000,left)};};
+   const beforeStart=()=>{sampleClock();const left=Math.floor(deadline-performance.now());if(left<=0)throw issue('total-time-budget','证据采集超过35秒总预算');return {timeoutMs:Math.min(12000,left),processTimeoutMs:Math.min(13000,left)};};
    const response=await Promise.race([request(target,{maxBytes:MAX_BYTES,timeoutMs:Math.min(12000,remaining),processTimeoutMs:Math.min(13000,remaining),signal:controller.signal,beforeStart}),new Promise((_,fail)=>{timer=setTimeout(()=>{controller.abort();fail(issue('request-timeout','证据请求超时'));},remaining);})]);
    resolve(capture(response,target,source));
   }catch(e){if(e.response?.raw?.length){try{capture(e.response,target,source);}catch{}}reject(e);}finally{clearTimeout(timer);controller.abort();}
@@ -114,6 +126,6 @@ async function fetchPublicStockStatusEvidence({symbol,date}={}, {now=Date.now,re
  const [dividendEvents,suspensionAnnouncements,priceLimits]=await Promise.all([reports('dividendEvents'),reports('suspensionAnnouncements'),(async()=>{
   try{const {raw,receivedAt}=await fetchRaw(TX+market(symbol)+symbol,'tencent:priceLimits');return quoteLimits(raw,symbol,date,receivedAt);}catch(e){addError('priceLimits',e);return {status:'unknown',source:'tencent',symbol,tradeDate:null,quoteAt:null,receivedAt:null,limitUpPrice:null,limitDownPrice:null,limitKnownAt:null,preopenObserved:false};}
  })()]);
- return {schemaVersion:1,source:'public-stock-status-evidence',symbol,status:[dividendEvents,suspensionAnnouncements,priceLimits].some(v=>v.status==='observed-unverified')?'observed-unverified':'unknown',startedAt,observedAt:clockValue(clock),requestedDate:date,dividendEvents,suspensionAnnouncements,priceLimits,errors,rawEvidence,requestCount,bounds:{maxRequests:MAX_REQUESTS,maxConcurrency:2,totalTimeoutMs:MAX_TOTAL_MS,maxResponseBytes:MAX_BYTES},uncertainties:['公告和计划不等于逐日交易状态；未出现不证明可交易或非ST','分红送配只覆盖供应商事件范围，不证明不存在所有公司行动','公告原文日期精度保留；knownAt只表示本系统实际收到响应的时间','盘后/跨日限价仅归档；只有目标日盘前实际收到的同日报价才标preopenObserved','供应商时间、完整性和数据许可未获交易所独立认证'],researchOnly:true,verifiedLive:false,canTrade:false,canNotify:false};
+ return {schemaVersion:1,source:'public-stock-status-evidence',symbol,status:[dividendEvents,suspensionAnnouncements,priceLimits].some(v=>v.status==='observed-unverified')?'observed-unverified':'unknown',startedAt,observedAt:sampleClock(),requestedDate:date,dividendEvents,suspensionAnnouncements,priceLimits,errors,rawEvidence,requestCount,bounds:{maxRequests:MAX_REQUESTS,maxConcurrency:2,totalTimeoutMs:MAX_TOTAL_MS,maxResponseBytes:MAX_BYTES},uncertainties:['公告和计划不等于逐日交易状态；未出现不证明可交易或非ST','分红送配只覆盖供应商事件范围，不证明不存在所有公司行动','公告原文日期精度保留；knownAt只表示本系统实际收到响应的时间','盘后/跨日限价仅归档；只有目标日盘前实际收到的同日报价才标preopenObserved','供应商时间、完整性和数据许可未获交易所独立认证'],researchOnly:true,verifiedLive:false,canTrade:false,canNotify:false};
 }
 module.exports={fetchPublicStockStatusEvidence,requestPublicStockStatusRaw};

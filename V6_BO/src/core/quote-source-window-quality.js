@@ -77,7 +77,16 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
     return blocked('pair-numerics-or-verdict-inconsistent');
   } else if (r.status!=='insufficient-fresh-sources'||r.discrepancyBps!==null||r.quoteAt!==null)
    return blocked('incomplete-pair-verdict-inconsistent');
-  seen.set(item.slotAt,{report:r,rows});
+  seen.set(item.slotAt,{report:r,rows,reportAt});
+ }
+ // Overlapping lag windows must not turn reused or regressing reports
+ // into separate successful samples. Enforce the registered slot order.
+ let previousReportAt=null;
+ for(const slot of expectedSlots){
+  const reportAt=seen.get(slot)?.reportAt;
+  if(reportAt===undefined)continue;
+  if(previousReportAt!==null&&reportAt<=previousReportAt)return blocked('duplicate-or-regressing-report-time');
+  previousReportAt=reportAt;
  }
  const perSource=PROVIDERS.map(provider=>{
   let fresh=0,dated=0,unavailable=0,missing=0;

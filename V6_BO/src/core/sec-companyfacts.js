@@ -15,11 +15,11 @@ const isoDay=x=>typeof x==='string'&&DAY.test(x)&&Number.isFinite(Date.parse(x+'
  new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
 function validate(args={}){
  const {cik,tag,unit='USD',asOf,now=Date.now(),userAgent}=args;
- const raw=String(cik??'');
+ const raw=typeof cik==='string'||typeof cik==='number'&&Number.isSafeInteger(cik)?String(cik):'';
  if(!/^\d{1,10}$/.test(raw)||Number(raw)===0||
-    !TAG.test(tag||'')||!UNITS.has(unit)||
+    typeof tag!=='string'||!TAG.test(tag)||!UNITS.has(unit)||
     !isoDay(asOf)||asOf<'1994-01-01'||
-    !Number.isSafeInteger(now)||now<=0||asOf>new Date(now).toISOString().slice(0,10))
+    !Number.isSafeInteger(now)||now<=0||now>8e15||asOf>new Date(now).toISOString().slice(0,10))
   throw Error('SEC研究CIK、XBRL标签、单位、截至日或采集时钟无效');
  // SEC requires honest identification. Never hardcode or log the contact.
  if(typeof userAgent!=='string'||userAgent.length<12||userAgent.length>130||
@@ -27,7 +27,14 @@ function validate(args={}){
   throw Error('SEC访问必须显式提供真实机构/应用名称和联系人邮箱的User-Agent');
  return {cik:Number(raw),padded:String(Number(raw)).padStart(10,'0'),tag,unit,asOf,now,userAgent};
 }
-function projectCompanyFact(payload,{cik,tag,unit,asOf,now}){
+function projectCompanyFact(payload,{cik,tag,unit,asOf,now}={}){
+ // The public projector is also used on saved data. Reapply the identity
+ // and cutoff contract without requiring or copying the network credential.
+ if(!Number.isSafeInteger(cik)||cik<=0||cik>9999999999||
+    typeof tag!=='string'||!TAG.test(tag)||!UNITS.has(unit)||
+    !isoDay(asOf)||asOf<'1994-01-01'||!Number.isSafeInteger(now)||now<=0||now>8e15||
+    asOf>new Date(now).toISOString().slice(0,10))
+  throw Error('SEC历史投影CIK、标签、单位或截至日无效');
  if(!payload||typeof payload!=='object'||payload.cik!==cik||
     !payload.facts||typeof payload.facts!=='object')
   throw Error('SEC Companyfacts的CIK或返回结构与请求不一致');
@@ -40,7 +47,7 @@ function projectCompanyFact(payload,{cik,tag,unit,asOf,now}){
   if(!x||typeof x!=='object'||!isoDay(x.end)||!isoDay(x.filed)||
      x.end>x.filed||x.filed>new Date(now).toISOString().slice(0,10)||
      (x.start!==undefined&&(!isoDay(x.start)||x.start>x.end))||
-     !ACCN.test(x.accn||'')||!FORMS.has(x.form)||
+     typeof x.accn!=='string'||!ACCN.test(x.accn)||!FORMS.has(x.form)||
      typeof x.val!=='number'||!Number.isFinite(x.val)||
      (unit==='shares'&&(!Number.isSafeInteger(x.val)||x.val<0)))
    throw Error('SEC历史事实包含不完整的申报日、报告期、数值或来源凭据');
@@ -98,7 +105,7 @@ async function collectSecCompanyFact(args={}){
   headers:{Accept:'application/json','User-Agent':opt.userAgent}});
  const {data,rawBytes,byteBasis}=await boundedJsonEvidence(response);
  const observedAt=clock();
- if(!Number.isSafeInteger(observedAt)||observedAt<opt.now)throw Error('SEC接收时钟无效或早于请求');
+ if(!Number.isSafeInteger(observedAt)||observedAt<opt.now||observedAt>8e15)throw Error('SEC接收时钟无效或早于请求');
  const result={...projectCompanyFact(data,{...opt,now:observedAt}),requestStartedAt:opt.now,observationTimeBasis:'local-body-receipt'};
  return args.archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:args.archiveRoot,raw:rawBytes,byteBasis,scope:{cik:opt.cik,tag:opt.tag,unit:opt.unit,asOf:opt.asOf}});
 }

@@ -7,6 +7,8 @@
 const crypto=require('node:crypto');
 const {validateDataset}=require('./historical-validation');
 const {assessDailyTurnoverBar}=require('./daily-turnover-sanity');
+const {aShareCalendarDate,assessDailyBarFinality}=require('./a-share-calendar');
+const validClock=n=>Number.isSafeInteger(n)&&n>0&&n<=8e15;
 const validDate=d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)&&
  Number.isFinite(Date.parse(d+'T00:00:00Z'))&&
  new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d;
@@ -21,11 +23,11 @@ function amount(value,field,{integer=false,positive=false}={}){
     (positive?n<=0:n<0))throw Error('BaoStock '+field+'数值越界');
  return n;
 }
-function normalizeBaoStockDaily({code,rows,collectorObservedAt}={}){
+function normalizeBaoStockDaily({code,rows,collectorObservedAt,now=Date.now()}={}){
  if(typeof code!=='string'||!/^(?:60|68|00|30)\d{4}$/.test(code)||
     !Array.isArray(rows)||rows.length<32||rows.length>1000)
   throw Error('BaoStock日线需要32到1000条沪深A股记录');
- if(collectorObservedAt!==undefined&&(!Number.isSafeInteger(collectorObservedAt)||collectorObservedAt<=0))
+ if(!validClock(now)||collectorObservedAt!==undefined&&(!validClock(collectorObservedAt)||collectorObservedAt>now))
   throw Error('BaoStock采集时钟无效');
  const market=code.startsWith('6')?'sh':'sz',expected=market+'.'+code;
  const seen=new Set(),bars=[];
@@ -53,8 +55,10 @@ function normalizeBaoStockDaily({code,rows,collectorObservedAt}={}){
  }
  const asOf=bars.at(-1).date;
  if(collectorObservedAt!==undefined&&
-    asOf>new Date(collectorObservedAt+8*3600000).toISOString().slice(0,10))
+    asOf>aShareCalendarDate(collectorObservedAt))
   throw Error('BaoStock数据日期晚于采集时钟');
+ const finality=assessDailyBarFinality(asOf,{observedAt:collectorObservedAt,now});
+ if(!finality.usable)throw Error('BaoStock日线完成度: '+finality.reason);
  const hash=crypto.createHash('sha256').update(JSON.stringify({code,rows})).digest('hex');
  const dataset={source:'imported',provider:'baostock',datasetId:'baostock-unadjusted-v1-'+hash.slice(0,20),
   asOf,volumeUnit:'shares',amountUnit:'CNY',amountBasis:'actual-unadjusted-turnover',

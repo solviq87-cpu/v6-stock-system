@@ -42,8 +42,17 @@ function validResponse(response,board,day){
 }
 function sanitizeResponse(response){
  const result=copyResponse(response);
- result.items=result.items.map(row=>({...row,...quoteSnapshotFields(row),canTrade:false,canNotify:false,verifiedLive:false,canTrain:false}));
- if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(group=>({...group,picks:group.picks.map(row=>({...row,canTrade:false,canNotify:false,verifiedLive:false,canTrain:false}))}));
+ // Retain the quote for display/audit, but never let time passing rehabilitate
+ // evidence which did not yet exist at the frozen scan time.
+ const freezeRow=row=>{
+  const fields=quoteSnapshotFields(row);
+  const futureAtCapture=[row.quoteAt,row.receivedAt].some(t=>Number.isSafeInteger(t)&&t>response.asOf)||
+    fields.quoteAt!==null&&fields.receivedAt!==null&&fields.quoteAt>fields.receivedAt;
+  return {...row,...fields,...(futureAtCapture?{sourceConflict:true,snapshotTimeConflict:true}:{}),
+    canTrade:false,canNotify:false,verifiedLive:false,canTrain:false};
+ };
+ result.items=result.items.map(freezeRow);
+ if(Array.isArray(result.sectorView))result.sectorView=result.sectorView.map(group=>({...group,picks:group.picks.map(freezeRow)}));
  return result;
 }
 function readFile(file){

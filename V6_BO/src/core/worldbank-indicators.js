@@ -9,19 +9,30 @@ const YEAR=/^(?:19|20)\d{2}$/;
 const COUNTRY=/^[A-Z]{3}$/;
 const INDICATOR=/^[A-Z][A-Z0-9.]{2,39}$/;
 function validate({country,indicator,startYear,endYear,now=Date.now()}={}){
- if(!COUNTRY.test(country||'')||!INDICATOR.test(indicator||'')||
+ if(typeof country!=='string'||!COUNTRY.test(country)||typeof indicator!=='string'||!INDICATOR.test(indicator)||
   !Number.isSafeInteger(startYear)||!Number.isSafeInteger(endYear)||
   !YEAR.test(String(startYear))||!YEAR.test(String(endYear))||
   startYear>endYear||endYear-startYear>60||
-  endYear>new Date(now+8*3600000).getUTCFullYear()||
-  !Number.isSafeInteger(now)||now<=0)
+  !Number.isSafeInteger(now)||now<=0||now>8e15||
+  endYear>new Date(now+8*3600000).getUTCFullYear())
   throw Error('世界银行数据国家、指标、时间区间或采集时钟不合法');
 }
-function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,observedAt}){
- if(!Number.isSafeInteger(observedAt)||observedAt<=0)throw Error('World Bank接收时钟无效');
+// Accept explicit decimal metadata strings from the API, not JS coercions.
+const metadataCount=v=>{
+ if(typeof v!=='number'&&(typeof v!=='string'||!/^\d{1,16}$/.test(v)))return null;
+ const n=Number(v);return Number.isSafeInteger(n)&&n>=0?n:null;
+};
+function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,observedAt}={}){
+ if(!Number.isSafeInteger(observedAt)||observedAt<=0||observedAt>8e15)throw Error('World Bank接收时钟无效');
+ validate({country,indicator,startYear,endYear,now:observedAt});
  if(!Array.isArray(payload)||payload.length!==2||!Array.isArray(payload[1])||
-  payload[1].length>endYear-startYear+1||Number(payload[0]?.pages)!==1)
+  payload[1].length>endYear-startYear+1||metadataCount(payload[0]?.pages)!==1)
   throw Error('World Bank指标响应结构或分页越界');
+ const meta=payload[0],length=payload[1].length;
+ if(meta.page!==undefined&&metadataCount(meta.page)!==1||
+    meta.total!==undefined&&metadataCount(meta.total)!==length||
+    meta.per_page!==undefined&&(metadataCount(meta.per_page)===null||metadataCount(meta.per_page)<Math.max(1,length)))
+  throw Error('World Bank分页元数据与实际行数矛盾');
  const seen=new Set(),rows=[];
  for(const x of payload[1]){
   if(!x||x.countryiso3code!==country||x.indicator?.id!==indicator||
@@ -38,9 +49,15 @@ function parseWorldBankResponse(payload,{country,indicator,startYear,endYear,obs
  }
  if(!rows.length)throw Error('世界银行在请求区间无记录');
  rows.sort((a,b)=>a.year-b.year);
+ const omittedYears=Array.from({length:endYear-startYear+1},(_,i)=>startYear+i).filter(year=>!seen.has(String(year)));
+ const knownValueYears=rows.filter(row=>row.value!==null).length;
  return {schemaVersion:1,mode:'macro-official-api-research',provider:'worldbank',
   upstreamGroup:'worldbank',sourceUrl:'https://api.worldbank.org/v2',
   country,indicator,startYear,endYear,observedAt,rows,
+  coverage:{requestedYears:endYear-startYear+1,returnedYears:rows.length,knownValueYears,
+   explicitMissingValueYears:rows.length-knownValueYears,omittedYears,
+   yearRowsComplete:omittedYears.length===0,allValuesKnown:omittedYears.length===0&&knownValueYears===rows.length,
+   publicationCoverageVerified:false},
   sourceRevisionKnown:false,publicationVintageVerified:false,
   tradable:false,canTrade:false,canNotify:false,verifiedLive:false,verifiedExternal:false,
   warning:'World Bank官方API的数值和年份不是市场实时行情，公布/修订历史未知；必须按数据集许可署名，不可用于回测中的未来信息'};
@@ -74,7 +91,7 @@ async function collectWorldBankIndicator({country,indicator,startYear,endYear,cl
   bytes=str;rawBytes=Buffer.from(str,'utf8');byteBasis='decoded-body-text';
  }
  const observedAt=clock();
- if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('World Bank接收时钟无效或早于请求');
+ if(!Number.isSafeInteger(observedAt)||observedAt<now||observedAt>8e15)throw Error('World Bank接收时钟无效或早于请求');
  const result={...parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
  return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw:rawBytes,byteBasis,scope:{country,indicator,startYear,endYear}});
 }

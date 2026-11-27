@@ -41,15 +41,18 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
    membership.observedAt>start||aShareCalendarDate(membership.observedAt)!==snapshot.date||
    !Array.isArray(membership.sectors)||membership.sectors.length>300)
   return unknown('membership-version-or-point-in-time-invalid');
- const quotes=new Map();
+ const quotes=new Map(),seenSymbols=new Set();
  for(const s of snapshot.stocks){
-  if(!symbolOK(s?.code)||quotes.has(s.code))
+  if(!symbolOK(s?.code)||seenSymbols.has(s.code))
    return unknown('duplicated-or-malformed-market-symbol');
+  seenSymbols.add(s.code);
   if(s.source!==undefined&&s.source!==snapshot.source)
    return unknown('mixed-provider-symbol-evidence');
   const timestamp=classifyQuoteTime(s,{requestDate:snapshot.date,
-   retrievedAt:time,maxAgeMs:maxQuoteAgeMs});
-  if(timestamp.quoteTimeStatus!=='recent-source-unverified'||!pct(s.pctChange))
+   retrievedAt:time,originalRetrievedAt:end,maxAgeMs:maxQuoteAgeMs});
+  if(timestamp.quoteTimeStatus!=='recent-source-unverified'||!pct(s.pctChange)||
+     s.suspended===true||s.tradable===false||s.sourceConflict===true||s.conflict===true||
+     s.quoteStatus==='conflict'||s.evidenceStatus==='conflict')
    continue;
   quotes.set(s.code,{symbol:s.code,changePct:s.pctChange,
    tradeDate:snapshot.date,observedAt:timestamp.quoteAt,source:snapshot.source,
