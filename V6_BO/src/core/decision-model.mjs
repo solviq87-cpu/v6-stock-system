@@ -33,6 +33,11 @@ function riskReasons(row){
  if(!eligiblePick(row))reasons.push('已有策略或风控条件未通过');
  if(['riskWarning','halt','suspended','blocked','bad','riskBlocked','blacklisted'].some(k=>row?.[k]===1||typeof row?.[k]==='string'&&!/^(?:false|0|no|none|无|正常|否)$/i.test(row[k])))reasons.push('存在风险或停牌标记');
  if(row?.canTrade===false||row?.canNotify===false)reasons.push('原始报价明确禁止该用途');
+ if(['sourceConflict','quoteSourceConflict','conflict','retracted'].some(k=>row?.[k]===true)||
+  ['quoteStatus','quoteFreshness','evidenceStatus'].some(k=>['conflict','conflicting'].includes(row?.[k])))
+  reasons.push('原始报价或来源证据存在冲突');
+ if([row?.quoteMode,row?.mode].some(v=>v!=null&&(typeof v!=='string'||forbidden.test(v))))
+  reasons.push('原始报价存在禁止用途的模式声明');
  if(row?.canTrade!==true&&row?.canNotify!==true)reasons.push('原始报价未返回用途许可');
  if(row?.readOnlyBackup===true||row?.imported===true||row?.historicalClose===true||row?.pickSource==='收盘观察精选')reasons.push('该记录仅供历史或观察使用');
  return [...new Set(reasons)];
@@ -45,7 +50,7 @@ export function decisionQuoteGate(row,{day,now=Date.now(),poolDay}={}){
  if(!positive(row?.price))reasons.push('缺少有效原始价格');
  if(!source||!mode||forbidden.test(source)||forbidden.test(mode))reasons.push('原始报价来源或用途待核验');
  if(!time(at)||at>now||now-at>15000||time(at)&&chinaDay(at)!==target)reasons.push('原始报价超过15秒、跨日或时点缺失');
- if(row?.vendorQuoteAt!=null&&row.vendorQuoteAt!==at)reasons.push('供应商时点与报价时点不一致');
+ if([row?.vendorQuoteAt,row?.quoteTimestamp].some(v=>v!=null&&v!==at))reasons.push('供应商时点与报价时点不一致');
  if(!time(received)||received<at||received>now)reasons.push('原始报价接收顺序无效');
  if(systemPickDay(row||{},decisionDay(poolDay),now)!==target)reasons.push('候选交易日与当前日期不一致');
  if(!positive(row?.volume)&&!positive(row?.amount))reasons.push('缺少同一原始行的有效成交量额');
