@@ -5,10 +5,6 @@ const {aShareCalendarDate}=require('./a-share-calendar');
 const {classifyQuoteTime}=require('./market-snapshot-quote-time');
 const CODE=/^\d{6}$/;
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(Date.parse(s)).toISOString().slice(0,10)===s;
-function comparableReturn(stock) {
- return typeof stock?.pctChange === 'number' && Number.isFinite(stock.pctChange) &&
-   stock.pctChange >= -100 && stock.pctChange <= 100 && stock.suspended !== true;
-}
 function analyzeMarketBreadth(snapshot, options={}){
  const minCoverage=options.minCoverage??0.8;
  if(!Number.isFinite(minCoverage)||minCoverage<=0||minCoverage>1)throw Error('minCoverage须为(0,1]之间的有限数字');
@@ -35,6 +31,11 @@ function analyzeMarketBreadth(snapshot, options={}){
   breadthScore:+(100*up/observed).toFixed(2),advanceDeclineRatio:down===0?null:+(up/down).toFixed(4),
   warning:'涨跌停数量只统计来源明确标记的股票；成交额为有效记录汇总，不代表交易所认证全市场成交额'};
 }
+function comparableReturn(stock) {
+ return typeof stock?.pctChange === 'number' && Number.isFinite(stock.pctChange) &&
+   stock.pctChange >= -100 && stock.pctChange <= 100 && stock.suspended !== true;
+}
+
 // Current cross-section for the research terminal. Keep it separate from the
 // existing request-date breadth, which can describe an older market snapshot.
 function summarizeRecentStructure(snapshot, minCoverage = 0.8) {
