@@ -51,7 +51,7 @@ function snapshotCaptureWindow(snapshot){
  // An absent legacy start is distinct from explicitly invalid or reversed acquisition evidence.
  const invalidStart=snapshot?.startedAt!==undefined&&(startedAt===null||
    originalRetrievedAt!==null&&startedAt>originalRetrievedAt);
- return {originalRetrievedAt,invalidStart};
+ return {originalRetrievedAt,startedAt,invalidStart};
 }
 function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=retrievedAt,maxAgeMs=90000,invalidStart=false}={}){
  if(!validClock(retrievedAt)||
