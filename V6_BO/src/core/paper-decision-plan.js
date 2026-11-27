@@ -106,7 +106,7 @@ function planFill(book, planId, {plan=null, now=Date.now()}={}) {
 
 function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDate(now), replica,
   continuous, candidate, eligiblePick, systemPickDay, poolDay, newsBlocked,
-  account, policy, equity, quote, authoritative, readBook, buy, clock=null}) {
+  account, policy, equity, quote, authoritative, readBook, buy, clock=()=>Date.now()}) {
   if (replica) throw Error('当前为副本，请在原主实例确认模拟计划');
   if (!input || input.account !== 'pool' || !planIdOk(input.planId) || input.planId !== plan?.id ||
       Object.keys(input).some(k => !['action','account','planId','token'].includes(k))) throw Error('模拟计划请求无效');
@@ -151,8 +151,7 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   buy(candidate,reasonOf(plan));
   // The original synchronous callback may commit a few milliseconds after
   // the entry check. Use the completion clock without changing quote provenance.
-  const bookAfter=readBook(),wall=clock===null?Date.now():clock();
-  const finishedAt=clock===null&&aShareCalendarDate(wall)!==aShareCalendarDate(now)?now:wall;
+  const bookAfter=readBook(),finishedAt=clock();
   if(!Number.isSafeInteger(finishedAt)||finishedAt<now)throw Error('原模拟成交确认时钟倒退，停止执行');
   const committed = planFill(bookAfter,plan.id,{plan,now:finishedAt});
   if (!committed) throw Error('原模拟门禁未产生持久成交，请核对报价、涨停、持仓上限、资金或账本回执');

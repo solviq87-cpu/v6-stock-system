@@ -15,7 +15,7 @@ function input(at=now,q=quote(at)){
  const card={authority:'fayo-decision-center',decisionId:'a'.repeat(64),code,day,strategyAt:time('09:20:00'),quoteBasis:{source:'tencent'},plan:{buyLow:9.8,buyHigh:10.1,stop:9,target:12,positionPct:25}};
  const plan=bindAuthoritativePlan({id:'plan-00000000-0000-4000-8000-000000000001',sampleSet:'real',frozenAt:new Date(time('09:29:50')).toISOString(),...decisionPlanPayload(card)},card);
  const book={account:{cash:10000,positions:{},events:[]},orders:{}};
- return {input:{action:'executePlan',account:'pool',planId:plan.id},plan,now:at,day,continuous:true,candidate:{code},
+ return {input:{action:'executePlan',account:'pool',planId:plan.id},plan,now:at,day,clock:()=>at,continuous:true,candidate:{code},
   eligiblePick:()=>true,systemPickDay:()=>day,poolDay:day,account:{enabled:true,cash:10000,positions:{}},
   policy:{maxPos:5},equity:10000,quote:q,authoritative:card,book,readBook:()=>book,buy(){throw Error('isolated original callback reached');}};
 }
@@ -119,4 +119,17 @@ test('original execution receipt is rechecked after the callback and uses its ac
  assert.equal(calls,1);assert.notEqual(JSON.stringify(x.book),before);
  const y=input();const result=executeDecisionPlan({...y,clock:()=>now+5,buy:()=>y.book.account.events.push(receipt(y,{timestamp:now+5}))});
  assert.equal(result.status,'executed');assert.equal(result.eventId,'original-receipt');
+});
+
+test('completion clock is explicit and cannot be repaired from an ambient or earlier time',()=>{
+ for(const finishedAt of [now-1,NaN]){
+  const x=input();let calls=0;
+  assert.throws(()=>executeDecisionPlan({...x,clock:()=>finishedAt,buy:()=>{calls++;x.book.account.events.push(receipt(x));}}),/成交确认时钟倒退/);
+  assert.equal(calls,1); // Original callback already ran; no claim of rollback.
+  assert.equal(x.book.account.events.length,1);
+  assert.equal(executeDecisionPlan(x).status,'already-executed');
+ }
+ const x=input();let calls=0;
+ assert.throws(()=>executeDecisionPlan({...x,clock:()=>now,buy:()=>{calls++;x.book.account.events.push(receipt(x,{timestamp:now+1}));}}),/原持久成交冲突/);
+ assert.equal(calls,1);
 });
