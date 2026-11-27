@@ -141,7 +141,7 @@
 |[#575](https://github.com/solviq87-cpu/v6-stock-system/pull/575)|原模拟执行清单与评分按成交截点复盘。隔离原账户毛收益 6 元，费用 10.50 元，净亏 4.50 元；信号基准价、未成交机会成本待证|
 |[#576](https://github.com/solviq87-cpu/v6-stock-system/pull/576)|F33.2 冻结决策价差与已结算份额费用，F25.4 原队列退避、风险预留与研究档案单独重试|
 |[#577](https://github.com/solviq87-cpu/v6-stock-system/pull/577)|F33.3 原报价限价核验，F32.4 未退出持仓，S17 / S18 原账户、鉴权接口与双端实测|
-|[#578](https://github.com/solviq87-cpu/v6-stock-system/pull/578)|F42.2 按历史日传递制度状态，原完整实验工作线程与双端显示复验|
+|[#578](https://github.com/solviq87-cpu/v6-stock-system/pull/578)|F42.2 按历史日传递制度状态、连板战法和两条原研究接口消费|
 
 截至 #573 的业务组合在 Linux 原生全量回归中 8,141 项通过，失败、取消、跳过均为 0。
 
@@ -153,7 +153,7 @@
 
 原报价边界候选 `ac7b96fbc0bb69ad09dd845521a18620291c4cd2` 的 8,033 项独立原生回归、23 项报价专项及 72 项相关兼容通过。六个账户阶段各用两种 Chromium 视口读取，账户事件按原执行时间显示；历史日期记录保留原精度。恢复交易后仅按合成可供量成交 100 股，余 200 股和未完成委托保留。[原服务、权限、账本及截图证据](https://github.com/solviq87-cpu/v6-stock-system/tree/ac7b96fbc0bb69ad09dd845521a18620291c4cd2/docs/validation/fayo-limit-quote-20261127)
 
-历史制度候选 `0f5f24dfe86ec36e0163ccdc2b3f24966a36192a` 已在原鉴权完整实验线程和两种浏览器视口处理三种合成输入。普通历史行产生对应形态规则证据，未知限幅及无限幅时保留模型限制。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/0f5f24dfe86ec36e0163ccdc2b3f24966a36192a/docs/validation/fayo-dated-rules-20261127)
+历史制度候选 `bf02b02b7ba87c5948e3caff7924b5aa65f097e9` 在原两条鉴权接口分别处理五种合成输入，双端十次实际流程验证首板战法及逐日覆盖。无限幅与制度缺口保留限制，正常输入继续命中。专项73项、源工程8038项通过；最终组合与当前CI分别核验。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/bf02b02b7ba87c5948e3caff7924b5aa65f097e9/docs/validation/fayo-dated-rules-20261127)
 
 ## 跨专项执行约束 · 高效率开发与系统性能
 
