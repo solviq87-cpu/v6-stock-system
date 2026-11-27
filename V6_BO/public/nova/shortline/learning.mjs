@@ -2,7 +2,7 @@ import { kLearningRows } from './backtest.mjs';
 import { emotion,marketAsOf } from './market.mjs';
 import { settingsAt } from './settings.mjs';
 import { pressureLearningTags } from './pressure.mjs';
-import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,uniqueEvidenceRows } from './sample-quality.mjs';
+import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,uniqueEvidenceRows,candidateEvidenceReview,approvedModelEvidenceReview } from './sample-quality.mjs';
 import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
 import {dictionaryVersion,factorDictionary} from './factor-dictionary.mjs';
 import {MODEL,readNumericCheck,fitNumericModel,numericScore,projectNumeric,validModel,fingerprint,stable} from './numeric-factors.mjs';
@@ -170,25 +170,6 @@ function weightedScore(weights,factors) {
   const vals=unique(factors).filter(f=>Object.hasOwn(weights||{},f)).map(f=>weights[f]);
   return vals.length?round(vals.reduce((a,b)=>a+b,0)/Math.sqrt(vals.length)):0;
 }
-// A five-gate report is frozen evidence, not permanent certification of its
-// source samples. Restoring a withdrawn source cannot repair an older test.
-function candidateEvidenceReview(state,candidate,asOf){
-  const ids=new Set(Array.isArray(candidate?.sourceIds)?candidate.sourceIds:[]);
-  const at=sampleEvidenceTime(asOf),created=sampleEvidenceTime(candidate?.createdAt),affected=new Set();
-  for(const row of state.trades||[]){
-    const review=row?.planEvidenceReview;
-    if(!review||!ids.has(row.id)||state.scope!=='demo'&&isTestSample(row))continue;
-    const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt);
-    // A coherent future first withdrawal cannot affect an earlier query.
-    if(first!==null&&last!==null&&first<=last&&at!==null&&first>at)continue;
-    const restored=sampleEvidenceTime(review.revalidatedAt);
-    const usable=review.status==='revalidated'&&at!==null&&created!==null&&first!==null&&last!==null&&
-      restored!==null&&first<=last&&last<=restored&&restored<=created&&created<=at;
-    if(!usable)affected.add(row.id);
-  }
-  return {status:affected.size?'requires-revalidation':ids.size?'no-known-revocation':'unavailable',
-    affectedSources:affected.size,canTrade:false};
-}
 export function predict(state,input={}) {
   const asOf=input.asOf||Date.now(),cut=cutAt(asOf), factors=words(input.factors), scope=strategyList(input);
   const v=[...(state.versions||[])].reverse().find(v=>(state.scope==='demo'||v.sampleScope!=='demo')&&v.approvedAt && v.weights && Date.parse(v.approvedAt)<=instant(asOf));
@@ -198,8 +179,7 @@ export function predict(state,input={}) {
   const numericResult=v?.numericModel?numericScore(v.numericModel,input.numericFactors):null;
   const modelValid=!v?.numericModel||v.numericModel.dictionaryVersion===dictionaryVersion&&validModel(v.numericModel)&&
     stable(v.weights)===stable(v.numericModel.weights)&&v.scoringFingerprint===fingerprint(scoringState(v));
-  const modelCandidate=v?.candidateId?(state.candidates||[]).find(c=>c.id===v.candidateId):null;
-  const modelEvidenceReview=candidateEvidenceReview(state,modelCandidate,instant(asOf));
+  const modelEvidenceReview=approvedModelEvidenceReview(state,v,instant(asOf));
   const needsReview=modelEvidenceReview.status==='requires-revalidation';
   // Keep the approved model and its weights. Do not silently fall back or
   // substitute a zero score for unavailable research.
@@ -488,6 +468,8 @@ export function validateCenterCandidate(state,proposal){
   if(proposal.numericModel&&(proposal.factorSchema!==MODEL||!validModel(proposal.numericModel)||
       stable(proposal.numericModel.weights)!==stable(proposal.weights)))throw Error('中心数值提案模型、定义或权重指纹不一致');
   for(const key of ['candidates','versions'])state[key]||=[];
+  if(approvedModelEvidenceReview(state,lastVersion(state),proposal.now??Date.now()).status==='requires-revalidation')
+    throw Error('中心获批基线的来源样本已撤销或复核，须重新独立验证');
   return buildCandidate(state,false,proposal);
 }
 export function learningAction(state,action,p={}){
@@ -513,6 +495,9 @@ export function learningAction(state,action,p={}){
     if(p.decision==='approve'&&state.scope!=='demo'&&(c.sampleScope==='demo'||state.trades.some(r=>isTestSample(r)&&c.sourceIds?.includes(r.id))))throw Error('含测试样本的候选仅用于演示档案');
     if(p.decision==='approve'&&candidateEvidenceReview(state,c,Date.now()).status==='requires-revalidation')
       throw Error('候选来源样本已撤销或复核，必须重新独立验证');
+    if(p.decision==='approve'&&(c.centerFeedback||c.numericModel?.adjustment)&&
+      approvedModelEvidenceReview(state,lastVersion(state),Date.now()).status==='requires-revalidation')
+      throw Error('中心获批基线的来源样本已撤销或复核，须重新独立验证');
     const prev=lastVersion(state)?.number||0;
     if(p.decision==='approve' && c.baseVersion!==prev)throw Error('基线版本已变更，请基于当前版本重新验证');
     c.decision={reviewer,reason,at:now()};

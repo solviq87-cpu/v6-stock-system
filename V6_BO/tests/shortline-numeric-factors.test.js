@@ -247,3 +247,45 @@ test('原权威模拟结算沿用含买入费用的收益分母，不能被普�
   assert.deepEqual(candidate.steps.map(row=>row.status),Array(5).fill('通过'));
   assert.equal(candidate.numericCoverage.scorableCounts.reduce((a,b)=>a+b,0),500);
 });
+
+
+test('共享撤销门禁覆盖原数值训练血缘及中心继承的历史验证来源',()=>{
+ const {candidateEvidenceReview,approvedModelEvidenceReview}=require('../public/nova/shortline/sample-quality.mjs');
+ const time=d=>'2024-07-'+String(d).padStart(2,'0')+'T08:00:00Z',point=d=>Date.parse(time(d));
+ const review={status:'revalidated',firstQuarantinedAt:time(8),lastQuarantinedAt:time(8),revalidatedAt:time(9)};
+ const training={id:'training',planEvidenceReview:review},held={id:'validation',planEvidenceReview:review};
+ const old={id:'old',createdAt:time(5),sourceIds:['validation'],numericModel:{sourceIds:['training'],trainCutoff:time(4)}};
+ const base={number:1,candidateId:'old',numericModel:old.numericModel};
+ const newCandidate={id:'new',createdAt:time(10),baseVersion:1,sourceIds:['different'],centerFeedback:{},numericModel:old.numericModel};
+ const next={number:2,candidateId:'new',numericModel:old.numericModel};
+ const state={scope:'live',trades:[training,held],candidates:[old,newCandidate],versions:[base,next]};
+ assert.equal(candidateEvidenceReview(state,newCandidate,point(11)).affectedSources,1);
+ assert.equal(approvedModelEvidenceReview(state,next,point(11)).affectedSources,2);
+ assert.equal(approvedModelEvidenceReview(state,base,point(7)).status,'no-known-revocation');
+ assert.equal(approvedModelEvidenceReview({...state,candidates:[]},base,point(11)).affectedSources,1);
+ assert.equal(candidateEvidenceReview(state,{sourceIds:['training'],createdAt:time(10)},point(11)).status,'no-known-revocation');
+ assert.equal(approvedModelEvidenceReview(state,null,point(11)).status,'unavailable');
+});
+
+test('原生智能中心、短线评分及自动调权共用已撤销模型来源门禁',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:at('2024-07-01','16:00:00')});
+ const [,,{learningAction,predict}]=await modules,x=addRulePanels(await feedbackFixture());
+ const c=learningAction(x.state,'learn:candidate',{});
+ const approved=learningAction(x.state,'learn:decision',{id:c.id,decision:'approve',reviewer:'隔离验收',reason:'保留原审批'});
+ const row=x.state.trades.find(r=>c.numericModel.sourceIds.includes(r.id));assert.ok(row);
+ const check=x.state.checks.at(-1),clock=at('2024-07-01','16:03:00');
+ const first=new Date(at('2024-07-01','16:02:00')).toISOString();
+ row.planEvidenceReview={status:'quarantined',firstQuarantinedAt:first,lastQuarantinedAt:first};
+ const before=JSON.stringify(x.state),report=research.buildIntelligenceResearch({archive:x.state,day:check.date,now:clock,calendar:x.calendar});
+ assert.equal(report.factors.approvedScoring.status,'requires-source-revalidation');
+ assert.equal(report.factors.approvedScoring.modelVersion,approved.number);
+ assert.equal(report.factors.approvedScoring.modelFingerprint,approved.numericModel.fingerprint);
+ assert.deepEqual(report.factors.approvedScoring.rows,[]);
+ assert.equal(report.feedback.modelEvidenceReview.status,'requires-revalidation');
+ assert.equal(report.feedback.proposal,null);assert.equal(report.feedback.validationBridge.ready,false);
+ assert.ok(report.feedback.excludedTrades.some(r=>r.id===row.id&&r.reason==='withdrawn-learning-source'));
+ assert.ok(report.feedback.validationBridge.missing.some(r=>r.includes('来源样本已撤销')));
+ assert.equal(predict(x.state,{asOf:clock}).score,null);assert.equal(JSON.stringify(x.state),before);
+ row.planEvidenceReview.status='revalidated';row.planEvidenceReview.revalidatedAt=new Date(clock).toISOString();
+ assert.equal(research.buildIntelligenceResearch({archive:x.state,day:check.date,now:clock,calendar:x.calendar}).factors.approvedScoring.status,'requires-source-revalidation');
+});

@@ -93,3 +93,52 @@ export function uniqueEvidenceRows(rows,{requireIdentity=false,settlements=false
  return {rows:input.filter((_,i)=>!rejected.has(i)&&!duplicates.has(i)),
   conflicts:rejected.size,duplicates:[...duplicates].filter(i=>!rejected.has(i)).length};
 }
+
+
+// Both research views and the approval reducer use this same known-withdrawal
+// projection. A recovered source does not repair an older validation window.
+function reviewSourceIds(state,sourceIds,frozenAt,asOf){
+ const ids=new Set(Array.isArray(sourceIds)?sourceIds.filter(id=>typeof id==='string'&&id):[]);
+ const at=sampleEvidenceTime(asOf),created=sampleEvidenceTime(frozenAt),affected=new Set();
+ for(const row of state?.trades||[]){
+  const review=row?.planEvidenceReview;
+  if(!review||!ids.has(row.id)||state?.scope!=='demo'&&isTestSample(row))continue;
+  const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt);
+  if(first!==null&&last!==null&&first<=last&&at!==null&&first>at)continue;
+  const restored=sampleEvidenceTime(review.revalidatedAt);
+  const usable=review.status==='revalidated'&&at!==null&&created!==null&&first!==null&&last!==null&&restored!==null&&
+    first<=last&&last<=restored&&restored<=created&&created<=at;
+  if(!usable)affected.add(row.id);
+ }
+ return {ids,affected};
+}
+function reviewSummary(checks){
+ const ids=new Set(),affected=new Set();
+ for(const check of checks){for(const id of check.ids)ids.add(id);for(const id of check.affected)affected.add(id);}
+ return {status:affected.size?'requires-revalidation':ids.size?'no-known-revocation':'unavailable',
+  affectedSources:affected.size,canTrade:false};
+}
+function candidateChecks(state,candidate,asOf){
+ return [reviewSourceIds(state,candidate?.sourceIds,candidate?.createdAt,asOf),
+  reviewSourceIds(state,candidate?.numericModel?.sourceIds,candidate?.numericModel?.trainCutoff,asOf)];
+}
+export function candidateEvidenceReview(state,candidate,asOf){
+ return reviewSummary(candidateChecks(state,candidate,asOf));
+}
+export function approvedModelEvidenceReview(state,version,asOf){
+ // The numeric basis can survive the original candidate archive and is
+ // independently bound to its own training cutoff, not today's proposal date.
+ // Explicit centre adjustments also depend on their original approved parent.
+ const checks=[],queue=version?[version]:[],seen=new Set();
+ const candidates=Array.isArray(state?.candidates)?state.candidates:[],versions=Array.isArray(state?.versions)?state.versions:[];
+ while(queue.length){
+  const v=queue.pop();if(seen.has(v))continue;seen.add(v);
+  checks.push(reviewSourceIds(state,v.numericModel?.sourceIds,v.numericModel?.trainCutoff,asOf));
+  for(const c of candidates.filter(c=>c?.id&&c.id===v.candidateId)){
+   checks.push(...candidateChecks(state,c,asOf));
+   if((c.centerFeedback||c.numericModel?.adjustment)&&Number.isSafeInteger(c.baseVersion)&&c.baseVersion>0&&c.baseVersion<v.number)
+    queue.push(...versions.filter(parent=>parent.number===c.baseVersion));
+  }
+ }
+ return reviewSummary(checks);
+}
