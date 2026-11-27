@@ -14,6 +14,10 @@ function createMarketSourceCadence(clock=Date.now){
  }
  const clockFailure=()=>({status:'rejected',reason:Error('行情采集时钟无效或倒退'),reused:false,finishedAt:null});
  function read(key,session,minIntervalMs,collect){
+  // Reject invalid inputs before they can dispatch or reserve a cooldown.
+  if(typeof key!=='string'||!key.trim()||typeof session!=='string'||!session.trim()||
+     !Number.isSafeInteger(minIntervalMs)||minIntervalMs<0||typeof collect!=='function')
+   return Promise.resolve({status:'rejected',reason:Error('行情采集参数无效'),reused:false,finishedAt:null});
   const now=readClock();
   if(now===null)return Promise.resolve(clockFailure());
   const prior=slots.get(key);

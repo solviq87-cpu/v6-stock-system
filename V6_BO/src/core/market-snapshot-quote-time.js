@@ -5,6 +5,7 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const CHINA_OFFSET_MS=8*3600000;
 const chinaDay=ms=>new Date(ms+CHINA_OFFSET_MS).toISOString().slice(0,10);
 const validClock=t=>Number.isSafeInteger(t)&&t>0&&t<=8e15;
+const validAge=ms=>Number.isSafeInteger(ms)&&ms>=1000&&ms<=300000;
 function captureTime(snapshot){
  const raw=snapshot?.retrievedAt;
  if(typeof raw!=='string')return null;
@@ -48,7 +49,7 @@ function sourceQuoteTimeSeconds(raw){
 }
 function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=retrievedAt,maxAgeMs=90000}={}){
  if(!validClock(retrievedAt)||
-    !Number.isSafeInteger(maxAgeMs)||maxAgeMs<1000||maxAgeMs>300000)
+    !validAge(maxAgeMs))
   throw Error('报价时效评价时钟或阈值无效');
  const at=stock?.vendorQuoteAt;
  const base={quoteAt:null,quoteDate:null,quoteAgeMs:null,
@@ -62,18 +63,22 @@ function classifyQuoteTime(stock,{requestDate,retrievedAt,originalRetrievedAt=re
  if(!validClock(originalRetrievedAt))return {...result,quoteTimeStatus:'receipt-time-unknown'};
  if(originalRetrievedAt>retrievedAt)return {...result,quoteTimeStatus:'snapshot-not-yet-observed'};
  if(age<0||at>originalRetrievedAt)return {...result,quoteTimeStatus:'future'};
- if(quotedDate!==requestDate)return {...result,quoteTimeStatus:'historical-snapshot'};
+ // A short age cannot renew yesterday's quote after the China-local date changes.
+ if(quotedDate!==requestDate||chinaDay(originalRetrievedAt)!==requestDate||chinaDay(retrievedAt)!==requestDate)return {...result,quoteTimeStatus:'historical-snapshot'};
  if(age>maxAgeMs)return {...result,quoteTimeStatus:'stale-source-time'};
  return {...result,quoteTimeStatus:'recent-source-unverified'};
 }
 function auditSnapshotQuoteTimes(snapshot,{asOf,maxAgeMs=90000}={}){
  const originalRetrievedAt=captureTime(snapshot),t=asOf??originalRetrievedAt;
- if(!validClock(t))throw Error('行情采样完成时钟缺失');
+ if(!validClock(t)||!validAge(maxAgeMs))throw Error('行情采样完成时钟或阈值无效');
  const rows=Array.isArray(snapshot?.stocks)?snapshot.stocks:[];
  const marketWindow=chinaMarketWindowHint(t);
- const states={};
+ const states={},symbolCounts=new Map();
+ // A duplicated security is ambiguous evidence, not two fresh observations.
+ for(const stock of rows)if(typeof stock?.code==='string'&&/^\d{6}$/.test(stock.code))
+  symbolCounts.set(stock.code,(symbolCounts.get(stock.code)||0)+1);
  for(const stock of rows){
-  const state=classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,originalRetrievedAt,maxAgeMs}).quoteTimeStatus;
+  const state=symbolCounts.get(stock?.code)>1?'duplicate-symbol':classifyQuoteTime(stock,{requestDate:snapshot?.date,retrievedAt:t,originalRetrievedAt,maxAgeMs}).quoteTimeStatus;
   states[state]=(states[state]||0)+1;
  }
  return {mode:'market-quote-time-audit',asOf:new Date(t).toISOString(),

@@ -10,6 +10,10 @@ const PROVIDERS = Object.freeze(['tencent','eastmoney']);
 const STATUS = new Set(['fresh-unverified','dated-snapshot','unavailable']);
 const PAIRS = new Set(['sources-agree-unverified','source-conflict','insufficient-fresh-sources','outside-weekday-session-window']);
 const validTime = x => Number.isSafeInteger(x) && x > 946684800000 && x < 4102444800000;
+// Optional assertions must not contradict the explicitly read-only evidence contract.
+const unsafe = x => ['synthetic','simulated','fixture','mock','testSample','canTrade','canNotify','canTrain',
+ 'verifiedLive','certifiedLive','exchangeVerified','providerLicensed','calendarVerified','canAutoSelectProvider',
+ 'releaseReady','autoPromotion','canExecute'].some(k=>x[k]!==undefined&&x[k]!==false);
 const roundedPct = (a,b) => Math.round(a*1000/b)/10;
 const blocked = reason => ({schemaVersion:1,mode:'quote-source-window-quality-research',status:'blocked',reason,
  canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,canAutoSelectProvider:false,
@@ -19,7 +23,7 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
      !Number.isSafeInteger(maxReportLagMs)||maxReportLagMs<0||maxReportLagMs>60000||
      !Number.isSafeInteger(maxPairSkewMs)||maxPairSkewMs<0||maxPairSkewMs>15000||
      !Array.isArray(expectedSlots)||expectedSlots.length<3||expectedSlots.length>250||
-     !expectedSlots.every((t,i)=>validTime(t)&&t<=asOf&&(i===0||t-expectedSlots[i-1]>=30000))||
+     !Array.from(expectedSlots).every((t,i)=>validTime(t)&&t<=asOf&&(i===0||t-expectedSlots[i-1]>=30000))||
      registeredAt>=expectedSlots[0]||
      !Array.isArray(observations)||observations.length>expectedSlots.length)
   return blocked('invalid-preregistered-window-or-clock');
@@ -29,7 +33,7 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
   if (!item||!expected.has(item.slotAt)||seen.has(item.slotAt))
    return blocked('duplicate-or-unexpected-observation-slot');
   const r=item.report;
-  if (!r||r.schemaVersion!==1||r.mode!=='two-source-public-quote-diagnostic'||
+  if (!r||unsafe(r)||r.schemaVersion!==1||r.mode!=='two-source-public-quote-diagnostic'||
       r.canTrade!==false||r.canNotify!==false||r.certifiedLive!==false||
       r.exchangeVerified!==false||r.providerLicensed!==false||r.calendarVerified!==false||
       r.source1!=='tencent'||r.source2!=='eastmoney'||
@@ -48,7 +52,9 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
    return blocked('invalid-session-or-provider-coverage');
   const rows=new Map();
   for (const s of r.sourceStatuses) {
-   if (!s||!PROVIDERS.includes(s.provider)||rows.has(s.provider)||!STATUS.has(s.status))
+   if (!s||unsafe(s)||!PROVIDERS.includes(s.provider)||rows.has(s.provider)||!STATUS.has(s.status)||
+       ['id','source','quoteSource','quoteProvider'].some(k=>s[k]!==undefined&&s[k]!==s.provider)||
+       ['code','symbol'].some(k=>s[k]!==undefined&&s[k]!==r.code))
     return blocked('invalid-provider-status-or-duplicate');
    if (s.status==='unavailable') {
     if (s.quoteAt!==null) return blocked('unavailable-source-has-quote-time');
@@ -60,7 +66,7 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
   if (!outside&&rows.size!==2) return blocked('provider-pair-incomplete');
   const fresh=PROVIDERS.every(provider=>rows.get(provider)?.status==='fresh-unverified');
   if (outside) {
-   if (session(reportAt)||r.discrepancyBps!==null||r.quoteAt!==null)
+   if (session(reportAt)||r.discrepancyBps!==null||r.quoteAt!==null||r.quoteTimeGapMs!=null)
     return blocked('outside-session-report-inconsistent');
   } else if (fresh) {
    const a=rows.get('tencent').quoteAt,b=rows.get('eastmoney').quoteAt;
@@ -75,7 +81,7 @@ function auditQuoteSourceWindow({registeredAt,asOf,expectedSlots,observations,ma
        // conflict: an actual 50.004 bps disagreement is reported as 50.
        (r.status==='source-conflict'&&r.discrepancyBps<50&&skew<=15000))
     return blocked('pair-numerics-or-verdict-inconsistent');
-  } else if (r.status!=='insufficient-fresh-sources'||r.discrepancyBps!==null||r.quoteAt!==null)
+  } else if (r.status!=='insufficient-fresh-sources'||r.discrepancyBps!==null||r.quoteAt!==null||r.quoteTimeGapMs!=null)
    return blocked('incomplete-pair-verdict-inconsistent');
   seen.set(item.slotAt,{report:r,rows,reportAt});
  }
