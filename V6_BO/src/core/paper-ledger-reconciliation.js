@@ -3,36 +3,45 @@
 const crypto = require('node:crypto');
 const { reducePaperOrderEvents } = require('./paper-order-state-machine');
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const numeric = value => (typeof value === 'number' || typeof value === 'string' && value.trim() !== '') && Number.isFinite(Number(value)) ? Number(value) : null;
+const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 function reconcilePaperLedger(orderRecords, account) {
   if (!Array.isArray(orderRecords)) throw new Error('订单记录必须为数组');
-  if (!account || account.schemaVersion !== 1 || !Array.isArray(account.events) || !account.positions || !Number.isFinite(account.cash)) {
+  if (!account || account.schemaVersion !== 1 || !Array.isArray(account.events) || !plain(account.positions) || !Number.isFinite(account.cash) || account.cash < 0) {
     throw new Error('模拟盘账户账本结构无效');
   }
   const accountFingerprint = hash({ cash: account.cash, positions: account.positions, events: account.events });
   if (account.fingerprint !== accountFingerprint) throw new Error('模拟盘账户指纹校验失败');
 
-  const orderFills = new Map();
+  const orderFills = new Map(), orderIds = new Set();
   const orderIssues = [];
   for (const record of orderRecords) {
     if (!record || record.schemaVersion !== 1 || !record.order || !Array.isArray(record.events)) throw new Error('订单日志结构无效');
     const journalHash = hash(record.events);
     if (record.journalHash !== journalHash) throw new Error(`订单日志指纹校验失败：${record.order.orderId || 'unknown'}`);
     const state = reducePaperOrderEvents(record.order, record.events);
-    if (!record.state || record.state.fingerprint !== state.fingerprint) throw new Error(`订单状态与事件日志不一致：${record.order.orderId}`);
+    if (!record.state || record.state.fingerprint !== state.fingerprint || hash(record.state) !== hash(state)) throw new Error(`订单状态与事件日志不一致：${record.order.orderId}`);
+    if (orderIds.has(state.orderId)) orderIssues.push({ type: 'duplicate-order-id', orderId: state.orderId });
+    orderIds.add(state.orderId);
+    const rawFills = new Map(record.events.filter(event => event.type === 'fill').map(event => [String(event.eventId), event]));
     for (const fill of state.fills) {
+      const raw = rawFills.get(fill.eventId);
+      const feeProvided = Object.hasOwn(raw, 'fee');
+      const fee = feeProvided ? numeric(raw.fee) : null;
+      if (feeProvided && (fee === null || fee < 0)) orderIssues.push({ type: 'invalid-order-fill-fee', eventId: fill.eventId });
       if (orderFills.has(fill.eventId)) orderIssues.push({ type: 'duplicate-order-fill-event', eventId: fill.eventId });
       else orderFills.set(fill.eventId, {
         eventId: fill.eventId, orderId: state.orderId, symbol: state.symbol,
         side: state.side, quantity: fill.quantity, price: fill.price,
-        date: fill.date || null
+        date: fill.date || null, ...(feeProvided ? { fee } : {})
       });
     }
   }
 
   const ledgerFills = new Map();
   for (const event of account.events) {
-    if (!event || !event.eventId) throw new Error('账户流水缺少事件ID');
+    if (!plain(event) || typeof event.eventId !== 'string' || !event.eventId.trim()) throw new Error('账户流水缺少事件ID');
     if (ledgerFills.has(event.eventId)) orderIssues.push({ type: 'duplicate-ledger-event', eventId: event.eventId });
     else ledgerFills.set(event.eventId, event);
   }
@@ -43,8 +52,9 @@ function reconcilePaperLedger(orderRecords, account) {
     const ledgerEvent = ledgerFills.get(id);
     if (!ledgerEvent) { missingLedger.push(fill); continue; }
     const same = ledgerEvent.orderId === fill.orderId && ledgerEvent.symbol === fill.symbol &&
-      ledgerEvent.side === fill.side && Number(ledgerEvent.quantity) === fill.quantity &&
-      Number(ledgerEvent.price) === fill.price;
+      ledgerEvent.side === fill.side && ledgerEvent.quantity === fill.quantity && ledgerEvent.price === fill.price &&
+      (fill.date === null || ledgerEvent.tradeDate === fill.date) &&
+      (!Object.hasOwn(fill, 'fee') || fill.fee !== null && fill.fee >= 0 && ledgerEvent.fee === fill.fee);
     if (!same) mismatched.push({ eventId: id, orderFill: fill, ledgerEvent });
   }
   const orphanLedger = [...ledgerFills.values()].filter(x => !orderFills.has(x.eventId));

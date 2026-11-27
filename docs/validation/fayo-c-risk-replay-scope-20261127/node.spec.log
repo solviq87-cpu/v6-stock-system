@@ -1,0 +1,32 @@
+✔ C12.1 same server generation never renews receipt, including code changes (8.914378ms)
+✔ C12.1 first response already expired cannot be revived by another request (0.357307ms)
+✔ C12.1 clock rollback rejected, genuinely newer generation and different account separated (0.604979ms)
+✔ C12.2 an explicit missing original data clock cannot use a newer wrapper time (0.794974ms)
+✔ C12.2 replay cannot restore the portion of the original quote budget already consumed (0.491208ms)
+✔ C12.3 hiding or restoring a document emits only actual transitions (1.937102ms)
+✔ C12.3 hidden initial document or aborted scope cannot appear available (0.61192ms)
+✔ C12.4 correct notification receipt binds explicit account epoch and revision zero (0.66528ms)
+✔ C12.4 absent mixed or damaged alert receipts cannot become empty editable archives (0.564759ms)
+✔ C12.4 unknown root, ambiguous scope, unknown actions and fake confirmation rejected (0.695645ms)
+✔ C12.5 single in-flight mutation token cannot be replaced or released by old completion (0.351068ms)
+✔ C11.1 exact same-account security response accepted; wrong, absent or extra code rejected (10.848655ms)
+✔ C11.1 malformed observation time or incomplete core report cannot be read as current (0.527793ms)
+✔ C11.2 scope abort after request completion still invalidates the selected security (0.362735ms)
+✔ C11.2 old scope abort cannot invalidate a replacement; disposal removes listeners (0.321783ms)
+✔ C11.2 already-aborted scope refuses to read (0.342155ms)
+✔ C11.3 freshness is bounded from request start, not the later receipt or redraw (0.750568ms)
+✔ C11.3 elapsed time ignores historical server clock but never renews an old receipt (0.468354ms)
+✔ C11.4 old account, old report, detached role or connectivity cannot act on a different current report (0.48555ms)
+✔ C11.5 correct research projections are subordinate to one original report; no new authority (0.261633ms)
+✔ C11.5 mixed account, epoch, equity fingerprint, revision, clock or permission hides only optional research (1.947527ms)
+✔ C11.5 mismatch in parent report or missing original equity makes research unknown, never default zero (0.183105ms)
+✔ C11.3 original quote age shortens the remaining presentation lifetime, expired or future claimed current price cannot renew it (0.378899ms)
+✔ C11.3 explicit historical or unavailable risk rows do not fabricate current clocks or erase valid original report (0.174833ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107.265641

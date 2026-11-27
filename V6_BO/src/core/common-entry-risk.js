@@ -4,13 +4,34 @@ const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const label=x=>typeof x==='string'&&x.length>0&&x.length<=80;
 const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const symbolKnown=x=>label(x)&&x.trim()===x||Number.isSafeInteger(x)&&x>=0;
-const own=(map,key)=>record(map)&&Object.hasOwn(map,key)?map[key]:undefined;
+// Read only own data fields. Inherited/accessor evidence is not an authority row.
+const own=(map,key)=>{
+ if(!record(map))return undefined;
+ const d=Object.getOwnPropertyDescriptor(map,key);
+ return d&&Object.hasOwn(d,'value')?d.value:undefined;
+};
 function validateEntryPolicy(p){
  if(p==null)return;if(!label(p.version))throw Error('风控版本无效');
  for(const k of ['maxPositionPct','maxGrossExposurePct','maxSectorPct','maxStrategyPct','maxDrawdownPausePct','maxDailyLossPausePct'])if(p[k]!=null&&(!finite(p[k])||p[k]<=0||p[k]>100))throw Error('风控参数无效');
  if(p.maxConsecutiveLosses!=null&&(!Number.isSafeInteger(p.maxConsecutiveLosses)||p.maxConsecutiveLosses<1||p.maxConsecutiveLosses>1000))throw Error('连续亏损参数无效');
 }
-function consecutiveLosses(events=[]){let count=0;for(const e of events.slice().reverse()){if(e.side!=='sell')continue;if(!finite(e.realizedPnl))return null;if(e.realizedPnl>=0)break;count++;}return count;}
+function consecutiveLosses(events){
+ if(!Array.isArray(events))return null;
+ let count=0;
+ // Only an explicitly known buy can be skipped. Missing or unknown rows
+ // after the last non-loss exit could conceal a realized loss or reset.
+ for(let i=events.length-1;i>=0;i--){
+  if(!Object.hasOwn(events,i))return null;
+  const e=events[i],side=own(e,'side');
+  if(side==='buy')continue;
+  if(side!=='sell')return null;
+  const pnl=own(e,'realizedPnl');
+  if(!finite(pnl))return null;
+  if(pnl>=0)break;
+  count++;
+ }
+ return count;
+}
 function evaluateEntryRisk({policy=null,side='buy',symbol,strategyId,quantity,price,cash,positions=[],pending=[],marks={},sectors={},lossStreak=null,previousClose=null}={}){
  validateEntryPolicy(policy);if(!policy||side==='sell')return {allowed:true,reasonCodes:[],policyVersion:policy?.version||null};const reasons=[];const fail=code=>{if(!reasons.includes(code))reasons.push(code);};
  const needsExposure=['maxPositionPct','maxGrossExposurePct','maxSectorPct','maxStrategyPct'].some(k=>policy[k]!=null);
@@ -22,15 +43,18 @@ function evaluateEntryRisk({policy=null,side='buy',symbol,strategyId,quantity,pr
   // exposure through JS coercion. Fractional research allocations remain valid.
   let gross=0,unknown=!Array.isArray(positions)||!Array.isArray(pending);const values=[];
   for(const p of Array.isArray(positions)?positions:[]){
-   if(!record(p)||!symbolKnown(p.symbol)||!finite(p.quantity)||p.quantity<0){unknown=true;continue;}
-   const mark=own(marks,p.symbol);
+   const symbol=own(p,'symbol'),quantity=own(p,'quantity'),strategyId=own(p,'strategyId');
+   if(!symbolKnown(symbol)||!finite(quantity)||quantity<0){unknown=true;continue;}
+   const mark=own(marks,symbol);
    if(!finite(mark)||mark<=0){unknown=true;continue;}
-   const value=p.quantity*mark;if(!finite(value)){unknown=true;continue;}
-   gross+=value;values.push({...p,value});
+   const value=quantity*mark;if(!finite(value)){unknown=true;continue;}
+   gross+=value;values.push({symbol,quantity,strategyId,value});
   }
   for(const p of Array.isArray(pending)?pending:[]){
-   if(!record(p)||!symbolKnown(p.symbol)||!finite(p.quantity)||p.quantity<0||!finite(p.price)||p.price<=0){unknown=true;continue;}
-   const value=p.quantity*p.price;if(!finite(value)){unknown=true;continue;}values.push({...p,value});
+   const symbol=own(p,'symbol'),quantity=own(p,'quantity'),price=own(p,'price'),strategyId=own(p,'strategyId');
+   if(!symbolKnown(symbol)||!finite(quantity)||quantity<0||!finite(price)||price<=0){unknown=true;continue;}
+   const value=quantity*price;if(!finite(value)){unknown=true;continue;}
+   values.push({symbol,quantity,price,strategyId,value});
   }
   const equity=cash+gross,addition=quantity*price;
   const sum=fn=>values.filter(fn).reduce((n,p)=>n+p.value,0);

@@ -17,8 +17,12 @@ function date(value) {
     new Date(day + 'T00:00:00Z').toISOString().slice(0, 10) === day ? day : null;
 }
 function receivedTime(value) {
+  // Reception strings require an explicit zone and real civil date.
+  if (typeof value === 'string' &&
+      (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.test(value) ||
+       !date(value.slice(0,10)))) return null;
   const time = typeof value === 'string' ? Date.parse(value) : value;
-  return Number.isSafeInteger(time) && time > 0 && time < 8640000000000000 ? time : null;
+  return Number.isSafeInteger(time) && time > 0 && time < 8e15 ? time : null;
 }
 const chinaDay = time => new Date(time + 8 * 3600000).toISOString().slice(0, 10);
 function base(requestedDate, receivedAt) {
@@ -40,13 +44,14 @@ function normalizeClsLimitPool(json, { requestedDate, receivedAt } = {}) {
   try {
     if (!target) fail('cls-requested-date-invalid');
     if (received === null) fail('cls-received-time-invalid');
+    if (target > chinaDay(received)) fail('cls-requested-date-future');
     if (!json || json.code !== 200 || !Array.isArray(json.data)) fail('cls-provider-response-invalid');
     if (!json.data.length) fail('cls-empty-pool-date-unverified');
     if (json.data.length > MAX_ITEMS) fail('cls-pool-too-large');
     out.fetchedCount = json.data.length;
     const seen = new Set(), items = []; let total = null, sourceDate = null;
     for (const row of json.data) {
-      if (!row || typeof row !== 'object' || !/^(sh|sz|bj)\d{6}$/.test(row.secu_code) || !text(row.secu_name)) fail('cls-item-identity-invalid');
+      if (!row || typeof row !== 'object' || typeof row.secu_code !== 'string' || !/^(sh|sz|bj)\d{6}$/.test(row.secu_code) || !text(row.secu_name)) fail('cls-item-identity-invalid');
       const code = row.secu_code.slice(2);
       if (seen.has(code)) fail('cls-duplicate-code');
       seen.add(code); out.uniqueCount = seen.size;
@@ -57,9 +62,12 @@ function normalizeClsLimitPool(json, { requestedDate, receivedAt } = {}) {
       if (sourceDate !== null && sourceDate !== tradeDate) fail('cls-mixed-trade-dates');
       sourceDate = tradeDate;
       if (row.plate != null && !Array.isArray(row.plate)) fail('cls-plate-invalid');
-      const plates = (row.plate || []).map(plate => {
-        if (!plate || !text(plate.secu_code) || !text(plate.secu_name)) fail('cls-plate-invalid');
-        return { code: text(plate.secu_code), name: text(plate.secu_name) };
+      const plateSeen=new Set();
+      const plates = Array.from(row.plate || [],(plate,index) => {
+        const code=text(plate?.secu_code),name=text(plate?.secu_name);
+        if(!Object.hasOwn(row.plate,index)||!plate||!code||!name||plateSeen.has(code))fail('cls-plate-invalid');
+        plateSeen.add(code);
+        return {code,name};
       });
       const price = number(row.last_px), change = number(row.change), count = row.limit_up_days;
       const matched = tradeDate === target, reason = text(row.up_reason);
@@ -97,14 +105,16 @@ async function requestClsLimitPool(target, options) {
 async function fetchClsLimitPool(options = {}, dependencies = {}) {
   const { now = Date.now, requestJson = requestClsLimitPool, requestGovernor } = dependencies;
   const clock = typeof now === 'function' ? now : () => now;
-  const startedAt = receivedTime(clock()), requestedDate = date(options.date) || (options.date === undefined && startedAt !== null ? chinaDay(startedAt) : null);
+  const sample = () => { try { return receivedTime(clock()); } catch { return null; } };
+  const startedAt = sample(), requestedDate = date(options.date) || (options.date === undefined && startedAt !== null ? chinaDay(startedAt) : null);
   let out = base(requestedDate, startedAt);
   if (!requestedDate || startedAt === null) { out.errors.push({ code: !requestedDate ? 'cls-requested-date-invalid' : 'cls-received-time-invalid' }); return out; }
+  if (requestedDate > chinaDay(startedAt)) { out.errors.push({ code: 'cls-requested-date-future' }); return out; }
   try {
     const request = createResearchRequest(requestJson, requestClsLimitPool, requestGovernor);
     const response = await request(CLS_LIMIT_POOL_URL, { maxBytes: MAX_BYTES, timeoutMs: 12000, processTimeoutMs: 13000,
       ...(options.signal ? { signal: options.signal } : {}) });
-    const receivedAt = receivedTime(clock());
+    const receivedAt = sample();
     if (receivedAt === null || receivedAt < startedAt) fail('cls-received-time-invalid');
     const raw = Buffer.isBuffer(response?.raw) ? response.raw : typeof response?.raw === 'string' ? Buffer.from(response.raw, 'utf8') : null;
     if (!raw || !raw.length) fail('cls-response-bytes-required');

@@ -45,16 +45,17 @@ jobs:
             stockCode:view.code,status:view.status,verifiedLive:false,canTrade:false,
             paidServicesUsed:false,
             sources:view.sources.map(s=>({id:s.id,status:s.status,
+              failureKind:s.failureKind||null,httpStatus:s.httpStatus??null,
               quoteAt:s.quote?.quoteTime||null,
               ageSeconds:s.quote?Math.max(0,Math.round((at-s.quote.quoteAt)/1000)):null}))};
           console.log(JSON.stringify(report,null,2));
           if(process.env.GITHUB_STEP_SUMMARY){
             const rows=report.sources.map(s=>'| '+s.id+' | '+s.status+' | '+
-              (s.quoteAt||'未知')+' | '+(s.ageSeconds===null?'未知':s.ageSeconds+'s')+' |');
+              (s.failureKind||'—')+' | '+(s.httpStatus??'—')+' | '+(s.quoteAt||'未知')+' | '+(s.ageSeconds===null?'未知':s.ageSeconds+'s')+' |');
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
               '## V6 免费公开行情一次性探测（非实时报价认证）\n\n'+
               '状态：'+report.status+'；检测时点：'+report.checkedAt+'（UTC）\n\n'+
-              '| 来源 | 读取状态 | 原始报价时点 | 报价年龄 |\n|---|---|---|---|\n'+
+              '| 来源 | 读取状态 | 失败类别 | HTTP状态 | 原始报价时点 | 报价年龄 |\n|---|---|---|---|---|---|\n'+
               rows.join('\n')+'\n\n'+
               'HTTP 200 只表示网页接口可访问；源、交易日历、商业使用许可及飞书送达均未认证。\n');
           }

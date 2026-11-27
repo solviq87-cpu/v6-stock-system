@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: C10.1 original frozen cohort and three policies use exactly the same four holdout labels
+ok 1 - C10.1 original frozen cohort and three policies use exactly the same four holdout labels
+  ---
+  duration_ms: 15.44954
+  type: 'test'
+  ...
+# Subtest: C10.1 post-next-open freeze, late input and duplicate security-day are rejected
+ok 2 - C10.1 post-next-open freeze, late input and duplicate security-day are rejected
+  ---
+  duration_ms: 2.181718
+  type: 'test'
+  ...
+# Subtest: C10.1 mutation, duplicate packet and mixed feed do not silently enter the same sample
+ok 3 - C10.1 mutation, duplicate packet and mixed feed do not silently enter the same sample
+  ---
+  duration_ms: 2.376321
+  type: 'test'
+  ...
+# Subtest: C10.2 absent decision or abstention is not a clear label and reduces paired coverage
+ok 4 - C10.2 absent decision or abstention is not a clear label and reduces paired coverage
+  ---
+  duration_ms: 2.844795
+  type: 'test'
+  ...
+# Subtest: C10.2 missing entire frozen day stays a missing population denominator, never zero risk
+ok 5 - C10.2 missing entire frozen day stays a missing population denominator, never zero risk
+  ---
+  duration_ms: 3.041682
+  type: 'test'
+  ...
+# Subtest: C10.2 missing, suspended and corporate-action labels stay unknown rather than false negative or normal divergence
+ok 6 - C10.2 missing, suspended and corporate-action labels stay unknown rather than false negative or normal divergence
+  ---
+  duration_ms: 6.844326
+  type: 'test'
+  ...
+# Subtest: C10.2 pending horizons remain unknown before actual target close
+ok 7 - C10.2 pending horizons remain unknown before actual target close
+  ---
+  duration_ms: 1.813105
+  type: 'test'
+  ...
+# Subtest: C10.3 Brier is computed on identical declared event probabilities only
+ok 8 - C10.3 Brier is computed on identical declared event probabilities only
+  ---
+  duration_ms: 5.434308
+  type: 'test'
+  ...
+# Subtest: C10.3 ranking scores, out-of-range probabilities, duplicate opinions and wrong model version cannot become probabilities
+ok 9 - C10.3 ranking scores, out-of-range probabilities, duplicate opinions and wrong model version cannot become probabilities
+  ---
+  duration_ms: 1.467405
+  type: 'test'
+  ...
+# Subtest: C10.3 true zero event/alert denominator stays unknown, never perfect precision or recall
+ok 10 - C10.3 true zero event/alert denominator stays unknown, never perfect precision or recall
+  ---
+  duration_ms: 2.706277
+  type: 'test'
+  ...
+# Subtest: C10.4 tail uses one worst security per complete day, then disjoint windows, not four independent trades
+ok 11 - C10.4 tail uses one worst security per complete day, then disjoint windows, not four independent trades
+  ---
+  duration_ms: 2.115308
+  type: 'test'
+  ...
+# Subtest: C10.4 small tail sample does not output an apparently precise VaR or ES
+ok 12 - C10.4 small tail sample does not output an apparently precise VaR or ES
+  ---
+  duration_ms: 2.912007
+  type: 'test'
+  ...
+# Subtest: C10.4 overlapping horizon windows cannot create independent tail samples
+ok 13 - C10.4 overlapping horizon windows cannot create independent tail samples
+  ---
+  duration_ms: 1.518922
+  type: 'test'
+  ...
+# Subtest: C10.5 preregistration must precede first signal, model training cutoff, immutable plan and same calendar
+ok 14 - C10.5 preregistration must precede first signal, model training cutoff, immutable plan and same calendar
+  ---
+  duration_ms: 1.541337
+  type: 'test'
+  ...
+# Subtest: C10.5 windows overlapping next fold are purged without using their outcomes
+ok 15 - C10.5 windows overlapping next fold are purged without using their outcomes
+  ---
+  duration_ms: 1.446834
+  type: 'test'
+  ...
+# Subtest: C10.5 even passing descriptive criteria never promotes, trains, proves execution or claims actual avoided loss
+ok 16 - C10.5 even passing descriptive criteria never promotes, trains, proves execution or claims actual avoided loss
+  ---
+  duration_ms: 2.054588
+  type: 'test'
+  ...
+# Subtest: C10.1 policy opinions bind event, horizon, threshold and plan; source evidence references are retained
+ok 17 - C10.1 policy opinions bind event, horizon, threshold and plan; source evidence references are retained
+  ---
+  duration_ms: 2.373267
+  type: 'test'
+  ...
+# Subtest: C10.1 cohort population and explicitly simulated sources cannot be silently substituted
+ok 18 - C10.1 cohort population and explicitly simulated sources cannot be silently substituted
+  ---
+  duration_ms: 1.92313
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 115.585019

@@ -5,6 +5,7 @@
  * Date is the statistical observation period, not official publication time.
  */
 const ENDPOINT='https://data-api.ecb.europa.eu';
+const LIMIT=512*1024,MAX_CHUNKS=4096;
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
 const isoDay=s=>typeof s==='string'&&DAY.test(s)&&Number.isFinite(Date.parse(s+'T00:00:00Z'))&&
  new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -28,22 +29,24 @@ function parseCsv(data){
   throw Error('ECB CSV为空或超过上限');
  // RFC4180 fields incl quoted commas/escaped quotes. Reject embedded newlines
  // in quoted values; they are not valid series keys or numeric observations.
- const result=[];let row=[],field='',quoted=false;
+ const result=[];let row=[],field='',quoted=false,closed=false;
  for(let i=0;i<data.length;i++){
   const c=data[i];
+  if(closed&&c!==','&&c!=='\r'&&c!=='\n')throw Error('ECB CSV闭合引号后存在非法字符');
   if(c==='"'){
    if(quoted&&data[i+1]==='"'){field+='"';i++;}else if(!quoted&&field==='')quoted=true;
-   else if(quoted)quoted=false;
+   else if(quoted){quoted=false;closed=true;}
    else throw Error('ECB CSV双引号格式无效');
-  }else if(c===','&&!quoted){row.push(field);field='';}
+  }else if(c===','&&!quoted){row.push(field);field='';closed=false;}
   else if((c==='\n'||c==='\r')&&!quoted){
-   row.push(field);field='';if(row.some(x=>x!==''))result.push(row);row=[];
+   if(row.length||field!==''||closed){row.push(field);result.push(row);}
+   field='';row=[];closed=false;
    if(c==='\r'&&data[i+1]==='\n')i++;
   }else if(c==='\n'||c==='\r')throw Error('ECB字段中禁止换行');
   else field+=c;
  }
  if(quoted)throw Error('ECB CSV引号未闭合');
- if(field!==''||row.length){row.push(field);result.push(row);}
+ if(field!==''||row.length||closed){row.push(field);result.push(row);}
  return result;
 }
 function projectEcbCsv(csv,{currency,start,end,observedAt}){
@@ -86,34 +89,63 @@ function projectEcbCsv(csv,{currency,start,end,observedAt}){
   verifiedExternal:false,verifiedLive:false,canTrade:false,canNotify:false,
   warning:'ECB每日参考汇率并非可成交实时外汇价；观测日不是发布时间，不按15秒内实时报价使用。缺失观测保持null。'};
 }
-async function collectEcbFxRate({currency,start,end,clock=Date.now,now=clock(),timeoutMs=10000,fetchImpl=globalThis.fetch,archiveRoot}={}){
- validate({currency,start,end,now,timeoutMs});
- if(typeof fetchImpl!=='function')throw Error('ECB采集器缺少合法fetch');
+async function collectEcbFxRate({currency,start,end,clock=Date.now,now,timeoutMs=10000,fetchImpl=globalThis.fetch,archiveRoot}={}){
+ if(typeof clock!=='function'||typeof fetchImpl!=='function')throw Error('ECB采集器时钟或fetch无效');
+ let high=0;
+ function sample(){let at;try{at=clock();}catch{throw Error('ECB接收时钟无效');}if(!validClock(at)||at<high)throw Error('ECB接收时钟无效或倒退');high=at;return at;}
+ if(now===undefined){now=sample();validate({currency,start,end,now,timeoutMs});}
+ else{validate({currency,start,end,now,timeoutMs});high=now;sample();}
  const url=new URL('/service/data/EXR/D.'+currency+'.EUR.SP00.A',ENDPOINT);
  url.searchParams.set('startPeriod',start);
  url.searchParams.set('endPeriod',end);
  url.searchParams.set('format','csvdata');
- const response=await fetchImpl(url.href,{method:'GET',redirect:'error',
-  signal:AbortSignal.timeout(timeoutMs),
-  headers:{Accept:'text/csv, application/vnd.ecb.data+csv'}});
- if(!response?.ok)throw Error('ECB汇率HTTP '+String(response?.status??'no-response'));
- const ct=response.headers?.get?.('content-type');
- if(ct&&!/^(?:text\/csv|application\/vnd\.ecb\.data\+csv)(?:\s*;|\s*$)/i.test(ct))
-  throw Error('ECB返回不是CSV');
- let raw,rawBytes,byteBasis;
- if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
-  let total=0;const chunks=[];
-  for await(const part of response.body){
-   total+=part.length;if(total>512*1024)throw Error('ECB CSV超过512KiB');chunks.push(part);
+ // Bound the whole response including uncooperative injected transports.
+ // Only the successful outer task can call the archive, never a late worker.
+ const controller=new AbortController(),deadline=performance.now()+timeoutMs;
+ let timer;
+ function ensureActive(){if(controller.signal.aborted||performance.now()>=deadline)throw Error('ECB请求失败或超时');}
+ function activeSample(){ensureActive();return sample();}
+ async function work(){
+  let response;
+  try{response=await fetchImpl(url.href,{method:'GET',redirect:'error',signal:controller.signal,headers:{Accept:'text/csv, application/vnd.ecb.data+csv'}});}
+  catch{throw Error('ECB请求失败或超时');}
+  activeSample();
+  if(response?.redirected===true||response?.type==='opaqueredirect'||response?.url&&response.url!==url.href)throw Error('ECB拒绝重定向');
+  const status=response?.status;
+  if(response?.ok!==true||status!==200)throw Error('ECB汇率HTTP '+(Number.isInteger(status)&&status>=100&&status<=599?status:'invalid'));
+  const header=name=>{try{return response.headers?.get?.(name);}catch{throw Error('ECB响应头无效');}};
+  const ct=header('content-type');
+  if(ct!=null&&(typeof ct!=='string'||!/^(?:text\/csv|application\/vnd\.ecb\.data\+csv)(?:\s*;|\s*$)/i.test(ct)))throw Error('ECB返回不是CSV');
+  if(header('content-range')!=null)throw Error('ECB拒绝部分响应');
+  const length=header('content-length'),encoding=header('content-encoding');
+  if(length!=null&&(typeof length!=='string'||!/^\d+$/.test(length)||!Number.isSafeInteger(Number(length))||Number(length)>LIMIT))throw Error('ECB响应长度无效或超限');
+  if(encoding!=null&&(typeof encoding!=='string'||!/^(?:identity|gzip|deflate|br)$/i.test(encoding)))throw Error('ECB响应编码无效');
+  let raw,rawBytes,byteBasis;
+  if(response.body&&typeof response.body[Symbol.asyncIterator]==='function'){
+   let total=0,count=0;const chunks=[];
+   for await(const part of response.body){
+    activeSample();if(!(part instanceof Uint8Array))throw Error('ECB字节流无效');
+    if(++count>MAX_CHUNKS)throw Error('ECB数据块数超限');
+    total+=part.byteLength;if(total>LIMIT)throw Error('ECB CSV超过512KiB');if(part.byteLength)chunks.push(Buffer.from(part));
+   }
+   rawBytes=Buffer.concat(chunks);raw=rawBytes.toString('utf8');byteBasis='response-body';
+   if(!Buffer.from(raw,'utf8').equals(rawBytes))throw Error('ECB响应不是有效UTF-8');
+  }else{
+   // Preserve the historical decoded-text fixture/transport contract, without
+   // treating re-encoded text as original wire bytes.
+   if(typeof response.text!=='function')throw Error('ECB缺少响应字节流');
+   raw=await response.text();if(typeof raw!=='string'||Buffer.byteLength(raw)>LIMIT)throw Error('ECB CSV超过512KiB或类型无效');
+   rawBytes=Buffer.from(raw,'utf8');if(rawBytes.toString('utf8')!==raw)throw Error('ECB文本不是有效UTF-8');byteBasis='decoded-body-text';
   }
-  rawBytes=Buffer.concat(chunks);raw=rawBytes.toString('utf8');byteBasis='response-body';
- }else{
-  raw=await response.text();if(Buffer.byteLength(raw)>512*1024)throw Error('ECB CSV超过512KiB');
-  rawBytes=Buffer.from(raw,'utf8');byteBasis='decoded-body-text';
+  const observedAt=activeSample();
+  if(length!=null&&(!encoding||encoding.toLowerCase()==='identity')&&rawBytes.length!==Number(length))throw Error('ECB响应长度不符');
+  const result={...projectEcbCsv(raw,{currency,start,end,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+  activeSample();return {result,rawBytes,byteBasis};
  }
- const observedAt=clock();
- if(!Number.isSafeInteger(observedAt)||observedAt<now)throw Error('ECB接收时钟无效或早于请求');
- const result={...projectEcbCsv(raw,{currency,start,end,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
+ let completed;
+ try{completed=await Promise.race([new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error('ECB请求失败或超时'));controller.abort();},timeoutMs);}),work()]);ensureActive();}
+ finally{clearTimeout(timer);controller.abort();}
+ const {result,rawBytes,byteBasis}=completed;
  return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw:rawBytes,byteBasis,scope:{currency,start,end}});
 }
 module.exports={validate,parseCsv,projectEcbCsv,collectEcbFxRate};

@@ -6,7 +6,7 @@ const fs = require('node:fs'), path = require('node:path');
 const {withAccountLock} = require('./account-process-lock');
 const {privateRoot, canonical, digest} = require('./research-workspace-store');
 const {atomicWrite} = require('./market-data-center');
-const {riskState,copyStateEvidence,lastValidRisk,resolutionCheck,reductionCheck}=require('./risk-state-contract');
+const {riskState,copyStateEvidence,lastValidRisk,resolutionCheck,reductionCheck,recoveryScopeKey:riskScopeKey,pendingRecoveryScopes,recoveryBaseline,updatePendingRecovery}=require('./risk-state-contract');
 const MAX_GROUPS = 2000, MAX_EVENTS = 20000, MAX_BYTES = 32 * 1024 * 1024;
 const COOLDOWN_MS = 120000, QUEUE_CONFIRMATION_MS = 30000, MAX_DAILY_SENDS = 12;
 const LEVEL = {unknown: 0, info: 1, warning: 2, critical: 3};
@@ -23,16 +23,82 @@ const classOf = severity => severity === 'critical' ? 'critical' : 'general';
 // copied to the derived archive because they can contain private channel data.
 function normalizeRiskReceipt(result) {
   const r = result && typeof result === 'object' ? result : {}, message = String(r.msg || r.message || '');
-  const uncertain = result instanceof Error || ['unknown', 'unconfirmed', 'pending-unknown'].includes(r.status) ||
+  const uncertain = result instanceof Error || ['unknown', 'unconfirmed', 'pending-unknown', 'queued', 'not-queued', 'receiver-confirmed'].includes(r.status) ||
     /结果未知|未确认|超时|未回调|timeout|timed?\s*out|ETIMEDOUT|socket|ECONN|EPIPE|ENOTFOUND|EAI_AGAIN|EHOST|ENET|网络异常|请求失败|Premature|aborted|回执.*矛盾|HTTP\s+(?:408|5\d\d)\b/i.test(message);
   const accepted = ['accepted', 'gateway-accepted'].includes(r.status) || r.ok === true;
   const rejected = ['rejected', 'gateway-rejected'].includes(r.status) || r.notSent === true || r.blocked === true || Boolean(r.localReview) ||
     /(?:^|\s)HTTP\s+4\d\d\b|code=-?[1-9]\d*\b|未配置|未发送|被丢弃|私密通道配置已变更|签名密钥异常|请求构造失败|无法发起网络请求/i.test(message);
-  const conflict = accepted && (rejected || r.ok === false);
+  const conflict = accepted && (rejected || r.ok === false || r.gatewayAccepted === false);
   const status = uncertain || conflict ? 'unconfirmed' : accepted ? 'gateway-accepted' : rejected ? 'gateway-rejected' : 'unconfirmed';
   return {status, gatewayAccepted: status === 'gateway-accepted', receiverConfirmed: false,
     reason: status === 'gateway-accepted' ? '原私密通道收到网关受理回执，尚无接收端确认' :
       status === 'gateway-rejected' ? '原私密通道明确拒绝或本次尚未外发，保留事件及原限制' : '未取得确定投递回执，保留预留且不自动重发'};
+}
+
+// Preserve the original transition semantics, but derive the visible result
+// from the retained receipts. A bare status string is not receipt evidence.
+function deliveryStatusFromReceipts(receipts) {
+  let status='queued',accepted=false,rejected=false;
+  for(const receipt of receipts){
+    const next=receipt.status;
+    accepted=accepted||next==='gateway-accepted';
+    rejected=rejected||next==='gateway-rejected';
+    if(status==='receiver-confirmed')continue;
+    if(next==='receiver-confirmed')status=next;
+    else if(accepted&&rejected)status='unconfirmed';
+    else if(status!=='gateway-accepted'||next!=='unconfirmed')status=next;
+  }
+  return status;
+}
+function validReceiverEvidence(e,queuedAt,recordedAt) {
+  return !!(e&&textOk(e.receiptId,240)&&textOk(e.source,240)&&e.trustedReceiver===true&&
+    timeOk(e.receivedAt)&&e.receivedAt>=queuedAt&&e.receivedAt<=recordedAt);
+}
+const receiverKey=e=>JSON.stringify([e.source,e.receiptId]);
+// Check a historical archive without repairing it or freeing a reservation.
+// One provider receipt cannot establish delivery of two different events in
+// this original account period. Identical legacy repeats remain readable.
+function validateDeliveryReceipts(delivery,event,stateAt,receiverIds) {
+  if(!event||delivery.rootCauseId!==event.rootCauseId||
+    !['general','critical'].includes(delivery.classification)||
+    delivery.queuedAt<event.at||delivery.updatedAt<delivery.queuedAt||delivery.updatedAt>stateAt)
+    throw Error('风险提醒投递时间或事件身份损坏');
+  let previous=delivery.queuedAt;
+  for(const r of delivery.receipts){
+    if(!r||!DELIVERY.has(r.status)||r.status==='queued'||!timeOk(r.at)||r.at<previous||r.at>delivery.updatedAt)
+      throw Error('风险提醒回执时序损坏');
+    previous=r.at;
+    if(r.status==='receiver-confirmed'){
+      if(!validReceiverEvidence(r.evidence,delivery.queuedAt,r.at))throw Error('风险提醒接收端回执损坏');
+      const key=receiverKey(r.evidence),old=receiverIds.get(key);
+      if(old&&(old.id!==delivery.id||old.receivedAt!==r.evidence.receivedAt))
+        throw Error('风险提醒接收端回执重复或冲突');
+      receiverIds.set(key,{id:delivery.id,receivedAt:r.evidence.receivedAt});
+    }else if(r.evidence!=null)throw Error('风险提醒非接收端回执含未知证据');
+  }
+  if(previous!==delivery.updatedAt||delivery.status!==deliveryStatusFromReceipts(delivery.receipts))
+    throw Error('风险提醒状态与保留回执不一致');
+}
+function originalDeliveryReview(group,deliveries,now,deliveryView){
+  const events=group.events.slice(-16);
+  const rows=events.map(event=>{
+    const d=deliveries.get(event.id),receipts=d?.receipts||[];
+    const accepted=receipts.filter(r=>r.status==='gateway-accepted'),rejected=receipts.filter(r=>r.status==='gateway-rejected');
+    const receiver=receipts.filter(r=>r.status==='receiver-confirmed').slice().sort((a,b)=>a.evidence.receivedAt-b.evidence.receivedAt||a.at-b.at)[0];
+    return {eventId:event.id,kind:event.kind,eventRecordedAt:event.at,
+      status:deliveryView(d,now).status,deliveryId:d?.id??null,
+      reservedAt:d?.queuedAt??null,reservationDelayMs:d?d.queuedAt-event.at:null,
+      firstReceiptRecordedAt:receipts[0]?.at??null,lastReceiptRecordedAt:receipts.at(-1)?.at??null,
+      gatewayAcceptedReceiptAt:accepted.length&&!rejected.length?accepted[0].at:null,
+      conflictingGatewayReceipts:accepted.length>0&&rejected.length>0,
+      receiverReceivedAt:receiver?.evidence.receivedAt??null,
+      receiverReceiptRecordedAt:receiver?.at??null,
+      receiverObservationDelayMs:receiver?receiver.evidence.receivedAt-event.at:null,
+      actualUserActionAt:null,actualExecutableExitAt:null,actualAvoidedLoss:null};
+  });
+  return {totalEvents:group.events.length,shownEvents:rows.length,omittedEvents:group.events.length-rows.length,
+    rows,canTrade:false,receiverConfirmationSupported:false,actualWarningEffectCertified:false,
+    note:'事件记档、预留、网关回执与可信接收回执分别计时；站内查看不证明消息送达、用户行动、可成交或减少损失。仅展示最近16个原事件，原历史不删。'};
 }
 
 function identity(input) {
@@ -82,7 +148,11 @@ function normalizeRisk(row, now) {
       source: textOk(source?.source, 240) ? source.source : '来源未知', sourceAt: timeOk(source?.sourceAt) ? source.sourceAt : null})) : [],
     planId: textOk(row.planId, 240) ? row.planId : null, orderId: textOk(row.orderId, 240) ? row.orderId : null,
     eventId: textOk(row.eventId, 240) ? row.eventId : null,...copyStateEvidence(row)};
-  return canonical({...normalized,...riskState(normalized,now)});
+  let state=riskState(normalized,now);
+  if(normalized.status==='resolved'&&state.assessmentState!=='not-triggered'){
+    normalized.status='unknown';state=riskState(normalized,now);
+  }
+  return canonical({...normalized,...state});
 }
 
 function groupRows(rows) {
@@ -96,7 +166,8 @@ function groupRows(rows) {
   return [...grouped].map(([rootCauseId, risks]) => {
     risks.sort((a, b) => a.id.localeCompare(b.id));
     const severity = [...risks].sort((a, b) => LEVEL[b.severity] - LEVEL[a.severity])[0].severity;
-    const status = risks.every(row => row.status === 'resolved') ? 'resolved' :
+    const status = risks.every(row => row.status === 'resolved'&&row.assessmentState==='not-triggered'&&
+      row.evidenceState==='complete'&&row.dataState==='valid') ? 'resolved' :
       risks.some(row => row.status === 'active') ? 'active' : 'unknown';
     const evidenceStatus = risks.every(row => row.evidenceStatus === 'available') ? 'available' :
       ['conflict', 'stale', 'missing', 'unknown', 'partial'].find(value => risks.some(row => row.evidenceStatus === value));
@@ -106,6 +177,55 @@ function groupRows(rows) {
   }).sort((a, b) => a.rootCauseId.localeCompare(b.rootCauseId));
 }
 
+// Preserve the original complete evidence of an unresolved scope. A new row
+// for a different object, authority or policy version cannot overwrite it.
+function mergeLastValidRisk(previous,incoming,current,now,replace){
+  if(replace||!previous)return current;
+  if(!current)return previous;
+  const retained=new Map(previous.risks.map(row=>[riskScopeKey(row),row]));
+  for(const [k,row] of retained){
+    if(incoming.risks.some(next=>next.status==='resolved'&&
+      resolutionCheck({risks:[next]},{risks:[row],sourceAt:row.sourceAt},now).allowed))retained.delete(k);
+  }
+  for(const row of current.risks){
+    const k=riskScopeKey(row),prior=retained.get(k);
+    if(prior&&(row.sourceAt<prior.sourceAt||
+      row.sourceAt===prior.sourceAt&&row.riskLevel<=prior.riskLevel))continue;
+    if(prior&&row.riskLevel<prior.riskLevel&&
+      !reductionCheck({risks:[row]},{risks:[prior],sourceAt:prior.sourceAt,riskLevel:prior.riskLevel},now).allowed)continue;
+    retained.set(k,row);
+  }
+  const risks=[...retained.values()].sort((a,b)=>riskScopeKey(a).localeCompare(riskScopeKey(b)));
+  return risks.length?{risks:clone(risks),sourceAt:Math.max(...risks.map(row=>row.sourceAt)),
+    riskLevel:Math.max(...risks.map(row=>row.riskLevel))}:null;
+}
+function originalBaseline(rows,now){
+  return Math.max(0,...rows.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now;
+}
+function olderThanResolved(incoming,group,now){
+  if(group.status!=='resolved'||incoming.status!=='active'||!incoming.risks.length)return false;
+  // An old last-quote timestamp is not proof that a newly observed outage,
+  // stale feed or other incomplete risk report is a historical replay.
+  // Only suppress an exact retained, complete, valid observation whose own
+  // scope has a later confirmed clearance. Changed/unknown rows reopen.
+  const retained=group.lastValidRisk?.risks||[];
+  return incoming.risks.every(row=>{
+    if(row.status!=='active'||row.assessmentState!=='risk-detected'||row.evidenceState!=='complete'||
+      row.evidenceStatus!=='available'||row.dataState!=='valid')return false;
+    const scope=riskScopeKey(row);
+    const earlier=retained.some(old=>riskScopeKey(old)===scope&&digest(old)===digest(row));
+    if(!earlier)return false;
+    const clearance=group.risks.filter(next=>riskScopeKey(next)===scope&&next.status==='resolved'&&
+      next.assessmentState==='not-triggered'&&next.evidenceState==='complete'&&next.dataState==='valid'&&
+      timeOk(next.sourceAt)&&timeOk(next.riskContract?.dataAt)&&next.sourceAt<=now&&next.riskContract.dataAt<=now);
+    if(clearance.length!==1)return false;
+    const cutoff=Math.min(clearance[0].sourceAt,clearance[0].riskContract.dataAt);
+    const clocks=[row.sourceAt,row.riskContract?.dataAt,row.firstKnowableAt,row.authorityEvidence?.observedAt,
+      row.actionEvidence?.checkedAt,row.recoveryEvidence?.checkedAt,row.accumulationEvidence?.windowEnd];
+    return timeOk(row.sourceAt)&&timeOk(row.riskContract?.dataAt)&&
+      clocks.every(at=>at==null||timeOk(at)&&at<cutoff);
+  });
+}
 function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => false} = {}) {
   const dir = privateRoot(root);
   if (typeof clock !== 'function' || typeof canWrite !== 'function') throw Error('风险提醒存储配置无效');
@@ -132,7 +252,8 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         !Array.isArray(state.preferenceEvents) || state.preferenceEvents.length > MAX_EVENTS ||
         !state.preferences || Object.values(state.preferences).some(value => value !== null && !timeOk(value)))
       throw Error('风险提醒证据完整性校验失败，禁止释放去重');
-    const groupIds = new Set(), deliveryIds = new Set(); let eventCount = 0;
+    if(state.updatedAt>nowOf())throw Error('风险提醒时钟回退，当前档案时点尚未可用');
+    const groupIds = new Set(), deliveryIds = new Set(), eventIndex=new Map(), deliveryEventIds=new Set(), receiverIds=new Map(); let eventCount = 0;
     for (const group of state.groups) {
       if (!textOk(group.rootCauseId) || groupIds.has(group.rootCauseId) || !hashOk(group.id) ||
           !Object.hasOwn(LEVEL, group.severity) || !Object.hasOwn(LEVEL, group.maxSeverity) ||
@@ -142,8 +263,12 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           !group.viewedBy || typeof group.viewedBy !== 'object') throw Error('风险提醒根因记录损坏');
       groupIds.add(group.rootCauseId); eventCount += group.events.length;
       for (const row of group.risks) normalizeRisk(row, state.updatedAt);
-      for (const event of group.events) if (!hashOk(event.id) || !timeOk(event.at) ||
-        !['first-seen', 'escalated', 'resolved', 'reopened'].includes(event.kind)) throw Error('风险提醒生命周期损坏');
+      let lastEventAt=group.firstSeenAt;
+      for (const event of group.events) {
+        if(!hashOk(event.id)||eventIndex.has(event.id)||!timeOk(event.at)||event.at<lastEventAt||event.at>state.updatedAt||
+          !['first-seen','escalated','resolved','reopened'].includes(event.kind))throw Error('风险提醒生命周期损坏');
+        eventIndex.set(event.id,{rootCauseId:group.rootCauseId,at:event.at});lastEventAt=event.at;
+      }
       if(group.levelChanges!==undefined){
         if(!Array.isArray(group.levelChanges))throw Error('风险降级历史格式无效');
         eventCount+=group.levelChanges.length;
@@ -166,15 +291,23 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         const at=group.lastSeenAt;
         group.lastValidRisk=lastValidRisk(group.risks.map(row=>normalizeRisk(row,at)),at);
       }
+      if(!Object.hasOwn(group,'pendingRecovery'))group.pendingRecovery=pendingRecoveryScopes(group);
+      if(!Array.isArray(group.pendingRecovery)||group.pendingRecovery.length>5000||
+        group.pendingRecovery.some(item=>!item||!timeOk(item.at)||item.at>state.updatedAt||!item.row||item.row.status==='resolved'||item.row.rootCauseId!==group.rootCauseId)||
+        new Set(group.pendingRecovery.map(item=>riskScopeKey(item.row))).size!==group.pendingRecovery.length||
+        (group.status==='resolved'&&group.pendingRecovery.length))
+        throw Error('风险待解除范围记录损坏');
+      for(const item of group.pendingRecovery)normalizeRisk(item.row,state.updatedAt);
     }
     if (eventCount > MAX_EVENTS) throw Error('风险提醒事件数量超限');
     for (const delivery of state.deliveries) {
-      if (!hashOk(delivery.id) || deliveryIds.has(delivery.id) || !hashOk(delivery.eventId) ||
+      if (!hashOk(delivery.id) || deliveryIds.has(delivery.id) || !hashOk(delivery.eventId) || deliveryEventIds.has(delivery.eventId) ||
           !DELIVERY.has(delivery.status) || !timeOk(delivery.queuedAt) || !timeOk(delivery.updatedAt) ||
           !Array.isArray(delivery.receipts) || delivery.receipts.length > 16 ||
-          !state.groups.some(group => group.rootCauseId === delivery.rootCauseId && group.events.some(event => event.id === delivery.eventId)))
+          delivery.id!==digest([delivery.eventId,'private-original-queue']))
         throw Error('风险提醒投递记录损坏');
-      deliveryIds.add(delivery.id);
+      validateDeliveryReceipts(delivery,eventIndex.get(delivery.eventId),state.updatedAt,receiverIds);
+      deliveryIds.add(delivery.id);deliveryEventIds.add(delivery.eventId);
     }
     return state;
   }
@@ -203,8 +336,9 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
   }
   function view(state, actor) {
     const now = nowOf(), actorKey = textOk(actor, 240) ? digest(actor) : null;
+    const deliveries=new Map(state.deliveries.map(row=>[row.eventId,row]));
     const groups = state.groups.map(group => {
-      const event = group.events.at(-1), delivery = state.deliveries.find(row => row.eventId === event.id);
+      const event = group.events.at(-1), delivery = deliveries.get(event.id);
       const admission=!delivery&&group.notificationAdmission?.eventId===event.id?group.notificationAdmission:null;
       const categoryMute = state.preferences[group.classification + 'MutedUntil'];
       const mutedUntil = Math.max(group.mutedUntil || 0, categoryMute || 0) || null;
@@ -215,6 +349,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
         notificationEventId: event.id, notification: {...deliveryView(delivery, now),
           admissionStatus:admission?.status||null,admissionReason:admission?.reason||null,
           admissionAt:admission?.at||null,retryAt:admission?.retryAt||null,automaticTransportRetry:false},restrictionsStillApply: true,
+        notificationReview:originalDeliveryReview(group,deliveries,now,deliveryView),
         stationVisible: true, notificationOnlyMute: true};
     }).sort((a, b) => (a.status === 'resolved') - (b.status === 'resolved') || LEVEL[b.severity] - LEVEL[a.severity] || b.lastSeenAt - a.lastSeenAt);
     return {schemaVersion: 1, ...identity(state), revision: state.revision, updatedAt: state.updatedAt,
@@ -236,6 +371,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
     if (!timeOk(now) || now > nowOf() || nowOf() - now > 15000 || !Array.isArray(input.risks) || input.risks.length > 5000 ||
         input.complete !== undefined && typeof input.complete !== 'boolean') throw Error('风险观察时点或批次无效');
     const next = groupRows(input.risks.map(row => normalizeRisk(row, now)));
+    const clearanceAttempts=input.risks.filter(row=>row.status==='resolved').map(row=>row.id);
     return locked(key, state => {
       if (state.updatedAt !== null && now < state.updatedAt) throw Error('风险观察时点倒序');
       let changed = false; const present = new Set();
@@ -248,24 +384,29 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           group = {...incoming, id: digest([key, incoming.rootCauseId]), firstSeenAt: now, lastSeenAt: now, lastCheckedAt: now,
             maxSeverity: incoming.severity, revision: 1, occurrence: 1, observationGap: false, resolvedAt: null,
             maxRiskLevel:incoming.riskLevel,lastValidRisk:lastValidRisk(incoming.risks,now),resolutionBlockedReason:null,
-            resolutionBaselineAt:Math.max(0,...incoming.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||now,
+            resolutionBaselineAt:originalBaseline(incoming.risks,now),
+            pendingRecovery:updatePendingRecovery(null,incoming.risks,now),
             mutedUntil: null, viewedBy: {}, events: [],levelChanges:[]};
+          group.resolutionBaselineAt=recoveryBaseline(group).sourceAt||now;
           eventFor(state, group, 'first-seen', now); state.groups.push(group); changed = true; continue;
         }
+        if(olderThanResolved(incoming,group,now))continue;
         const oldStatus = group.status, oldMax = group.maxSeverity,oldRiskLevel=group.riskLevel||group.lastValidRisk?.riskLevel||null;
         const oldMaxRiskLevel=group.maxRiskLevel||group.lastValidRisk?.riskLevel||0;
-        let resolutionBlockedReason=null;
+        const observed=incoming.risks,previousRecovery=group.pendingRecovery;
+        const baseline=recoveryBaseline(group);
+        let resolutionBlockedReason=null,verifiedDowngrade=false;
         if(oldStatus!=='resolved'&&incoming.status==='resolved'){
-          const checked=resolutionCheck(incoming,group.lastValidRisk||{risks:group.risks,
-            sourceAt:group.resolutionBaselineAt||Math.max(0,...group.risks.map(row=>timeOk(row.sourceAt)&&row.sourceAt<=now?row.sourceAt:0))||group.firstSeenAt},now);
+          const checked=resolutionCheck(incoming,baseline,now);
           if(!checked.allowed){resolutionBlockedReason=checked.reason;
             incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
         }
         if(oldStatus!=='resolved'&&incoming.status==='active'&&group.lastValidRisk&&incoming.riskLevel!==null&&
           incoming.riskLevel<group.lastValidRisk.riskLevel){
-          const checked=reductionCheck(incoming,group.lastValidRisk,now);
+          const checked=reductionCheck(incoming,baseline,now);
           if(!checked.allowed){resolutionBlockedReason='不能确认风险降级：'+checked.reason;
             incoming=groupRows(incoming.risks.map(row=>normalizeRisk({...row,status:'unknown'},now)))[0];}
+          else verifiedDowngrade=true;
         }
         const sameEvidence = digest({risks: group.risks, status: group.status, observationGap: group.observationGap}) ===
           digest({risks: incoming.risks, status: incoming.status, observationGap: false});
@@ -281,7 +422,11 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
           digest({risks: comparable(incoming.risks), status: incoming.status, observationGap: false});
         Object.assign(group, incoming, {lastSeenAt: now, lastCheckedAt: now, observationGap: false,resolutionBlockedReason});
         const currentValid=lastValidRisk(incoming.risks,now);
-        if(currentValid&&(!group.lastValidRisk||currentValid.sourceAt>=group.lastValidRisk.sourceAt))group.lastValidRisk=currentValid;
+        const reopened=oldStatus==='resolved'&&incoming.status!=='resolved';
+        group.lastValidRisk=mergeLastValidRisk(group.lastValidRisk,incoming,currentValid,now,reopened||verifiedDowngrade);
+        group.pendingRecovery=updatePendingRecovery({pendingRecovery:previousRecovery},observed,now,{
+          closed:incoming.status==='resolved',replace:reopened||verifiedDowngrade,clearanceAttempts});
+        if(group.pendingRecovery.length)group.resolutionBaselineAt=recoveryBaseline(group).sourceAt;
         if (meaningfulChange) group.revision++;
         if (oldStatus === 'resolved' && incoming.status !== 'resolved') {
           group.occurrence++; group.maxSeverity = incoming.severity;group.maxRiskLevel=incoming.riskLevel; group.resolvedAt = null;
@@ -389,10 +534,18 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       let evidence = null;
       if (input.status === 'receiver-confirmed') {
         const source = input.evidence;
-        if (!source || !textOk(source.receiptId, 240) || !textOk(source.source, 240) || !timeOk(source.receivedAt) ||
-            source.receivedAt < delivery.queuedAt || source.receivedAt > now || source.trustedReceiver !== true)
+        if (!validReceiverEvidence(source,delivery.queuedAt,now))
           throw Error('接收端确认必须有可信来源、回执编号和实际接收时点');
+        for(const [field,value] of Object.entries({accountId:state.accountId,accountEpoch:state.accountEpoch,deliveryId:delivery.id,eventId:delivery.eventId}))
+          if(Object.hasOwn(source,field)&&source[field]!==value)throw Error('接收端回执与原账户或事件身份冲突');
         evidence = {receiptId: source.receiptId, source: source.source, receivedAt: source.receivedAt, trustedReceiver: true};
+        const receiverIdentity=receiverKey(evidence);
+        for(const old of state.deliveries)for(const prior of old.receipts){
+          if(prior.status!=='receiver-confirmed'||receiverKey(prior.evidence)!==receiverIdentity)continue;
+          if(old.id!==delivery.id||prior.evidence.receivedAt!==evidence.receivedAt)
+            throw Error('接收端回执已用于其他事件或接收时点冲突');
+          return {recorded:false,...deliveryView(delivery,now)};
+        }
       }
       const reason = textOk(input.reason, 600) ? input.reason : null;
       const receipt = {status: input.status, at: now, evidence, reason};
@@ -402,12 +555,7 @@ function createRiskAlertLifecycle({root, clock = Date.now, canWrite = () => fals
       delivery.receipts.push(receipt); delivery.updatedAt = now;
       // A late timeout cannot erase acceptance or a real receipt. Contradictory
       // definite gateway results remain uncertain and retain the reservation.
-      if (delivery.status !== 'receiver-confirmed') {
-        if (input.status === 'receiver-confirmed') delivery.status = input.status;
-        else if (delivery.receipts.some(row => row.status === 'gateway-accepted') && delivery.receipts.some(row => row.status === 'gateway-rejected'))
-          delivery.status = 'unconfirmed';
-        else if (delivery.status !== 'gateway-accepted' || input.status !== 'unconfirmed') delivery.status = input.status;
-      }
+      delivery.status=deliveryStatusFromReceipts(delivery.receipts);
       save(state, now); return {recorded: true, ...deliveryView(delivery, now)};
     });
   }

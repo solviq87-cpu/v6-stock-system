@@ -380,67 +380,142 @@ function buildRelationshipGraph(input={}, options={}) {
       limitations:['业务、间接和概念关系分开保留；相同题材不证明真实业务','共同关联只表示潜在共同风险暴露，不推断价格方向','持仓主题交叉，比例不可直接相加']});
 }
 
+// This is a declared research entitlement, not external authentication. A
+// catalogue entry or a plain quote adapter cannot establish Level-2 access.
+function depthRouteAllowsResearch(row) {
+  try {
+    const {sourceLineage,validateRegistry}=require('./data-source-lineage');
+    validateRegistry();
+    const route=sourceLineage(row.source.trim().toLowerCase());
+    if (!route) return false;
+    if (!route.known) return true; // legacy operator-imported evidence; still unverified
+    return !route.upstreamAmbiguous&&['CN','GLOBAL'].includes(route.market)&&
+      // Only catalogue classes that can describe authorized securities depth or
+      // execution/tick data are eligible for a declared research entitlement.
+      // A macro, news or reference-data route cannot impersonate an order book.
+      ['cn-multi-asset','cn-quote-execution','global-tick'].includes(route.dataClass)&&
+      !['public-quote-probe','itick-stock-quote.js','six-photo-sources.py','optional-research-sources.py'].includes(route.adapter);
+  } catch { return false; }
+}
+function withinAuthorization(row,at) {
+  const a=row.authorization;
+  return time(at)&&a.validFrom<=at&&at<a.validUntil&&
+    (a.revokedAt===undefined||at<a.revokedAt);
+}
 function authorization(row) {
   const a=row.authorization;
-  return a&&a.status==='granted'&&a.provider===row.source&&text(a.evidenceId,256)&&
-    Array.isArray(a.scope)&&a.scope.includes(row.granularity)&&time(a.validFrom)&&time(a.validUntil)&&
-    time(a.knownAt)&&a.knownAt<=row.firstKnownAt&&a.validFrom<=row.quoteAt&&row.quoteAt<a.validUntil;
+  return !!(a&&a.status==='granted'&&a.provider===row.source&&text(a.evidenceId,256)&&
+    Array.isArray(a.scope)&&a.scope.length>0&&a.scope.length<=16&&Array.from(a.scope).every(x=>text(x,80))&&
+    new Set(a.scope).size===a.scope.length&&a.scope.includes(row.granularity)&&
+    time(a.validFrom)&&time(a.validUntil)&&a.validFrom<a.validUntil&&time(a.knownAt)&&
+    time(row.receivedAt)&&a.knownAt<=row.receivedAt&&a.knownAt<=row.firstKnownAt&&
+    (a.revokedAt===undefined||time(a.revokedAt))&&
+    (a.market===undefined||a.market==='CN')&&
+    (a.symbol===undefined||a.symbol===row.symbol)&&
+    (a.symbols===undefined||Array.isArray(a.symbols)&&a.symbols.length>0&&a.symbols.length<=10000&&
+      Array.from(a.symbols).every(symbol)&&new Set(a.symbols).size===a.symbols.length&&a.symbols.includes(row.symbol))&&
+    withinAuthorization(row,row.quoteAt)&&withinAuthorization(row,row.receivedAt)&&depthRouteAllowsResearch(row));
+}
+function matchingDepthIdentity(child,row,eventAt) {
+  return child&&typeof child==='object'&&!Array.isArray(child)&&['code','symbol'].every(k=>child[k]===undefined||child[k]===row.symbol)&&
+    ['source','quoteSource','provider'].every(k=>child[k]===undefined||child[k]===row.source)&&
+    (child.currency===undefined||child.currency==='CNY')&&
+    (child.priceBasis===undefined||child.priceBasis==='unadjusted')&&
+    (child.volumeUnit===undefined||child.volumeUnit==='shares')&&
+    !['synthetic','fixture','simulated','mock','testSample','sourceConflict','quoteSourceConflict','conflict'].some(k=>child[k]===true)&&
+    (child.receivedAt===undefined||time(child.receivedAt)&&child.receivedAt>=eventAt&&child.receivedAt<=row.receivedAt)&&
+    (child.knownAt===undefined||time(child.knownAt)&&child.knownAt>=(child.receivedAt??eventAt)&&child.knownAt<=row.firstKnownAt);
 }
 function depthMetrics(row) {
   const bids=row.bids, asks=row.asks;
   if (row.volumeUnit!=='shares'||!Array.isArray(bids)||!Array.isArray(asks)||!bids.length||!asks.length||bids.length>50||asks.length>50) return null;
-  const valid=(side,dir)=>side.every((p,i)=>p&&finite(p.price)&&p.price>0&&Number.isSafeInteger(p.quantity)&&p.quantity>0&&(!i||dir*(p.price-side[i-1].price)>0));
+  const valid=(side,dir)=>Array.from(side).every((p,i)=>matchingDepthIdentity(p,row,row.quoteAt)&&
+    (p.quoteAt===undefined||p.quoteAt===row.quoteAt)&&finite(p.price)&&p.price>0&&
+    Number.isSafeInteger(p.quantity)&&p.quantity>0&&(!i||dir*(p.price-side[i-1].price)>0));
   if (!valid(bids,-1)||!valid(asks,1)||bids[0].price>=asks[0].price) return null;
   const buy=bids.reduce((s,p)=>s+p.quantity,0),sell=asks.reduce((s,p)=>s+p.quantity,0);
-  if (!Number.isSafeInteger(buy+sell)) return null;
-  return {bestBid:bids[0].price,bestAsk:asks[0].price,spread:round(asks[0].price-bids[0].price),
-    spreadBps:round((asks[0].price-bids[0].price)/((asks[0].price+bids[0].price)/2)*10000),
-    bidQuantity:buy,askQuantity:sell,bookImbalance:round((buy-sell)/(buy+sell)),
-    measuredLevels:{bid:bids.length,ask:asks.length},tradeImbalance:null};
+  const spread=asks[0].price-bids[0].price, midpoint=asks[0].price/2+bids[0].price/2,
+    spreadBps=spread/midpoint*10000;
+  if (!Number.isSafeInteger(buy+sell)||!finite(spread)||spread<=0||!finite(spreadBps)) return null;
+  return {bestBid:bids[0].price,bestAsk:asks[0].price,spread:round(spread),
+    spreadBps:round(spreadBps),bidQuantity:buy,askQuantity:sell,bookImbalance:round((buy-sell)/(buy+sell)),
+    measuredLevels:{bid:bids.length,ask:asks.length},tradeImbalance:null,completeOrderBook:false};
+}
+function tickMetrics(row) {
+  const ticks=row.trades;
+  if (!Array.isArray(ticks)||ticks.length<1||ticks.length>500||row.volumeUnit!=='shares') return null;
+  const seen=new Set(),miniqmt=row.source.trim().toLowerCase()==='miniqmt';
+  let total=0,signed=0,quantity=0,allKnown=true,previous=0;
+  for(const t of ticks){
+    if(!text(t?.id)||seen.has(t.id)||!time(t.at)||t.at<previous||t.at>row.quoteAt||
+       !withinAuthorization(row,t.at)||aShareCalendarDate(t.at)!==aShareCalendarDate(row.quoteAt)||
+       !matchingDepthIdentity(t,row,t.at)||(t.quoteAt!==undefined&&t.quoteAt!==t.at)||
+       ['canceled','cancelled','isCancellation'].some(k=>t[k]===true)||t.executed===false||
+       (t.eventKind!==undefined&&!['trade','execution'].includes(t.eventKind))||
+       (miniqmt&&t.tradeFlag!==undefined&&![0,1,2,'0','1','2'].includes(t.tradeFlag))||
+       !finite(t.price)||t.price<=0||!Number.isSafeInteger(t.quantity)||t.quantity<=0||
+       !['buy','sell','unknown'].includes(t.aggressor)) return null;
+    seen.add(t.id);previous=t.at;
+    const cash=t.price*t.quantity;quantity+=t.quantity;total+=cash;
+    // The native Shenzhen tradeFlag does not establish active direction.
+    // Do not derive direction from cancellation/unknown flags or price.
+    const directionKnown=t.aggressor!=='unknown'&&!(miniqmt&&t.tradeFlag!==undefined&&
+      (/^(?:00|30)/.test(row.symbol)||Number(t.tradeFlag)===0||
+       t.aggressor!==(Number(t.tradeFlag)===1?'buy':'sell')));
+    allKnown=allKnown&&directionKnown;
+    if(directionKnown)signed+=(t.aggressor==='buy'?1:-1)*cash;
+    if(!finite(cash)||cash<=0||!Number.isSafeInteger(quantity)||
+       !finite(total)||!Number.isSafeInteger(Math.round(total*100))||!finite(signed))return null;
+  }
+  return {trades:ticks.length,turnover:round(total),tradeImbalance:allKnown?round(signed/total):null,
+    bookImbalance:null,firstTradeAt:ticks[0].at,lastTradeAt:ticks.at(-1).at,
+    measuredShares:quantity,completeMarketTape:false};
 }
 function buildDepthResearch(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.depth,asOf,'盘口证据',500), rows=[], rejected=[...selected.rejected], risks=[];
   for (const r of selected.rows) {
     if (r.retracted===true) continue;
     const base={id:r.id,symbol:symbol(r.symbol)?r.symbol:null,granularity:r.granularity||'unknown',evidence:provenance(r,asOf),
-      metrics:null,auction:null,queuePosition:null,principalIntent:null,missing:[]};
+      metrics:null,auction:null,queuePosition:null,principalIntent:null,missing:[],authorizationIndependentlyVerified:false,current:false};
     if (!symbol(r.symbol)||!['depth-snapshot','trade-ticks','auction-indicative','quote-snapshot'].includes(r.granularity)) {
       rejected.push({id:r.id,reason:'identity-or-granularity-missing'});continue;
     }
     if (r.granularity==='quote-snapshot') {rows.push({...base,status:'unsupported-granularity',missing:['普通报价快照不包含逐笔、队列或可靠盘口深度']});continue;}
-    if (!authorization(r)) {rows.push({...base,status:'authorization-unavailable',missing:['缺少涵盖本源、本粒度与原始时点的授权证据']});continue;}
-    const wire={price:r.price,quoteAt:r.quoteAt,receivedAt:r.receivedAt,quoteSource:r.source};
+    if (!authorization(r)) {rows.push({...base,status:'authorization-unavailable',missing:['缺少涵盖本源、本粒度、证券范围与原始时点的授权证据']});continue;}
+    const wire={...r,price:r.price,quoteAt:r.quoteAt,receivedAt:r.receivedAt,quoteSource:r.source};
     const freshness=quoteObservationView(wire,asOf), receipt=quoteObservationView(wire,r.recordedAt);
-    if (receipt.quoteStatus!=='recent-unverified'||receipt.missingReason!==null||
+    if (!matchingDepthIdentity(r,r,r.quoteAt)||receipt.quoteStatus!=='recent-unverified'||receipt.missingReason!==null||
         aShareCalendarDate(r.quoteAt)!==aShareCalendarDate(r.recordedAt)||r.receivedAt>r.firstKnownAt) {
       rows.push({...base,status:'source-time-unusable',freshness,missing:['原始报价、首次接收或15秒采集门禁未通过']});continue;
     }
     let metrics=null,auction=null,missing=[];
     if (r.granularity==='depth-snapshot') {
-      metrics=depthMetrics(r);if(!metrics)missing.push('盘口档位、股数单位、顺序或价差无效');
+      metrics=depthMetrics(r);if(!metrics)missing.push('盘口档位、证券身份、股数单位、顺序或价差无效');
     } else if (r.granularity==='trade-ticks') {
-      const ticks=array(r.trades,'逐笔成交',500),seen=new Set();
-      const valid=ticks.length&&ticks.every(t=>text(t?.id)&&!seen.has(t.id)&&seen.add(t.id)&&time(t.at)&&t.at<=r.quoteAt&&
-        aShareCalendarDate(t.at)===aShareCalendarDate(r.quoteAt)&&finite(t.price)&&t.price>0&&Number.isSafeInteger(t.quantity)&&t.quantity>0&&
-        ['buy','sell','unknown'].includes(t.aggressor));
-      if (valid&&r.volumeUnit==='shares') {
-        const total=ticks.reduce((s,t)=>s+t.price*t.quantity,0),signed=ticks.reduce((s,t)=>s+(t.aggressor==='buy'?1:t.aggressor==='sell'?-1:0)*t.price*t.quantity,0);
-        const allKnown=ticks.every(t=>t.aggressor!=='unknown');
-        if(finite(total)&&finite(signed))metrics={trades:ticks.length,turnover:round(total),tradeImbalance:allKnown&&total>0?round(signed/total):null,bookImbalance:null};
-        else missing.push('逐笔成交金额超出数值范围');
-        if (!allKnown)missing.push('部分逐笔缺少真实主动买卖方向，成交失衡保持未知');
-      } else missing.push('逐笔成交身份、时点、方向或股数单位无效');
-    } else if (r.stock?.code===r.symbol&&r.stock?.source===r.source) {
-      auction=evaluateAuctionEvidence(r.stock,{asOf:r.recordedAt,tradeDate:aShareCalendarDate(r.quoteAt)});
+      metrics=tickMetrics(r);
+      if(!metrics)missing.push('逐笔成交身份、授权、时点、成交标志、数值或股数单位无效');
+      else if(metrics.tradeImbalance===null)missing.push('部分逐笔缺少可核对的主动买卖方向，成交失衡保持未知');
+    } else if (r.stock?.code===r.symbol&&r.stock?.source===r.source&&Array.isArray(r.stock.snapshots)&&
+      r.stock.snapshots.length>0&&r.stock.snapshots.length<=250&&r.stock.snapshots.every(t=>
+        time(t?.quoteAt)&&time(t.receivedAt)&&t.quoteAt<=r.quoteAt&&t.receivedAt<=r.receivedAt&&
+        withinAuthorization(r,t.quoteAt)&&withinAuthorization(r,t.receivedAt))) {
+      auction=evaluateAuctionEvidence(r.stock,{asOf:r.receivedAt,tradeDate:aShareCalendarDate(r.quoteAt)});
       if (auction.status==='insufficient_data') missing.push(auction.reason);
-    } else missing.push('缺少与证券、供应商一致的原始竞价序列');
-    const current=freshness.quoteStatus==='recent-unverified'&&aShareCalendarDate(r.quoteAt)===aShareCalendarDate(asOf);
-    rows.push({...base,status:!metrics&&!auction?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing});
+    } else missing.push('缺少与证券、供应商、授权及原接收时点一致的原始竞价序列');
+    const usable=!!metrics||!!auction&&auction.status!=='insufficient_data';
+    // Original receipt entitlement proves historical context only. Once that
+    // grant expires or is revoked, no current risk signal may reuse the book.
+    const entitlementCurrent=withinAuthorization(r,asOf);
+    if(usable&&!entitlementCurrent)missing.push('当前授权已到期或撤销；保留原历史证据，不生成当前盘口预警');
+    const current=usable&&entitlementCurrent&&freshness.quoteStatus==='recent-unverified'&&freshness.missingReason===null&&
+      aShareCalendarDate(r.quoteAt)===aShareCalendarDate(asOf)&&
+      (r.granularity!=='trade-ticks'||asOf-metrics.lastTradeAt<=15000);
+    rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing});
     if (current&&metrics?.spreadBps>=100) risks.push(risk('liquidity-spread',r.symbol,[base.evidence],
       '同源真实买卖价差达到100个基点，仅覆盖所提供档位','同源新鲜盘口价差低于阈值并经原风险中心重新核验',asOf));
   }
   return result(70,rows,rows.length?[]:['尚无合法授权且带真实粒度的盘口或竞价数据'],{rejected,riskObservations:risks,
-    limitations:['买卖挂单失衡不是成交失衡；均不代表主力意图','盘口深度仅覆盖提供档位，不估算排队位置','历史记录可供研究；15秒外数据不生成当前盘口预警']});
+    limitations:['买卖挂单失衡不是成交失衡；均不代表主力意图','盘口深度仅覆盖提供档位，不估算排队位置','逐笔样本不等于完整市场成交带','授权仅为声明的研究证据，未独立认证','历史记录可供研究；15秒外数据不生成当前盘口预警']});
 }
 
 function sessionOf(at) {
@@ -568,7 +643,13 @@ function buildThemeCrowding(input={}, options={}) {
     const stocks=array(t.stocks,'题材成员',10000),seen=new Set(),valid=[],members=new Set(t.members);
     if(new Set(stocks.map(s=>s?.symbol)).size!==stocks.length){rejected.push({id:t.id,reason:'duplicate-theme-member-observation'});continue;}
     for (const s of stocks) {
-      if (!symbol(s?.symbol)||!members.has(s.symbol)||seen.has(s.symbol)||!time(s.quoteAt)||s.quoteAt>t.snapshotAt||
+      // Explicit member receipt clocks must agree with the enclosing evidence.
+      // Legacy members without these optional clocks retain their research-only
+      // parent provenance; never substitute receipt time for quoteAt.
+      const memberClocks=['receivedAt','knownAt','firstKnownAt','recordedAt'];
+      const badClock=s && memberClocks.some(k=>Object.hasOwn(s,k)&&
+        (!time(s[k])||s[k]<s.quoteAt||s[k]>(k==='recordedAt'?t.recordedAt:t.firstKnownAt)));
+      if (badClock||!symbol(s?.symbol)||!members.has(s.symbol)||seen.has(s.symbol)||!time(s.quoteAt)||s.quoteAt>t.snapshotAt||
           aShareCalendarDate(s.quoteAt)!==aShareCalendarDate(t.snapshotAt)||!text(s.source,160)||fake(s.source)||
           s.retracted===true||['synthetic','fixture','simulated','mock'].some(k=>s[k]===true)||['test','demo','synthetic'].includes(s.sampleSet)) continue;
       seen.add(s.symbol);valid.push(s);
@@ -584,7 +665,7 @@ function buildThemeCrowding(input={}, options={}) {
       ['换手较高',metrics.meanTurnoverPct!==null&&metrics.meanTurnoverPct>=10],
       ['涨停扩散',metrics.limitUpFractionPct!==null&&metrics.limitUpFractionPct>=30],
       ['价格快速上涨',metrics.meanChangePct!==null&&metrics.meanChangePct>=5]].filter(([,yes])=>yes).map(([name])=>name);
-    const known=Object.values(metrics).every(v=>v!==null),current=asOf-t.snapshotAt<=15000&&valid.every(s=>asOf-s.quoteAt<=15000)&&
+    const known=Object.values(metrics).every(v=>v!==null),current=complete&&asOf-t.snapshotAt<=15000&&valid.every(s=>asOf-s.quoteAt<=15000)&&
       aShareCalendarDate(t.snapshotAt)===aShareCalendarDate(asOf);
     const row={id:t.id,name:t.name,snapshotAt:t.snapshotAt,evidence:provenance(t,asOf),members:t.members,
       memberCount:t.members.length,observedMembers:valid.length,coveragePct:round(valid.length/t.members.length*100),metrics,

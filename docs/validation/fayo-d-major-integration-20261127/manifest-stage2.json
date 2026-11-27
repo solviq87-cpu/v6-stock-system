@@ -1,0 +1,632 @@
+{
+  "schemaVersion": 1,
+  "parentCommit": "8d961e53e0f836b53ffd6822e1efb9ab47a0d8e9",
+  "groups": [
+    {
+      "name": "采集节奏",
+      "prs": [
+        431
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "7a426665fd1e0331de4205c5deea4a1448ece92b",
+      "count": 3,
+      "already": 0
+    },
+    {
+      "name": "全市场快照",
+      "prs": [
+        433
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "c588e4e4c834613e55e609e17959319c630f2d8a",
+      "count": 3,
+      "already": 0
+    },
+    {
+      "name": "报价类别",
+      "prs": [
+        436
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "d2e87fc2b1c6840f085cdb2814c012e1486497c9",
+      "count": 3,
+      "already": 0
+    },
+    {
+      "name": "报价交叉核验",
+      "prs": [
+        439
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "8703fabc91ee0f8083f33c80c744b89b94d5e4b7",
+      "count": 5,
+      "already": 0
+    },
+    {
+      "name": "来源目录与覆盖",
+      "prs": [
+        441,
+        479
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "52ac872945b7a16993c602a4b90689741f890406",
+      "count": 6,
+      "already": 0
+    },
+    {
+      "name": "公开源健康",
+      "prs": [
+        477
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "75fd5d6d3f686395e3d60d1a3c5477309b7dcafc",
+      "count": 6,
+      "already": 0
+    },
+    {
+      "name": "因果质量证据",
+      "prs": [
+        460
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "2a9786fb2098c27f409da7182fede9c433606b3a",
+      "count": 7,
+      "already": 0
+    },
+    {
+      "name": "日线及交易日覆盖复权",
+      "prs": [
+        447,
+        490
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "51da6d391a75ae249f54fafdf1e04ae8d05c9b76",
+      "count": 10,
+      "already": 0
+    },
+    {
+      "name": "指数竞价板块资金",
+      "prs": [
+        449
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "354a0b88d23298a3a25f081bb2702e120944329b",
+      "count": 5,
+      "already": 0
+    },
+    {
+      "name": "证券状态与宏观主数据",
+      "prs": [
+        455
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "5baad1459a7ba323119e2bc447a1802f215bf8f4",
+      "count": 6,
+      "already": 0
+    },
+    {
+      "name": "日K与研究日历",
+      "prs": [
+        482
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "b58008d23b880b55f8f16d81b6913f29d5c918a7",
+      "count": 4,
+      "already": 0
+    },
+    {
+      "name": "分钟行情",
+      "prs": [
+        487
+      ],
+      "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+      "head": "e442de31c3734c4c70be65391795015d9d67801e",
+      "count": 4,
+      "already": 0
+    },
+    {
+      "name": "资金历史和组合测试",
+      "prs": [
+        503,
+        507
+      ],
+      "base": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+      "head": "a6b88c90394229bedfe2c81e67e3a267bb7b7d88",
+      "count": 6,
+      "already": 2
+    }
+  ],
+  "files": [
+    {
+      "path": "V6_BO/src/core/market-source-cadence.js",
+      "before": "9655871aba59d037a60ca5a5bf85b01dcaf83ce6",
+      "after": "018e03a5290b6e6fc6911e55a3ef61dd6def0ad3",
+      "mode": "100644",
+      "group": "采集节奏"
+    },
+    {
+      "path": "V6_BO/tests/market-source-cadence.test.js",
+      "before": "7d3a5d58a82f89cbc75a01deb4c3a1bd04be1dd1",
+      "after": "eb9e6b089aafaeb7e301b023638ab25b24e14117",
+      "mode": "100644",
+      "group": "采集节奏"
+    },
+    {
+      "path": "docs/FAYO_D_DATA_CADENCE_HANDOFF_20261127.md",
+      "before": null,
+      "after": "3fb4cc9e7daec70633f91189d22471f7de5d77c5",
+      "mode": "100644",
+      "group": "采集节奏"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-market-snapshot.js",
+      "before": "ead86eb15c59c2d3b11ecd2763689ceca6f6a8d2",
+      "after": "6be61f7fd0c55aca6a189c2fdc40108c657ada22",
+      "mode": "100644",
+      "group": "全市场快照"
+    },
+    {
+      "path": "V6_BO/tests/eastmoney-snapshot-clock-integrity.test.js",
+      "before": null,
+      "after": "8c10a1f4e879a0c55519a128d721283a2314f590",
+      "mode": "100644",
+      "group": "全市场快照"
+    },
+    {
+      "path": "docs/validation/fayo-d-snapshot-clock-20261127/README.md",
+      "before": null,
+      "after": "5588869b2839c8e4006846afaa96e0453ea32613",
+      "mode": "100644",
+      "group": "全市场快照"
+    },
+    {
+      "path": "V6_BO/src/core/multi-source-price-consensus.js",
+      "before": "5efc4b1e0606a9b3402e1be6f07440b2d6fcbd59",
+      "after": "38915120d0a8251af547556f45b318055c7912c9",
+      "mode": "100644",
+      "group": "报价类别"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-quote-class-integrity.test.js",
+      "before": null,
+      "after": "8f5a573d06adb8400e37d4707edef08ab71b4574",
+      "mode": "100644",
+      "group": "报价类别"
+    },
+    {
+      "path": "docs/validation/fayo-d-quote-class-20261127/README.md",
+      "before": null,
+      "after": "f332e1e9f79c1c235b41178b30ab8ff1254ab58b",
+      "mode": "100644",
+      "group": "报价类别"
+    },
+    {
+      "path": "V6_BO/src/core/quote-cross-check.js",
+      "before": "d2a9e4cceee7661abbdd27484192902ccce4b674",
+      "after": "67e62ff3cfd46f551d265fc43ff0a4833603af72",
+      "mode": "100644",
+      "group": "报价交叉核验"
+    },
+    {
+      "path": "V6_BO/tests/quote-cross-check.test.js",
+      "before": "39c7109b1dd01d0ca521ebe0cb0ce285c441c74a",
+      "after": "60014d9dba0560852399ceaf63e72c45c5f4b100",
+      "mode": "100644",
+      "group": "报价交叉核验"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-cross-check-cache-integrity.test.js",
+      "before": null,
+      "after": "8fdb367fee4f1fd1a3efdcd96dd7f82c2e393a32",
+      "mode": "100644",
+      "group": "报价交叉核验"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-check-cache-20261127/CI_FOLLOWUP.md",
+      "before": null,
+      "after": "8010bb77ba39c3160d425fa7524dfb2001667cc8",
+      "mode": "100644",
+      "group": "报价交叉核验"
+    },
+    {
+      "path": "docs/validation/fayo-d-cross-check-cache-20261127/README.md",
+      "before": null,
+      "after": "310d2f51a1482909361b17dc2c1f72098310871e",
+      "mode": "100644",
+      "group": "报价交叉核验"
+    },
+    {
+      "path": "V6_BO/src/core/data-source-lineage.js",
+      "before": "817048838ad9ba6abe02a1e308ac11a8bd695a98",
+      "after": "e2688532c1b2d35f3763181c5a2be29204101cc3",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "V6_BO/src/core/data-source-readiness-audit.js",
+      "before": "775739ff1dce167dd2aecc72104a5b855b176128",
+      "after": "d85f4b125fb79ca82804abf184452809f0938ca9",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-readiness-coverage-integrity.test.js",
+      "before": null,
+      "after": "fc8ffbfbd790d367a1e929d63e45aa854258abcb",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-source-catalog-integrity.test.js",
+      "before": null,
+      "after": "d2d2d7efee32f0317adbd731aac83f89cf1af014",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "docs/validation/fayo-d-readiness-coverage-20261127/README.md",
+      "before": null,
+      "after": "87e68d34fdc06b28331cc8e01fbacba16eacb7c6",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "docs/validation/fayo-d-source-catalog-20261127/README.md",
+      "before": null,
+      "after": "3f5cb7d31bd723eb33581ed26e935fee052dd0ea",
+      "mode": "100644",
+      "group": "来源目录与覆盖"
+    },
+    {
+      "path": "V6_BO/src/core/public-market.js",
+      "before": "c4c1abc854072e1ca14af714764094e62a304e89",
+      "after": "043e8c2867fbf8cafa4943a03521e88bc1ed4e02",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "V6_BO/src/core/public-quote-endpoint-health.js",
+      "before": "7a39987ab3f8265d5c83795a4791684f398888e1",
+      "after": "23b45dbce813f421f59a5b6d57c153e92d6505eb",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "V6_BO/src/core/public-quote-probe.js",
+      "before": "77f300cf45b87ae2236aa8b463a674593225f711",
+      "after": "8383fb9ee3a02a148eacb74d020027b3a8d2ec85",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "V6_BO/src/core/quote-dual-source-diagnostic.js",
+      "before": "a065fbf31a9f1763efff6f397a687bf99f45240b",
+      "after": "38905f38eba98035ab2662a56b5d9c8f5d40462c",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-public-source-health-integrity.test.js",
+      "before": null,
+      "after": "b47db74aeb0b2fa3573f06e3f05dcc76772820aa",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "docs/validation/fayo-d-public-source-health-20261127/README.md",
+      "before": null,
+      "after": "156d9d8389e87ff6682d0c16fb5cfbee20012584",
+      "mode": "100644",
+      "group": "公开源健康"
+    },
+    {
+      "path": "V6_BO/src/core/market-evidence-quality.js",
+      "before": "9b678f381125aebbaf9f27fc82d6b2c3d5fda959",
+      "after": "5620f5b2bd8049d1b3d9cf076e91defd486ccefd",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/src/core/market-response-snapshot.js",
+      "before": "c3794f1f604972ecabcdc4ca055b039570a7911f",
+      "after": "5a5d54e6d145bc2115d065541a0c47c3943517f0",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/src/core/market-snapshot-quote-time.js",
+      "before": "3cd7f7e1f223413199087c860d39f512f06d5610",
+      "after": "2574367d84b67aa2b2aebb5c0cfd382d94d929d8",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/src/core/quote-source-window-quality.js",
+      "before": "f6ee67b2aff870c5db8ef769e51f7f1930886ec5",
+      "after": "869bb7dd25b5b16c0f6f7b2ee5d2607791e7de3f",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/src/core/sector-breadth-market-bridge.js",
+      "before": "4d001ece85a940c90d1c1e8b59f0b3a596588bec",
+      "after": "06c6cf4cc8fa198df6b6fd4b59c375e00e2572c9",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-causality-quality.test.js",
+      "before": null,
+      "after": "3f7777ed7c2ae1bf661ea9f1b1e487d025c800a4",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-causality-quality-20261127/README.md",
+      "before": null,
+      "after": "1c5cdcc0acbea44548eb3f9f914c6be8723fd654",
+      "mode": "100644",
+      "group": "因果质量证据"
+    },
+    {
+      "path": "V6_BO/scripts/research-cross-source-history.js",
+      "before": "845479d40a299cdf25a62ec966d8e9bc0b986820",
+      "after": "76e4200d4a4a5bd603bcabd4e20d549cc166f230",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/src/core/a-share-session-coverage.js",
+      "before": "68c612ace187980f42eb74c657ca6c674251a8c2",
+      "after": "309c31df9dcf462bd20268ede59169d5a7f8fa3f",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/src/core/baostock-historical-normalizer.js",
+      "before": "9f748831c3e97a071b40001beb1afbf709e280ff",
+      "after": "4ab157da33d4236d06df1dc47314a79064effdc3",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-historical-feed.js",
+      "before": "a809320dd1544e9afbeebbf2ac272953ba19ea06",
+      "after": "727b8df933346a6efd5d9108d5e694d118942be9",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/src/core/sector-dual-adjusted-source-audit.js",
+      "before": "14c04a6e76058594bfd2532ed92b1068142c621a",
+      "after": "3ead99b7187f1b8d1f2a6984b2bd15708b72ef47",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-adjusted-source-evidence.test.js",
+      "before": null,
+      "after": "ebd67ab46a0149b454b4799c9bb96adb3d18ffea",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-daily-history-integrity.test.js",
+      "before": null,
+      "after": "5eb68a92e5e60d678304fd84aa1e9ecb372945f7",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-session-coverage-integrity.test.js",
+      "before": null,
+      "after": "a29065ceba884fdad6955573273af78b060229ea",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "docs/validation/fayo-d-daily-history-integrity-20261127/README.md",
+      "before": null,
+      "after": "caa3d23262753364e5f40bad664e78298814e9ea",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "docs/validation/fayo-d-session-coverage-reconcile-20261127/README.md",
+      "before": null,
+      "after": "e4f047f07217d2468ec661ecd398b0ec52173ef1",
+      "mode": "100644",
+      "group": "日线及交易日覆盖复权"
+    },
+    {
+      "path": "V6_BO/src/core/auction-resonance-basis.js",
+      "before": "d509fd4aa0496ad0f8366535ed1a47c46a8645d6",
+      "after": "1a027d0b74438f6feb1ff7ae09f86cb30a9f82ce",
+      "mode": "100644",
+      "group": "指数竞价板块资金"
+    },
+    {
+      "path": "V6_BO/src/core/eastmoney-current-board-members.js",
+      "before": "2af89f50e86f4270d5004f76ce3f9bf96919e107",
+      "after": "090649f40bcf59a76aaecaec96f1d0ee4b35cb97",
+      "mode": "100644",
+      "group": "指数竞价板块资金"
+    },
+    {
+      "path": "V6_BO/src/core/session-index-feed.js",
+      "before": "ad513b09af98c11d9eb8b2d033f3ceec0d5bc6af",
+      "after": "cef9410adc9cae853f8c78dc6a41e61b70f7be91",
+      "mode": "100644",
+      "group": "指数竞价板块资金"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-market-context-input.test.js",
+      "before": null,
+      "after": "869dc8a40b683570ad1e51b680145ad50c403e0d",
+      "mode": "100644",
+      "group": "指数竞价板块资金"
+    },
+    {
+      "path": "docs/validation/fayo-d-market-context-input-20261127/README.md",
+      "before": null,
+      "after": "3840a3d261a778e64bb949975273b727468acd42",
+      "mode": "100644",
+      "group": "指数竞价板块资金"
+    },
+    {
+      "path": "V6_BO/src/core/historical-universe.js",
+      "before": "a1f367eb6487efdef45f9a0cd382ffc328c23e86",
+      "after": "314c8f2dcd31931736972e29199bdefcba3856a4",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-status-evidence.js",
+      "before": "aa215e4e4ff202923c7b5ac520ee827cd8990317",
+      "after": "f5414988511212868b092272deed0d107ef21792",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "V6_BO/src/core/sec-companyfacts.js",
+      "before": "88219b07205326a3b87ffa3a8e0fc74cbd225f65",
+      "after": "00e94883ac5baddc38135436dd2efbfefbe7680c",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "V6_BO/src/core/worldbank-indicators.js",
+      "before": "a1db12e210c6d2940ea718481d4818c54796e4fc",
+      "after": "5de563853836d9cccf625d28408dda604dd7d75d",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-pit-macro-source-integrity.test.js",
+      "before": null,
+      "after": "b63a178e3a5ddd21f65228b9cdf304b2cf6d0547",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "docs/validation/fayo-d-pit-macro-source-integrity-20261127/README.md",
+      "before": null,
+      "after": "09d0976d35dcf1e58e4c0e78d5e084f915646d16",
+      "mode": "100644",
+      "group": "证券状态与宏观主数据"
+    },
+    {
+      "path": "V6_BO/src/core/public-stock-history.js",
+      "before": "3110c24b3918596075b2593cfeb327c003878a06",
+      "after": "156bbacd54923de57a43eedd01f280ce18d6dd97",
+      "mode": "100644",
+      "group": "日K与研究日历"
+    },
+    {
+      "path": "V6_BO/src/core/research-calendar-source.js",
+      "before": "d0a534729c174b8e24c210eee58c84bc21928eb3",
+      "after": "ebab0f5968e70098dc47a11433e4a870fa073f2b",
+      "mode": "100644",
+      "group": "日K与研究日历"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-daily-calendar-integrity.test.js",
+      "before": null,
+      "after": "bd3ebe5fd36b057f2f3aa7e512fd91bebccd6c13",
+      "mode": "100644",
+      "group": "日K与研究日历"
+    },
+    {
+      "path": "docs/validation/fayo-d-daily-calendar-integrity-20261127/README.md",
+      "before": null,
+      "after": "0a282d8adcbf9c218a2a97910d2e56173ff77b76",
+      "mode": "100644",
+      "group": "日K与研究日历"
+    },
+    {
+      "path": "V6_BO/src/research/drawer-minutes.js",
+      "before": "866e68e15d9a1cd8528404535ceb2aded705898b",
+      "after": "044c8d5e0a576f003d75f90ff2e6722b9f355351",
+      "mode": "100644",
+      "group": "分钟行情"
+    },
+    {
+      "path": "V6_BO/src/research/shortline-quote-fallback.js",
+      "before": "4dbe2f5b59b0d6d399e684d5328d77a1253a5fa4",
+      "after": "f6217eef243f5f457c5557537aad129107bbbd51",
+      "mode": "100644",
+      "group": "分钟行情"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-minute-cache-evidence.test.js",
+      "before": null,
+      "after": "935ebd2f81ff51ed306624a7c6207043c4d452a6",
+      "mode": "100644",
+      "group": "分钟行情"
+    },
+    {
+      "path": "docs/validation/fayo-d-minute-cache-evidence-20261127/README.md",
+      "before": null,
+      "after": "8d93a3a29a59bde271b417e89907642a3064d704",
+      "mode": "100644",
+      "group": "分钟行情"
+    },
+    {
+      "path": "V6_BO/src/core/fund-history-cache.js",
+      "before": "9104e859c835b61b47c1a88ce2c82556b31e3ebf",
+      "after": "3c0b0bcf3af228df3fd08681c6ce51f1aa557d5a",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-calendar-combined.test.js",
+      "before": null,
+      "after": "b35d0e5dd90d5b10a87c93326d19f15365b76ee6",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-history-original-evidence.test.js",
+      "before": null,
+      "after": "164ff31868d9a364947edbda3ae6e392ca1fff37",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-fund-history-recovery.test.js",
+      "before": null,
+      "after": "58d07982f3dbef0ced1ea261fe0f018cc6d5ad5c",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    },
+    {
+      "path": "docs/validation/fayo-d-combined-acceptance-20261127/README.md",
+      "before": null,
+      "after": "6c7e4e0e881a6562508beebfd67969ddfcc7bde3",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    },
+    {
+      "path": "docs/validation/fayo-d-fund-history-recovery-20261127/README.md",
+      "before": null,
+      "after": "e0a8d6701f8c57ee043fef7b5a9ef32f9ed2e118",
+      "mode": "100644",
+      "group": "资金历史和组合测试"
+    }
+  ],
+  "verification": {
+    "method": "Exact blob SHA and mode three-way admission. Existing identical files retained.",
+    "candidateCI": "pending",
+    "combinedRuntime": "not run",
+    "originalDTaskCoverage": "62/78 partial; original unresolved definitions not recovered",
+    "productionAcceptance": false
+  },
+  "remaining": [
+    "#493 deep-research-evidence shared-file integration",
+    "#473/#475 market-data-evidence reconciliation; stage1 preserves newer combined chain",
+    "#497 session-index-feed shared-file integration"
+  ],
+  "limits": [
+    "No deletion, workflow, permissions or deployment changes."
+  ]
+}

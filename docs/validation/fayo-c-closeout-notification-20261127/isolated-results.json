@@ -1,0 +1,83 @@
+{
+  "base": "048c82c570e234168106486bfb0be17c54838afd",
+  "scope": "Synthetic sealed empty paper account, exact original seven CommonJS modules plus browser projection; no external notifications, actual user actions or trading; native Node full test pending.",
+  "sourceBlobs": [
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "sha": "7ac14cc5c4fab4605031ef42e3d510aab67a7dbe"
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "sha": "0e8332e37611934a6553157eb1780906e6f623f2"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-store.js",
+      "sha": "9f42c186d3b9453570dadc5c2375a291405b27f0"
+    },
+    {
+      "path": "V6_BO/src/core/account-equity-evidence.js",
+      "sha": "83b8028dc12db4abc41f05a707958328c179ad70"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "sha": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    },
+    {
+      "path": "V6_BO/src/core/a-share-calendar.js",
+      "sha": "de3cf5148e6694ba72770800a779f6099052acb9"
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sha": "71d9eea4b904715bcbe6a6d0162a2d56c49d0f6b"
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-read-scope.mjs",
+      "sha": "a6c668622e59764342ebf485fcfbc9298f77f41c"
+    }
+  ],
+  "testCommit": "4a7633c9e72e46414bb29cd74785ccad4ae71e9d",
+  "environment": "Isolated V8, ESM adapter, SHA-256 JS UTF8 adapter checked against empty and abc reference vectors, in-memory private filesystem/atomicWrite, synchronous lock, node:test/assert adapter. Full original equity validator, risk state, lifecycle, workbench and client projection executed. No real disk, concurrency, server authentication, browser, or actual provider receipt verification.",
+  "results": [
+    {
+      "name": "C25 closeout real producer empty and unsent event pass the original report and client reader",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout queued timeout keeps the reservation and cannot renew or fabricate a delivery",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout contradictory gateway receipts and later trusted receiver remain separate original facts",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout escalation retains old receipt and never marks the new incident received",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout station view is not receiver confirmation or actual user trading action",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout same source receipt cannot be reused across original incidents",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout full-account projection requires same epoch and never enters the selected-stock history",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout rollback and corrupted projections do not become a verified empty history",
+      "ok": true
+    },
+    {
+      "name": "C25 closeout bounded recent event history keeps omitted count and all original archived events",
+      "ok": true
+    }
+  ],
+  "total": 9,
+  "pass": 9,
+  "fail": 0,
+  "skipped": 0,
+  "fullCI": false
+}

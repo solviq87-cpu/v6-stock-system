@@ -52,22 +52,31 @@ test('future, impossible or stale timestamps and malicious PDF URLs cannot count
  assert.equal(linkIssuerEvents({symbol:'600001',now,announcements:'wrong'}).status,'invalid-input');
 });
 test('bullish pattern + issuer risk creates conflict without changing original score, official pool or trading authority',()=>{
- const base=fixture();
+ const imported=fixture();
  const bad=event('收到立案调查通知书','100');
  const good=event('关于回购股份的公告','101');
+ // Synthetic provider-shaped control, not a real supplier response.
+ const scanAt=Date.parse('2026-11-06T08:10:00Z');
+ const providerShaped={...imported,feed:{source:'eastmoney',timestamp:scanAt},
+  bars:imported.bars.map((b,i)=>({...b,date:new Date(Date.UTC(2026,10,6)-(imported.bars.length-1-i)*86400000).toISOString().slice(0,10)}))};
  for(const scan of [scanUniverse,scanV2]){
-  const baseline=scan({stocks:[base],now});
-  const linked=scan({stocks:[{...base,announcements:[bad,good]}],now});
-  assert.equal(linked.items[0].score,baseline.items[0].score);
-  assert.equal(linked.items[0].tradable,baseline.items[0].tradable);
-  assert.equal(linked.items[0].patterns.positiveCount,baseline.items[0].patterns.positiveCount);
-  assert.equal(linked.items[0].issuerLinkage.riskConflict,true);
-  assert.equal(linked.items[0].issuerLinkage.bonusPoints,0);
-  assert.equal(linked.items[0].issuerLinkage.priority,'unchanged');
-  assert.equal(linked.issuerPools['公告风险核对池'].length,1);
-  assert.equal(linked.issuerPools['公告优势线索池'].length,1);
-  assert.equal(linked.issuerPools['公告矛盾待核对池'].length,1);
-  assert.equal(linked.items[0].issuerEvidence.events.every(d=>d.verified===false),true);
+  for(const [base,clock,historical] of [[imported,now,true],[providerShaped,scanAt,false]]){
+   const baseline=scan({stocks:[base],now:clock});
+   const linked=scan({stocks:[{...base,announcements:[bad,good]}],now:clock});
+   assert.equal(linked.items[0].quality.usable,true);
+   assert.equal(linked.items[0].quality.historical,historical);
+   assert.equal(linked.items[0].score,baseline.items[0].score);
+   assert.equal(linked.items[0].tradable,baseline.items[0].tradable);
+   assert.equal(linked.items[0].patterns.positiveCount,baseline.items[0].patterns.positiveCount);
+   assert.equal(linked.items[0].issuerLinkage.riskConflict,true);
+   assert.equal(linked.items[0].issuerLinkage.bonusPoints,0);
+   assert.equal(linked.items[0].issuerLinkage.priority,'unchanged');
+   assert.equal(linked.issuerPools['公告风险核对池'].length,1);
+   assert.equal(linked.issuerPools['公告优势线索池'].length,historical?0:1);
+   assert.equal(linked.issuerPools['公告矛盾待核对池'].length,1);
+   assert.equal(linked.items[0].issuerEvidence.strengthClues.length,1);
+   assert.equal(linked.items[0].issuerEvidence.events.every(d=>d.verified===false),true);
+  }
  }
 });
 test('risk still surfaces for blocked stocks; strength pool does not promote risk-blocked stocks',()=>{

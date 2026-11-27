@@ -41,6 +41,11 @@ function validateFillEvidence(value, expected = {}) {
 }
 
 function createFillEvidence(quote, {executionAt, executionKind, symbol, tradeDate, price} = {}) {
+  // Do not relabel an explicitly different security or market day with the
+  // order's identity. Legacy rows without these aliases retain compatibility.
+  if ([quote?.symbol,quote?.code].some(id=>id!=null&&id!==symbol) ||
+      quote?.tradeDate!=null&&quote.tradeDate!==tradeDate)
+    throw Error('成交报价证据与原报价证券或交易日不一致');
   // timestamp is the existing validated quote clock. Do not borrow a later clock.
   const quoteAt = quote?.quoteAt ?? quote?.timestamp;
   if (quote?.quoteAt != null && quote.quoteAt !== quote.timestamp) throw Error('报价原始时点字段冲突');

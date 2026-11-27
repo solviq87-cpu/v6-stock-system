@@ -2,6 +2,7 @@
 const {barsToIndicators}=require('./historical-indicators');
 const SOURCES=new Set(['eastmoney','tonghuashun','akshare','simulated','imported']);
 const num=x=>typeof x==='number'&&Number.isFinite(x);
+const scalarNumber=x=>num(x)||(typeof x==='string'&&x.trim()!==''&&Number.isFinite(Number(x)));
 // The feed timestamp is not a certification of the date or origin of every bar.
 const validTime=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
 const marketDay=x=>new Date(x+8*3600000).toISOString().slice(0,10);
@@ -36,8 +37,9 @@ function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={
  const errors=[],warnings=[],safeStock=stock&&typeof stock==='object'?stock:{},feed=safeStock.feed&&typeof safeStock.feed==='object'?safeStock.feed:{},bars=safeStock.bars;
  const validClock=validTime(now);
  const validTimestamp=validTime(feed.timestamp);
- const simulated=[safeStock,feed].some(row=>flagged(row,['simulated','synthetic','mock','fixture','test'])||tagged(row,syntheticTag));
- const historical=[safeStock,feed].some(row=>flagged(row,['imported','readOnlyBackup'])||tagged(row,historicalTag));
+ const provenanceRows=[safeStock,feed,...(Array.isArray(bars)?bars:[])];
+ const simulated=provenanceRows.some(row=>flagged(row,['simulated','synthetic','mock','fixture','test'])||tagged(row,syntheticTag));
+ const historical=provenanceRows.some(row=>flagged(row,['imported','readOnlyBackup'])||tagged(row,historicalTag));
  let barDate=null,barAgeDays=null;
  const validAge=num(maxAgeMs)&&maxAgeMs>=0;
  if(!validClock||!validAge)errors.push('行情校验时间或新鲜度阈值无效');
@@ -55,7 +57,7 @@ function validateFeed(stock,{now=Date.now(),maxAgeMs=900000,requireReal=false}={
  if(ind.valid&&bars.length>=2){
   const last=bars.at(-1);
   if(safeStock.close!==undefined){
-   if(safeStock.close===null||safeStock.close===''||typeof safeStock.close==='boolean'||!Number.isFinite(Number(safeStock.close))||Number(safeStock.close)<=0)errors.push('快照价格无效');
+   if(!scalarNumber(safeStock.close)||Number(safeStock.close)<=0)errors.push('快照价格无效');
    else if(Math.abs(Number(safeStock.close)-Number(last.close))>Math.max(.02,Number(last.close)*.001))errors.push('快照价格与最后K线不一致');
   }
   // Preserve fully undated legacy series. If dates are provided, they must be

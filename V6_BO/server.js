@@ -14241,15 +14241,19 @@ function paperConditionalAuthorization(req,token,planId){
 }
 function executePaperCenterPlan(input,plan,rules,decisions){
   refreshPaperAuthority();
+  const projectionRevision=_paperAuthorityRevision.pool,prices=paperPrices();
   const candidate=S.candidatePool.find(value=>value.code===plan?.code);
   const result=require('./src/core/paper-decision-plan').executeDecisionPlan({input,plan,
     now:Date.now(),day:aShareCalendarDate(),replica:isReplica(),continuous:isContinuousTrading(),
     candidate,eligiblePick:row=>rules.eligiblePick(row)&&rules.pickReasons(row).length>0,
     systemPickDay:rules.systemPickDay,poolDay:null,newsBlocked:plan?newsWarnsCode(plan.code):true,
-    account:PAPER.pool,policy:PAPER_CFG.pool,equity:paperEquity('pool',paperPrices()),
+    account:PAPER.pool,policy:PAPER_CFG.pool,equity:paperEquity('pool',prices),
     authoritative:decisions.cards.find(value=>value.code===plan?.code&&value.day===plan?.intendedDate),
-    quote:paperAuthorityQuotes()[plan?.code],readBook:()=>_paperAuthority.pool.read(),
-    buy:(row,reason)=>paperBuy('pool',[row],paperPrices(),()=>reason)});
+    quote:paperAuthorityQuotes()[plan?.code],readBook:()=>_paperAuthority.pool.read(),requireEntryBinding:true,
+    buy:(row,reason,binding)=>{
+      if(binding.accountRevision!==projectionRevision)throw Error('原账户版本已变化，请重新确认');
+      return paperBuy('pool',[row],prices,()=>reason,binding);
+    }});
   _paperExecutionChecklistCache?.invalidate();
   return result;
 }
@@ -14526,17 +14530,18 @@ function paperAuthorityQuotes(){
     marks[code]=Number(row.price);
     const inputProvenance=require('./src/core/paper-input-provenance').createAutomaticInputProvenance({stock:row,observation:row,stockOrigin:origin,priceOrigin:origin,limitPct:limit});
     quotes[code]={symbol:code,price:Number(row.price),quoteSource:row.quoteSource,provider:row.quoteSource,quoteAt:timestamp,receivedAt:Number.isSafeInteger(row.receivedAt)?row.receivedAt:null,mode:row.quoteMode||row.mode||'public-live-unverified',tradeDate:require('./src/core/a-share-calendar').aShareCalendarDate(timestamp),timestamp,volumeUnit:'shares',volume:row.volume*100,riskContext:{observedAt:timestamp,marks,requireImportedEvidence:true},
-      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,inputProvenance};
+      upperLimit:Math.round(previous*(1+limit)*100)/100,lowerLimit:Math.round(previous*(1-limit)*100)/100,suspended:row.suspended===true,tradable:row.tradable!==false,canTrade:row.canTrade===true,inputProvenance};
   }
   return quotes;
 }
 refreshPaperAuthority();
-function savePaper(action='sync',accountKey=null,executionQuotes=null) {
+function savePaper(action='sync',accountKey=null,executionQuotes=null,entryBinding=null) {
   try {
+    if(entryBinding!==null&&(action!=='sync'||accountKey!=='pool'||isReplica()))throw Error('原冻结计划账户或操作已变化，请重新确认');
     if(isReplica()){const copy={};for(const key of Object.keys(PAPER))copy[key]={...PAPER[key],initial:PAPER_CFG[key].initial};return !!atomicWrite(PAPER_FILE,JSON.stringify(copy));}
     const quotes=executionQuotes||paperAuthorityQuotes();
     for(const key of (accountKey?[accountKey]:Object.keys(PAPER_CFG))){
-      const book=_paperAuthority[key].saveLegacy({...PAPER[key],initial:PAPER_CFG[key].initial},_paperAuthorityRevision[key],{action,quotes});
+      const book=_paperAuthority[key].saveLegacy({...PAPER[key],initial:PAPER_CFG[key].initial},_paperAuthorityRevision[key],{action,quotes,...(entryBinding!==null?{entryBinding}:{})});
       _paperAuthorityRevision[key]=book.revision;const legacy=book.legacy;PAPER[key]={...legacy};delete PAPER[key].initial;
     }
     // paper.json is a compatibility projection; the atomic order account is authoritative.
@@ -15090,6 +15095,9 @@ function paperLotOf(code) {
   return 100;                             // 其余 100 股起
 }
 function paperBuy(key, cands, pm, reasonOf) {
+  // Optional fifth argument is internal to the original frozen-plan entry.
+  // Keep the existing four-argument automatic-buy contract intact.
+  const entryBinding=arguments[4]??null;
   if(typeof refreshPaperAuthority==='function')refreshPaperAuthority();
   // ⛔⛔ 2026-10-28（幽灵流水根因收口）：自动买入只能发生在【线上唯一权威实例】。
   //    paperCheckAll 早有 isReplica 闸门，但 paperBuy 是被扫描链（L4801 新进池 / L15635 涨停预选）
@@ -15117,6 +15125,11 @@ function paperBuy(key, cands, pm, reasonOf) {
   // when the bounded monitor has no room for another distinct holding.
   if (heldCodes(PAPER).length >= MONITOR_CAPACITY) { skipAdd('buyMonitorCapacity'); return; }
   const bought = [],executionQuotes=paperAuthorityQuotes();
+  if(entryBinding!==null){
+    if(key!=='pool'||cands.length!==1||cands[0]?.code!==entryBinding.symbol||_paperAuthorityRevision[key]!==entryBinding.accountRevision)
+      throw Error('原冻结计划账户或标的已变化，请重新确认');
+    require('./src/core/paper-plan-entry-binding').assertPlanEntryBinding(entryBinding,{book:_paperAuthority[key].read(),quote:executionQuotes[entryBinding.symbol],now:Date.now()});
+  }
   for (const c of cands) {
     // Public reference rules do not publish executable candidate receipts.
     const referenceOnly=/^t(?:0[1-9]|[12][0-9]|3[0-6])$/.test(c.strategyId);
@@ -15186,7 +15199,7 @@ function paperBuy(key, cands, pm, reasonOf) {
     bought.push(c.code);
   }
   if (bought.length) {
-    const committed=savePaper('sync',key,executionQuotes);if(!committed)return;
+    const committed=savePaper('sync',key,executionQuotes,entryBinding);if(!committed)return;
     const committedAccount=PAPER[key];
     pushPaperDigest(`【买入】${cfg.name} ` + bought.map(cd => {
       const p = committedAccount.positions[cd];

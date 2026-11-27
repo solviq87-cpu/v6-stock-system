@@ -59,37 +59,110 @@ function validation(input,plan){const {a,b}=validatePlan(input,plan),g=plan.gate
 }
 function holdout(input,plan,evaluation){if(!evaluation.selectedId)return {eligible:false,reason:'NO_VALIDATED_CANDIDATE'};const {b,c}=validatePlan(input,plan),candidate=evaluation.candidates.find(x=>x.id===evaluation.selectedId),g=plan.gates,reference=segment(input,baseline(input),b+1,c),referenceStress=segment(input,baseline(input),b+1,c,g.costStressBps),result=segment(input,candidate.parameters,b+1,c),stress=segment(input,candidate.parameters,b+1,c,g.costStressBps);return {selectedId:candidate.id,reference,referenceStress,result,stress,eligible:pass(result,g,reference)&&pass(stress,g,referenceStress)};}
 function executionContract(input){const simulation={...input.simulation};for(const key of ['start','end','settlements','universeHistory'])delete simulation[key];return hash({simulation,excludedSectors:input.selectionPolicy?.excludedSectors??null,nativeEvidenceMode:input.nativeEvidence!==undefined});}
+// A checksum detects accidental corruption, not an authenticated audit trail.
+// Reconcile the existing lifecycle before allowing any read or mutation.
+function validateRegistryHistory(s,plan){
+ const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+ const own=(o,k)=>Object.hasOwn(o,k);
+ const reject=()=>{throw Error('参数注册历史或激活指针不满足冻结样本外门禁');};
+ const stageRevision=s.stage==='frozen'?1:s.stage==='validated'?2:s.stage==='holdout-tested'?3:0;
+ if(!stageRevision||s.brokerConnected!==false||!Array.isArray(s.events)||
+    s.revision!==stageRevision+s.events.length||stageRevision<3&&s.events.length!==0)reject();
+ if(own(s,'evaluation')!==(stageRevision>=2)||own(s,'holdout')!==(stageRevision===3))reject();
+ let selected=null;
+ if(stageRevision>=2){
+  const e=s.evaluation;
+  if(!record(e)||e.method!=='frozen-parameters-prequential-v1'||e.holdoutRead!==false||
+     !Array.isArray(e.candidates)||e.candidates.length!==plan.candidates.length)reject();
+  for(const [i,c] of e.candidates.entries()){
+   const frozen=plan.candidates[i];
+   if(!record(c)||c.id!==frozen.id||typeof c.eligible!=='boolean'||!record(c.parameters)||
+      hash(c.parameters)!==hash(config(frozen.parameters)))reject();
+  }
+  selected=e.selectedId;
+  const eligible=e.candidates.filter(c=>c.eligible===true);
+  if(eligible.length?typeof selected!=='string'||!eligible.some(c=>c.id===selected):selected!==null)reject();
+ }
+ if(stageRevision===3){
+  const h=s.holdout;
+  if(!record(h)||typeof h.eligible!=='boolean'||(selected===null?
+     h.eligible!==false||h.reason!=='NO_VALIDATED_CANDIDATE'||own(h,'selectedId'):h.selectedId!==selected))reject();
+ }
+ let active='baseline';
+ for(const [i,e] of s.events.entries()){
+  if(!record(e)||e.revision!==4+i||e.from!==active)reject();
+  if(e.type==='promote'){
+   if(active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
+   if(plan.marketGateMode==='required-on-promote'){
+    const g=e.marketGate;
+    if(!record(g)||g.mode!==plan.marketGateMode||g.marketRegime!=='not-systemic-selloff'||
+       g.marketEvidenceStatus!=='imported-unverified'||!validDate(g.tradeDate)||
+       !Number.isFinite(g.observedAt)||g.observedAt<=0||g.observedAt>253402271999999||
+       new Date(g.observedAt+8*3600000).toISOString().slice(0,10)!==g.tradeDate||
+       typeof g.provider!=='string'||!g.provider.trim()||g.provider.length>120||
+       typeof g.evidenceFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(g.evidenceFingerprint)||
+       g.weightsChanged!==false||g.riskMonitoringRequired!==true||g.returnSamplesPreserved!==true)reject();
+   }else if(own(e,'marketGate'))reject();
+  }else if(e.type==='rollback'){
+   if(active==='baseline'||e.to!=='baseline'||own(e,'marketGate'))reject();
+  }else reject();
+  active=e.to;
+ }
+ if(s.active!==active)reject();
+}
 function createRegistry(root){
  root=safe(root);const file=path.join(root,'state.json'),inputFile=path.join(root,'input.json'),planFile=path.join(root,'plan.json');
- function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);if(!Array.isArray(s.events)||!['frozen','validated','holdout-tested'].includes(s.stage)||s.active!=='baseline'&&(!s.holdout?.eligible||s.active!==s.evaluation?.selectedId))throw Error('激活指针不满足冻结样本外门禁');return {s,input,plan};}
- function mutate(expected,fn){return withAccountLock(file,()=>{const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');const next=fn(s,input,plan);if(next===null)return seal(s);next.revision=s.revision+1;atomicWrite(file,JSON.stringify(seal(next))+'\n');return seal(next);});}
+ function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan);return {s,input,plan};}
+ function mutate(expected,fn,{beforePublish}={}){return withAccountLock(file,()=>{
+  const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');
+  const original=hash(s),next=fn(s,input,plan);if(next===null)return seal(s);
+  next.revision=s.revision+1;validateRegistryHistory(next,plan);
+  // Under the existing lock, recheck the authoritative files after staging I/O.
+  // Do not replace a damaged or unexpectedly changed snapshot with an old view.
+  atomicWrite(file,JSON.stringify(seal(next))+'\n',{beforeRename:()=>{
+   if(hash(load().s)!==original)throw Error('参数注册发布前状态变化，须重新读取');
+   if(beforePublish)beforePublish(next,plan);
+  }});return seal(next);
+ });}
  function freeze(input,plan){validatePlan(input,plan);baseline(input);safe(root);fs.mkdirSync(root,{mode:0o700});atomicWrite(inputFile,JSON.stringify(input)+'\n');atomicWrite(planFile,JSON.stringify(plan)+'\n');const s={schemaVersion:1,mode:'research-learning-registry',revision:1,inputFingerprint:hash(input),planFingerprint:hash(plan),stage:'frozen',active:'baseline',events:[],canTrade:false,brokerConnected:false};atomicWrite(file,JSON.stringify(seal(s))+'\n');return seal(s);}
  function evaluate(expected){return mutate(expected,(s,input,plan)=>{if(s.evaluation)return null;s.evaluation=validation(input,plan);s.stage='validated';return s;});}
  function testHoldout(expected){return mutate(expected,(s,input,plan)=>{if(!s.evaluation)throw Error('先完成训练与验证');if(s.holdout)return null;if(hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');s.holdout=holdout(input,plan,s.evaluation);s.stage='holdout-tested';return s;});}
  function verify({replay=false}={}){const {s,input,plan}=load();if(replay){if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation))throw Error('验证结果复算不一致');if(s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('样本外结果复算不一致');}return {verified:true,replayed:replay,revision:s.revision,stage:s.stage,active:s.active,canTrade:false};}
- function promote(expected,{marketContext}={}){return mutate(expected,(s,input,plan)=>{
+ function promote(expected,{marketContext}={}){
+ let gateCheckedAt=null;
+ const assessGate=(plan,asOf)=>{
+  const report=assessMarketShock(marketContext,{asOf});
+  if(report.status!=='observed-unverified')
+   throw Error('市场证据缺失、过期或不可核实，拒绝学习参数晋级');
+  if(report.deferLearningUpdate)
+   throw Error('大盘系统性急跌阶段暂缓学习参数晋级，风控与亏损样本继续保留');
+  return {mode:plan.marketGateMode,marketRegime:report.regime,
+   marketEvidenceStatus:report.evidenceStatus,tradeDate:report.tradeDate,
+   observedAt:report.observedAt,provider:report.provider,
+   evidenceFingerprint:hash(marketContext),weightsChanged:false,
+   riskMonitoringRequired:true,returnSamplesPreserved:true};
+ };
+ return mutate(expected,(s,input,plan)=>{
   if(!s.holdout?.eligible||!s.evaluation?.selectedId)throw Error('验证/冻结样本外门禁未通过');
+  // Rollback retires this frozen experiment's candidate for new promotions.
+  // Previously recorded, valid lifecycle transitions remain readable.
+  if(s.active==='baseline'&&s.events.some(e=>e.type==='rollback'))throw Error('候选已回滚隔离，须使用新冻结实验重新验证');
   if(hash(validation(input,plan))!==hash(s.evaluation)||hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('晋级前复算不一致');
   // An already promoted profile is a no-op; market evidence is required only
   // when an actual immutable registry pointer would change.
   if(s.active===s.evaluation.selectedId)return null;
   let marketGate=null;
   if(plan.marketGateMode==='required-on-promote'){
-   const report=assessMarketShock(marketContext,{asOf:Date.now()});
-   if(report.status!=='observed-unverified')
-    throw Error('市场证据缺失、过期或不可核实，拒绝学习参数晋级');
-   if(report.deferLearningUpdate)
-    throw Error('大盘系统性急跌阶段暂缓学习参数晋级，风控与亏损样本继续保留');
-   marketGate={mode:plan.marketGateMode,marketRegime:report.regime,
-    marketEvidenceStatus:report.evidenceStatus,tradeDate:report.tradeDate,
-    observedAt:report.observedAt,provider:report.provider,
-    evidenceFingerprint:hash(marketContext),weightsChanged:false,
-    riskMonitoringRequired:true,returnSamplesPreserved:true};
+   gateCheckedAt=Date.now();marketGate=assessGate(plan,gateCheckedAt);
   }
   const from=s.active;s.active=s.evaluation.selectedId;
   s.events.push({type:'promote',from,to:s.active,revision:s.revision+1,
     ...(marketGate?{marketGate}:{})});return s;
- });}
+ },{beforePublish:(next,plan)=>{
+  if(plan.marketGateMode!=='required-on-promote')return;
+  const now=Date.now();if(!Number.isSafeInteger(now)||now<gateCheckedAt)throw Error('市场证据发布时钟回退，拒绝学习参数晋级');
+  if(hash(assessGate(plan,now))!==hash(next.events.at(-1).marketGate))throw Error('市场证据发布前变化，拒绝学习参数晋级');
+ }});}
  function rollback(expected){return mutate(expected,s=>{if(s.active==='baseline')return null;const from=s.active;s.active='baseline';s.events.push({type:'rollback',from,to:'baseline',revision:s.revision+1});return s;});}
  function activeProfile(expectedRevision){if(expectedRevision!==undefined&&(!Number.isSafeInteger(expectedRevision)||expectedRevision<1))throw Error("预期修订无效");return withAccountLock(file,()=>{const {s,input,plan}=load();if(expectedRevision!==undefined&&s.revision!==expectedRevision)throw Error("研究参数修订冲突");if(s.evaluation&&hash(validation(input,plan))!==hash(s.evaluation)||s.holdout&&hash(holdout(input,plan,s.evaluation))!==hash(s.holdout))throw Error('激活参数证据复算不一致');const parameters=s.active==='baseline'?baseline(input):s.evaluation.candidates.find(c=>c.id===s.active)?.parameters;if(!parameters)throw Error('激活参数不存在');return {id:s.active,parameters,registryRevision:s.revision,fingerprint:hash({input:s.inputFingerprint,plan:s.planFingerprint,id:s.active,parameters}),source:input.source,provider:input.provider,holdoutEnd:plan.holdoutEnd,executionContract:executionContract(input),learningCostBps:input.learningCostBps??41,costs:{feeBps:input.simulation.feeBps??8,slippageBps:input.simulation.slippageBps??10,sellTaxBps:input.simulation.sellTaxBps??5},canTrade:false};});}
 

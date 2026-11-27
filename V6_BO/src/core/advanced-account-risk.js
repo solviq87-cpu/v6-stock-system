@@ -21,21 +21,39 @@ function unavailable(account,reason){
 function selectAdvancedRiskQuotes({codes,stocks,lastPx,now,limitFor}){
  if(!Array.isArray(codes)||codes.length>MAX_HOLDINGS||codes.some(x=>!codeOk(x)))return {};
  const wanted=new Set(codes),byCode=new Map();
- for(const row of Array.isArray(stocks)?stocks:[])if(wanted.has(row?.code)&&!byCode.has(row.code))byCode.set(row.code,row);
+ for(const row of Array.isArray(stocks)?stocks:[])if(wanted.has(row?.code)){
+  const rows=byCode.get(row.code)||[];rows.push(row);byCode.set(row.code,rows);
+ }
  const out={};
  for(const code of wanted){
-  const wire=lastPx?.get?.(code)?.wireQuote,stock=byCode.get(code);
-  const rows=[wire,stock].filter(x=>x?.code===code);
-  const row=rows.find(x=>quoteUseEligibility(x,now).canTrade)||rows[0];
+  const wire=lastPx?.get?.(code)?.wireQuote,stocks=byCode.get(code)||[];
+  const rows=[wire,...stocks].filter(x=>x?.code===code);
+  const usable=rows.filter(x=>quoteUseEligibility(x,now).canTrade);
+  const row=usable[0]||rows[0];
   if(!row)continue;
   const use=quoteUseEligibility(row,now),basis=quoteSnapshotFields(row);
   const raw={...basis,code,price:num(row.price)?row.price:null,canTrade:row.canTrade===true?true:row.canTrade===false?false:null};
-  let limitDown=null;
+  const conflicts=usable.some(x=>x.quoteAt===row.quoteAt&&x.price!==row.price)||
+    rows.some(x=>x.quoteAt===row.quoteAt&&quoteUseEligibility(x,now).quoteStatus==='recent-unverified'&&
+      (typeof x.suspended==='boolean'&&typeof row.suspended==='boolean'&&x.suspended!==row.suspended||
+       x.preClose!=null&&row.preClose!=null&&x.preClose!==row.preClose||
+       x.lowerLimit!=null&&row.lowerLimit!=null&&x.lowerLimit!==row.lowerLimit));
+  if(conflicts){out[code]={quote:{...raw,sourceConflict:true,canTrade:false},limitDown:null,suspended:null,limitEvidenceStatus:'conflict'};continue;}
+  let limitDown=null,limitEvidenceStatus='unknown',lowerLimit=null;
   if(use.canTrade&&num(row.preClose)&&row.preClose>0&&typeof row.name==='string'&&row.name.trim()&&typeof limitFor==='function'){
    const limit=limitFor(code,row.name);
-   if(num(limit)&&limit>0&&limit<1)limitDown=row.price<=Math.round(row.preClose*(1-limit)*100)/100;
+   if(num(limit)&&limit>0&&limit<1){
+    const boundary=Math.round(row.preClose*(1-limit)*100)/100;
+    const special=row.noPriceLimit===true||row.ipoNoLimit===true||row.corporateAction!=null&&row.corporateAction!==false;
+    const explicit=Object.hasOwn(row,'lowerLimit'),same=explicit&&num(row.lowerLimit)&&row.lowerLimit>0&&Math.abs(row.lowerLimit-boundary)<1e-8;
+    // Keep the original server's legacy derived boundary separate from
+    // explicit agreement. No forward rule or no-limit day is inferred.
+    if(special)limitEvidenceStatus='special-session-unverified';
+    else if(explicit&&!same)limitEvidenceStatus='conflict-or-missing';
+    else if(boundary>0){lowerLimit=boundary;limitDown=row.price<=boundary;limitEvidenceStatus=same?'original-rule-and-quote-agree':'original-rule-derived-unverified';}
+   }
   }
-  out[code]={quote:raw,limitDown,suspended:typeof row.suspended==='boolean'?row.suspended:null};
+  out[code]={quote:raw,limitDown,lowerLimit,limitEvidenceStatus,suspended:typeof row.suspended==='boolean'?row.suspended:null};
  }
  return out;
 }
@@ -98,7 +116,10 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   if(book.legacy?.enabled===false)rowAlerts.push(issue('ACCOUNT_PAUSED','high','原模拟账户暂停',symbol,'不得通过本报告恢复交易','核对原账户状态及授权','原账户按授权启用并通过门禁'));
   positions.push({symbol,quantity:p.quantity,matureUnreserved:available,sellable:marketOpen?available:null,
    orderFrozen:frozen,lotReserved:reservedLots,quoteAt:use?.quoteAt??null,quoteSource:safeSource(quote?.quoteSource),quoteStatus:use?.quoteStatus||'unknown',
-   estimatedFee:fee,feeVersion,estimatedMarketImpact:null,conditionalSessions:null,guaranteedFill:false,alerts:rowAlerts});
+   estimatedFee:fee,feeVersion,estimatedMarketImpact:null,conditionalSessions:null,estimatedExitCost:null,
+   conditionalSellableSessions:null,estimatedSellableExitCost:null,exitEstimateQuantity:null,costReason:null,
+   exitCostBasis:"unavailable",estimatedFeeBasis:fee===null?null:"current-mark-single-order-fee",multiSessionExitCost:null,actualExitCost:null,
+   guaranteedFill:false,alerts:rowAlerts});
  }
  if(feesComplete&&reservedCash>book.account.cash+0.011)return unavailable(account,'CASH_RESERVATION_MISMATCH');
  if(!feesComplete)alerts.push(issue('CASH_RESERVATION_UNKNOWN','high','原待买委托费率或预算证据不足',account,'不确认可用资金；建议核对原委托','核对生效费率及未终结委托','原冻结资金可核对'));
@@ -118,6 +139,10 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   const extra=result.portfolioEvidence.exits?.find(x=>x.symbol===row.symbol);
   if(!extra)continue;
   row.estimatedMarketImpact=extra.estimatedMarketImpact;row.conditionalSessions=extra.conditionalSessions;row.estimatedExitCost=extra.estimatedExitCost;
+  row.conditionalSellableSessions=extra.conditionalSellableSessions??null;row.estimatedSellableExitCost=extra.estimatedSellableExitCost??null;
+  row.exitEstimateQuantity=extra.exitEstimateQuantity??null;row.costReason=extra.costReason??null;
+  row.exitCostBasis=extra.exitCostBasis??"unavailable";row.estimatedFeeBasis=extra.estimatedFeeBasis??null;
+  row.multiSessionExitCost=null;row.actualExitCost=null;
   row.historicalDailyShares=extra.historicalDailyShares;row.liquidityEvidence=extra.liquidityEvidence;row.scenarioVersion=extra.scenarioVersion;
   row.alerts=[...row.alerts.filter(a=>a.code!=='LIQUIDITY_EXIT'),...(extra.alerts||[]).filter(a=>a.code==='LIQUIDITY_EXIT')];
  }

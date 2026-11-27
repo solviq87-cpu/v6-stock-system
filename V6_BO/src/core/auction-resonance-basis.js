@@ -3,24 +3,33 @@
 // calculated at receipt/capture time. Never fabricate quoteAt or "live" status.
 // Keep this projection independent of data fetching, sending and learning.
 const DAY=/^\d{8}$/;
+const validTime=t=>Number.isSafeInteger(t)&&t>0&&t<=8e15;
+const isoDay=s=>s.slice(0,4)+'-'+s.slice(4,6)+'-'+s.slice(6,8);
+function validDay(s){
+ if(typeof s!=='string'||!DAY.test(s))return false;
+ const d=isoDay(s),t=Date.parse(d+'T00:00:00Z');
+ return Number.isFinite(t)&&new Date(t).toISOString().slice(0,10)===d;
+}
+const chinaDay=t=>new Date(t+28800000).toISOString().slice(0,10).replaceAll('-','');
 const MINUTE=(s)=>{
-  const m=/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(s||''));
+  if(typeof s!=='string')return null;
+  const m=/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(s);
   if(!m)return null;
   const h=+m[1],min=+m[2],sec=+(m[3]||0);
   return h<=23&&min<=59&&sec<=59?h*60+min+sec/60:null;
 };
 function auditAuctionResonanceBasis({auction,stockSnapshotAt,now,calendarDay,expectedDay,stockSnapshotDay}={}){
   const base={status:'unknown',reason:'原始竞价来源/日期待核验',auctionDay:null,
-    stockSnapshotDay:DAY.test(stockSnapshotDay||'')?stockSnapshotDay:null,
+    stockSnapshotDay:validDay(stockSnapshotDay)?stockSnapshotDay:null,
     capturedAt:null,providerQuoteAt:null,verifiedLive:false,
     executedAmountCertified:false,eligibleForAuctionEvidence:false,
     phase:null,stale:true};
-  if(!Number.isSafeInteger(now)||now<=0||!DAY.test(calendarDay||'')||!DAY.test(expectedDay||'')||
-     !Number.isSafeInteger(stockSnapshotAt)||stockSnapshotAt<=0||
+  if(!validTime(now)||!validDay(calendarDay)||!validDay(expectedDay)||
+     !validTime(stockSnapshotAt)||
      stockSnapshotAt>now||!base.stockSnapshotDay)
     return {...base,reason:'行情快照接收时点或交易日不可信，不能拼接竞价证据'};
   const a=auction&&typeof auction==='object'?auction:null;
-  const day=DAY.test(a?.date||'')?a.date:null;
+  const day=validDay(a?.date)?a.date:null;
   if(!day)return {...base,status:'no-auction-evidence',reason:'没有带归属交易日的竞价快照'};
   const phase=Number.isInteger(a.phase)?a.phase:null;
   const tm=MINUTE(a.time);
@@ -31,7 +40,12 @@ function auditAuctionResonanceBasis({auction,stockSnapshotAt,now,calendarDay,exp
   if(day!==calendarDay||day!==expectedDay||day!==stockSnapshotDay)
     return {...common,status:'stale-auction-snapshot',
       reason:'竞价日与北京时间当前日期、目标交易日或全市场快照日不一致；禁止跨日拼接'};
-  if(!phaseMatches)
+  // Even mutually agreeing labels must match the actual receipt/current day.
+  // The legacy phase label is not an authenticated provider capture timestamp.
+  if(chinaDay(now)!==calendarDay||chinaDay(stockSnapshotAt)!==stockSnapshotDay)
+    return {...common,status:'stale-auction-snapshot',reason:'竞价日期标签与实际北京时间不符；禁止跨日拼接'};
+  const labelledAt=tm===null?null:Date.parse(isoDay(day)+'T00:00:00+08:00')+Math.round(tm*60000);
+  if(!phaseMatches||labelledAt===null||labelledAt>stockSnapshotAt||labelledAt>now)
     return {...common,status:'unverifiable-auction-phase',
       reason:'竞价阶段与快照时刻不对应，或由盘中累计行情补算；不能作为竞价证据'};
   return {...common,status:'same-day-capture-unverified',stale:false,
