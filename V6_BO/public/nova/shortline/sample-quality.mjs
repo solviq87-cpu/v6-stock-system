@@ -63,6 +63,19 @@ export function settlementObservation(row,cutoff,{requireReceipt=false}={}){
  const knownAt=receipt===null?null:Math.max(exit,receipt,...clocks.filter(k=>row[k]!=null&&row[k]!=='').map(k=>sampleEvidenceTime(row[k],{dateAtClose:k==='asOf'})));
  return {exit,entry,receipt,knownAt};
 }
+// Verified learning is narrower than recorded settlement history. Recovery
+// restores eligibility only from its own evidence time, never from the sale
+// or the earlier receipt. The original settlement remains readable.
+export function verifiedLearningObservation(row,cutoff){
+ const observation=row?.snapshotVerified===true?settlementObservation(row,cutoff,{requireReceipt:true}):null;
+ if(!observation||row.planEvidenceReview==null)return observation;
+ const review=row.planEvidenceReview;
+ const first=sampleEvidenceTime(review.firstQuarantinedAt),last=sampleEvidenceTime(review.lastQuarantinedAt),
+   restored=sampleEvidenceTime(review.revalidatedAt);
+ if(review.status!=='revalidated'||first===null||last===null||restored===null||
+   first>last||last>restored||restored>cutoff)return null;
+ return {...observation,knownAt:Math.max(observation.knownAt,restored)};
+}
 // Resolve only already-visible, same-purpose records. Exact retries collapse;
 // conflicting records sharing either identity are quarantined together.
 export function uniqueEvidenceRows(rows,{requireIdentity=false,settlements=false}={}){

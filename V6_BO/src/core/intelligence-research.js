@@ -13,7 +13,7 @@ const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-te
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const numeric = require('../../public/nova/shortline/numeric-factors');
-const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,isTestSample}=require('../../public/nova/shortline/sample-quality.mjs');
+const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -715,11 +715,12 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day, s
     if(!count){excluded.push({id:trade.id||null,reason:'duplicate-or-conflicting-trade-evidence'});continue;}
     retained.set(trade,count-1);
     const plan=plans.get(trade.planId),created=instant(trade.createdAt),
-      entry=instant(trade.entryTimestamp??trade.entryTime),exit=instant(trade.exitTimestamp??trade.exitTime),frozen=instant(plan?.frozenAt);
+      entry=instant(trade.entryTimestamp??trade.entryTime),frozen=instant(plan?.frozenAt),
+      observation=verifiedLearningObservation(trade,now);
     const reason=typeof trade.id!=='string'||!trade.id.trim()?'missing-trade-identity':
-      trade.planEvidenceReview&&trade.planEvidenceReview.status!=='revalidated'?'withdrawn-learning-source':
+      trade.planEvidenceReview!=null&&!observation?'withdrawn-learning-source':
       !plan||frozen===null||entry===null||frozen>entry||plan.code!==trade.code?'missing-prior-frozen-plan':
-      created===null||exit===null||exit<=entry||exit>created||created>now||!finite(trade.pnl)?'unmatured-or-unrecorded-trade':null;
+      !observation||created===null||observation.exit>created?'unmatured-or-unrecorded-trade':null;
     if(reason){excluded.push({id:trade.id||null,reason});continue;}
     trades.push(trade);
   }

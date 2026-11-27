@@ -2,7 +2,7 @@ import { kLearningRows } from './backtest.mjs';
 import { emotion,marketAsOf } from './market.mjs';
 import { settingsAt } from './settings.mjs';
 import { pressureLearningTags } from './pressure.mjs';
-import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,uniqueEvidenceRows,candidateEvidenceReview,approvedModelEvidenceReview } from './sample-quality.mjs';
+import { isTestSample,sampleMatches,sampleEvidenceTime,evidenceVisibleAt,settlementObservation,verifiedLearningObservation,uniqueEvidenceRows,candidateEvidenceReview,approvedModelEvidenceReview } from './sample-quality.mjs';
 import { stats,weightedQuartile,groupedPerformance,decayAlerts,attributionCloud,renderLearningSnapshot } from './factor-performance.mjs';
 import {dictionaryVersion,factorDictionary} from './factor-dictionary.mjs';
 import {MODEL,readNumericCheck,fitNumericModel,numericScore,projectNumeric,validModel,fingerprint,stable} from './numeric-factors.mjs';
@@ -131,11 +131,11 @@ function rowsFor(state,asOf=Date.now(),strict=false,{selection='standard',includ
     if(!checks.has(c.id))checks.set(c.id,[]);
     checks.get(c.id).push(c);
   }
-  const visibleTrades=(state.trades||[]).filter(r=>accept(r)&&(!strict||r.snapshotVerified===true&&(!r.planEvidenceReview||r.planEvidenceReview.status==='revalidated'))&&
-    settlementObservation(r,end,{requireReceipt:true})!==null);
+  const visibleTrades=(state.trades||[]).filter(r=>accept(r)&&settlementObservation(r,end,{requireReceipt:true})!==null);
   const settled=uniqueEvidenceRows(visibleTrades,{requireIdentity:true,settlements:true});
   for(const r of settled.rows){
-    const observation=settlementObservation(r,end,{requireReceipt:true});
+    const observation=strict?verifiedLearningObservation(r,end):settlementObservation(r,end,{requireReceipt:true});
+    if(!observation)continue;
     const knownMinute=localTime(Math.ceil(observation.knownAt/60000)*60000);
     const matching=observation.entry===null?[]:uniqueEvidenceRows((checks.get(r.checkId)||[]).filter(c=>
       c.code===r.code&&isTestSample(c)===isTestSample(r)&&evidenceVisibleAt(c,observation.entry)),{requireIdentity:true}).rows;
