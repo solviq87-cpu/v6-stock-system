@@ -224,7 +224,7 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
     const limit=r=>r&&positive(r.limitUp)&&r.high<=r.limitUp&&
       (!Object.hasOwn(r,'limitDown')||positive(r.limitDown)&&r.limitDown<r.limitUp&&r.low>=r.limitDown);
     if(limit(old)&&limit(b)&&old.high===old.limitUp&&old.close===old.limitUp&&Number.isSafeInteger(old.streak)&&old.streak>=3&&
-        (!Object.hasOwn(b,'streak')||Number.isSafeInteger(b.streak)&&b.streak>=0&&(b.close===b.limitUp||b.streak===0))){
+        (!Object.hasOwn(b,'streak')||Number.isSafeInteger(b.streak)&&(b.close===b.limitUp?b.streak===old.streak+1:b.streak===0))){
       const touched=b.high===b.limitUp,closed=b.close===b.limitUp;
       out.relayFailure={priorDay:prev.date,day,priorStreak:old.streak,priorLimitUp:old.limitUp,currentLimitUp:b.limitUp,
         touchedLimit:touched,closedAtLimit:closed,failedAfterTouch:touched&&!closed,failedToContinue:!closed,
@@ -238,7 +238,7 @@ export function buildChaseRiskResearch({b,history=[],market={},sector={},asOf,pl
     const flowRows=[prior[1],prior[0],b];
     const active=r=>known(r.source)&&positive(r.amount)&&finite(r.netActiveBuy)&&Math.abs(r.netActiveBuy)<=r.amount;
     if(flowRows.every(r=>active(r)&&r.source===b.source)){
-      const days=flowRows.map(r=>({date:r.date,netCny:r.netActiveBuy,sharePct:100*r.netActiveBuy/r.amount}));
+      const days=flowRows.map(r=>({date:r.date,netCny:r.netActiveBuy,sharePct:100*(r.netActiveBuy/r.amount)}));
       const totalAmount=flowRows.reduce((sum,r)=>sum+r.amount,0),totalNet=flowRows.reduce((sum,r)=>sum+r.netActiveBuy,0);
       const negativeDays=days.filter(r=>r.netCny<0).length;
       out.flowPersistence={source:b.source,days,negativeDays,allNegative:negativeDays===3,
