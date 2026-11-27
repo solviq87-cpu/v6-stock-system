@@ -100,4 +100,8 @@ function reviewPolicyCandidate(policy,candidate,asOf){
  if(metrics.relativeReturnPct===null||metrics.relativeReturnPct<=0)return fail('relative-edge-unconfirmed-or-nonpositive',metrics);
  return {...base,...metrics,status:'research-observation',reason:'positive-descriptive-history-not-validated-edge',sampleDays:e.sampleDays};
 }
-module.exports={describeResearchPolicy,reviewPolicyCandidate};
+// Shared read-only matrix lookup for the temporal research reducer.
+function researchPolicyFamilies(environment){
+ return typeof environment==='string'&&Object.hasOwn(MATRIX,environment)?[...MATRIX[environment]]:null;
+}
+module.exports={describeResearchPolicy,reviewPolicyCandidate,researchPolicyFamilies,sessionEnd,RESEARCH_POLICY_VERSION:VERSION};
