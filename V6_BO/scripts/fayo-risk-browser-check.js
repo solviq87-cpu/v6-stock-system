@@ -271,7 +271,175 @@ async function main(){
         });
         for(const [kind,checks] of Object.entries(connectivityIsolation))for(const [name,passed] of Object.entries(checks))
           assert.equal(passed,true,kind+' '+name+' must not retain or revive stale private risk evidence');
-        views.push({...viewport,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
+        // Exercise the existing shared view at both desktop and mobile widths.
+        // All responses are local fixtures; a rejected old control never sends
+        // a request to the original notification endpoint.
+        const receiptIsolation=await page.evaluate(async()=>{
+          const {renderRiskWorkbench,createRiskSummary}=await import('/nova/risk-workbench-view.mjs');
+          const get=q=>fetch('/api/risk-workbench?'+q,{headers:{'X-Fixture-Role':'edit'}}).then(r=>r.json());
+          const [pool,pre,stock]=await Promise.all([get('account=pool'),get('account=pre'),get('account=pool&code=600000')]);
+          const flush=()=>new Promise(resolve=>setTimeout(resolve,0)),mount=document.getElementById('mount');
+          let requests=0;
+          const summary=createRiskSummary({role:'edit',navigate:()=>{},api:async()=>{requests++;return stock;}},{autoload:false});
+          mount.replaceChildren(summary);
+          await summary.refresh({code:'600001'});
+          const wrongCodeRejected=!summary.querySelector('[data-risk-id]')&&summary.textContent.includes('完整风险回执');
+          const scope=new AbortController();
+          await summary.refresh({code:'600000',signal:scope.signal});
+          const initial=!!summary.querySelector('[data-risk-id]');
+          scope.abort();const count=requests;window.dispatchEvent(new Event('online'));await flush();
+          const completedScopeCleared=initial&&summary.hidden&&!summary.querySelector('[data-risk-id]')&&requests===count;
+          summary.dispose();
+          const pending=[],posts=[];
+          const node=renderRiskWorkbench({role:'edit',navigate:()=>{},api:(url,options)=>{
+            if(options.method==='POST'){posts.push(options.body);return Promise.resolve({ok:true});}
+            return new Promise(resolve=>pending.push(resolve));
+          }});
+          mount.replaceChildren(node);await flush();pending.shift()(pool);await flush();
+          const oldButton=[...node.querySelectorAll('button')].find(x=>x.textContent==='关键风险静音30分钟'||x.textContent==='恢复关键风险通知');
+          const chooser=node.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));
+          pending.shift()(pre);await flush();oldButton?.click();await flush();
+          const oldControlRejected=!!oldButton&&posts.length===0;
+          node.dispose();
+          const stale=structuredClone(pool),r=stale.result;
+          // Use a small remaining source-age window to exercise the actual
+          // expiry timer without waiting 15 seconds per viewport.
+          const mark=r.equity?.positions?.find(p=>p.evidenceStatus==='available'&&p.quote);
+          if(!mark)throw Error('缺少隔离估值fixture');
+          mark.quote.quoteAt=r.generatedAt-14000;
+          const idle=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>stale});
+          mount.replaceChildren(idle);await flush();const visible=idle.textContent.includes('账户权益与观察回撤');
+          await new Promise(resolve=>setTimeout(resolve,1100));
+          const idleExpired=visible&&!idle.querySelector('[data-risk-id]')&&!idle.textContent.includes('账户权益与观察回撤')&&idle.textContent.includes('原风险未解除');
+          idle.dispose();
+          const wrong=structuredClone(pool),w=wrong.result,e=w.equity;
+          if(!w.stress||!e)throw Error('缺少隔离压力fixture');
+          const ext={protocol:'fayo-adverse-path-research-v1',accountId:'pre',accountEpoch:w.accountEpoch,
+            accountRevision:w.accountRevision,equityEvidenceId:e.fingerprint,authoritySnapshotFingerprint:e.source.snapshotFingerprint,
+            asOf:w.generatedAt,researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,accountMutated:false,
+            executionGuaranteed:false,maximumLossGuarantee:false,status:'estimated',paths:[],note:'C11-wrong-account-marker'};
+          w.stress.adversePaths=ext;
+          const projected=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>wrong});
+          mount.replaceChildren(projected);await flush();
+          const mixedResearchRejected=projected.textContent.includes('账户权益与观察回撤')&&!projected.textContent.includes('C11-wrong-account-marker');
+          projected.dispose();
+          return {wrongCodeRejected,completedScopeCleared,oldControlRejected,idleExpired,mixedResearchRejected};
+        });
+        for(const [name,passed] of Object.entries(receiptIsolation))assert.equal(passed,true,name+' must retain the original account/read scope');
+        // C12: replay/visibility/notification isolation with the original
+        // workbench, at every existing desktop/mobile test viewport.
+        const replayAndActions=await page.evaluate(async()=>{
+          const {renderRiskWorkbench}=await import('/nova/risk-workbench-view.mjs');
+          const get=q=>fetch('/api/risk-workbench?'+q,{headers:{'X-Fixture-Role':'edit'}}).then(r=>r.json());
+          const [pool,pre]=await Promise.all([get('account=pool'),get('account=pre')]);
+          const flush=()=>new Promise(resolve=>setTimeout(resolve,0)),mount=document.getElementById('mount');
+          const refresh=node=>[...node.querySelectorAll('button')].find(x=>x.textContent==='刷新风险').click();
+          const category=node=>[...node.querySelectorAll('button')].find(x=>x.textContent==='关键风险静音30分钟'||x.textContent==='恢复关键风险通知');
+          const aged=structuredClone(pool),r=aged.result,mark=r.equity?.positions?.find(p=>p.evidenceStatus==='available'&&p.quote);
+          if(!mark)throw Error('缺少本地估值fixture');
+          mark.quote.quoteAt=r.generatedAt-14000;
+          const cached=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>aged});
+          mount.replaceChildren(cached);await flush();
+          const initial=cached.textContent.includes('账户权益与观察回撤');
+          await new Promise(resolve=>setTimeout(resolve,1100));refresh(cached);await flush();
+          const replayRejected=initial&&!cached.textContent.includes('账户权益与观察回撤')&&cached.textContent.includes('原风险未解除');
+          cached.dispose();
+
+          let reads=0,vis='visible';const desc=Object.getOwnPropertyDescriptor(document,'visibilityState');
+          Object.defineProperty(document,'visibilityState',{configurable:true,get:()=>vis});
+          const emit=next=>{vis=next;document.dispatchEvent(new Event('visibilitychange'));};
+          const backgrounded=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>{reads++;return pool;}});
+          mount.replaceChildren(backgrounded);await flush();
+          emit('hidden');const count=reads;refresh(backgrounded);await flush();
+          const hiddenInvalidated=!backgrounded.querySelector('[data-risk-id]')&&reads===count;
+          emit('visible');await flush();
+          const foregroundReread=reads===count+1&&backgrounded.textContent.includes('账户权益与观察回撤');
+          backgrounded.dispose();if(desc)Object.defineProperty(document,'visibilityState',desc);else delete document.visibilityState;
+
+          const mixed=structuredClone(pool);
+          if(!mixed.result.alerts)throw Error('缺少原提醒fixture');
+          mixed.result.alerts.accountId='pre';
+          if(mixed.result.alerts.groups.length){
+            const g=mixed.result.alerts.groups[0];g.rootCauseId='C12-mixed-alert-marker';
+            if(g.risks?.length)g.risks[0].facts=['C12-mixed-alert-marker'];
+          }
+          let wrongPosts=0;
+          const wrong=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async(url,options)=>{if(options.method==='POST'){wrongPosts++;return {ok:true};}return mixed;}});
+          mount.replaceChildren(wrong);await flush();
+          const disabled=category(wrong);disabled?.click();await flush();
+          const wrongAlertsRejected=!!disabled&&disabled.disabled&&wrongPosts===0&&!wrong.textContent.includes('C12-mixed-alert-marker')&&wrong.textContent.includes('账户权益与观察回撤');
+          wrong.dispose();
+
+          const requests=[];let pendingPost=null,readCount=0;
+          const guarded=renderRiskWorkbench({role:'edit',navigate:()=>{},api:(url,options)=>{
+            if(options.method==='POST'){requests.push(options.body);return new Promise(resolve=>{pendingPost=resolve;});}
+            readCount++;return Promise.resolve(url.includes('account=pre')?pre:pool);
+          }});
+          mount.replaceChildren(guarded);await flush();
+          const button=category(guarded);button?.click();button?.click();
+          const root=[...guarded.querySelectorAll('button')].find(x=>x.textContent==='标为已查看'||x.textContent==='已查看');
+          root?.click();const singleInFlight=!!button&&requests.length===1&&requests[0].accountId==='pool';
+          const chooser=guarded.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));await flush();
+          const before=readCount;pendingPost?.({ok:true});await flush();
+          const oldCompletionIsolated=readCount===before&&guarded.textContent.includes(pre.result.account.label);
+          guarded.dispose();
+
+          const unknown=structuredClone(pool),risk=unknown.result.risks[0];
+          if(!risk)throw Error('缺少原风险fixture');
+          Object.assign(risk,{priceDependent:true,dataState:'valid',sourceAt:unknown.result.generatedAt,riskContract:{...risk.riskContract,dataAt:null}});
+          const badClock=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>unknown});
+          mount.replaceChildren(badClock);await flush();
+          const explicitUnknownRejected=!badClock.textContent.includes('账户权益与观察回撤')&&badClock.textContent.includes('原风险未解除');
+          badClock.dispose();
+          return {replayRejected,hiddenInvalidated,foregroundReread,wrongAlertsRejected,singleInFlight,oldCompletionIsolated,explicitUnknownRejected};
+        });
+        for(const [name,passed] of Object.entries(replayAndActions))assert.equal(passed,true,name+' must preserve original risk and alert identity');
+        // C19 consumer contract: a synthetic optional C18 projection in the
+        // existing read-only view. The older producer may omit this field.
+        // No receiver callback or real notification is created by this check.
+        const notificationHistory=await page.evaluate(async()=>{
+          const {renderRiskWorkbench}=await import('/nova/risk-workbench-view.mjs');
+          const get=q=>fetch('/api/risk-workbench?'+q,{headers:{'X-Fixture-Role':'edit'}}).then(r=>r.json());
+          const [pool,pre]=await Promise.all([get('account=pool'),get('account=pre')]);
+          const f=structuredClone(pool),r=f.result,a=r.alerts;
+          if(!a?.groups?.length)throw Error('原提醒fixture缺失');
+          a.receiverConfirmationSupported=false;
+          const g=a.groups[0],events=g.events.slice(-16);
+          const rows=events.map(e=>({eventId:e.id,kind:e.kind,eventRecordedAt:e.at,status:'not-queued',deliveryId:null,
+            reservedAt:null,reservationDelayMs:null,firstReceiptRecordedAt:null,lastReceiptRecordedAt:null,gatewayAcceptedReceiptAt:null,
+            conflictingGatewayReceipts:false,receiverReceivedAt:null,receiverReceiptRecordedAt:null,receiverObservationDelayMs:null,
+            actualUserActionAt:null,actualExecutableExitAt:null,actualAvoidedLoss:null}));
+          g.notification={status:'not-queued',deliveryId:null,receiverConfirmed:false,gatewayAccepted:false};
+          g.notificationEventId=events.at(-1).id;
+          g.notificationReview={totalEvents:g.events.length,shownEvents:rows.length,omittedEvents:g.events.length-rows.length,
+            rows,canTrade:false,receiverConfirmationSupported:false,actualWarningEffectCertified:false};
+          const flush=()=>new Promise(resolve=>setTimeout(resolve,0)),mount=document.getElementById('mount');
+          const check=node=>node.querySelector('#risk-notification-history');
+          let posts=0;
+          const valid=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async(url,options)=>{
+            if(options.method==='POST'){posts++;return {ok:false};}
+            return url.includes('account=pre')?pre:f;
+          }});
+          mount.replaceChildren(valid);await flush();
+          const p=check(valid),entry=p?.querySelector('[data-risk-history-event]');
+          const sameArchive=!!entry&&entry.getAttribute('data-risk-history-event')===events[0].id&&p.textContent.includes('未排队')&&
+            p.textContent.includes('实际用户行动、可执行退出及减少损失：未知')&&p.querySelectorAll('button').length===0;
+          const chooser=valid.querySelector('[aria-label="风险账户"]');chooser.value='pre';chooser.dispatchEvent(new Event('change'));await flush();
+          const switched=!check(valid)?.querySelector('[data-risk-history-event="'+events[0].id+'"]');
+          valid.dispose();
+          const bad=structuredClone(f);bad.result.alerts.groups[0].notificationReview.rows[0].eventId='f'.repeat(64);
+          const invalid=renderRiskWorkbench({role:'edit',navigate:()=>{},api:async()=>bad});
+          mount.replaceChildren(invalid);await flush();
+          const mismatchUnknown=!!check(invalid)&&!check(invalid).querySelector('[data-risk-history-event="'+events[0].id+'"]')&&
+            check(invalid).textContent.includes('时间链未知')&&invalid.textContent.includes('账户权益与观察回撤');
+          invalid.dispose();
+          const denied=renderRiskWorkbench({role:'view',navigate:()=>{},api:async()=>{throw Error('viewer must not read');}});
+          mount.replaceChildren(denied);await flush();
+          const viewerHidden=!check(denied)&&posts===0;
+          return {sameArchive,switched,mismatchUnknown,viewerHidden};
+        });
+        for(const [name,passed] of Object.entries(notificationHistory))assert.equal(passed,true,name+' must preserve historical receipt scope');
+        views.push({...viewport,receiptIsolation,replayAndActions,notificationHistory,matchingRiskId:riskId,accountIsolation:true,staleUnknown:true,muteKeepsRestriction:true,
           categoryMuteRestored:true,failedReadClearsReport:true,viewerPrivateReads:0,realNetworkOffline:true,requestIsolation,privacyAndAccounts,unknownConfiguration,connectivityIsolation,stateVersion,
           fourDimensions:true,lastValidLevel:3,staleNeverCleared:true,omittedUpstreamKeepsHomeRisk:true});
       }finally{await page.close();}

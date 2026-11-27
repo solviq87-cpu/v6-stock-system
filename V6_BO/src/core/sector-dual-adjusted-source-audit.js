@@ -7,6 +7,7 @@
 const crypto=require('node:crypto');
 const {reconcileSectorAdjusted}=require('./sector-adjusted-benchmark-reconcile');
 const {HORIZONS}=require('./sector-frozen-forward-prices');
+const {sourceLineage,validateRegistry}=require('./data-source-lineage');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const id=x=>x.category+'|'+x.code;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
@@ -26,9 +27,23 @@ function validTolerance(policy){
   policy.maxIndexReturnDifferenceBps>=1&&policy.maxIndexReturnDifferenceBps<=100&&
   Number.isSafeInteger(policy.declaredAt)&&policy.declaredAt>0;
 }
+// Distinct labels alone do not establish distinct publishers. Registered
+// aliases cannot claim a different canonical upstream to split one vote.
+function distinctSourcePair(a,b){
+ const identity=feed=>{
+  const label=feed.provider.trim().toLowerCase(),lineage=sourceLineage(label);
+  if(!label||lineage?.known&&lineage.upstreamAmbiguous)return null;
+  const claimed=feed.upstreamGroup;
+  if(claimed!==undefined&&(typeof claimed!=='string'||!claimed.trim()||
+    lineage?.known&&lineage.upstreamGroup!==claimed))return null;
+  return {label,group:lineage?.upstreamGroup??claimed??null};
+ };
+ const x=identity(a),y=identity(b);
+ return !!x&&!!y&&x.label!==y.label&&!(x.group&&x.group===y.group);
+}
 function indexByDate(feed){
  const m=new Map();
- for(const row of feed.rows||[])m.set(row.date,row.level);
+ for(const row of feed.rows||[])m.set(row.date,row);
  return m;
 }
 function priceRows(feed){
@@ -60,6 +75,9 @@ function auditSectorDualSource({primary,secondary,policy,asOf=Date.now()}={}){
   ia.indexCode!==ib.indexCode||
   !ia.indexCode||typeof ia.indexCode!=='string')
   return block('provider-identity-or-independent-index-provenance-conflict');
+ try{validateRegistry();if(!distinctSourcePair(a,b)||!distinctSourcePair(ia,ib))
+  return block('same-or-ambiguous-declared-upstream');}
+ catch{return block('source-lineage-catalogue-unavailable');}
  const p=reconcileSectorAdjusted(primary),q=reconcileSectorAdjusted(secondary);
  if(p.status==='blocked'||q.status==='blocked')
   return block('one-or-both-raw-to-adjusted-reconciliations-blocked');
@@ -86,7 +104,16 @@ function auditSectorDualSource({primary,secondary,policy,asOf=Date.now()}={}){
   if(x.status==='unknown'||y.status==='unknown'){
    result.reason='one-or-both-original-snapshots-not-comparable';return result;
   }
-  const pb=pi.get(base),pt=pi.get(target),sb=si.get(base),st=si.get(target);
+  const baselineA=pi.get(base),targetA=pi.get(target),baselineB=si.get(base),targetB=si.get(target);
+  if(!baselineA||!targetA||!baselineB||!targetB){
+   result.reason='two-provider-index-levels-missing';return result;
+  }
+  // Both individual feeds may pass the raw snapshot time tolerance. Their
+  // own benchmark observation instants must nevertheless be the same.
+  if(baselineA.quoteAt!==baselineB.quoteAt||targetA.quoteAt!==targetB.quoteAt){
+   result.reason='two-provider-index-observation-times-differ';return result;
+  }
+  const pb=baselineA.level,pt=targetA.level,sb=baselineB.level,st=targetB.level;
   if(![pb,pt,sb,st].every(v=>finite(v)&&v>0)){
    result.reason='two-provider-index-levels-missing';return result;
   }

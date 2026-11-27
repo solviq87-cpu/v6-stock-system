@@ -45,6 +45,16 @@ function createPaperOrderStore(root) {
   const dir = path.resolve(root);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   function fileOf(id) { return path.join(dir, `${safeName(id)}.order.json`); }
+  // Validate before every read or append, including a duplicate retry. Never
+  // regenerate a valid fingerprint over a damaged historical journal.
+  function readVerified(orderId) {
+    const record = readRegular(fileOf(orderId));
+    if (!record || record.schemaVersion !== 1 || !record.order || !Array.isArray(record.events) || record.journalHash !== hash(record.events)) throw new Error('订单日志指纹校验失败');
+    const rebuilt = reducePaperOrderEvents(record.order, record.events);
+    if (rebuilt.orderId !== safeName(orderId)) throw new Error('订单文件标识与日志不一致');
+    if (!record.state || record.state.fingerprint !== rebuilt.fingerprint || hash(record.state) !== hash(rebuilt)) throw new Error('订单状态与事件日志不一致');
+    return { ...record, state: rebuilt };
+  }
   function create(order) {
     const file = fileOf(order && order.orderId);
     return withLock(file, () => {
@@ -58,8 +68,7 @@ function createPaperOrderStore(root) {
   function append(orderId, event) {
     const file = fileOf(orderId);
     return withLock(file, () => {
-      const record = readRegular(file);
-      if (record.schemaVersion !== 1 || !Array.isArray(record.events) || !record.order) throw new Error('订单日志结构无效');
+      const record = readVerified(orderId);
       const id = String(event && event.eventId || '');
       const old = record.events.find(x => String(x.eventId) === id);
       if (old) {
@@ -74,11 +83,8 @@ function createPaperOrderStore(root) {
     });
   }
   function get(orderId) {
-    const record = readRegular(fileOf(orderId));
-    if (record.schemaVersion !== 1 || !Array.isArray(record.events) || record.journalHash !== hash(record.events)) throw new Error('订单日志指纹校验失败');
-    const rebuilt = reducePaperOrderEvents(record.order, record.events);
-    if (rebuilt.fingerprint !== record.state.fingerprint) throw new Error('订单状态与事件日志不一致');
-    return { ...record, state: rebuilt, paperOnly: true, brokerConnected: false };
+    const record = readVerified(orderId);
+    return { ...record, paperOnly: true, brokerConnected: false };
   }
   return Object.freeze({ create, append, get });
 }

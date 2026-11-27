@@ -1,0 +1,297 @@
+{
+  "schema": 1,
+  "scope": "C26 prior turn executed tests; documentary readback, not a new run in this turn",
+  "base": "974cace8b9d029a0b2acdcc86294d13f09a2ab75",
+  "sourceTestHead": "08bec22fdba74b68e9ac6823a71a5a5051dcedde",
+  "sourceBlobBefore": "a25290d29e2f272b27b4407511507d446cfd4998",
+  "sourceBlobAfter": "9f7bc00571e4709fd2a899f3ff09076ff5853fc2",
+  "testBlob": "a3271093587bcedc47177ca44ec37e007bb33fb8",
+  "sourceBlobs": [
+    {
+      "path": "V6_BO/src/core/account-equity-evidence.js",
+      "sha": "83b8028dc12db4abc41f05a707958328c179ad70"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-store.js",
+      "sha": "9f42c186d3b9453570dadc5c2375a291405b27f0"
+    },
+    {
+      "path": "V6_BO/src/core/a-share-calendar.js",
+      "sha": "de3cf5148e6694ba72770800a779f6099052acb9"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "sha": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    },
+    {
+      "path": "V6_BO/src/core/effective-risk-evidence.js",
+      "sha": "b8042a88e70a56bc029a776cba0f3db856453477"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "sha": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "sha": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    },
+    {
+      "path": "V6_BO/src/core/imported-risk-evidence.js",
+      "sha": "a902f5cd2973421b1c19b6f64806254634ecc618"
+    },
+    {
+      "path": "V6_BO/src/core/trading-fees.js",
+      "sha": "1528cfe435c44fd27e4f918c6417a4c9156b02da"
+    },
+    {
+      "path": "V6_BO/src/core/risk-action-evidence.js",
+      "sha": "002f3bf894efe62c13ef1e5c5f5a36cde8242199"
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-observer.js",
+      "sha": "c06d4fb215f2037553d08a8b60344d39c155401b"
+    },
+    {
+      "path": "V6_BO/src/core/paper-decision-plan.js",
+      "sha": "efb02315656248df13dee6136589182b54e20f45"
+    },
+    {
+      "path": "V6_BO/src/core/paper-fill-evidence.js",
+      "sha": "724f5f5d1c44713406640ca1f8b4a474fda8bb06"
+    },
+    {
+      "path": "V6_BO/src/core/paper-input-provenance.js",
+      "sha": "4f709e7ad85d70e232fbd1cbcbfe338feaa672bb"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-stress-evidence.js",
+      "sha": "5dfe78738bb0c60d67826884ee8bf8cd16d3486a"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+      "sha": "9f7bc00571e4709fd2a899f3ff09076ff5853fc2"
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sha": "71d9eea4b904715bcbe6a6d0162a2d56c49d0f6b"
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "sha": "0e8332e37611934a6553157eb1780906e6f623f2"
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-read-scope.mjs",
+      "sha": "a6c668622e59764342ebf485fcfbc9298f77f41c"
+    }
+  ],
+  "environment": "Actual full fetched source of 18 CJS modules and one browser module in isolated V8, original synthetic sealed account fixtures, node:test/assert adapters, SHA-256 UTF8 JS adapter checked against empty/abc standard vectors; unused fs/path/account-lock functions throw if invoked. No actual paper order reducer, filesystem, network, native Node, full CI, or live data. Initial loader attempt blocked by unused lock destructuring; corrected adapter then actually ran all cases. Exact reverse of new condition matched original GitHub blob content; old 22 tests executed against both versions.",
+  "newTestsBefore": {
+    "pass": 6,
+    "total": 8,
+    "results": [
+      {
+        "name": "C26 original account/equity/actions/stress projection shares partial-fill and freeze identity",
+        "ok": true
+      },
+      {
+        "name": "C26 confirmed terminal cancellation releases remaining order exposure but not held lots",
+        "ok": true
+      },
+      {
+        "name": "C26 unknown or excessive original sell freeze retains mark risk but no trusted sellable split",
+        "ok": true
+      },
+      {
+        "name": "C26 stale or conflicting marks invalidate the current pressure values without inventing zeros",
+        "ok": true
+      },
+      {
+        "name": "C26 missing or conflicting classification does not erase no-exit account pressure",
+        "ok": true
+      },
+      {
+        "name": "C26 contradictory original gross-rule exceeded flag is not certified by the C projection",
+        "ok": false,
+        "error": "Error: expected null got {\"version\":\"synthetic-original-risk-policy\",\"limitPct\":30,\"currentOriginalUsedPct\":35.02627,\"currentOriginalExceeded\":false}"
+      },
+      {
+        "name": "C26 exact original strict exposure limit is retained even when displayed usage is rounded",
+        "ok": false,
+        "error": "Error: expected null got {\"version\":\"synthetic-original-risk-policy\",\"limitPct\":35.02626970227671,\"currentOriginalUsedPct\":35.02627,\"currentOriginalExceeded\":true}"
+      },
+      {
+        "name": "C26 browser cannot reuse optional pressure evidence from another revision, account, or original valuation",
+        "ok": true
+      }
+    ]
+  },
+  "newTestsAfter": {
+    "pass": 8,
+    "total": 8,
+    "results": [
+      {
+        "name": "C26 original account/equity/actions/stress projection shares partial-fill and freeze identity",
+        "ok": true
+      },
+      {
+        "name": "C26 confirmed terminal cancellation releases remaining order exposure but not held lots",
+        "ok": true
+      },
+      {
+        "name": "C26 unknown or excessive original sell freeze retains mark risk but no trusted sellable split",
+        "ok": true
+      },
+      {
+        "name": "C26 stale or conflicting marks invalidate the current pressure values without inventing zeros",
+        "ok": true
+      },
+      {
+        "name": "C26 missing or conflicting classification does not erase no-exit account pressure",
+        "ok": true
+      },
+      {
+        "name": "C26 contradictory original gross-rule exceeded flag is not certified by the C projection",
+        "ok": true
+      },
+      {
+        "name": "C26 exact original strict exposure limit is retained even when displayed usage is rounded",
+        "ok": true
+      },
+      {
+        "name": "C26 browser cannot reuse optional pressure evidence from another revision, account, or original valuation",
+        "ok": true
+      }
+    ]
+  },
+  "originalRegression": {
+    "testBlob": "0d2ffe206c285db0b59a00077d9740598da218a0",
+    "before": {
+      "pass": 22,
+      "total": 22
+    },
+    "after": {
+      "pass": 22,
+      "total": 22
+    },
+    "results": [
+      {
+        "name": "C8.1 overnight gap uses existing holding value and does not invent realized fills",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.1 stale original marks, fresh wrapper and bad receipt cannot create current gap estimate",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.1 partial equity, wrong authority and duplicate holding fail closed",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.2 three successive equal hypothetical shocks compound, not add or claim actual limit rates",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.2 unknown sellable amount keeps total no-exit shock but no fictitious locked split",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.2 fully locked positive holding keeps its whole modeled loss under no-exit scenario",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.3 simultaneous common-theme retreat counts each held security exactly once",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.3 conflicting, missing or future classification never certifies zero overlap",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.3 true complete disjoint themes preserve observed no-overlap without safety permission",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.4 pending remainder and original estimated fees enter only the explicit all-fill scenario",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.4 wrong account/revision, duplicate ids or broken cash reservation cannot produce all-fill losses",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.4 zero pending is a verified zero only when original count and cash reconcile",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.4 original unconfigured or mismatched limit never creates a synthetic risk threshold",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 frozen plan price geometry returns gross ratio but never a probability or expected value",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 candidate outside frozen entry range is expired, not a fresh favorable ratio",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 held stop/target trigger never becomes a negative or infinite odds value",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 held price outside entry range retains only hold-specific hypothetical ratio",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 stale, wrong source, old frozen quote and changed stop cannot certify odds",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 duplicate plan or action and unbound account receipt fail closed",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 completed and old unfilled plans cannot be recycled as current recommendations",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 unfilled plan for a held symbol is not a fresh entry recommendation",
+        "before": true,
+        "after": true
+      },
+      {
+        "name": "C8.5 claimed held remainder must reconcile with actual same-account holding quantity",
+        "before": true,
+        "after": true
+      }
+    ]
+  },
+  "final": {
+    "pass": 30,
+    "total": 30,
+    "fail": 0,
+    "skipped": 0,
+    "fullCI": false
+  },
+  "boundary": "Only optional C pressure projection guard changes. Original strict threshold > limit+1e-9 retained; contradictory exceeded receipt suppresses grossLimit/aboveOriginalGrossLimit, not known no-exit loss. No changes to execution permissions."
+}

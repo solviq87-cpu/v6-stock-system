@@ -121,7 +121,7 @@ test('before settled close and invalid dates no sources are queried',async()=>{
 });
 test('cold market recovery reuses CLS original pool validator and verifies hot-sector member prices independently',async()=>{
   const item=(code,name,plates)=>({secu_code:code,secu_name:name,num_stocks:2,time:day+' 14:56:03',
-    plate:plates.map(n=>({secu_code:'state-sector',secu_name:n}))});
+    plate:plates.map(n=>({secu_code:n==='同题材'?'state-sector':'state-other',secu_name:n}))});
   const cls={code:200,data:[item('sh600000','浦发银行',['同题材','其他']),item('sz000001','平安银行',['同题材'])]};
   const fetchBatchQuotes=async()=>[native('600000',5),native('000001',2)],opts={...req,needAmount:false,needBreadth:false};
   const good=await reader({fetchBatchQuotes,r:{'x-quote.cls.cn':cls}}).read(opts);

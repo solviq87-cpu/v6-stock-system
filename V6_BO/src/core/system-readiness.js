@@ -23,10 +23,21 @@ function component(id,label,status,affects,now,{attempt=null,success=null,reason
 }
 function quotes(rows,session,now){
  const list=Array.isArray(rows)?rows:[],observed=Math.min(cap,list.length);
- const stats={receivedRows:list.length,inspectedRows:observed,recentOriginal:0,observationOnly:0,datedHistorical:0,invalidOrUnknown:0,conflictingRows:0,scope:'original-in-memory-stock-rows',universeCoverage:null};
+ const stats={receivedRows:list.length,inspectedRows:observed,recentOriginal:0,observationOnly:0,datedHistorical:0,invalidOrUnknown:0,conflictingRows:0,duplicateRows:0,scope:'original-in-memory-stock-rows',universeCoverage:null};
  let latestQuoteAt=null,latestReceiptAt=null;
+ // Explicit security identities must be unique even when a duplicate has
+ // an invalid price or a different provider. Legacy identity-free receipts
+ // remain observations; the full universe denominator is still unknown.
+ const codeOf=row=>typeof row?.code==='string'&&/^\d{6}$/.test(row.code)?row.code:
+   typeof row?.symbol==='string'&&/^\d{6}$/.test(row.symbol)?row.symbol:null;
+ const counts=new Map();
+ for(let i=0;i<observed;i++){const code=codeOf(list[i]);if(code)counts.set(code,(counts.get(code)||0)+1);}
  for(let i=0;i<observed;i++){
-  const row=list[i];let view;
+  const row=list[i],code=codeOf(row);let view;
+  if(code&&counts.get(code)>1){stats.duplicateRows++;stats.conflictingRows++;stats.invalidOrUnknown++;continue;}
+  if(row?.code!=null&&row?.symbol!=null&&row.code!==row.symbol){
+   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
+  }
   try{view=quoteObservationView(row,now);}catch{stats.invalidOrUnknown++;continue;}
   // Classify the shared conflict reason before generic invalid/unknown coverage.
   if(view.missingReason==='conflicting-quote-evidence'){

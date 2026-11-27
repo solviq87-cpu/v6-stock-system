@@ -2,7 +2,7 @@
 'use strict';
 // Explicit offline research only: no fetch, account changes, archive overwrite or live tasks.
 const fs=require('node:fs');
-const {auditQuoteSourceWindow}=require('../src/core/quote-source-window-quality');
+const {auditQuoteSourceWindow,auditQuoteSourceHistory}=require('../src/core/quote-source-window-quality');
 function main(){
  if(process.argv.length!==3)throw Error('用法: node scripts/quote-source-window-quality.js <预登记观测记录.json>');
  const file=process.argv[2];
@@ -18,9 +18,13 @@ function main(){
   const after=fs.fstatSync(fd);
   if(bytes!==stat.size||after.size!==stat.size||after.mtimeMs!==stat.mtimeMs||after.ctimeMs!==stat.ctimeMs)
    throw Error('读取期间输入发生变化');
-  input=JSON.parse(buffer.subarray(0,bytes).toString('utf8'));
+  const raw=buffer.subarray(0,bytes),text=raw.toString('utf8');
+  if(!Buffer.from(text,'utf8').equals(raw))throw Error('输入不是有效UTF-8');
+  const current=fs.lstatSync(file);
+  if(!current.isFile()||current.isSymbolicLink()||current.dev!==after.dev||current.ino!==after.ino||current.size!==after.size||current.mtimeMs!==after.mtimeMs||current.ctimeMs!==after.ctimeMs)throw Error('读取期间文件身份发生变化');
+  input=JSON.parse(text);
  } finally {fs.closeSync(fd);}
- const result=auditQuoteSourceWindow(input);
+ const result=input?.mode==='quote-source-history-review'?auditQuoteSourceHistory(input):auditQuoteSourceWindow(input);
  process.stdout.write(JSON.stringify(result,null,2)+'\n');
  if(result.status==='blocked')process.exitCode=2;
 }

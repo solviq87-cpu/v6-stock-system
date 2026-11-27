@@ -56,9 +56,25 @@ function bindAuthoritativePlan(plan,card) {
 }
 
 function currentDecisionAllows(plan,card) {
+  const p=card?.plan;
+  // A negative risk assessment on the current server authority card is a
+  // one-way veto only. Absence or a favorable opinion never grants authority
+  // and cannot bypass the existing candidate, quote or account gates.
+  if(card?.riskAssessment?.status==='blocked'||card?.riskAssessment?.canOpenRisk===false)return false;
+  // A current authority card cannot silently revise frozen protection.
+  // Legacy internal receipts without optional completeness metadata remain
+  // readable; explicit negative or inconsistent evidence cannot open risk.
   return card?.authority==='fayo-decision-center'&&/^[a-f0-9]{64}$/.test(card.decisionId||'')&&
     card.code===plan.code&&card.day===plan.intendedDate&&card.strategyAt===plan.decisionEvidence.strategyAt&&
-    card.quoteBasis?.source===plan.decisionEvidence.quoteBasis?.source&&finite(card.plan?.positionPct)&&card.plan.positionPct>0;
+    card.quoteBasis?.source===plan.decisionEvidence.quoteBasis?.source&&
+    p&&typeof p==='object'&&!Array.isArray(p)&&
+    (!Object.hasOwn(p,'complete')||p.complete===true)&&
+    (!Object.hasOwn(p,'missing')||Array.isArray(p.missing)&&p.missing.length===0)&&
+    [p.buyLow,p.buyHigh,p.stop,p.target,p.positionPct].every(finite)&&
+    p.stop>0&&p.stop<p.buyLow&&p.buyLow<=p.buyHigh&&p.buyHigh<p.target&&
+    p.positionPct>0&&p.positionPct<=100&&p.stop===plan.stop&&p.target===plan.target&&
+    Math.max(p.buyLow,plan.entryMin)<=Math.min(p.buyHigh,plan.entryMax)&&
+    (!Object.hasOwn(p,'riskReward')||p.riskReward?.status==='meets-gross-discipline');
 }
 
 // A direct user confirmation may reuse the exact original observation that
@@ -106,12 +122,13 @@ function planFill(book, planId, {plan=null, now=Date.now()}={}) {
 
 function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDate(now), replica,
   continuous, candidate, eligiblePick, systemPickDay, poolDay, newsBlocked,
-  account, policy, equity, quote, authoritative, readBook, buy, clock=()=>Date.now()}) {
+  account, policy, equity, quote, authoritative, readBook, buy, clock=()=>Date.now(), requireEntryBinding=false}) {
   if (replica) throw Error('当前为副本，请在原主实例确认模拟计划');
   if (!input || input.account !== 'pool' || !planIdOk(input.planId) || input.planId !== plan?.id ||
       Object.keys(input).some(k => !['action','account','planId','token'].includes(k))) throw Error('模拟计划请求无效');
   validatePlan(plan, now);
-  const previous = planFill(readBook(), plan.id, {plan,now});
+  const checkedBook=readBook();
+  const previous = planFill(checkedBook, plan.id, {plan,now});
   if (previous) return {ok:true,status:'already-executed',planId:plan.id,code:plan.code,
     eventId:previous.eventId,price:previous.price,shares:previous.quantity,msg:'该计划已有持久成交流水，未重复买入'};
   if (plan.intendedDate !== day || aShareCalendarDate(Date.parse(plan.frozenAt)) !== day)
@@ -128,8 +145,9 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
       systemPickDay(candidate,poolDay,now) !== day || newsBlocked) throw Error('该股当前已不符合原候选条件');
   if (!account || account.enabled !== true) throw Error('原模拟跟踪账户尚未启用');
   if (account.positions?.[plan.code]) throw Error('原账户已有该股持仓，本次未追加买入');
-  if (!quote || !finite(quote.price) || quote.price < plan.entryMin || quote.price > plan.entryMax)
-    throw Error('最新原始报价未进入计划买入区间；没有成交或后台挂单');
+  if (!quote || !finite(quote.price) || quote.price < plan.entryMin || quote.price > plan.entryMax ||
+      quote.price < authoritative.plan.buyLow || quote.price > authoritative.plan.buyHigh)
+    throw Error('最新原始报价未进入计划买入区间或当前权威区间；没有成交或后台挂单');
   const quoteAt = quote.quoteAt ?? quote.timestamp;
   if (!Number.isSafeInteger(quoteAt) || quoteAt <= 0 || quoteAt > now || now-quoteAt > 15000 ||
       aShareCalendarDate(quoteAt) !== day || quoteAt < window[0] ||
@@ -139,7 +157,7 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   // Apply the original receipt view to the exact post-freeze row as well.
   // A fresh timestamp alone must not admit another security or source.
   if (quote.symbol!==plan.code || quote.quoteSource!==authoritative.quoteBasis?.source ||
-      !quoteView.quoteSourceAllowsUse(quote) || quoteView.quoteObservationView({...quote,quoteAt},now).missingReason!==null ||
+      quoteView.quoteUseEligibility({...quote,quoteAt},now).canTrade!==true ||
       quote.provider!=null&&quote.quoteSource!=null&&quote.provider!==quote.quoteSource ||
       quote.timestamp!=null&&quote.timestamp!==quoteAt)
     throw Error('原始报价只读、来源冲突或时点不一致');
@@ -148,7 +166,12 @@ function executeDecisionPlan({input, plan, now=Date.now(), day=aShareCalendarDat
   const allocationPct = Math.min(account.cash,equity/policy.maxPos*.98)/equity*100;
   if (allocationPct > Math.min(plan.maxPosition,authoritative.plan.positionPct)+1e-7)
     throw Error('原账户等权预算超出冻结计划或当前风险仓位，请重新核对；未修改账户分仓规则');
-  buy(candidate,reasonOf(plan));
+  // Bind the exact original account and quote on the real server plan path.
+  // Legacy read-only observers continue to use their existing callback.
+  if(requireEntryBinding===true){
+    const binding=require('./paper-plan-entry-binding').createPlanEntryBinding({plan,card:authoritative,book:checkedBook,quote,now});
+    buy(candidate,reasonOf(plan),binding);
+  }else buy(candidate,reasonOf(plan));
   // The original synchronous callback may commit a few milliseconds after
   // the entry check. Use the completion clock without changing quote provenance.
   const bookAfter=readBook(),finishedAt=clock();

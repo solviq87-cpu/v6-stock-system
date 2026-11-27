@@ -8,11 +8,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { acquireProcessLock, releaseProcessLock } = require('./process-file-lock');
 const hash = v => crypto.createHash('sha256').update(JSON.stringify(v)).digest('hex');
-const safeId = v => { const s=String(v||''); if(!/^[A-Za-z0-9_-]{1,100}$/.test(s)) throw new Error('事务ID无效'); return s; };
-const validDate = v => { const s=String(v||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d=new Date(`${s}T00:00:00.000Z`); return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===s; };
+const safeId = v => { const s=typeof v==='string'?v:Number.isSafeInteger(v)&&v>0?String(v):''; if(!/^[A-Za-z0-9_-]{1,100}$/.test(s)) throw new Error('事务ID无效'); return s; };
+const validDate = v => { const s=typeof v==='string'?v:''; if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false; const d=new Date(`${s}T00:00:00.000Z`); return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===s; };
+const numeric = v => (typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isFinite(Number(v))?Number(v):NaN;
+const feeOf = f => f&&Object.hasOwn(f,'fee')?numeric(f.fee):0;
 function validatePayload(order,fill,tradeDate){
-  if(!order||!['buy','sell'].includes(order.side)||!/^[0-9]{6}$/.test(String(order.symbol||''))||typeof order.orderId!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(order.orderId)) throw new Error('事务订单信息无效');
-  const orderQty=Number(order.quantity), qty=Number(fill&&fill.quantity), price=Number(fill&&fill.price), fee=Number(fill&&fill.fee||0);
+  if(!order||typeof order!=='object'||Array.isArray(order)||!['buy','sell'].includes(order.side)||!['string','number'].includes(typeof order.symbol)||!/^[0-9]{6}$/.test(String(order.symbol))||typeof order.orderId!=='string'||! /^[A-Za-z0-9_-]{1,100}$/.test(order.orderId)) throw new Error('事务订单信息无效');
+  const orderQty=numeric(order.quantity), qty=numeric(fill&&fill.quantity), price=numeric(fill&&fill.price), fee=feeOf(fill);
   if(!Number.isSafeInteger(orderQty)||orderQty<=0||orderQty%100||!Number.isSafeInteger(qty)||qty<=0||qty%100||qty>orderQty||!Number.isFinite(price)||price<=0||!Number.isFinite(fee)||fee<0) throw new Error('事务成交数量、价格、费用或订单数量无效');
   if(!fill||fill.orderId!==order.orderId||typeof fill.eventId!=='string'||! /^[A-Za-z0-9_-]{1,120}$/.test(fill.eventId)) throw new Error('事务订单与成交关联无效');
   if(!validDate(tradeDate)) throw new Error('事务交易日期无效');
@@ -27,17 +29,35 @@ function createPaperTransactionCoordinator({ledger,journalDir}) {
   if(!ledger || typeof ledger.transact!=='function' || typeof ledger.read!=='function') throw new Error('需要有效的模拟盘账户账本');
   const dir=path.resolve(journalDir); fs.mkdirSync(dir,{recursive:true,mode:0o700});
   const fileOf=id=>path.join(dir,`${safeId(id)}.txn.json`);
-  function readTxn(file){const st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile()||st.size>1024*1024)throw new Error('事务日志文件不安全');const x=JSON.parse(fs.readFileSync(file,'utf8'));if(!x||x.schemaVersion!==1||!['prepared','committed'].includes(x.status))throw new Error('事务日志状态无效');if(!/^[A-Za-z0-9_-]{1,100}$/.test(String(x.transactionId||'')))throw new Error('事务日志ID无效');try{validatePayload(x.order,x.fill,x.tradeDate);}catch(e){throw new Error(`事务日志订单、成交或日期无效：${e.message}`);}if(x.fingerprint!==hash({transactionId:x.transactionId,order:x.order,fill:x.fill,tradeDate:x.tradeDate,status:x.status}))throw new Error('事务日志指纹校验失败');return x;}
+  function readTxn(file){
+    let fd,raw;
+    try{fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0));const st=fs.fstatSync(fd);if(!st.isFile()||st.size>1024*1024)throw new Error('事务日志文件不安全');raw=fs.readFileSync(fd,'utf8');}
+    finally{if(fd!==undefined)fs.closeSync(fd);}
+    const x=JSON.parse(raw);
+    if(!x||x.schemaVersion!==1||!['prepared','committed'].includes(x.status))throw new Error('事务日志状态无效');
+    if(typeof x.transactionId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(x.transactionId))throw new Error('事务日志ID无效');
+    if(fileOf(x.transactionId)!==file)throw new Error('事务日志文件标识与记录不一致');
+    try{validatePayload(x.order,x.fill,x.tradeDate);}catch(e){throw new Error(`事务日志订单、成交或日期无效：${e.message}`);}
+    if(x.fingerprint!==hash({transactionId:x.transactionId,order:x.order,fill:x.fill,tradeDate:x.tradeDate,status:x.status}))throw new Error('事务日志指纹校验失败');return x;
+  }
+  // A committed marker is not evidence of a posted fill by itself. Never
+  // repair a missing committed event by posting it again automatically.
+  function assertPosted(tx,account=ledger.read()){
+    const {order,fill,tradeDate}=tx,id=fill.eventId;
+    const event=Array.isArray(account?.events)?account.events.find(e=>e.eventId===id):null;
+    if(!event||!account.eventHashes||!Object.hasOwn(account.eventHashes,id)||account.eventHashes[id]!==hash({orderId:order.orderId,fill,tradeDate})||event.orderId!==order.orderId||String(event.symbol)!==String(order.symbol)||event.side!==order.side||event.quantity!==numeric(fill.quantity)||event.price!==numeric(fill.price)||event.fee!==feeOf(fill)||event.tradeDate!==tradeDate)throw new Error('已提交事务与权威成交账本不一致，拒绝自动补写');
+  }
   function writeTxn(x){const value={...x,fingerprint:hash({transactionId:x.transactionId,order:x.order,fill:x.fill,tradeDate:x.tradeDate,status:x.status})};atomic(fileOf(x.transactionId),value);return value;}
   function apply(transactionId,order,fill,tradeDate){
     const id=safeId(transactionId), file=fileOf(id);
     validatePayload(order,fill,tradeDate); const lock=`${file}.lock`;
     const fd=acquireProcessLock(lock,'事务正在处理中，拒绝并发执行');
     try {
-      if(fs.existsSync(file)){const old=readTxn(file);if(hash({order:old.order,fill:old.fill,tradeDate:old.tradeDate})!==hash({order,fill,tradeDate}))throw new Error('事务ID内容冲突');if(old.status==='committed')return { ...old, idempotent:true };}
+      if(fs.existsSync(file)){const old=readTxn(file);if(hash({order:old.order,fill:old.fill,tradeDate:old.tradeDate})!==hash({order,fill,tradeDate}))throw new Error('事务ID内容冲突');if(old.status==='committed'){assertPosted(old);return { ...old, idempotent:true };}}
       else writeTxn({schemaVersion:1,transactionId:id,order,fill,tradeDate,status:'prepared'});
       const prepared=readTxn(file);
       const account=ledger.transact(prepared.order,prepared.fill,prepared.tradeDate);
+      assertPosted(prepared,account);
       const committed=writeTxn({...prepared,status:'committed'});
       return { ...committed, account, recovered:false, paperOnly:true, brokerConnected:false };
     } finally {releaseProcessLock(fd,lock);}
@@ -45,12 +65,11 @@ function createPaperTransactionCoordinator({ledger,journalDir}) {
   function recover(){
     const results=[];
     for(const name of fs.readdirSync(dir).filter(x=>x.endsWith('.txn.json')).sort()){
-      const file=path.join(dir,name), tx=readTxn(file); if(tx.status==='committed')continue;
-      if(tx.status!=='prepared')throw new Error(`未知事务状态：${tx.status}`);
+      const file=path.join(dir,name), id=name.slice(0,-'.txn.json'.length);
       const lock=`${file}.lock`;let fd;
       try{fd=acquireProcessLock(lock,'事务正在处理中，拒绝并发恢复');}
-      catch(e){if(/正在处理中/.test(e.message)){results.push({transactionId:tx.transactionId,status:'busy'});continue;}throw e;}
-      try{ledger.transact(tx.order,tx.fill,tx.tradeDate);const done=writeTxn({...tx,status:'committed'});results.push({transactionId:tx.transactionId,status:done.status,recovered:true});}
+      catch(e){if(/正在处理中/.test(e.message)){results.push({transactionId:id,status:'busy'});continue;}throw e;}
+      try{const tx=readTxn(file);if(tx.status==='committed'){assertPosted(tx);continue;}const account=ledger.transact(tx.order,tx.fill,tx.tradeDate);assertPosted(tx,account);const done=writeTxn({...tx,status:'committed'});results.push({transactionId:tx.transactionId,status:done.status,recovered:true});}
       finally{releaseProcessLock(fd,lock);}
     }
     return {schemaVersion:1,mode:'offline-paper-transaction-recovery',results,recoveredCount:results.filter(x=>x.recovered).length,brokerConnected:false,accountMutated:true};

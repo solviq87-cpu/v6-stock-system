@@ -18,7 +18,7 @@ test('authority stores provider time and source, never the later receive time',(
  const q=c.paperAuthorityQuotes()['600519'];
  assert.equal(q.timestamp,row.quoteAt);assert.equal(q.quoteAt,row.quoteAt);assert.equal(q.quoteSource,'tencent');
  assert.equal(q.riskContext.observedAt,row.quoteAt);assert.equal(q.riskContext.marks['600519'],10);
- assert.equal(q.tradeDate,'2026-11-06');assert.notEqual(q.timestamp,c.S.lastPx.get('600519').t);
+ assert.equal(q.canTrade,true);assert.equal(q.tradeDate,'2026-11-06');assert.notEqual(q.timestamp,c.S.lastPx.get('600519').t);
 });
 test('authority rejects stale, missing, future, fractional and read-only full-A observations',()=>{
  for(const patch of [{quoteAt:epoch-15001},{quoteAt:undefined},{quoteAt:epoch+1},{quoteAt:epoch-.5},{quoteAt:0},{quoteSource:''},{quoteSource:' '},{quoteSource:{}},{canTrade:false},{price:Infinity}]){
@@ -49,4 +49,12 @@ test('execution ingestion and full-A fallback reject infinite price or malformed
   const {c,row}=setup();c.S.stocks=[{...row,...patch}];c.ingestPx(c.S.stocks);
   assert.equal(c.S.lastPx.size,0);assert.equal(c.paperPxFresh(row.code),0);
  }
+});
+
+test('the original authority projection preserves explicit permission from the selected raw row only',()=>{
+ for(const value of [undefined,null,false,'true',1]){
+  const {c,row}=setup();if(value===undefined)delete row.canTrade;else row.canTrade=value;
+  c.S.stocks=[row];assert.equal(c.paperAuthorityQuotes()['600519'],undefined);
+ }
+ const {c,row}=setup();c.S.stocks=[row];assert.equal(c.paperAuthorityQuotes()['600519'].canTrade,true);
 });

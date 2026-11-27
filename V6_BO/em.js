@@ -713,58 +713,39 @@ const NON_DEPT_RE = /自然人|机构|沪股通|深股通|中小投资者|其他
 // 判定单个席位是否算"大游资"：要么知名席位且金额够大，要么金额够大且席位胜率高。
 // 返回带依据，便于在推送里写清楚"为什么算游资"，而不是丢一个黑盒结论。
 function judgeWhale(d) {
-  const name = d.name || '';
-  const net = +(d.net || 0);
+  const {lhbNumber}=require('./src/core/lhb-evidence');
+  const name = typeof d?.name==='string' ? d.name.trim() : '';
+  const net = lhbNumber(d?.net);
   // ⚠️ 买入席位净额必须为正。实测出现过 -1.08 亿被判成游资（卖出席位混进买入明细），
   //    方向错了就是反指，宁可不判。
-  if (net <= 0) return { whale: false, named: false, popular: false, big: false, strong: false, net, reason: '净额非正·不计' };
+  if (!name || net===null || net <= 0) return { whale: false, named: false, popular: false, big: false, strong: false, net, reason: '净额非正或席位证据未知·不计' };
   if (NON_DEPT_RE.test(name)) return { whale: false, named: false, popular: false, big: false, strong: false, net, reason: '非营业部席位' };
   const popular = POPULAR_KEYS.some(k => name.indexOf(k) >= 0);
   const named = WHALE_KEYS.some(k => name.indexOf(k) >= 0);
   const big = net >= 3e7;                                   // 净买 ≥ 3000万
   // 胜率门槛提到 60%：40% 的胜率低于抛硬币，把它当"可跟随的游资"是自欺欺人
-  const strong = d.prob3 != null && +d.prob3 >= 60;         // 该席位近3日上涨概率 ≥60%
+  const prob3=lhbNumber(d?.prob3);
+  const strong = prob3!==null && prob3>=60 && prob3<=100;         // 该席位近3日上涨概率 ≥60%
   const whale = !popular && ((named && big) || (big && strong));
   return { whale, named, popular, big, strong, net, reason: whale ? '游资席位' : (popular ? '人气席位·非游资' : '未达门槛') };
 }
 // 东财龙虎榜·买入席位明细。date='YYYY-MM-DD'。返回 Map<code,{depts,netBuy,whale,whaleNames,why}>
 async function fetchLhb(date, {onSeat, deadline=Infinity} = {}) {
-  const out = new Map();
-  if (!date) return out;
+  if (!date) return new Map();
+  const {requestResearchBytes}=require('./src/core/research-curl-bytes');
+  const {readLhbPages,groupLhbSeats}=require('./src/core/lhb-evidence');
   const url = n => 'https://datacenter-web.eastmoney.com/api/data/v1/get' +
     '?reportName=RPT_BILLBOARD_DAILYDETAILSBUY&columns=ALL&pageNumber=' + n +
     '&pageSize=500&sortColumns=BUY&sortTypes=-1&filter=(TRADE_DATE%3D%27' + date + '%27)';
-  for (let p = 1; p <= 6; p++) {
-    const timeout = Math.min(15000, deadline - Date.now());
-    if (timeout <= 0) {
-      if (onSeat) throw Error('龙虎榜分页未读完');
-      break;
-    }
-    const j = await curlGet(url(p), timeout);
-    const d = j && j.result && j.result.data;
-    if (!Array.isArray(d)) {
-      if (onSeat) throw Error('龙虎榜上游响应缺少明细');
-      break;
-    }
-    if (!d.length) break;
-    for (const x of d) {
-      onSeat?.(x);
-      const code = String(x.SECURITY_CODE || '').trim();
-      if (!code) continue;
-      const v = out.get(code) || { depts: [], netBuy: 0 };
-      const buy = +(x.BUY || 0), sell = +(x.SELL || 0);
-      const net = x.NET != null ? +x.NET : (buy - sell);
-      v.depts.push({
-        name: String(x.OPERATEDEPT_NAME || '').trim(),
-        buy, sell, net,
-        prob3: x.RISE_PROBABILITY_3DAY != null ? +x.RISE_PROBABILITY_3DAY : null
-      });
-      v.netBuy += net;
-      out.set(code, v);
-    }
-    if (d.length < 500) break;
-    if (p === 6 && onSeat) throw Error('龙虎榜超过分页上限');
-  }
+  const batch=await readLhbPages(date,{deadline,clock:Date.now,request:(p,options)=>requestResearchBytes(url(p),options)});
+  const {out,excludedSecurityCount}=groupLhbSeats(batch);
+  // Do not publish a valid prefix when a later page fails.
+  if(onSeat)for(const row of batch.seats)onSeat(row.raw);
+  Object.defineProperty(out,'lhbEvidence',{value:Object.freeze({
+    source:batch.source,requestedDate:date,sourceTradeDate:batch.tradeDate,
+    receivedAt:batch.receivedAt,providerCount:batch.count,complete:batch.complete,
+    excludedSecurityCount,quoteAt:null,providerPublishedAt:null,verifiedLive:false,canTrade:false
+  }),enumerable:false});
   for (const v of out.values()) {
     // 只留真实营业部，且按净买额降序（买一在前）
     v.depts = v.depts.filter(d => !NON_DEPT_RE.test(d.name || '') && +(d.net || 0) > 0);
@@ -1284,14 +1265,28 @@ async function fetchBatchSnapshot(codes) {
     }
   };
   const missing = () => requested.filter(code => !chosen.has(code));
-  const collect = (rows, wanted, now) => {
-    const allowed = new Set(wanted);
-    for (const row of rows || []) {
+  const collect = (rows, wanted, now, provider) => {
+    if (!Array.isArray(rows)) return;
+    const allowed = new Set(wanted), observations = new Map();
+    const evidenceFields = ['price','preClose','pct','open','high','low','volume','amount','canTrade','canNotify'];
+    for (const row of rows) {
       if (!row || !allowed.has(row.code)) continue;
       const current = batchQuoteAtPublication(row, now);
       if (current.quoteFreshness !== 'recent-unverified') continue;
-      const previous = chosen.get(row.code);
-      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(row.code, current);
+      // A wrong source label cannot establish recovery of the primary route.
+      const blocked = provider !== 'research' && current.quoteSource !== provider ||
+        ['synthetic','simulated','mock','fixture','testSample','sourceConflict','quoteSourceConflict','conflict'].some(k => row[k] === true) ||
+        row.quoteStatus === 'conflict' || row.evidenceStatus === 'conflict';
+      if (provider === 'research') Object.assign(current,{canTrade:false,canNotify:false,verifiedLive:false,canTrain:false});
+      const prior = observations.get(row.code);
+      if (!prior || current.quoteAt > prior.row.quoteAt) observations.set(row.code, {row:current,blocked});
+      else if (current.quoteAt === prior.row.quoteAt &&
+          (blocked || current.quoteSource !== prior.row.quoteSource || evidenceFields.some(k => !Object.is(current[k] ?? null, prior.row[k] ?? null)))) prior.blocked = true;
+    }
+    for (const [code, result] of observations) {
+      if (result.blocked) continue;
+      const current = result.row, previous = chosen.get(code);
+      if (!previous || (previous.quoteSource === current.quoteSource && current.quoteAt > previous.quoteAt)) chosen.set(code, current);
     }
   };
   const fetchMissing = async (provider, fetchRows, wanted) => {
@@ -1300,7 +1295,7 @@ async function fetchBatchSnapshot(codes) {
     try {
       const rows = await fetchRows(wanted), now = Date.now();
       refresh(now);
-      collect(rows, wanted, now);
+      collect(rows, wanted, now, provider);
     } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       lastError = e;
       batchQuoteWarn(provider, wanted, classifyNetErr(String(e && e.message || e)));
@@ -1321,7 +1316,7 @@ async function fetchBatchSnapshot(codes) {
       const rows = require('./src/core/six-photo-backups').photoQuoteFallback(remaining);
       const now = Date.now();
       refresh(now);
-      collect(rows, remaining, now);
+      collect(rows, remaining, now, 'research');
     } catch (e) { if (e && e.code === 'MARKET_RESTRICTED') throw e;
       lastError = e;
       batchQuoteWarn('research', remaining, 'unavailable');

@@ -5,13 +5,14 @@
  * or present an equal-weight member proxy as a provider-published sector index.
  */
 const {aShareCalendarDate}=require('./a-share-calendar');
-const {classifyQuoteTime}=require('./market-snapshot-quote-time');
+const {classifyQuoteTime,snapshotCaptureWindow}=require('./market-snapshot-quote-time');
 const {evaluateDailySectorStrength}=require('../strategy/daily-sector-strength');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const pct=x=>finite(x)&&x>=-100&&x<=100;
-const providerOK=x=>typeof x==='string'&&x.length>0&&x.length<=120&&
+const providerOK=x=>typeof x==='string'&&x.trim().length>0&&x.length<=120&&
  !/(^|[-_\s:])(test|mock|fixture|synthetic|simulated)([-_\s:]|$)/i.test(x);
 const symbolOK=x=>typeof x==='string'&&/^\d{6}$/.test(x);
+const artificial=x=>['synthetic','simulated','fixture','mock','testSample'].some(k=>x?.[k]===true);
 function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=300000,minMarketCoverage=.8}={}){
  const unknown=reason=>({schemaVersion:1,status:'unknown',reason,
   verifiedLive:false,weightsChanged:false,autoPromotion:false,canTrade:false,
@@ -21,35 +22,39 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
    !finite(minMarketCoverage)||minMarketCoverage<.8||minMarketCoverage>1)
   return unknown('invalid-evidence-thresholds');
  // Exactly the existing snapshot source contract; no scraping or secondary quote calls.
- if(!snapshot||snapshot.source!=='eastmoney-clist-unverified-live'||
+ if(!snapshot||artificial(snapshot)||snapshot.source!=='eastmoney-clist-unverified-live'||
    !/^\d{4}-\d{2}-\d{2}$/.test(snapshot.date||'')||
    !Number.isSafeInteger(snapshot.universeSize)||snapshot.universeSize<5||
    !Array.isArray(snapshot.stocks)||snapshot.stocks.length>10000||
    snapshot.stocks.length>snapshot.universeSize)
   return unknown('existing-market-snapshot-invalid');
- const start=Date.parse(snapshot.startedAt||''),end=Date.parse(snapshot.retrievedAt||'');
+ // Share the exact original capture-window parser with the quote audit and candidate bridge.
+ const {startedAt:start,originalRetrievedAt:end,invalidStart}=snapshotCaptureWindow(snapshot);
  const time=asOf??end;
- if(!Number.isSafeInteger(time)||time<=0||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||
+ if(invalidStart||!Number.isSafeInteger(time)||time<=0||time>8e15||!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||
    start>end||end-start>120000||time<end||time-end>600000||
    aShareCalendarDate(time)!==snapshot.date||aShareCalendarDate(start)!==snapshot.date||
    aShareCalendarDate(end)!==snapshot.date)
   return unknown('snapshot-clock-session-invalid');
- if(!membership||membership.schemaVersion!==1||membership.source!=='imported'||
+ if(!membership||artificial(membership)||membership.schemaVersion!==1||membership.source!=='imported'||
    !providerOK(membership.provider)||membership.tradeDate!==snapshot.date||
    !providerOK(membership.classificationVersion)||
    !Number.isSafeInteger(membership.observedAt)||membership.observedAt<=0||
    membership.observedAt>start||aShareCalendarDate(membership.observedAt)!==snapshot.date||
    !Array.isArray(membership.sectors)||membership.sectors.length>300)
   return unknown('membership-version-or-point-in-time-invalid');
- const quotes=new Map();
+ const quotes=new Map(),seenSymbols=new Set();
  for(const s of snapshot.stocks){
-  if(!symbolOK(s?.code)||quotes.has(s.code))
+  if(!symbolOK(s?.code)||s.symbol!==undefined&&s.symbol!==s.code||seenSymbols.has(s.code))
    return unknown('duplicated-or-malformed-market-symbol');
+  seenSymbols.add(s.code);
   if(s.source!==undefined&&s.source!==snapshot.source)
    return unknown('mixed-provider-symbol-evidence');
   const timestamp=classifyQuoteTime(s,{requestDate:snapshot.date,
-   retrievedAt:time,maxAgeMs:maxQuoteAgeMs});
-  if(timestamp.quoteTimeStatus!=='recent-source-unverified'||!pct(s.pctChange))
+   retrievedAt:time,originalRetrievedAt:end,maxAgeMs:maxQuoteAgeMs});
+  if(timestamp.quoteTimeStatus!=='recent-source-unverified'||!pct(s.pctChange)||
+     artificial(s)||s.suspended===true||s.tradable===false||s.sourceConflict===true||s.quoteSourceConflict===true||s.conflict===true||
+     s.quoteStatus==='conflict'||s.evidenceStatus==='conflict')
    continue;
   quotes.set(s.code,{symbol:s.code,changePct:s.pctChange,
    tradeDate:snapshot.date,observedAt:timestamp.quoteAt,source:snapshot.source,
@@ -64,12 +69,12 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
   const id=String(item?.category)+'|'+String(item?.code);
   if(seenSectorIds.has(id))return unknown('duplicated-sector-membership');
   seenSectorIds.add(id);
-  if(!['industry','concept'].includes(item?.category)||
+  if(artificial(item)||!['industry','concept'].includes(item?.category)||
     typeof item.code!=='string'||!/^[A-Za-z0-9_-]{2,30}$/.test(item.code)||
     typeof item.name!=='string'||!item.name.trim()||item.name.length>80||
     !Array.isArray(item.members)||item.members.length<5||item.members.length>10000||
     item.memberCount!==item.members.length||new Set(item.members).size!==item.members.length||
-    item.members.some(s=>!symbolOK(s)))
+    Array.from(item.members).some(s=>!symbolOK(s)))
    return unknown('membership-members-invalid');
   const members=item.members.map(symbol=>quotes.get(symbol)).filter(Boolean);
   // Every member has a frozen mapping. Unavailable quotes stay absent;

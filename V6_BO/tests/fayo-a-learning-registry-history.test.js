@@ -1,0 +1,32 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const {fixture}=require('./helpers/adaptive-fixture'),{createRegistry}=require('../src/core/learning-profile-registry');
+// Synthetic historical prices, not a production strategy or a live account.
+function setup(t,{marketGate=false,noCandidate=false}={}){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-a35-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const root=path.join(dir,'registry'),file=path.join(root,'state.json'),input=fixture(150);
+ for(const stock of input.stocks)stock.bars.forEach((b,i)=>{const c=(stock.symbol==='600000'?20:30)*1.01**i;Object.assign(b,{close:c,open:c*.9998,high:c*1.0005,low:c*.9995});});
+ input.simulation={initialCash:100000,topN:2,holdDays:1,feeBps:8,slippageBps:10,sellTaxBps:5};
+ const dates=input.stocks[0].bars.map(b=>b.date),plan={schemaVersion:1,version:'a35-synthetic',trainEnd:dates[79],validationEnd:dates[114],holdoutEnd:dates.at(-1),gates:{minClosedTrades:noCandidate?999:3,maxDrawdownPct:10,minReturnPct:0,minExcessReturnPct:0,costStressBps:10},candidates:[{id:'prior4',parameters:{learningConfig:{minimumSamples:20,priorStrength:4}}}],...(marketGate?{marketGateMode:'required-on-promote'}:{})};
+ const r=createRegistry(root);r.freeze(input,plan);return {r,root,file,plan};
+}
+function ready(t,options){const x=setup(t,options);x.r.evaluate(1);x.r.testHoldout(2);return x;}
+function context(){const observedAt=Date.now(),provider='synthetic-context',tradeDate=new Date(observedAt+8*3600000).toISOString().slice(0,10),row={source:provider,observedAt};return {schemaVersion:1,source:'imported',provider,tradeDate,observedAt,coverage:1,breadth:{...row,upPct:60},indices:{shanghai:{...row,changePct:1},shenzhen:{...row,changePct:1}}};}
+function state(x){return JSON.parse(fs.readFileSync(x.file,'utf8'));}
+function save(x,s){delete s.fingerprint;s.fingerprint=crypto.createHash('sha256').update(JSON.stringify(s)).digest('hex');fs.writeFileSync(x.file,JSON.stringify(s)+'\n');}
+function blocked(x,edit){const original=fs.readFileSync(x.file),s=state(x);edit(s);save(x,s);const changed=fs.readFileSync(x.file);
+ try{assert.throws(()=>x.r.status(),/门禁/);assert.throws(()=>x.r.verify(),/门禁/);assert.throws(()=>x.r.activeProfile(),/门禁/);assert.throws(()=>x.r.rollback(s.revision),/门禁/);assert.deepEqual(fs.readFileSync(x.file),changed);}
+ finally{fs.writeFileSync(x.file,original);}}
+test('A35 a legitimate promotion, idempotent retry and rollback retain original frozen evidence',t=>{const x=ready(t),before=state(x),p=x.r.promote(3);assert.equal(p.active,'prior4');assert.equal(x.r.promote(4).revision,4);assert.equal(x.r.activeProfile(4).id,'prior4');const r=x.r.rollback(4);assert.equal(r.revision,5);assert.equal(r.active,'baseline');assert.deepEqual(r.evaluation,before.evaluation);assert.deepEqual(r.holdout,before.holdout);assert.equal(x.r.rollback(5).revision,5);assert.equal(x.r.activeProfile(5).id,'baseline');assert.equal(x.r.verify({replay:true}).verified,true);});
+test('A35 a re-sealed broker permission contradiction must not become a research profile',t=>{const x=setup(t);for(const value of [true,null])blocked(x,s=>{s.brokerConnected=value;});});
+test('A35 frozen stage revision and evidence presence cannot be forged',t=>{const x=setup(t);blocked(x,s=>{s.revision=2;});blocked(x,s=>{s.evaluation={};});});
+test('A35 validated stage cannot omit its result or pretend holdout already exists',t=>{const x=setup(t);x.r.evaluate(1);blocked(x,s=>{delete s.evaluation;});blocked(x,s=>{s.holdout={eligible:true};});});
+test('A35 holdout must identify the selected frozen candidate, including failed or missing selection',t=>{const x=ready(t);blocked(x,s=>{s.holdout.selectedId='other';});blocked(x,s=>{s.evaluation.selectedId=null;});blocked(x,s=>{s.evaluation.candidates[0].eligible=false;});});
+test('A35 a re-sealed candidate cannot substitute parameters or candidate identity',t=>{const x=ready(t);blocked(x,s=>{s.evaluation.candidates[0].parameters.learningConfig.priorStrength=99;});blocked(x,s=>{s.evaluation.candidates[0].id='other';});blocked(x,s=>{s.evaluation.holdoutRead=true;});});
+test('A35 an active pointer without a recorded promotion is blocked even when holdout passed',t=>{const x=ready(t);blocked(x,s=>{s.active='prior4';});});
+test('A35 operation history must reconcile revision sequence, previous pointer and action type',t=>{const x=ready(t);x.r.promote(3);blocked(x,s=>{s.events[0].revision=9;});blocked(x,s=>{s.events[0].from='other';});blocked(x,s=>{s.events[0].type='unknown';});blocked(x,s=>{s.events=[];});});
+test('A35 a restored baseline pointer must have its recorded rollback, not a silent change',t=>{const x=ready(t);x.r.promote(3);blocked(x,s=>{s.active='baseline';});});
+test('A35 historical market gate receipts are mandatory for market-gated promotions',t=>{const x=ready(t,{marketGate:true});const p=x.r.promote(3,{marketContext:context()});assert.equal(p.events[0].marketGate.marketRegime,'not-systemic-selloff');assert.equal(x.r.verify({replay:true}).verified,true);blocked(x,s=>{delete s.events[0].marketGate;});blocked(x,s=>{s.events[0].marketGate.marketRegime='systemic-selloff';});blocked(x,s=>{s.events[0].marketGate.weightsChanged=true;});});
+test('A35 an honest no-candidate holdout remains readable but cannot promote',t=>{const x=ready(t,{noCandidate:true});const s=x.r.status();assert.equal(s.holdout.eligible,false);assert.equal(s.evaluation.selectedId,null);assert.equal(x.r.activeProfile(3).id,'baseline');assert.throws(()=>x.r.promote(3),/门禁/);});
+test('A35 a rolled-back candidate cannot reuse the old holdout to promote again',t=>{const x=ready(t);x.r.promote(3);x.r.rollback(4);const before=fs.readFileSync(x.file);assert.throws(()=>x.r.promote(5),/回滚隔离/);assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.r.activeProfile(5).id,'baseline');});
+test('A35 an older valid repeated promotion history stays readable, but future reuse after rollback is blocked',t=>{const x=ready(t);x.r.promote(3);x.r.rollback(4);const s=state(x);s.events.push({type:'promote',from:'baseline',to:'prior4',revision:6});s.revision=6;s.active='prior4';save(x,s);assert.equal(x.r.verify({replay:true}).active,'prior4');assert.equal(x.r.promote(6).revision,6);assert.equal(x.r.rollback(6).active,'baseline');assert.throws(()=>x.r.promote(7),/回滚隔离/);assert.equal(x.r.status().events.length,4);});
