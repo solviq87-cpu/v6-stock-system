@@ -171,7 +171,11 @@ function stagedDefense(position,item,quantity,mark,now,day,uniqueHolding){
     l.participationPct!==1||!qty(l.capacityQuantity)||!qty(l.usedVolume)||l.capacityQuantity%100!==0||
     quantity%100!==0||position.sellableQuantity!==quantity||l.capacityQuantity<quantity||
     !positive(c.price?.lowerLimit)||!positive(c.price?.upperLimit)||!(c.price.lowerLimit<mark&&mark<c.price.upperLimit)||
-    !Array.isArray(item.orders)||item.orders.some(o=>!['filled','canceled','rejected'].includes(o?.status)))return out;
+    !Array.isArray(item.orders)||item.orders.some(o=>!['filled','canceled','rejected'].includes(o?.status)||
+      o.evidenceStatus!=='available'||o.side!=='sell'||o.source!=='original-paper-order'||o.association!=='original-single-entry-lot'||!text(o.orderId))||
+    !unique(item.orders.map(o=>o.orderId))||
+    (item.orders.length>0||item.orderIds!==undefined)&&(!Array.isArray(item.orderIds)||item.orderIds.length!==item.orders.length||
+      !unique(item.orderIds)||item.orders.some(o=>!item.orderIds.includes(o.orderId))))return out;
  out.originalExitAllowed=true;out.originalCapacityQuantity=l.capacityQuantity;out.status='estimated-unverified';
  for(const fraction of [.5,1]){
   const removed=fraction===1?quantity:Math.floor(quantity*fraction/100)*100;
@@ -233,7 +237,7 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
     !unique(e.positions.map(p=>p?.symbol))||e.positions.some(p=>!code(p?.symbol)||!qty(p.quantity)))return result;
  const positionsBySymbol=new Map(e.positions.map(p=>[p.symbol,p]));
  const holdingClaims=new Map();
- for(const item of actions.items)if(text(item?.planId)&&text(item.entryEventId)&&qty(item.constraints?.remainingQuantity)&&item.constraints.remainingQuantity>0){
+ for(const item of actions.items)if(code(item?.code)&&qty(item.constraints?.remainingQuantity)&&item.constraints.remainingQuantity>0){
   holdingClaims.set(item.code,(holdingClaims.get(item.code)||0)+1);
  }
  const byId=new Map(),duplicates=new Set();
@@ -244,7 +248,7 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
  for(const [id,item] of items){
   const p=byId.get(id),quantity=item.constraints?.remainingQuantity,held=text(item.entryEventId)&&qty(quantity)&&quantity>0;
   // Completed plans and genuinely old unfilled candidates are not new offers.
-  if(item.status==='filled'||!held&&!duplicates.has(id)&&!duplicateItems.has(id)&&p&&p.intendedDate<e.day&&quantity===0&&!item.entryEventId)continue;
+  if(!duplicates.has(id)&&!duplicateItems.has(id)&&(item.status==='filled'&&quantity===0||!held&&p&&p.intendedDate<e.day&&quantity===0&&!item.entryEventId))continue;
   eligible++;
   if(result.rows.length>=100)continue;
   const out={planId:id,symbol:code(item.code)?item.code:null,scope:held?'held-position':'unfilled-candidate',status:'unknown',
@@ -253,7 +257,7 @@ function buildPlanOddsEvidence({equity:e,actions,plans=[],now=Date.now()}={}){
   result.rows.push(out);
   if(duplicates.has(id)||duplicateItems.has(id)||!p||p.decisionAuthority!=='fayo-decision-center'||!hash(p.decisionId)||
      p.code!==item.code||!code(p.code)||item.id!=='risk-action:'+e.accountId+':'+id||
-     ['unknown','pending-reconciliation'].includes(item.status)||!qty(quantity)||
+     !['observing','condition-triggered','allowed','partially-filled','submitted','failed'].includes(item.status)||!qty(quantity)||
      (held?quantity===0:quantity!==0||item.entryEventId!=null||p.intendedDate!==e.day||item.status!=='observing'))continue;
   const position=positionsBySymbol.get(item.code),actualShares=position?.quantity||0;
   if(held&&actualShares<quantity)continue;
