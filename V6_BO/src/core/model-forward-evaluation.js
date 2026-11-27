@@ -83,9 +83,20 @@ function validatePrediction(input,prediction,now){
 function freezeForecast(workspace,events,request,{now=Date.now(),beforeCommit}={}){
  if(!fields(request,['action','runId','requestId','prediction'])||request.action!=='freeze-forecast'||!sha(request.runId)||typeof request.requestId!=='string'||!/^[\w-]{8,100}$/.test(request.requestId))fail('REQUEST');
  predictionStructure(request.prediction);
+ if(!stamp(now)||now>Date.now())fail('TIME');
  const fingerprint=S.digest({runId:request.runId,prediction:request.prediction}),root=rootFor(workspace);
  let old;try{old=S.readEvents(root).find(e=>e.requestId===request.requestId);}catch{fail('ARCHIVE');}
- if(old){if(old.data?.requestFingerprint!==fingerprint)fail('REQUEST');return {ok:true,forecastId:old.hash,reused:true,...S.FLAGS};}
+ if(old){
+  // A replay is read-only, but must still respect the supplied authorization
+  // guard and cannot return a receipt from a future or invalid archive.
+  if(beforeCommit!==undefined&&(typeof beforeCommit!=='function'||beforeCommit()!==true))
+   throw Object.assign(Error('编辑授权或主实例角色已变化，研究写入取消'),{code:'WORKSPACE_AUTHORIZATION',httpStatus:403});
+  if(old.recordedAt>now)fail('TIME');
+  if(old.data?.requestFingerprint!==fingerprint)fail('REQUEST');
+  if(old.kind!=='analysis')fail('ARCHIVE');
+  validateArchive(old);
+  return {ok:true,forecastId:old.hash,reused:true,...S.FLAGS};
+ }
  const event=events.find(e=>e.kind==='analysis'&&e.hash===request.runId&&e.recordedAt<=now&&e.data.asOf<=now);
  const input=prepareInput(event),{model,forecasts}=validatePrediction(input,request.prediction,now);
  const data={schemaVersion:1,mode:'frozen-model-forecast',evaluationVersion:VERSION,asOf:input.asOf,originDate:input.originDate,runId:input.runId,
