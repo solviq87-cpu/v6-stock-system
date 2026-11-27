@@ -49,3 +49,29 @@ test('terminal order identity is validated even without active reservations',()=
  for(const symbol of [undefined,null,[],['600000'],{},'bad']){const b=book();b.orders.a={order:{orderId:'a',side:'buy',symbol},state:{terminal:true,remainingQuantity:0},events:[]};mismatch(b,'INVALID_ORDER_IDENTITY');}
  for(const symbol of ['600000',600000,'000001']){const b=book();b.orders.a={order:{orderId:'a',side:'buy',symbol},state:{terminal:true,remainingQuantity:0},events:[]};assert.equal(reconcile(b).status,'consistent');}
 });
+const {applySettlement}=require('../src/core/corporate-settlements');
+const {openingReconciliationEvidence}=require('../src/core/account-safety-state');
+function granted(kind='share-distribution'){
+ const b=book(),symbol='600000',prior='2026-11-26';
+ b.account.positions[symbol]={quantity:100,sellable:100,lots:[{quantity:100,buyDate:prior,price:10,cost:1000,fee:0,sourceEventId:'opening-'+symbol}]};
+ b.reconciliationOpening=openingReconciliationEvidence(b.account,{kind:'isolated-opening-fixture',at:100,sourceFingerprint:'a'.repeat(64)});
+ const rights=kind==='rights-subscription';
+ const e={eventId:'grant-1',actionId:'action-1',sourceRecordId:'record-1',symbol,kind,source:'imported',provider:'isolated-not-external',effectiveDate:day,publishedAt:day+'T09:00:00+08:00',expectedQuantity:100,expectedCostBasis:1000,shareDelta:20,cashDelta:rights?-40:0,basisDelta:rights?40:0};
+ const result=applySettlement(b.account,e,{now:Date.parse(day+'T10:00:00+08:00')});
+ b.account=result.account;b.corporateEvents=[result.record];return b;
+}
+test('the original settlement writer creates a reconciled grant for distributions and subscriptions',()=>{
+ for(const kind of ['share-distribution','rights-subscription']){const b=granted(kind);const r=reconcile(b);assert.equal(r.status,'consistent');assert.equal(r.quantityFlowVerified,true);assert.equal(r.completeExternalReconciliation,false);assert.equal(r.canTrade,false);}
+});
+test('corporate lot acquisition date must match its own settlement despite a valid stock and aggregate quantity',()=>{
+ for(const d of ['2026-11-26','2026-11-30']){const b=granted(),lot=b.account.positions['600000'].lots[1];lot.buyDate=d;lot.sellableDate=d;mismatch(b,'CORPORATE_LOT_DATE_MISMATCH');}
+});
+test('a grant cannot be inflated by relabelling opening shares while the total position still matches',()=>{
+ const b=granted(),lots=b.account.positions['600000'].lots;lots[0].quantity=99;lots[1].quantity=21;mismatch(b,'CORPORATE_LOT_QUANTITY_MISMATCH');
+});
+test('multiple lots cannot collectively exceed the same grant even when each lot is within the grant',()=>{
+ const b=granted(),lots=b.account.positions['600000'].lots;lots[0].quantity=99;lots[1].quantity=10;lots.push({...lots[1],quantity:11});mismatch(b,'CORPORATE_LOT_QUANTITY_MISMATCH');
+});
+test('an exact split of a grant or a conservative later availability date remains compatible',()=>{
+ const b=granted(),lots=b.account.positions['600000'].lots;lots[1].quantity=10;lots.push({...lots[1],quantity:10,sellableDate:'2026-11-30'});assert.equal(reconcile(b).status,'consistent');
+});

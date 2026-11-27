@@ -47,7 +47,7 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
  if(book.corporateEvents!==undefined&&!Array.isArray(book.corporateEvents)){
   fail('INVALID_CORPORATE_EVENT');return {...result(),reservedCash:null};
  }
- const byEvent=new Map(),fills=new Map(),corporate=new Map(),reserved=new Map();
+ const byEvent=new Map(),fills=new Map(),corporate=new Map(),reserved=new Map(),corporateRemaining=new Map();
  for(const event of book.account.events){
   if(!event||typeof event.eventId!=='string'||byEvent.has(event.eventId))fail('DUPLICATE_LEDGER_EVENT');
   else byEvent.set(event.eventId,event);
@@ -90,7 +90,18 @@ function reconcileAccountSnapshot(book,{tradeDate=null}={}){
   for(const lot of position.lots){
    if(!quantity(lot?.quantity)||!day(lot.buyDate)||lot.sellableDate!=null&&(!day(lot.sellableDate)||lot.sellableDate<lot.buyDate)||!quantity(lot.reserved??0)||(lot.reserved||0)>lot.quantity||!finite(lot.price)||lot.price<0||!finite(lot.cost??lot.price*lot.quantity)||(lot.cost??lot.price*lot.quantity)<0||!finite(lot.fee??0)||(lot.fee??0)<0){fail('INVALID_HOLDING_LOT');continue;}
    total+=lot.quantity;lotReserved+=lot.reserved||0;
-   if(lot.sourceActionId){const source=corporate.get(lot.sourceActionId);if(!source||String(source.symbol)!==symbol||source.shareDelta<=0)fail('ORPHAN_CORPORATE_LOT');}
+   if(lot.sourceActionId){
+    const source=corporate.get(lot.sourceActionId);
+    if(!source||String(source.symbol)!==symbol||source.shareDelta<=0)fail('ORPHAN_CORPORATE_LOT');
+    else {
+     // The original settlement writer binds each grant to its effective day.
+     // A later lock remains conservative; an earlier or relabelled lot does not.
+     if(lot.buyDate!==source.effectiveDate)fail('CORPORATE_LOT_DATE_MISMATCH');
+     const remaining=(corporateRemaining.get(source.eventId)||0)+lot.quantity;
+     corporateRemaining.set(source.eventId,remaining);
+     if(!quantity(remaining)||remaining>source.shareDelta)fail('CORPORATE_LOT_QUANTITY_MISMATCH');
+    }
+   }
    else if(lot.sourceEventId!=='opening-'+symbol){const source=byEvent.get(lot.sourceEventId);if(!source||String(source.symbol)!==symbol||source.side!=='buy')fail('ORPHAN_PURCHASE_LOT');}
   }
   if(!quantity(total)||total!==position.quantity)fail('LOT_QUANTITY_MISMATCH');
