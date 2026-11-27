@@ -1,0 +1,278 @@
+{
+  "base": "963e0c986bce074bba6637b95eff1c36a93b8c1b",
+  "engine": "V8 isolated exact full old/new module and original complete quote-observation-view, common-entry-risk, portfolio-risk-gate dependencies; test/assert harness substitute, no hashing substitute or actual account service. Runtime syntax only.",
+  "dependencies": [
+    {
+      "path": "V6_BO/src/core/portfolio-defense-evidence.js",
+      "blob": "0712002fa61783497398ea93a1534e263a6d89a9"
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "blob": "9a7dbf25eab330b05259a4dd3aad23b86e12591c"
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-defense.test.js",
+      "blob": "e937eaaf03a0376bf60d307537a7b60dd9742fb9"
+    },
+    {
+      "path": "V6_BO/src/core/common-entry-risk.js",
+      "blob": "d0710dc370fc26f5ff0a518089f5fa598b7b29f6"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-risk-gate.js",
+      "blob": "df22848143147ed3b26a4d0588c2ea7b53471714"
+    },
+    {
+      "path": "V6_BO/src/core/quote-observation-view.js",
+      "blob": "134a6ecfa772a996aa06199fc57265095206f5ae"
+    }
+  ],
+  "legacyBefore": [
+    {
+      "name": "C14.1 actual concentration threshold is crossed by selective losses, not a universal decline prediction",
+      "pass": true
+    },
+    {
+      "name": "C14.1 freeze remainder and original reserved fee enter explicit all-fill scenario only",
+      "pass": true
+    },
+    {
+      "name": "C14.1 inconsistent reservation or unknown threshold never manufactures reverse limit",
+      "pass": true
+    },
+    {
+      "name": "C14.1 a 100 percent cap cannot be strictly exceeded through other holdings loss alone",
+      "pass": true
+    },
+    {
+      "name": "C14.2 lowering average cost leaves larger current exposure and hypothetical new T+1 restriction",
+      "pass": true
+    },
+    {
+      "name": "C14.2 unknown lot basis preserves known incremental exposure without fabricated average",
+      "pass": true
+    },
+    {
+      "name": "C14.2 changed account, stale mark, price mismatch or blocked preview never simulates current addition",
+      "pass": true
+    },
+    {
+      "name": "C14.3 changed account revision, omitted holding, invalid observation and mismatched cash suppress all account projections",
+      "pass": true
+    },
+    {
+      "name": "C14.4 selling only historically liquid subset can leave all remaining exposure in one restricted stock",
+      "pass": true
+    },
+    {
+      "name": "C14.4 missing sellability or historical capacity never silently gives complete zero residual",
+      "pass": true
+    },
+    {
+      "name": "C14.4 explicitly unknown theme stays unknown even if stock-level residual is known",
+      "pass": true
+    },
+    {
+      "name": "C14.5 different declared themes can co-lose on every worst-decile day",
+      "pass": true
+    },
+    {
+      "name": "C14.5 insufficient tail samples retain complete all-day description but no tail certainty",
+      "pass": true
+    },
+    {
+      "name": "C14.5 missing, duplicate, future, wrong basis or misbound history does not certify diversification",
+      "pass": true
+    }
+  ],
+  "before": [
+    {
+      "name": "C14.1 actual concentration threshold is crossed by selective losses, not a universal decline prediction",
+      "pass": true
+    },
+    {
+      "name": "C14.1 freeze remainder and original reserved fee enter explicit all-fill scenario only",
+      "pass": true
+    },
+    {
+      "name": "C14.1 inconsistent reservation or unknown threshold never manufactures reverse limit",
+      "pass": true
+    },
+    {
+      "name": "C14.1 a 100 percent cap cannot be strictly exceeded through other holdings loss alone",
+      "pass": true
+    },
+    {
+      "name": "C14.2 lowering average cost leaves larger current exposure and hypothetical new T+1 restriction",
+      "pass": true
+    },
+    {
+      "name": "C14.2 unknown lot basis preserves known incremental exposure without fabricated average",
+      "pass": true
+    },
+    {
+      "name": "C14.2 changed account, stale mark, price mismatch or blocked preview never simulates current addition",
+      "pass": true
+    },
+    {
+      "name": "C14.3 changed account revision, omitted holding, invalid observation and mismatched cash suppress all account projections",
+      "pass": true
+    },
+    {
+      "name": "C14.4 selling only historically liquid subset can leave all remaining exposure in one restricted stock",
+      "pass": true
+    },
+    {
+      "name": "C14.4 missing sellability or historical capacity never silently gives complete zero residual",
+      "pass": true
+    },
+    {
+      "name": "C14.4 explicitly unknown theme stays unknown even if stock-level residual is known",
+      "pass": true
+    },
+    {
+      "name": "C14.5 different declared themes can co-lose on every worst-decile day",
+      "pass": true
+    },
+    {
+      "name": "C14.5 insufficient tail samples retain complete all-day description but no tail certainty",
+      "pass": true
+    },
+    {
+      "name": "C14.5 missing, duplicate, future, wrong basis or misbound history does not certify diversification",
+      "pass": true
+    },
+    {
+      "name": "C17.1 equal total equity cannot hide redistributed security values",
+      "pass": false,
+      "error": "expected \"unknown\" got \"observed-research\""
+    },
+    {
+      "name": "C17.1 original quote and cash identity are rechecked, not just wrapper time or aggregate",
+      "pass": false,
+      "error": "expected \"unknown\" got \"observed-research\""
+    },
+    {
+      "name": "C17.2 pending remainder requires original order key, state identity, status and filled arithmetic",
+      "pass": false,
+      "error": "expected null got {\"orderCount\":1,\"remainingNotional\":1000,\"estimatedReservedFees\":5,\"includesFilledHoldingsOnce\":true}"
+    },
+    {
+      "name": "C17.2 a partial order contributes only remaining shares; canceled remainder is not a new exposure",
+      "pass": true
+    },
+    {
+      "name": "C17.3 a profitable lot still has the same marked exposure and one-percent loss",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading '0')"
+    },
+    {
+      "name": "C17.3 incomplete lot cost cannot manufacture profit or suppress exposure",
+      "pass": false,
+      "error": "Cannot read properties of undefined (reading '0')"
+    },
+    {
+      "name": "C17.4 stale or mismatched exit projection cannot reduce residual holding exposure",
+      "pass": false,
+      "error": "expected null got 6000"
+    },
+    {
+      "name": "C17.5 equal portfolio boundary losses all remain in the descriptive worst-decile cohort",
+      "pass": false,
+      "error": "expected 12 got undefined"
+    }
+  ],
+  "after": [
+    {
+      "name": "C14.1 actual concentration threshold is crossed by selective losses, not a universal decline prediction",
+      "pass": true
+    },
+    {
+      "name": "C14.1 freeze remainder and original reserved fee enter explicit all-fill scenario only",
+      "pass": true
+    },
+    {
+      "name": "C14.1 inconsistent reservation or unknown threshold never manufactures reverse limit",
+      "pass": true
+    },
+    {
+      "name": "C14.1 a 100 percent cap cannot be strictly exceeded through other holdings loss alone",
+      "pass": true
+    },
+    {
+      "name": "C14.2 lowering average cost leaves larger current exposure and hypothetical new T+1 restriction",
+      "pass": true
+    },
+    {
+      "name": "C14.2 unknown lot basis preserves known incremental exposure without fabricated average",
+      "pass": true
+    },
+    {
+      "name": "C14.2 changed account, stale mark, price mismatch or blocked preview never simulates current addition",
+      "pass": true
+    },
+    {
+      "name": "C14.3 changed account revision, omitted holding, invalid observation and mismatched cash suppress all account projections",
+      "pass": true
+    },
+    {
+      "name": "C14.4 selling only historically liquid subset can leave all remaining exposure in one restricted stock",
+      "pass": true
+    },
+    {
+      "name": "C14.4 missing sellability or historical capacity never silently gives complete zero residual",
+      "pass": true
+    },
+    {
+      "name": "C14.4 explicitly unknown theme stays unknown even if stock-level residual is known",
+      "pass": true
+    },
+    {
+      "name": "C14.5 different declared themes can co-lose on every worst-decile day",
+      "pass": true
+    },
+    {
+      "name": "C14.5 insufficient tail samples retain complete all-day description but no tail certainty",
+      "pass": true
+    },
+    {
+      "name": "C14.5 missing, duplicate, future, wrong basis or misbound history does not certify diversification",
+      "pass": true
+    },
+    {
+      "name": "C17.1 equal total equity cannot hide redistributed security values",
+      "pass": true
+    },
+    {
+      "name": "C17.1 original quote and cash identity are rechecked, not just wrapper time or aggregate",
+      "pass": true
+    },
+    {
+      "name": "C17.2 pending remainder requires original order key, state identity, status and filled arithmetic",
+      "pass": true
+    },
+    {
+      "name": "C17.2 a partial order contributes only remaining shares; canceled remainder is not a new exposure",
+      "pass": true
+    },
+    {
+      "name": "C17.3 a profitable lot still has the same marked exposure and one-percent loss",
+      "pass": true
+    },
+    {
+      "name": "C17.3 incomplete lot cost cannot manufacture profit or suppress exposure",
+      "pass": true
+    },
+    {
+      "name": "C17.4 stale or mismatched exit projection cannot reduce residual holding exposure",
+      "pass": true
+    },
+    {
+      "name": "C17.5 equal portfolio boundary losses all remain in the descriptive worst-decile cohort",
+      "pass": true
+    }
+  ],
+  "newTests": 8,
+  "passed": 22,
+  "failed": 0
+}

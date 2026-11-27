@@ -1,0 +1,7 @@
+# C组第十六批 B：原退出成本合同回归修复（未发布）
+
+重开原C任务书，优先22.9/10、EX04/25/39/40实际回归阻塞。唯一原始dev 0c45291d7156be8a1206f0bb272f3c719d5d2336；依赖#472精确HEAD 264a766768f08aef4d203dd354679fb1b3050a41（#442→#466→#472）。#466实际verify job 140323613413，6129通过、2失败、0跳过；两失败为原C5 c-exit-scope-integrity.test.js 第13和18行，旧静态基点估算6元被#466低层改为null。不是行情或权限放行失败，仍阻塞组合。旧C5测试不修改。
+
+C16.5：低层exitRisk原显式assumedExitBps只表示当前标记价乘可卖数量乘给定基点的静态比例摩擦。恢复原estimatedExitCost/estimatedSellableExitCost的兼容含义并加exitCostBasis、staticSellableMarkFriction、staticWholeMarkFriction、staticMarkFrictionBps、multiSessionExitCost:null、actualExitCost:null；不把旧静态6元伪称实际多日成本。整仓受限或缺少合规容量/报价仍不能推算整仓。高级runtime原调用不提供assumedExitBps，实际报告只在原明确单时段时输出预计费用+假设冲击；多时段不再显示按单时段假设的整批estimatedMarketImpact，明确estimatedFeeBasis为当前价单委托费用，并将未知完整多日与实际退出成本向原诊断透传。没有放宽原交易、时效、T+1、冻结、流动性门槛。
+
+C13.4一个与原C5静态字段冲突的新断言改为同时断言静态兼容6元、显式basis与实际/多时段成本null；保留其余C13与原C5测试，另增2条低层新反例及1条真实原accountExitDiagnostics联动用例（待全仓运行）。未删除旧测试，不以改断言掩盖业务风险。隔离实际执行完整原/改目标模块和四原依赖，测试框架替身，未调用费用/账户模块空替身；修前原C5 8/10、修后10/10；更新后C13/C16同文件17/17，共27/27。原/改runtime退出map原样片段用显式合成cost/history/account输入执行三情景：整仓/部分多时段冲击未知、单时段保留，3/3；非完整原生Node或原账户链。逐项结果 validation/fayo-c-ci16-exit-20261127/isolated-results.json。命令 cd V6_BO && node --test tests/c-exit-scope-integrity.test.js tests/c-exit-scope-runtime.test.js tests/c-batch-budget-exit.test.js tests/c-batch-budget-runtime.test.js tests/advanced-portfolio-runtime.test.js tests/advanced-account-risk.test.js。完整全仓CI及真实退出成本仍待；第十六批A #481 原生31通过另行提交。未合并、部署、改变正式阈值、发真实通知或下单。回滚仅撤本单提交，保留原账户与旧记录。

@@ -5,6 +5,7 @@ const {buildRiskWorkbench,filterRiskWorkbench,riskForPlanAlert}=require('../core
 const {buildEffectiveRiskEvidence,freshMark}=require('../core/effective-risk-evidence');
 const {buildRiskActionEvidence}=require('../core/risk-action-evidence');
 const {buildAccountSafetyRiskEvidence}=require('../core/account-safety-risk-evidence');
+const {buildAdversePathEvidence,buildPlanOddsEvidence}=require('../core/portfolio-adverse-path-evidence');
 const {createRiskAlertLifecycle,normalizeRiskReceipt,normalizeRisk}=require('../core/risk-alert-lifecycle');
 const {digest}=require('../core/research-workspace-store');
 const planObserver=require('../core/paper-plan-observer');
@@ -118,6 +119,14 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     const classification=classifications(market,equity);
     try{stress=buildPortfolioStressEvidence({equity,classifications:classification,now});}
     catch{missing.push('组合压力测试缺少可核验的权益或分类输入');}
+    // Extend the existing read-only report, not the original effective gate or
+    // alert-clearance state. A failed optional projection cannot erase base stress.
+    if(stress){
+      try{stress.adversePaths=buildAdversePathEvidence({equity,rules,stress,now});}
+      catch{stress.adversePaths={status:'unknown',reason:'ADVERSE_PATH_EVIDENCE_UNAVAILABLE',paths:[],canTrade:false};}
+      try{stress.planOdds=buildPlanOddsEvidence({equity,actions,plans:accountId==='pool'&&!plansError?plans:[],now});}
+      catch{stress.planOdds={status:'unknown',rows:[],canTrade:false};}
+    }
     let alertView=null;
     if(equity?.accountEpoch)try{alertView=notifications.read({accountId,accountEpoch:equity.accountEpoch,actor});}
     catch{missing.push('原风险提醒记录不可核验，保留去重且不自动重发');}

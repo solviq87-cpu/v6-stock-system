@@ -1,0 +1,255 @@
+{
+  "base": "33b08f1f90bc5d93e278daab98ac64d2025e1b83",
+  "engine": "Actual complete ESM source loaded in isolated V8 with export adaptation and test/assert substitutes; no filesystem, Node full runtime, real market or CSV end-to-end.",
+  "dependencies": [
+    {
+      "path": "V6_BO/public/nova/shortline/stock-risk-evidence.mjs",
+      "blob": "4f80f8d369a0b96bc95dedde3eebaa19f9972ae9"
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-five-boundaries.test.js",
+      "blob": "d7172a88732e3bb2f475f70726bc2b356e6e3169"
+    },
+    {
+      "path": "V6_BO/tests/shortline-stock-risk-evidence.test.js",
+      "blob": "4306d018147ce7169db9d3be2fc780e281e6a00a"
+    }
+  ],
+  "before": [
+    {
+      "name": "C21.1 explicit unknown or reversed daily receipt cannot establish historical high mark",
+      "pass": false,
+      "error": "30:0: expected false got true"
+    },
+    {
+      "name": "C21.1 legacy absent receipt differs from future or malformed current receipt",
+      "pass": false,
+      "error": "equal: expected 0 got 3"
+    },
+    {
+      "name": "C21.2 current conflict or adjusted price cannot create price-based high position or holding evidence",
+      "pass": false,
+      "error": "30:0: expected false got true"
+    },
+    {
+      "name": "C21.2 visible contradictory prior price flag breaks sequence; future revision cannot rewrite history",
+      "pass": false,
+      "error": "30:0: expected false got true"
+    },
+    {
+      "name": "C21.2 explicit special session cannot treat opening gap as ordinary decline",
+      "pass": false,
+      "error": "30:0: expected false got true"
+    },
+    {
+      "name": "C21.3 unrelated declared sector cannot provide held-profit weakness evidence",
+      "pass": false,
+      "error": "64:2: expected false got true"
+    },
+    {
+      "name": "C21.3 conflicting leader observation or malformed member list cannot produce leader-specific high risk",
+      "pass": false,
+      "error": "37:0: expected false got true"
+    },
+    {
+      "name": "C21.4 duplicate market reports deduplicate, same-day conflict cannot count as a consecutive market decline",
+      "pass": false,
+      "error": "62:0: expected true got undefined"
+    },
+    {
+      "name": "C21.4 visible same-day market value mismatch or explicit invalid current market receipt is not a verified decline",
+      "pass": false,
+      "error": "62:0: expected false got true"
+    },
+    {
+      "name": "C21.5 latest visible withdrawn or explicitly corrected original event cannot keep old warning active",
+      "pass": false,
+      "error": "49:1: expected false got true"
+    },
+    {
+      "name": "C21.5 same-event same-clock conflicts, explicit unknown and same-id conflicting disclosure days are not independent notices",
+      "pass": false,
+      "error": "49:1: expected false got true"
+    },
+    {
+      "name": "C21.5 wrong-symbol or late correction does not erase the original independent disclosure",
+      "pass": true
+    },
+    {
+      "name": "C21.3 visible conflicting leader copy cannot be discarded beside a valid copy",
+      "pass": true
+    },
+    {
+      "name": "C21.2 conflicted or retracted minute does not establish repeated observed plunge",
+      "pass": false,
+      "error": "60:1: expected false got true"
+    }
+  ],
+  "after": [
+    {
+      "name": "C21.1 explicit unknown or reversed daily receipt cannot establish historical high mark",
+      "pass": true
+    },
+    {
+      "name": "C21.1 legacy absent receipt differs from future or malformed current receipt",
+      "pass": true
+    },
+    {
+      "name": "C21.2 current conflict or adjusted price cannot create price-based high position or holding evidence",
+      "pass": true
+    },
+    {
+      "name": "C21.2 visible contradictory prior price flag breaks sequence; future revision cannot rewrite history",
+      "pass": true
+    },
+    {
+      "name": "C21.2 explicit special session cannot treat opening gap as ordinary decline",
+      "pass": true
+    },
+    {
+      "name": "C21.3 unrelated declared sector cannot provide held-profit weakness evidence",
+      "pass": true
+    },
+    {
+      "name": "C21.3 conflicting leader observation or malformed member list cannot produce leader-specific high risk",
+      "pass": true
+    },
+    {
+      "name": "C21.4 duplicate market reports deduplicate, same-day conflict cannot count as a consecutive market decline",
+      "pass": true
+    },
+    {
+      "name": "C21.4 visible same-day market value mismatch or explicit invalid current market receipt is not a verified decline",
+      "pass": true
+    },
+    {
+      "name": "C21.5 latest visible withdrawn or explicitly corrected original event cannot keep old warning active",
+      "pass": true
+    },
+    {
+      "name": "C21.5 same-event same-clock conflicts, explicit unknown and same-id conflicting disclosure days are not independent notices",
+      "pass": true
+    },
+    {
+      "name": "C21.5 wrong-symbol or late correction does not erase the original independent disclosure",
+      "pass": true
+    },
+    {
+      "name": "C21.3 visible conflicting leader copy cannot be discarded beside a valid copy",
+      "pass": true
+    },
+    {
+      "name": "C21.2 conflicted or retracted minute does not establish repeated observed plunge",
+      "pass": true
+    }
+  ],
+  "legacyC6": [
+    {
+      "name": "C6.1 conflicting daily observations cannot create a high-mark warning by input order",
+      "pass": true
+    },
+    {
+      "name": "C6.1 equivalent visible daily duplicates do not destroy a genuine sequence",
+      "pass": true
+    },
+    {
+      "name": "C6.1 conflicting earlier volume interrupts the consecutive shrinking sequence",
+      "pass": true
+    },
+    {
+      "name": "C6.1 explicit invalid previous-day reference cannot be silently replaced by a weekday guess",
+      "pass": true
+    },
+    {
+      "name": "C6.2 negative assist count is unknown, not observed collapse",
+      "pass": true
+    },
+    {
+      "name": "C6.2 real zero assists remains a verified adverse observation",
+      "pass": true
+    },
+    {
+      "name": "C6.2 leader name or stock code must identify a real distinct stock",
+      "pass": true
+    },
+    {
+      "name": "C6.2 unique valid leader and numeric code still verify while ambiguous or late evidence stays unknown",
+      "pass": true
+    },
+    {
+      "name": "C6.3 late explicit plan receipts cannot cause hindsight stop, target or regime mismatch",
+      "pass": true
+    },
+    {
+      "name": "C6.3 malformed, unknown or reversed freeze receipt cannot become a known plan",
+      "pass": true
+    },
+    {
+      "name": "C6.3 valid original receipt preserves research facts; fractional holding cannot assert position",
+      "pass": true
+    },
+    {
+      "name": "C6.3 actual backtest selector excludes late and same-second future freeze, retains unique visible plan",
+      "pass": true
+    },
+    {
+      "name": "C6.4 conflict flags block unsupported bid-ask spread evidence",
+      "pass": true
+    },
+    {
+      "name": "C6.4 original suspension cannot be erased or replaced by contradictory quotes",
+      "pass": true
+    },
+    {
+      "name": "C6.5 conflicting duplicate minute and alias of same timestamp cannot generate a repeated plunge",
+      "pass": true
+    },
+    {
+      "name": "C6.5 explicit invalid duplicate value cannot be filtered away before conflict detection",
+      "pass": true
+    },
+    {
+      "name": "C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges",
+      "pass": true
+    },
+    {
+      "name": "C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible",
+      "pass": true
+    },
+    {
+      "name": "C6.5 late conflicting minute cannot rewrite earlier visible history",
+      "pass": true
+    }
+  ],
+  "legacyOriginal": [
+    {
+      "name": "风险仅由有时点的个股与标的上下文触发；情绪和助攻缺失保持未知",
+      "pass": true
+    },
+    {
+      "name": "高位低开与放量滞涨、缩量连板兑现及前日一字开板使用连续交易日",
+      "pass": true
+    },
+    {
+      "name": "基本面需有同标的披露来源和可知时间，金融企业不套用普通工商偿债口径",
+      "pass": true
+    },
+    {
+      "name": "停牌、实时报价价差与全成分板块断层分开判定，封板数不充当全板块上涨数",
+      "pass": true
+    },
+    {
+      "name": "自述动机、已有持仓、冻结止损分别有独立证据，不以盈亏或价格触达推断执行",
+      "pass": true
+    },
+    {
+      "name": "连续剧烈跳水缺少连续成交分钟时保持未知；利空叠加按独立事实计数",
+      "pass": true
+    }
+  ],
+  "excluded": [
+    "Original CSV→autoValidate end-to-end test"
+  ],
+  "passed": 39,
+  "failed": 0
+}

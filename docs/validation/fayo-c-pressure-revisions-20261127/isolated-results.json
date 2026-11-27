@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "originalRiskBlob": "4cfd2d5d6315fbd47cc117c307105c2c09378d5b",
+  "qualityDependencyBlob": "cb6cb8f01a837064a4642bf69e9c53beb41a5924",
+  "originalTestsBlob": "d23048b26428189d54a03fb5af5d21a252ef5c57",
+  "engine": "V8 isolated JS execution of complete pressure module and sample-quality dependency with import/export loading adaptation and test/assert harness; not native Node nor full CI.",
+  "before": [
+    {
+      "name": "C7.1 missing or invalid archive receipt must not feed risk or historical learning",
+      "pass": false,
+      "error": "expected 0 got 1"
+    },
+    {
+      "name": "C7.1 malformed row container and unknown receipt cannot enter the archive",
+      "pass": false,
+      "error": "(report[key] || []).filter is not a function"
+    },
+    {
+      "name": "C7.1 original valid report retains its initial evidence and excludes another security",
+      "pass": true
+    },
+    {
+      "name": "C7.2 conflicting equal-clock fact versions remain unknown regardless of order",
+      "pass": false,
+      "error": "expected 0 got 1"
+    },
+    {
+      "name": "C7.2 exact repeats of contradictory archive revisions stay bounded; later valid revision resolves only forward",
+      "pass": false,
+      "error": "expected 2 got 12"
+    },
+    {
+      "name": "C7.2 unchanged later receipt does not refresh the first known time",
+      "pass": true
+    },
+    {
+      "name": "C7.2 future correction does not change earlier risk; newer withdrawal does not revive an older positive",
+      "pass": false,
+      "error": "expected [] got [\"压力·高商誉（≥30%净资产）\"]"
+    },
+    {
+      "name": "C7.3 whitespace provenance, withdrawal and impossible expiry are not confirmed facts",
+      "pass": false,
+      "error": "expected false got true"
+    },
+    {
+      "name": "C7.3 goodwill label must agree with actual numeric value and unit",
+      "pass": false,
+      "error": "expected false got true"
+    },
+    {
+      "name": "C7.3 genuine threshold equality and provider-declared low-risk revision preserve evidence",
+      "pass": true
+    },
+    {
+      "name": "C7.4 unfinished daily bar receipt cannot be advanced to close by the projector",
+      "pass": false,
+      "error": "expected [] got [{\"id\":\"chip/2026-11-20/raw\",\"code\":\"600000\",\"date\":\"2026-11-20\",\"kind\":\"raw\",\"peak\":9.8,\"close\":9.5,\"source\":\"原字段\",\"knownAt\":1795158000000}]"
+    },
+    {
+      "name": "C7.4 explicit unknown or preclose chip receipt cannot be replaced by daily bar clock",
+      "pass": false,
+      "error": "expected [] got [{\"id\":\"chip/2026-11-20/raw\",\"code\":\"600000\",\"date\":\"2026-11-20\",\"kind\":\"raw\",\"peak\":9.8,\"close\":9.5,\"source\":\"原字段\",\"knownAt\":1795158960000}]"
+    },
+    {
+      "name": "C7.4 contradictory raw locked ratio or peak remains unknown",
+      "pass": false,
+      "error": "expected [] got [{\"id\":\"chip/2026-11-20/raw\",\"code\":\"600000\",\"date\":\"2026-11-20\",\"kind\":\"raw\",\"peak\":9.8,\"close\":9.5,\"source\":\"原字段\",\"knownAt\":1795158960000,\"lockedRatio\":10}]"
+    },
+    {
+      "name": "C7.4 explicit conflicting units cannot be silently deduplicated",
+      "pass": false,
+      "error": "expected [] got [{\"id\":\"chip/2026-11-20/raw\",\"code\":\"600000\",\"date\":\"2026-11-20\",\"kind\":\"raw\",\"peak\":9.8,\"close\":9.5,\"source\":\"原字段\",\"knownAt\":1795158960000}]"
+    },
+    {
+      "name": "C7.4 future chip correction is invisible while valid raw chip receipt is retained",
+      "pass": false,
+      "error": "expected [{\"id\":\"chip/2026-11-20/raw\",\"code\":\"600000\",\"date\":\"2026-11-20\",\"kind\":\"raw\",\"peak\":9.8,\"close\":9.5,\"source\":\"原字段\",\"knownAt\":1795158960000}] got []"
+    },
+    {
+      "name": "C7.4 valid later chip receipt retains the actual time rather than the daily bar time",
+      "pass": true
+    },
+    {
+      "name": "C7.5 chip learning requires real date, type, source and close-time receipt",
+      "pass": false,
+      "error": "expected [] got [\"筹码·估算峰下方收盘\"]"
+    },
+    {
+      "name": "C7.5 conflicting raw-chip revisions do not generate a learning label",
+      "pass": false,
+      "error": "expected [] got [\"筹码·原始峰下方收盘\"]"
+    },
+    {
+      "name": "C7.5 a wrong security cannot shadow valid same-id evidence; future target dates remain unknown",
+      "pass": false,
+      "error": "expected [\"筹码·原始峰下方收盘\"] got []"
+    },
+    {
+      "name": "C7.5 valid raw/estimated labels and original first receipt stay distinct",
+      "pass": true
+    },
+    {
+      "name": "C7.2 late same-clock contradiction after repeated receipt compression remains unknown",
+      "pass": false,
+      "error": "expected [] got [\"压力·高商誉（≥30%净资产）\"]"
+    }
+  ],
+  "after": [
+    {
+      "name": "C7.1 missing or invalid archive receipt must not feed risk or historical learning",
+      "pass": true
+    },
+    {
+      "name": "C7.1 malformed row container and unknown receipt cannot enter the archive",
+      "pass": true
+    },
+    {
+      "name": "C7.1 original valid report retains its initial evidence and excludes another security",
+      "pass": true
+    },
+    {
+      "name": "C7.2 conflicting equal-clock fact versions remain unknown regardless of order",
+      "pass": true
+    },
+    {
+      "name": "C7.2 exact repeats of contradictory archive revisions stay bounded; later valid revision resolves only forward",
+      "pass": true
+    },
+    {
+      "name": "C7.2 unchanged later receipt does not refresh the first known time",
+      "pass": true
+    },
+    {
+      "name": "C7.2 future correction does not change earlier risk; newer withdrawal does not revive an older positive",
+      "pass": true
+    },
+    {
+      "name": "C7.3 whitespace provenance, withdrawal and impossible expiry are not confirmed facts",
+      "pass": true
+    },
+    {
+      "name": "C7.3 goodwill label must agree with actual numeric value and unit",
+      "pass": true
+    },
+    {
+      "name": "C7.3 genuine threshold equality and provider-declared low-risk revision preserve evidence",
+      "pass": true
+    },
+    {
+      "name": "C7.4 unfinished daily bar receipt cannot be advanced to close by the projector",
+      "pass": true
+    },
+    {
+      "name": "C7.4 explicit unknown or preclose chip receipt cannot be replaced by daily bar clock",
+      "pass": true
+    },
+    {
+      "name": "C7.4 contradictory raw locked ratio or peak remains unknown",
+      "pass": true
+    },
+    {
+      "name": "C7.4 explicit conflicting units cannot be silently deduplicated",
+      "pass": true
+    },
+    {
+      "name": "C7.4 future chip correction is invisible while valid raw chip receipt is retained",
+      "pass": true
+    },
+    {
+      "name": "C7.4 valid later chip receipt retains the actual time rather than the daily bar time",
+      "pass": true
+    },
+    {
+      "name": "C7.5 chip learning requires real date, type, source and close-time receipt",
+      "pass": true
+    },
+    {
+      "name": "C7.5 conflicting raw-chip revisions do not generate a learning label",
+      "pass": true
+    },
+    {
+      "name": "C7.5 a wrong security cannot shadow valid same-id evidence; future target dates remain unknown",
+      "pass": true
+    },
+    {
+      "name": "C7.5 valid raw/estimated labels and original first receipt stay distinct",
+      "pass": true
+    },
+    {
+      "name": "C7.2 late same-clock contradiction after repeated receipt compression remains unknown",
+      "pass": true
+    }
+  ],
+  "legacyBefore": [
+    {
+      "name": "筹码图保留原始值及原始可知时间，估算逐日回看，其他代码、分时与未来K不参与",
+      "pass": true
+    }
+  ],
+  "legacyAfter": [
+    {
+      "name": "筹码图保留原始值及原始可知时间，估算逐日回看，其他代码、分时与未来K不参与",
+      "pass": true
+    }
+  ]
+}

@@ -568,7 +568,13 @@ function buildThemeCrowding(input={}, options={}) {
     const stocks=array(t.stocks,'题材成员',10000),seen=new Set(),valid=[],members=new Set(t.members);
     if(new Set(stocks.map(s=>s?.symbol)).size!==stocks.length){rejected.push({id:t.id,reason:'duplicate-theme-member-observation'});continue;}
     for (const s of stocks) {
-      if (!symbol(s?.symbol)||!members.has(s.symbol)||seen.has(s.symbol)||!time(s.quoteAt)||s.quoteAt>t.snapshotAt||
+      // Explicit member receipt clocks must agree with the enclosing evidence.
+      // Legacy members without these optional clocks retain their research-only
+      // parent provenance; never substitute receipt time for quoteAt.
+      const memberClocks=['receivedAt','knownAt','firstKnownAt','recordedAt'];
+      const badClock=s && memberClocks.some(k=>Object.hasOwn(s,k)&&
+        (!time(s[k])||s[k]<s.quoteAt||s[k]>(k==='recordedAt'?t.recordedAt:t.firstKnownAt)));
+      if (badClock||!symbol(s?.symbol)||!members.has(s.symbol)||seen.has(s.symbol)||!time(s.quoteAt)||s.quoteAt>t.snapshotAt||
           aShareCalendarDate(s.quoteAt)!==aShareCalendarDate(t.snapshotAt)||!text(s.source,160)||fake(s.source)||
           s.retracted===true||['synthetic','fixture','simulated','mock'].some(k=>s[k]===true)||['test','demo','synthetic'].includes(s.sampleSet)) continue;
       seen.add(s.symbol);valid.push(s);
@@ -584,7 +590,7 @@ function buildThemeCrowding(input={}, options={}) {
       ['换手较高',metrics.meanTurnoverPct!==null&&metrics.meanTurnoverPct>=10],
       ['涨停扩散',metrics.limitUpFractionPct!==null&&metrics.limitUpFractionPct>=30],
       ['价格快速上涨',metrics.meanChangePct!==null&&metrics.meanChangePct>=5]].filter(([,yes])=>yes).map(([name])=>name);
-    const known=Object.values(metrics).every(v=>v!==null),current=asOf-t.snapshotAt<=15000&&valid.every(s=>asOf-s.quoteAt<=15000)&&
+    const known=Object.values(metrics).every(v=>v!==null),current=complete&&asOf-t.snapshotAt<=15000&&valid.every(s=>asOf-s.quoteAt<=15000)&&
       aShareCalendarDate(t.snapshotAt)===aShareCalendarDate(asOf);
     const row={id:t.id,name:t.name,snapshotAt:t.snapshotAt,evidence:provenance(t,asOf),members:t.members,
       memberCount:t.members.length,observedMembers:valid.length,coveragePct:round(valid.length/t.members.length*100),metrics,
