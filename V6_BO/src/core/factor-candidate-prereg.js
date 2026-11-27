@@ -161,11 +161,11 @@ function preregisterSeedCandidate({features=[],seedConfig,registeredAt}={}){
 // tested day, not merely the first supplied holdout row. A valid SHA seals
 // the registration's contents; it does not establish that a caller's
 // independently supplied sample list matches those frozen observations.
-function matchesFrozenWindows(reg,sorted,freshTest,sealedAt){
+function matchesFrozenWindows(reg,sorted,freshTest,sealedAt,pending=false){
  const prefix=reg.frozenPrefixFingerprints;
  if(!Array.isArray(prefix)||!Array.isArray(sorted)||!Array.isArray(freshTest)||
     !Number.isSafeInteger(sealedAt)||sealedAt<=0||sorted.length>400||
-    prefix.length>=sorted.length||!freshTest.length||freshTest.length>sorted.length)
+    prefix.length>sorted.length||(!pending&&(prefix.length===sorted.length||!freshTest.length))||freshTest.length>sorted.length)
   return false;
  const seen=new Set(),byDay=new Map();
  for(let i=0;i<sorted.length;i++){
@@ -192,15 +192,17 @@ function matchesFrozenWindows(reg,sorted,freshTest,sealedAt){
  return true;
 }
 function verifySeedCandidate(reg,{sorted,ids,packFingerprint,oldWeights,
- previousFingerprint,previousTrialFingerprint,freshTest}={}){
+ previousFingerprint,previousTrialFingerprint,freshTest}={},pending=false){
  verifySeedRegistrationMetadata(reg);
  const prefix=reg.frozenPrefixFingerprints,first=freshTest[0],
   sealedAt=Math.max(reg.registeredAt,reg.recordedAt);
  if(reg.algorithmFingerprint!==currentResearchCodeFingerprint()||
     reg.packFingerprint!==packFingerprint||previousFingerprint||previousTrialFingerprint||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
-    !matchesFrozenWindows(reg,sorted,freshTest,sealedAt))
+    !matchesFrozenWindows(reg,sorted,freshTest,sealedAt,pending))
   throw Error('固定种子预注册时点、冻结前缀或模型血缘不一致');
+ if(pending)return {status:'candidate-waiting-verified',registrationFingerprint:reg.fingerprint,
+  registeredAt:reg.registeredAt,frozenPrefixDays:prefix.length,canTrade:false,productionWeightsChanged:false};
  return {status:'candidate-committed-before-new-signal',registrationFingerprint:reg.fingerprint,
   registeredAt:reg.registeredAt,recordedAt:reg.recordedAt,frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
   candidateOrigin:reg.candidateOrigin,canTrade:false,productionWeightsChanged:false};
@@ -252,13 +254,13 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
  if(modelProvenance!==undefined)verifyModelCandidateProvenance(payload);
  return structuredClone({...payload,fingerprint:hash(payload)});
 }
-function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
- oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={}){
+function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
+ oldWeights,previousFingerprint,previousTrialFingerprint,freshTest}={},pending=false){
  if(!reg||typeof reg!=='object'||!Array.isArray(sorted)||
     !validIds(ids)||!Array.isArray(freshTest))
   throw Error('缺少不可变候选预注册，拒绝事后试验');
  if(reg.mode===SEED_MODE)return verifySeedCandidate(reg,{
-  sorted,ids,packFingerprint,oldWeights,previousFingerprint,previousTrialFingerprint,freshTest});
+  sorted,ids,packFingerprint,oldWeights,previousFingerprint,previousTrialFingerprint,freshTest},pending);
  const {fingerprint,...payload}=reg;
  const first=freshTest[0],prefix=reg.frozenPrefixFingerprints;
  const canonical=canonicalDefinitions(ids,packFingerprint);
@@ -278,7 +280,7 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
      !seal(reg.autoSourceFingerprint)||reg.autoSourceFingerprint!==(previousTrialFingerprint??previousFingerprint)))||
     hash(reg.factorIds)!==hash(ids)||hash(reg.acceptedWeights)!==hash(oldWeights)||
     !Array.isArray(prefix)||prefix.length<36||
-    !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt)||
+    !matchesFrozenWindows(reg,sorted,freshTest,reg.registeredAt,pending)||
     (Object.hasOwn(reg,'factorDefinitions')&&!sealedDefinitions)||
     (canonical!==null&&sealedDefinitions!==null&&hash(canonical)!==hash(sealedDefinitions))||
     !weightsValid(reg.candidateWeights,reg.acceptedWeights,ids,envelope)||
@@ -286,11 +288,21 @@ function verifyPreregisteredCandidate(reg,{sorted,ids,packFingerprint,
     Object.hasOwn(reg,'modelProvenance')!==Object.hasOwn(reg,'factorDefinitionsFingerprint'))
   throw Error('候选预注册时点、冻结前缀或模型血缘不一致，拒绝样本外验证');
  if(Object.hasOwn(reg,'modelProvenance'))verifyModelCandidateProvenance(reg);
+ if(pending)return {status:'candidate-waiting-verified',registrationFingerprint:reg.fingerprint,
+  registeredAt:reg.registeredAt,frozenPrefixDays:prefix.length,canTrade:false,productionWeightsChanged:false};
  return {status:'candidate-committed-before-new-signal',
   registrationFingerprint:fingerprint,registeredAt:reg.registeredAt,
   frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
   canTrade:false,productionWeightsChanged:false};
 }
-module.exports={preregisterCandidate,verifyPreregisteredCandidate,currentResearchCodeFingerprint,
+// Waiting is not a holdout inspection. Reuse the exact same archive/weight
+// and capture-window checks, without inventing a fresh sample or certifying it.
+function verifyPendingCandidateRegistration(reg,context={}){
+ return verifyRegistrationWindow(reg,{...context,freshTest:[]},true);
+}
+function verifyPreregisteredCandidate(reg,context={}){
+ return verifyRegistrationWindow(reg,context,false);
+}
+module.exports={preregisterCandidate,verifyPreregisteredCandidate,verifyPendingCandidateRegistration,currentResearchCodeFingerprint,
  preregisterSeedCandidate,verifySeedRegistrationMetadata,SEED_MODE,SEED_POLICY,
  modelCandidateBinding,verifyModelCandidateProvenance,verifyUnchangedModelReview};
