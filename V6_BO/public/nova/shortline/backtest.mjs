@@ -8,7 +8,7 @@ import {inferEvidence} from './recognize.mjs';
 import {addPatternEvidence,parsePatternColumns} from './pattern-evidence.mjs';
 import {addIndexEvidence} from './index-evidence.mjs';
 import {addPressureRiskFacts} from './pressure.mjs';
-import {addStockRiskEvidence,riskNumericFields,riskTextFields,selectFrozenRiskPlan} from './stock-risk-evidence.mjs';
+import {addStockRiskEvidence,riskNumericFields,riskTextFields,selectFrozenRiskPlan,buildChaseRiskResearch} from './stock-risk-evidence.mjs';
 import {dictionaryVersion} from './factor-dictionary.mjs';
 import {buildRulePanel} from './numeric-factors.mjs';
 
@@ -401,6 +401,7 @@ export function observations(state,asOf,options={}){
       const {stage,series:marketSeries}=stages.get(point);
       const inferred=inferEvidence(b,history,features,market,stage,sector,state.catalog||[],settings);
       const frozenPlan=planAt(state.plans,b.code,day,point+':00');
+      features.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point,plan:frozenPlan});
       completeEvidence({b:{...b,frozenPlan},history,f:features,market,stage,sector,catalog:state.catalog||[],intraday:sessionRows(minutes,b),marketSeries,asOf:point},inferred.facts);
       const keys=new Set([...inferred.facts].filter(([,v])=>v.pass).map(([k])=>k));
       let {strategy,strategies,type}=classify(features,b,state.catalog||[],keys,settings);
@@ -504,6 +505,7 @@ export function deriveCheckInput(state,input){
  const {facts,main,strong}=inferEvidence(b,history,f,market,stage,sector,state.catalog,settings);
  const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
  b.frozenPlan=planAt(state.plans,code,date,seconds);
+  f.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point});
  const minutes=[...(state.bars||[]),...(current?obs.minuteBars||[]:[])].filter(r=>officialReceipt(state,r) && r.date.length>10 && r.date.slice(0,10)===date &&
    (r.role==='sector'?(r.sector||r.code)===b.sector:(!r.role||r.role==='stock')&&(r.code===code||b.sector&&r.sector===b.sector)));
  completeEvidence({b,history,f,market,stage,sector,catalog:state.catalog,intraday:minutes,marketSeries,asOf:point},facts);
@@ -531,7 +533,7 @@ export function deriveCheckInput(state,input){
    dictionaryVersion,inputs:ruleInputs,settingsVersion:settings.version??null,settings});
  return {code,date,stockEvidence:b,name:b.name,theme:b.sector||'',selected,mainline:stock.mainline??main,strongSector:stock.strongSector??strong,asOf,observedAtMs:typeof point==='number'?point:null,
  capture:current&&obs.latestClosed===true&&bar?{features:f,context:{sectorChange:sector.change??null,indexChange:market.indexChange??null}}:null,
- recognition:{evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8),ruleObservations}};
+ recognition:{chaseRiskResearch:f.chaseRiskResearch,evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8),ruleObservations}};
 }
 function knownFeature(v){return v!=null&&v!==''&&v!==MISSING}
 
