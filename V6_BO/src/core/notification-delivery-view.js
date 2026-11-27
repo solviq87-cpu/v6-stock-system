@@ -6,13 +6,21 @@
 function projectPushLogDelivery(row) {
   const value=row&&typeof row==='object'?row:{};
   const original=typeof value.status==='string'?value.status:'';
-  const error=String(value.error||value.detail||'');
+  const texts=[value.error,value.detail].filter(v=>v!=null);
+  const malformed=texts.some(v=>typeof v!=='string');
+  const uncertainty=/送达结果未知|送达未知|结果未知|未确认|unconfirmed|receiver-confirmed|超时|timeout|timed?\s*out|ETIMEDOUT|ECONN|socket|断连|回执.*矛盾|HTTP\s+(?:408|5\d\d)\b/i;
+  const rejection=/未发送|未送达|不外发|拒绝|拒收|失败|未配置|拦截|rejected|failed|HTTP\s+4\d\d\b/i;
+  const accepted=/^✅ 已送达(?:\(私密\))?$/.test(original)||original==='gateway-accepted'||original==='验证码(安全通道)';
+  // Check both aliases independently. A benign error must not mask a later
+  // contradictory detail; a legacy success label is not stronger evidence.
+  const contradictory=accepted&&(value.gatewayAccepted===false||
+    typeof value.error==='string'&&!!value.error.trim()&&!/^(?:ok|success)$/i.test(value.error.trim())||
+    texts.some(v=>typeof v==='string'&&rejection.test(v)));
   let status='unknown',label=original||'投递状态未知',gatewayAccepted=null;
   let basis='原流水未提供可核验的接收端回执';
-  if(/送达结果未知|送达未知|结果未知|未确认|unconfirmed|receiver-confirmed/.test(original)||
-      /超时|timeout|timed?\s*out|ETIMEDOUT|ECONN|socket|断连|回执.*矛盾|HTTP\s+(?:408|5\d\d)\b/i.test(error)) {
+  if(malformed||contradictory||uncertainty.test(original)||texts.some(v=>typeof v==='string'&&uncertainty.test(v))) {
     status='unconfirmed';label='投递未确认';basis='结果不确定，原去重记录保留；不据此重发';
-  } else if(/^✅ 已送达(?:\(私密\))?$/.test(original)||original==='gateway-accepted'||original==='验证码(安全通道)') {
+  } else if(accepted) {
     status='gateway-accepted';label='网关受理 · 接收端未确认';gatewayAccepted=true;
     basis='原通道网关受理记录，不代表设备收到或用户查看';
   } else if(/排队|queued/.test(original)) {
