@@ -93,12 +93,17 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         account = JSON.parse(fs.readFileSync(file, 'utf8'));
       } catch (e) { if (e.code === 'ENOENT') throw new Error('账户账本缺失，拒绝自动重建'); throw e; }
       validateAccount(account);
+      // Retry requests must pass the same typed evidence contract as new fills.
+      const fillEvidence=fillEvidenceOf({...fill,symbol:order.symbol,tradeDate});
       const eventHash = hash({ orderId: order.orderId, fill, tradeDate });
       if (Object.hasOwn(account.eventHashes, fill.eventId)) {
         const prior = account.events.find(event => event.eventId === fill.eventId);
         // The legacy hash does not bind the order symbol and side. Verify the
         // actual posted event as well without changing historical hashes.
         if (account.eventHashes[fill.eventId] !== eventHash || !prior || prior.orderId !== order.orderId || String(prior.symbol) !== symbol || prior.side !== order.side || prior.quantity !== qty || prior.price !== price || prior.fee !== fee || prior.tradeDate !== tradeDate) throw new Error('成交事件ID冲突');
+        // Keep the legacy request hash; separately verify the evidence actually posted.
+        const priorEvidence=fillEvidenceOf(prior);
+        if ((priorEvidence?.fingerprint ?? null) !== (fillEvidence?.fingerprint ?? null)) throw new Error('成交事件ID冲突：已入账报价证据不一致');
         return { ...account, idempotent: true };
       }
       const gross = money(qty * price);
@@ -135,7 +140,6 @@ function createPaperAccountLedger(filePath, { faultInjector } = {}) {
         pos.sellable = pos.lots.filter(x => sellableOn(x, tradeDate)).reduce((s, x) => s + Number(x.quantity), 0);
       }
       if(account.cash<0)throw new Error('成交费用超过现金余额，拒绝透支');
-      const fillEvidence=fillEvidenceOf({...fill,symbol:order.symbol,tradeDate});
       const event = { eventId: fill.eventId, orderId: order.orderId, symbol: order.symbol, side: order.side, quantity: qty, price, fee, gross, costBasis:money(costBasis), realizedPnl:order.side==='sell'?money(gross-fee-costBasis):0, tradeDate, cashAfter: account.cash,
         ...(fillEvidence?{timestamp:fillEvidence.executionAt,fillEvidence:JSON.parse(JSON.stringify(fillEvidence))}:{}) };
       account.events.push(event); Object.defineProperty(account.eventHashes, fill.eventId, {value:eventHash, enumerable:true, configurable:true, writable:true});
