@@ -48,3 +48,10 @@
 - 原 factor-shadow-evolution.test.js 内保留原 strict watch 端到端正例，并增加非严格等待、重新封存越界拒绝、缺失H5时4日双模式等待、锁释放及目录无变更断言。语法编译通过，完整原生测试待CI。
 - 源码：6a5b1c8e750d6ca3460954118d4025da4da4ea00（prereg blob 97c8fdc758a4564c19057fc4465b75153066decc）；Worker 最终 a8e532c746ef3762318abe83148782d5fa568f08（blob fe2c3c578a92d86b93188927000f0d07bff053d4）。测试：33e34163989b8e731b0d24704cee2d0df89a4d1c（blob 2d144df3cc70d8dee7682e9f148797209fd16620），201b967635157bba3971ee8a383ce1a822545e60（blob 03c2a51e003e995b33015e22a1966a6d8d21a90f）。四个远端文件均核对。
 - 当前环境无法解析 GitHub 域名并取得完整工作树；本轮未完成原生全仓、真实模型或真实行情验证。#545 上轮 head 无工作流回执；总管 #427 仍是三项失败状态，未修改其他组测试或正式策略。原30项继续保持30项部分修复、0项最终完整验收。不合并、不部署。
+
+
+## Follow-up acceptance delta (2026-11-27)
+
+Frozen acceptance PR #549 at c61b77b does not contain the subsequent 11 commits through 26d83e4. Preserve the five changed worker/core/test files when integrating; do not replace them with the frozen snapshot. Recovery-only days are excluded from candidate holdout scores; fewer than five new days cannot pass promotion; missing IC differences remain null. Actual frozen factor definitions are checked at waiting, pre-holdout and evolution entry points, including canonical legacy weights.
+
+Evidence: 23/23 preregistration tests executed in an isolated JS harness with simulated filesystem and deterministic digest (not native SHA-256); 6/6 recovery-window boundary cases using actual comparison/marginal modules with synthetic scorer; 6/6 isolated recovery gain cases. Native worker and combined regression remain required. No production weight changes, trading permission, merge or deployment. Original 02.1 native replay evidence is present in integration #427 job 140282724697; that job overall passed 6546/6553 with seven unrelated HTTP trading failures. Do not represent this as a clean combined acceptance.
