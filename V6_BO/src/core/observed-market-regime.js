@@ -6,6 +6,10 @@ const SCORE_KEYS=['indexTrendScore','marketVolumeScore','riskScore','volatilityS
 function classifyObservedMarket(snapshot, options={}){
  const breadth=analyzeMarketBreadth(snapshot,options);
  if(!breadth.usable)return {usable:false,reason:breadth.reason,breadth,regime:null,weights:null};
+ // First-row descriptive counts are order-dependent when a quote identity
+ // repeats. Never promote such a snapshot to a research regime or weights.
+ if(breadth.duplicateCount>0)
+  return {usable:false,reason:'股票快照存在重复证券记录，不能确认同一时点市场环境',breadth,regime:null,weights:null};
  const scores=options.scores;
  if(!scores||typeof scores!=='object'||Array.isArray(scores))
   return {usable:false,reason:'缺少独立来源的市场环境评分',breadth,regime:null,weights:null};
