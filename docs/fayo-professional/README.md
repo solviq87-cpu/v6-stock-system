@@ -126,7 +126,7 @@
 
 ## 七、截至 #578 的证据与交付
 
-总管已将 ABCD 统一成果通过 #563 合入 dev，基线为 `b936ebdddb8c11948dd0e63f95332898dd5c1cf5`。本次费用与预算复验使用的本地组合树为 `9664bec371fab72f99b92633006500f3deda0704`。228 项中有 32 项取得局部证据，196 项待逐项验收，总管完整签收 0 项。下表列出各研究候选的复核入口。查单项时可从 [逐项验收索引](TASKS.md) 或 [Excel 统一清单](deliverables/checklist.xlsx) 开始。
+总管已将 ABCD 统一成果通过 #563 合入 dev，基线为 `b936ebdddb8c11948dd0e63f95332898dd5c1cf5`。费用与预算既有复验的本地组合树为 `9664bec371fab72f99b92633006500f3deda0704`。228 项中有 33 项取得局部证据，195 项待逐项验收，总管完整签收 0 项。下表列出各研究候选的复核入口。查单项时可从 [逐项验收索引](TASKS.md) 或 [Excel 统一清单](deliverables/checklist.xlsx) 开始。
 
 |候选|实际研究或核验范围|
 |---|---|
@@ -141,7 +141,7 @@
 |[#575](https://github.com/solviq87-cpu/v6-stock-system/pull/575)|原模拟执行清单与评分按成交截点复盘。隔离原账户毛收益 6 元，费用 10.50 元，净亏 4.50 元；信号基准价、未成交机会成本待证|
 |[#576](https://github.com/solviq87-cpu/v6-stock-system/pull/576)|F33.2 冻结决策价差与已结算份额费用，F25.4 原队列退避、风险预留与研究档案单独重试|
 |[#577](https://github.com/solviq87-cpu/v6-stock-system/pull/577)|F33.3 原报价限价核验，F32.4 未退出持仓，S17 / S18 原账户、鉴权接口与双端实测|
-|[#578](https://github.com/solviq87-cpu/v6-stock-system/pull/578)|F42.2 按历史日传递制度状态、连板战法和两条原研究接口消费|
+|[#578](https://github.com/solviq87-cpu/v6-stock-system/pull/578)|F42.1 原股票池资格进入历史观察池；F42.2 逐日制度及连板战法消费|
 
 截至 #573 的业务组合在 Linux 原生全量回归中 8,141 项通过，失败、取消、跳过均为 0。
 
@@ -154,6 +154,8 @@
 原报价边界候选 `ac7b96fbc0bb69ad09dd845521a18620291c4cd2` 的 8,033 项独立原生回归、23 项报价专项及 72 项相关兼容通过。六个账户阶段各用两种 Chromium 视口读取，账户事件按原执行时间显示；历史日期记录保留原精度。恢复交易后仅按合成可供量成交 100 股，余 200 股和未完成委托保留。[原服务、权限、账本及截图证据](https://github.com/solviq87-cpu/v6-stock-system/tree/ac7b96fbc0bb69ad09dd845521a18620291c4cd2/docs/validation/fayo-limit-quote-20261127)
 
 历史制度候选 `bf02b02b7ba87c5948e3caff7924b5aa65f097e9` 在原两条鉴权接口分别处理五种合成输入，双端十次实际流程验证首板战法及逐日覆盖。无限幅与制度缺口保留限制，正常输入继续命中。专项73项、源工程8038项通过；最终组合与当前CI分别核验。[输入、原生专项及实拍](https://github.com/solviq87-cpu/v6-stock-system/tree/bf02b02b7ba87c5948e3caff7924b5aa65f097e9/docs/validation/fayo-dated-rules-20261127)
+
+原股票池资格消费续接 `a4f4ed47048689ee02e47ecd40cafd26ec2ce80f`，原鉴权完整实验和双端页面分别核对允许、排除、迟到、区间缺口与无表旧研究。规则保留，观察资格与模型通过数同步变化。实际证券类型和交易所主数据仍待。[复验及限制](https://github.com/solviq87-cpu/v6-stock-system/tree/a4f4ed47048689ee02e47ecd40cafd26ec2ce80f/docs/validation/fayo-dated-rules-20261127)
 
 ## 跨专项执行约束 · 高效率开发与系统性能
 
