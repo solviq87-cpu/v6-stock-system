@@ -152,3 +152,37 @@ test('中心实际新冻结观察完整传入反馈重算，不能退回旧check
   assert.equal(state.candidates[0].centerFeedback.inputEvidenceFingerprint,viewed.feedback.proposal.inputEvidenceFingerprint);
   assert.equal(state.versions.length,1);
 });
+
+
+test('中心成熟成交以唯一可见身份计数：原样重试不放大门槛，冲突成交及计划全部隔离',async()=>{
+  const x=await fixture(),base=report(x),original=clone(x.state.trades[0]);
+  assert.equal(base.feedback.validationBridge.ready,true);
+  const retry=clone(x.state);retry.trades.push(clone(original));
+  const same=report({...x,state:retry}).feedback;
+  assert.equal(same.matureTrades,base.feedback.matureTrades);
+  assert.equal(same.tradeEvidenceAudit.duplicateTrades,1);
+  assert.equal(same.proposalFingerprint,base.feedback.proposalFingerprint);
+  const repeated=clone(x.state);repeated.trades=Array.from({length:36},()=>clone(original));
+  const before=JSON.stringify(repeated),r=report({...x,state:repeated}).feedback;
+  assert.equal(r.matureTrades,1);assert.equal(r.tradeEvidenceAudit.duplicateTrades,35);
+  assert.equal(r.validationBridge.ready,false);assert.equal(r.excludedTrades.length,35);
+  assert.equal(JSON.stringify(repeated),before);
+  const conflict=clone(x.state);conflict.trades=[clone(original),{...clone(original),pnl:original.pnl+1}];
+  const c=report({...x,state:conflict}).feedback;
+  assert.equal(c.matureTrades,0);assert.equal(c.tradeEvidenceAudit.conflictingTrades,2);
+  assert.equal(c.validationBridge.ready,false);
+  const duplicateSettlement=clone(x.state),paperSettlement={accountId:'pool',exitEventId:'same-event'};
+  duplicateSettlement.trades=[{...clone(original),paperSettlement},{...clone(original),id:'other-id',paperSettlement}];
+  const s=report({...x,state:duplicateSettlement}).feedback;
+  assert.equal(s.matureTrades,0);assert.equal(s.tradeEvidenceAudit.conflictingTrades,2);
+  const badPlan=clone(x.state);badPlan.trades=[clone(original)];
+  const plan=badPlan.plans.find(p=>p.id===original.planId);
+  badPlan.plans.push({...plan,code:'600999'});
+  const p=report({...x,state:badPlan}).feedback;
+  assert.equal(p.matureTrades,0);assert.equal(p.tradeEvidenceAudit.conflictingPlans,2);
+  const missing=clone(x.state);missing.trades=[{...clone(original),id:null}];
+  assert.equal(report({...x,state:missing}).feedback.matureTrades,0);
+  const late=clone(x.state);late.trades=[clone(original),{...clone(original),createdAt:new Date(x.now+1).toISOString(),pnl:99}];
+  const l=report({...x,state:late}).feedback;
+  assert.equal(l.matureTrades,1);assert.equal(l.tradeEvidenceAudit.conflictingTrades,0);
+});

@@ -13,7 +13,7 @@ const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-te
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const numeric = require('../../public/nova/shortline/numeric-factors');
-const {approvedModelEvidenceReview}=require('../../public/nova/shortline/sample-quality.mjs');
+const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,isTestSample}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
 const finite = n => typeof n === 'number' && Number.isFinite(n);
 const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
@@ -691,16 +691,36 @@ function buildApprovedScoring(archive, observations, {day, now, calendars}) {
 }
 
 function feedbackReport(archive, walkforward, gate, now, config, quality, day, samples = []) {
-  const plans = new Map((archive?.plans || []).filter(row => real(row) && row.id).map(row => [row.id, row]));
-  const trades = [], excluded = [];
-  for (const trade of archive?.trades || []) {
-    const plan = plans.get(trade.planId), created = instant(trade.createdAt),
-      entry = instant(trade.entryTimestamp ?? trade.entryTime), exit = instant(trade.exitTimestamp ?? trade.exitTime), frozen = instant(plan?.frozenAt);
-    const reason = !real(trade) || archive?.scope === 'demo' ? 'non-real-sample' :
-      trade.planEvidenceReview&&trade.planEvidenceReview.status!=='revalidated' ? 'withdrawn-learning-source' :
-      !plan || frozen === null || entry === null || frozen > entry || plan.code !== trade.code ? 'missing-prior-frozen-plan' :
-      created === null || exit === null || exit <= entry || exit > created || created > now || !finite(trade.pnl) ? 'unmatured-or-unrecorded-trade' : null;
-    if (reason) { excluded.push({id: trade.id || null, reason}); continue; }
+  // Use the same point-in-time identity projection as strict shortline
+  // learning. An exact retry is not another matured trade; conflicting
+  // identities must not select the last archived plan or settlement.
+  const planEvidence=uniqueEvidenceRows((Array.isArray(archive?.plans)?archive.plans:[]).filter(row=>
+    real(row)&&!isTestSample(row)&&evidenceVisibleAt(row,now)&&instant(row.frozenAt)!==null&&instant(row.frozenAt)<=now),
+    {requireIdentity:true});
+  const plans=new Map(planEvidence.rows.map(row=>[row.id,row]));
+  const trades=[],excluded=[],visible=[];
+  for(const trade of Array.isArray(archive?.trades)?archive.trades:[]){
+    const reason=!real(trade)||isTestSample(trade)||archive?.scope==='demo'?'non-real-sample':
+      !evidenceVisibleAt(trade,now)?'unmatured-or-unrecorded-trade':null;
+    if(reason){excluded.push({id:trade?.id||null,reason});continue;}
+    visible.push(trade);
+  }
+  const tradeEvidence=uniqueEvidenceRows(visible,{requireIdentity:true,settlements:true});
+  // Retain the shared resolver's exact multiplicity, even if the same object
+  // reference was repeated, and expose excluded rows without changing archive.
+  const retained=new Map();
+  for(const row of tradeEvidence.rows)retained.set(row,(retained.get(row)||0)+1);
+  for(const trade of visible){
+    const count=retained.get(trade)||0;
+    if(!count){excluded.push({id:trade.id||null,reason:'duplicate-or-conflicting-trade-evidence'});continue;}
+    retained.set(trade,count-1);
+    const plan=plans.get(trade.planId),created=instant(trade.createdAt),
+      entry=instant(trade.entryTimestamp??trade.entryTime),exit=instant(trade.exitTimestamp??trade.exitTime),frozen=instant(plan?.frozenAt);
+    const reason=typeof trade.id!=='string'||!trade.id.trim()?'missing-trade-identity':
+      trade.planEvidenceReview&&trade.planEvidenceReview.status!=='revalidated'?'withdrawn-learning-source':
+      !plan||frozen===null||entry===null||frozen>entry||plan.code!==trade.code?'missing-prior-frozen-plan':
+      created===null||exit===null||exit<=entry||exit>created||created>now||!finite(trade.pnl)?'unmatured-or-unrecorded-trade':null;
+    if(reason){excluded.push({id:trade.id||null,reason});continue;}
     trades.push(trade);
   }
   const approved = [...(archive?.versions || [])].filter(row => real(row) && row.sampleScope !== 'demo' && instant(row.approvedAt) !== null &&
@@ -784,6 +804,8 @@ function feedbackReport(archive, walkforward, gate, now, config, quality, day, s
     row.extreme === true || row.repeatable === false || row.quality === '不可复制极端行情' ? 'extreme' : 'standard'; strata[key]++; }
   return {status: candidates.length || qualityCandidates.length ? 'candidates-pending-validation' : trades.length ? 'observed-no-new-candidate' : 'missing-mature-review-evidence',
     matureTrades: trades.length, excludedTrades: excluded, strata, candidates, qualityCandidates, modelEvidenceReview,
+    tradeEvidenceAudit:{duplicateTrades:tradeEvidence.duplicates,conflictingTrades:tradeEvidence.conflicts,
+      duplicatePlans:planEvidence.duplicates,conflictingPlans:planEvidence.conflicts},
     proposal, proposalFingerprint, archiveRevision: Number.isSafeInteger(archive?.revision) ? archive.revision : null,
     qualityFeedback: {mode: 'verified-source-evidence', score: quality.score, status: quality.status,
       components: quality.components, evidenceFingerprint: hash(quality.components), affectedRecords: qualityCandidates.reduce((n, row) => n + row.affectedRecords, 0),
