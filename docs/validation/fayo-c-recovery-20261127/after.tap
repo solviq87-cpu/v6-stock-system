@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: C EX27 rejects missing receipt time even with a new risk row
+ok 1 - C EX27 rejects missing receipt time even with a new risk row
+  ---
+  duration_ms: 1.376225
+  type: 'test'
+  ...
+# Subtest: C EX27 rejects old receipt time even with a new risk row
+ok 2 - C EX27 rejects old receipt time even with a new risk row
+  ---
+  duration_ms: 0.243607
+  type: 'test'
+  ...
+# Subtest: C EX27 rejects future receipt time even with a new risk row
+ok 3 - C EX27 rejects future receipt time even with a new risk row
+  ---
+  duration_ms: 0.134152
+  type: 'test'
+  ...
+# Subtest: C EX27 rejects receipt older than the new observation even with a new risk row
+ok 4 - C EX27 rejects receipt older than the new observation even with a new risk row
+  ---
+  duration_ms: 0.790592
+  type: 'test'
+  ...
+# Subtest: C EX27 rejects different authority source even with a new risk row
+ok 5 - C EX27 rejects different authority source even with a new risk row
+  ---
+  duration_ms: 0.217728
+  type: 'test'
+  ...
+# Subtest: C EX27 rejects missing authority source even with a new risk row
+ok 6 - C EX27 rejects missing authority source even with a new risk row
+  ---
+  duration_ms: 0.13222
+  type: 'test'
+  ...
+# Subtest: C EX27 a previous receipt later than its source time cannot be reused
+ok 7 - C EX27 a previous receipt later than its source time cannot be reused
+  ---
+  duration_ms: 0.192621
+  type: 'test'
+  ...
+# Subtest: C EX27 a valid matching original rule receipt allows resolution and downgrade only
+ok 8 - C EX27 a valid matching original rule receipt allows resolution and downgrade only
+  ---
+  duration_ms: 0.133351
+  type: 'test'
+  ...
+# Subtest: C EX27 unrelated source cannot clear a data-chain incident
+ok 9 - C EX27 unrelated source cannot clear a data-chain incident
+  ---
+  duration_ms: 0.400063
+  type: 'test'
+  ...
+# Subtest: C EX27 new row cannot reuse an earlier recovery receipt
+ok 10 - C EX27 new row cannot reuse an earlier recovery receipt
+  ---
+  duration_ms: 0.364028
+  type: 'test'
+  ...
+# Subtest: C EX27 genuine original data-chain recovery still clears; future or wrong kind does not
+ok 11 - C EX27 genuine original data-chain recovery still clears; future or wrong kind does not
+  ---
+  duration_ms: 0.171889
+  type: 'test'
+  ...
+# Subtest: C EX27 existing requirements for newer source evidence and original rule version remain intact
+ok 12 - C EX27 existing requirements for newer source evidence and original rule version remain intact
+  ---
+  duration_ms: 2.405766
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 77.795548

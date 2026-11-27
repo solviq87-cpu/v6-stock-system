@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "calendarBlob": "de3cf5148e6694ba72770800a779f6099052acb9",
+  "source": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+  "engine": "Isolated V8 JavaScript evaluation of full new CommonJS module and exact original calendar dependency; test/assert harness substitute, not native Node, full repo or browser.",
+  "tests": [
+    {
+      "name": "C8.1 overnight gap uses existing holding value and does not invent realized fills",
+      "pass": true
+    },
+    {
+      "name": "C8.1 stale original marks, fresh wrapper and bad receipt cannot create current gap estimate",
+      "pass": true
+    },
+    {
+      "name": "C8.1 partial equity, wrong authority and duplicate holding fail closed",
+      "pass": true
+    },
+    {
+      "name": "C8.2 three successive equal hypothetical shocks compound, not add or claim actual limit rates",
+      "pass": true
+    },
+    {
+      "name": "C8.2 unknown sellable amount keeps total no-exit shock but no fictitious locked split",
+      "pass": true
+    },
+    {
+      "name": "C8.2 fully locked positive holding keeps its whole modeled loss under no-exit scenario",
+      "pass": true
+    },
+    {
+      "name": "C8.3 simultaneous common-theme retreat counts each held security exactly once",
+      "pass": true
+    },
+    {
+      "name": "C8.3 conflicting, missing or future classification never certifies zero overlap",
+      "pass": true
+    },
+    {
+      "name": "C8.3 true complete disjoint themes preserve observed no-overlap without safety permission",
+      "pass": true
+    },
+    {
+      "name": "C8.4 pending remainder and original estimated fees enter only the explicit all-fill scenario",
+      "pass": true
+    },
+    {
+      "name": "C8.4 wrong account/revision, duplicate ids or broken cash reservation cannot produce all-fill losses",
+      "pass": true
+    },
+    {
+      "name": "C8.4 zero pending is a verified zero only when original count and cash reconcile",
+      "pass": true
+    },
+    {
+      "name": "C8.4 original unconfigured or mismatched limit never creates a synthetic risk threshold",
+      "pass": true
+    },
+    {
+      "name": "C8.5 frozen plan price geometry returns gross ratio but never a probability or expected value",
+      "pass": true
+    },
+    {
+      "name": "C8.5 candidate outside frozen entry range is expired, not a fresh favorable ratio",
+      "pass": true
+    },
+    {
+      "name": "C8.5 held stop/target trigger never becomes a negative or infinite odds value",
+      "pass": true
+    },
+    {
+      "name": "C8.5 held price outside entry range retains only hold-specific hypothetical ratio",
+      "pass": true
+    },
+    {
+      "name": "C8.5 stale, wrong source, old frozen quote and changed stop cannot certify odds",
+      "pass": true
+    },
+    {
+      "name": "C8.5 duplicate plan or action and unbound account receipt fail closed",
+      "pass": true
+    },
+    {
+      "name": "C8.5 completed and old unfilled plans cannot be recycled as current recommendations",
+      "pass": true
+    },
+    {
+      "name": "C8.5 unfilled plan for a held symbol is not a fresh entry recommendation",
+      "pass": true
+    },
+    {
+      "name": "C8.5 claimed held remainder must reconcile with actual same-account holding quantity",
+      "pass": true
+    }
+  ],
+  "passed": 22,
+  "failed": 0,
+  "skipped": 0,
+  "pendingIntegration": [
+    "V6_BO/tests/c-adverse-path-runtime.test.js",
+    "original risk-workbench, equity, effective-risk, notifications, browser tests"
+  ]
+}

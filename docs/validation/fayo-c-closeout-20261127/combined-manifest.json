@@ -1,0 +1,895 @@
+{
+  "schema": 1,
+  "scope": "C-only candidate; no deployment or production permission changes",
+  "base": "0c45291d7156be8a1206f0bb272f3c719d5d2336",
+  "baseTree": "733aa43966e839d698bc540cb6a8f86312107acc",
+  "chains": [
+    {
+      "pr": 429,
+      "sha": "5936db87446c18ea572fa616c8b77bdc6e17c860",
+      "scope": "抱团成员时点",
+      "files": 3
+    },
+    {
+      "pr": 432,
+      "sha": "0120f8f2c48470eb38f07dcef96ecdaf0dbd95b5",
+      "scope": "组合压力",
+      "files": 4
+    },
+    {
+      "pr": 434,
+      "sha": "5e71b26ce063f946e52f3f6713243991a51ea638",
+      "scope": "冻结计划执行",
+      "files": 5
+    },
+    {
+      "pr": 492,
+      "sha": "760f5cd7b0a35712921dba73e83b0bc58df462c5",
+      "scope": "#438→#492 风险恢复及通知回执",
+      "files": 8
+    },
+    {
+      "pr": 489,
+      "sha": "9aa749cf2da32e90ac7587bbf3fd52560d308e5d",
+      "scope": "#442→#466→#472→#484→#489 退出与组合",
+      "files": 20
+    },
+    {
+      "pr": 508,
+      "sha": "b28e2546427fa99d2daf4fd975a23b3220d7a55d",
+      "scope": "#445→#500→#502→#506→#508 防追高及抱团退出研究",
+      "files": 17
+    },
+    {
+      "pr": 446,
+      "sha": "da41a914d2cf92f92e0cbd62ef9b6a5cbd7f2525",
+      "scope": "筹码证据与压力档案",
+      "files": 4
+    },
+    {
+      "pr": 519,
+      "sha": "23730b1a651b8e0982bbf0d2460e6285f4a4f06e",
+      "scope": "#451→#462→#464→#483→#496→#519 双端风险与复核",
+      "files": 25
+    },
+    {
+      "pr": 452,
+      "sha": "5c44c8c0e9ae4cb5a23a04af55fc5aef21f7afb2",
+      "scope": "八维及生命周期影子研判",
+      "files": 4
+    },
+    {
+      "pr": 476,
+      "sha": "c2823962311be7f54fd75c4a03be8847efc136be",
+      "scope": "#457→#476 风险回放",
+      "files": 9
+    }
+  ],
+  "expectedImportedFiles": 99,
+  "added": 82,
+  "modified": 17,
+  "deletions": 0,
+  "modeChanges": 0,
+  "overlaps": 0,
+  "files": [
+    {
+      "path": "docs/FAYO_C_ADVERSE_PATH_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "440cbfe302d3339d8499583fbe061a3a61282b85",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/FAYO_C_BATCH_BUDGET_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ef2b816092745cc6b02c7eeccd60bd268a617709",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/FAYO_C_CHASE_RESEARCH_EVIDENCE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "48ee314bde7a5534819be0238f030819451b883b",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/FAYO_C_CI16_EXIT_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "97319d05dbbfa3c999b3c7bbd61122cddf8f7756",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/FAYO_C_CI16_UI_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1031667189627558acf020a212bdf38493f2595d",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/FAYO_C_CLOSE_PATH_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "883610884a3ca8f55d4d7b2187a14dcf66a2fc66",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "docs/FAYO_C_CROWDING_EXIT_RESEARCH_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5375b8801171a63f867bd820acd1004d8d89361d",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/FAYO_C_CROWDING_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "84e4b043e703ce022ffd5f992113935e113c0bdf",
+      "previousSha": null,
+      "pr": 429
+    },
+    {
+      "path": "docs/FAYO_C_DEFENSE_BINDING_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b8a7e866e02dcfae51c166c126ae42fedd956226",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/FAYO_C_DEFENSE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "897c6cbc4fb0d8818606f0b58018b7ed1929d172",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/FAYO_C_DELIVERY_REVIEW_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "6c83e1c45dc836ace7502dfee961ca22bbf95407",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "docs/FAYO_C_EXIT_SCOPE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "46f58c7f2f05d37118d2819088100c0c75ac16ed",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/FAYO_C_FIVE_RISK_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e7b660cf4ffef1582b0ae76b4886da452c23600",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/FAYO_C_FROZEN_INTENT_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "23e5f8b9a0cf66da0d667f9877ff7966051a8fab",
+      "previousSha": null,
+      "pr": 434
+    },
+    {
+      "path": "docs/FAYO_C_NOTIFICATION_HISTORY_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a748155077b5c24326ef5a361dfe9d5cf963dc67",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/FAYO_C_PORTFOLIO_STRESS_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3c7b741fcdc44dab56925969e2a772f617707409",
+      "previousSha": null,
+      "pr": 432
+    },
+    {
+      "path": "docs/FAYO_C_PRECISE_RISK_OBSERVATION_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "da84e2eb9de48eeffe18c78d6f13744f25ffa82a",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/FAYO_C_PRESSURE_REVISIONS_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "030986ab80ea41cfb2b9f9c548b1c48f6456ac4c",
+      "previousSha": null,
+      "pr": 446
+    },
+    {
+      "path": "docs/FAYO_C_RECOVERY_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d8be2de8d5afa5f17ea58488c7e45021db10bff7",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "docs/FAYO_C_RISK_READ_SCOPE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f5219b602754990dbf9821013121f7ecfb075965",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/FAYO_C_RISK_REPLAY_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c1f1f8b820894c1c721618e8de59b25aa1aa250e",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "docs/FAYO_C_RISK_REPLAY_SCOPE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c6850d3e9302256b3fc02b3731e1b51ce38c48f3",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/FAYO_C_SHADOW_REVIEW_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7e238499a7c3c9bcbf9e061ebca1438441a34bef",
+      "previousSha": null,
+      "pr": 452
+    },
+    {
+      "path": "docs/FAYO_C_STOCK_RISK_SOURCE_HANDOFF_20261127.md",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e9c072cccc751caed9ccef46680cee7c145f095b",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-adverse-path-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "298c30f937296ac2c59191b8e6f475910bec0f23",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-batch-budget-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1750f48ab02bc5b609d748bbdaf159131d575b34",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/validation/fayo-c-chase-research-evidence-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bbf6dc7ee04e137144e15951dc7e25fd4dbd5ff1",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-ci16-exit-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7d310abd81dfc8fdbd51e4767b3f4ccc7a290fd2",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/validation/fayo-c-ci16-ui-20261127/combined.spec.log",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b751bba9c3291b7aae1f0116d279cc677aad9966",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-close-path-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5b38ea87d805dc4fe4706077036dfa189ae80eb",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "docs/validation/fayo-c-crowding-exit-research-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9125dbc42019121dc7531e544d655f428f818751",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-defense-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5a8e99c989f379b88449e9e6f75f25096c9ca1fc",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/validation/fayo-c-defense-binding-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "94514da96311d2458aa5f70fd5fb5e9d2378ce9c",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/validation/fayo-c-delivery-review-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "77962d438b9e85291869332961f7472bc8f5de60",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "docs/validation/fayo-c-exit-scope-20261127/after.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "851baf2febbdbee212e652d82ea89fca8856c0a5",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "docs/validation/fayo-c-five-risk-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "e5238c2e085c2f3ad19081f68524e48060ef4019",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-frozen-intent-20261127/combined.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "9f816a8d0fd59abf0c6f587eff4f26b0a6430feb",
+      "previousSha": null,
+      "pr": 434
+    },
+    {
+      "path": "docs/validation/fayo-c-home-visibility-ci-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f7550ed72dade1a608ca23e500274bfcee5d1603",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-notification-history-20261127/combined.spec.log",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d2d580e66894de4f610b7f53f9f5c9242639dc1d",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-precise-risk-observation-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a2c6e85247984efefd34a292cec5e32edd8bc2bd",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-pressure-revisions-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9110301e45729c393a138249d7031e07f84c5ba",
+      "previousSha": null,
+      "pr": 446
+    },
+    {
+      "path": "docs/validation/fayo-c-recovery-20261127/after.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "92bd26268621f560d6ccb9fe23e0f0850eb8abd8",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-read-scope-20261127/after.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d129e52214ae90a6a92e6598cf526d14dd932fbd",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-20261127/after.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "99e80a1b923733661c549834b78a505851b94013",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-scope-20261127/chromium-helper.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4473910f9e28bc816a4f12583ee4dfa5e9cd1198",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-risk-replay-scope-20261127/node.spec.log",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1800dd8c26ee7942a905950896e348ae71d1db0d",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "docs/validation/fayo-c-shadow-review-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ac986249e1ad6e1f63c9e7b65fb3201ac1b4970d",
+      "previousSha": null,
+      "pr": 452
+    },
+    {
+      "path": "docs/validation/fayo-c-stock-risk-source-20261127/isolated-results.json",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c5d1d01251353edd67294a1ea86c07a1ec18877d",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "docs/validation/fayo-c-stress-20261127/isolated-node-after.tap",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "115e50e7073020aabcecd493a4ee89f4230bb177",
+      "previousSha": null,
+      "pr": 432
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-read-scope.mjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a6c668622e59764342ebf485fcfbc9298f77f41c",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a9d62bfd127aa4a4125ea2fcaab79d4175afcbf0",
+      "previousSha": "e02ac6037ca218bc9b60b0eb0cbe635a8f649ff2",
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/backtest.mjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "43b9c66f4323f6f3f62807abbd3372178dd9193d",
+      "previousSha": "73ffaa48a0d84ce7ef019386d8542d6674030e7c",
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/pressure.mjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "698e5c8d76e78e8da0cc8b3d1b5555b9f47624f6",
+      "previousSha": "4cfd2d5d6315fbd47cc117c307105c2c09378d5b",
+      "pr": 446
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/stock-risk-evidence.mjs",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7f7c24855b7acbaf58d6f3e7f10a8e3cd8e27f42",
+      "previousSha": "facf80c489db4f6ddc23fa71d14dbeb13e35ca9e",
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/public/sw.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "19186bbe3513f8926505a936b397ed63de710ced",
+      "previousSha": "0ea87dc3737125f8465b13d4a756e1680e5aeacd",
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/scripts/fayo-risk-browser-check.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d20aa8023d642a01d0e1ed684c4728c2770274cd",
+      "previousSha": "1ae70cd04db85ebbb33cb5bc39a7030f64947f5b",
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/src/core/advanced-account-risk.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f68b16b40a2d5fdd343d49a4ceb71c3150b4b2ad",
+      "previousSha": "a4663edc6b75eefe4af673a0c0609816227d561a",
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "36343ec30cc9af4cf683a119d93193d6b979c2a5",
+      "previousSha": "5180ffb6082c03e3000b053f6f0d81d0104d8c03",
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/src/core/advanced-portfolio-runtime.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "bd161a60fdf76b5d4d9aac902c20836b8f1e44f7",
+      "previousSha": "42eae4b6d0bc5eaeb1cdbfacac5b104a8afc3f91",
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/src/core/crowding-close-path-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "684f2d3dbd00391e3d501eb800d2d027a8ca3d92",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "V6_BO/src/core/crowding-risk-replay-audit.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "14f821724c08e851df5d49a402ce954159b04f46",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "V6_BO/src/core/crowding-shadow-review.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a663ac9aa242e1b8ec94fd5196a796818405c67f",
+      "previousSha": null,
+      "pr": 452
+    },
+    {
+      "path": "V6_BO/src/core/deep-research-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "93c8c7e2017ebaf63cf0ec3538374c230b343baf",
+      "previousSha": "2af42b5eafc52f942ed2b8b62c88c9aee0f98c35",
+      "pr": 429
+    },
+    {
+      "path": "V6_BO/src/core/paper-execution-preflight.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b988a51dfbe2d62bb6375e557eb162eacaef3f06",
+      "previousSha": "f967b3bf45f56e4c4df65ab609f96224b41904ec",
+      "pr": 434
+    },
+    {
+      "path": "V6_BO/src/core/paper-intent-simulator.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "803c5a66996542d094f45b1170b86689558e01d7",
+      "previousSha": "af7a1389a248b65adb3172efd83ad6f396cf0926",
+      "pr": 434
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a25290d29e2f272b27b4407511507d446cfd4998",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-defense-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ddb555b6f14100b9f89d201078bded31a5921a2d",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-stress-evidence.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "5dfe78738bb0c60d67826884ee8bf8cd16d3486a",
+      "previousSha": "89a72c6b1fc125ef9ebdbb20eaff16c85fa98837",
+      "pr": 432
+    },
+    {
+      "path": "V6_BO/src/core/risk-alert-lifecycle.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "7ac14cc5c4fab4605031ef42e3d510aab67a7dbe",
+      "previousSha": "a2a5abfa935c4de9e6249e5e266c30611dd9aaaf",
+      "pr": 492
+    },
+    {
+      "path": "V6_BO/src/core/risk-state-contract.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0e8332e37611934a6553157eb1780906e6f623f2",
+      "previousSha": "90c7e834a54cee25551f494887719cb6c4053982",
+      "pr": 492
+    },
+    {
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "db71ceda1d811bf5e38ac0490710ebfd25c3c462",
+      "previousSha": "fdb4177bef8e6905b339689db71ef9494ba8242a",
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-adverse-path-odds.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0d2ffe206c285db0b59a00077d9740598da218a0",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-adverse-path-runtime.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d0d819ec1cf59392a8e81f70bcdea6b1697a4e4b",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-batch-budget-exit.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "4e65d8792d85d30d98f6277b46add6bc552fc129",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-batch-budget-runtime.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "c66face8b6e5f767aa66b4141bac1d5e85c0dad5",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-chase-risk-research.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "39e6dde61a1513987953125f9350473f8675c399",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-close-path-integration.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "14bdba2fcc2ee3afa3aa4cbea6aa9053b09734b1",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-close-path.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "49b1378fa10407e3a59bd488f3d01c18f1caec40",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-exit-research.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "ba1eec4c48255aa785405c92db855659c169ed1e",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-risk-replay-audit.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f96a8a2a76c1e4ec0f427d43da4addb43bb803e0",
+      "previousSha": null,
+      "pr": 476
+    },
+    {
+      "path": "V6_BO/tests/c-crowding-shadow-review.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0fc23b938f63615a9a0a657e83da177515ca6d93",
+      "previousSha": null,
+      "pr": 452
+    },
+    {
+      "path": "V6_BO/tests/c-exit-scope-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "368cf4ca8bb2320497127d110af6caf6462d8aba",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-exit-scope-runtime.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "87599c15e1e56a03090ac21f50f682a2cf2ff6c4",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-frozen-intent-price-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0fb74e41c2007c51a31c8e539b3ab28f09c665ac",
+      "previousSha": null,
+      "pr": 434
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-defense-runtime.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "b7061ad53b03c6a5ee1036882a2d602db5c61604",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-defense.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3e49888845d08cd1f8daab2a7bbff015b02f2802",
+      "previousSha": null,
+      "pr": 489
+    },
+    {
+      "path": "V6_BO/tests/c-portfolio-stress-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "446272fb4d9b5f11419f328a47fd4e302d8f1962",
+      "previousSha": null,
+      "pr": 432
+    },
+    {
+      "path": "V6_BO/tests/c-pressure-revisions-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d80842bd90408c44ee5c47bad752afda83f1d874",
+      "previousSha": null,
+      "pr": 446
+    },
+    {
+      "path": "V6_BO/tests/c-risk-delivery-review.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "a494c5f66597a4f9304aa990d6ea9a74ae8a5bae",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "V6_BO/tests/c-risk-notification-history.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3256b4deb843417d9a2622e1807df6ffbfd146ac",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-risk-recovery-receipt-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "f6320fac76a32756898875e58746264b3c9278a1",
+      "previousSha": null,
+      "pr": 492
+    },
+    {
+      "path": "V6_BO/tests/c-risk-view-ci-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "3cc9388b8e9d8cc4c2d8d69f64a640c1eec53d3d",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-risk-view-replay-and-actions.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "0be095c3ae4aeebf77614cb800a1a7878cf14bee",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-risk-workbench-read-scope.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "90c453e02a48eb0ae0810548a3072bc82ff8f700",
+      "previousSha": null,
+      "pr": 519
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-five-boundaries.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "d7172a88732e3bb2f475f70726bc2b356e6e3169",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-precise-observation.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "1959c07b10a54e9ffcf54a4ec2fbf4305b308085",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/tests/c-stock-risk-source-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "2bbdae53eeed1a068c165e1bb672feb639b9a1f4",
+      "previousSha": null,
+      "pr": 508
+    },
+    {
+      "path": "V6_BO/tests/crowding-member-time-integrity.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "74deac5022530f0d5342bf5868bec364bb6dffb2",
+      "previousSha": null,
+      "pr": 429
+    },
+    {
+      "path": "V6_BO/tests/v6-terminal-workbench.test.js",
+      "mode": "100644",
+      "type": "blob",
+      "sha": "177bc340daef9e02d5f2ef485fdbee254eb23fd7",
+      "previousSha": "dc5a327ad37d43b19d6ac10827e8fdb369133174",
+      "pr": 519
+    }
+  ],
+  "excluded": [
+    {
+      "pr": 481,
+      "reason": "#483 selected for shared UI code; #519 retains actual fixture repair"
+    },
+    {
+      "pr": 485,
+      "reason": "#484 selected; #489 extends that exact chain"
+    },
+    {
+      "pr": 499,
+      "sha": "e7089964c2563923b892c25adc88c5d4b67fca1a",
+      "reason": "Requires total-manager #427; preserve independent test and five unapproved contract counterexamples; do not transplant #427 production contracts into C-only baseline"
+    }
+  ],
+  "totalManager": {
+    "pr": 427,
+    "sha": "6b26837c41b7d62e69c6c89c3dc035bf9dbc5e4f",
+    "integrationRule": "#429 three overlapping paths must be checked against #427 rather than overwritten. Others had no direct file-path overlaps with checked #427."
+  },
+  "validation": {
+    "exactInputTrees": true,
+    "fullNativeCI": false,
+    "realMarket": false,
+    "realDevice": false,
+    "formalAcceptance": false
+  }
+}

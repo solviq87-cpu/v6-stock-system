@@ -8,7 +8,7 @@ import {inferEvidence} from './recognize.mjs';
 import {addPatternEvidence,parsePatternColumns} from './pattern-evidence.mjs';
 import {addIndexEvidence} from './index-evidence.mjs';
 import {addPressureRiskFacts} from './pressure.mjs';
-import {addStockRiskEvidence,riskNumericFields,riskTextFields} from './stock-risk-evidence.mjs';
+import {addStockRiskEvidence,riskNumericFields,riskTextFields,selectFrozenRiskPlan,buildChaseRiskResearch} from './stock-risk-evidence.mjs';
 import {dictionaryVersion} from './factor-dictionary.mjs';
 import {buildRulePanel} from './numeric-factors.mjs';
 
@@ -52,7 +52,7 @@ const validDate = s => {
 const barKey = b => [b.role||'stock', b.code, b.period || (b.date.length>10?'分时':'日K'), b.date].join('/');
 const label = (s,n) => s && s !== MISSING ? n+s : '';
 const isBlack = v => v === true || Boolean(v && !['0','false','否','无'].includes(String(v).trim().toLowerCase()));
-const HEADER = {日期:'date',时间:'date',代码:'code',标的代码:'code',名称:'name',标的名称:'name',开盘:'open',开盘价:'open',最高:'high',最高价:'high',最低:'low',最低价:'low',收盘:'close',收盘价:'close',成交量:'volume',成交额:'amount',换手率:'turnover',全A趋势:'indexTrend',题材:'sector',题材周期:'themeCycle',样本集:'sampleSet',样本来源:'sampleSource',数据来源:'source',黑天鹅:'blackSwan',极端行情:'extreme',周期:'period',数据类型:'role',可用时间:'availableAt'};
+const HEADER = {日期:'date',时间:'date',代码:'code',标的代码:'code',名称:'name',标的名称:'name',开盘:'open',开盘价:'open',最高:'high',最高价:'high',最低:'low',最低价:'low',收盘:'close',收盘价:'close',成交量:'volume',成交量单位:'volumeUnit',成交额:'amount',换手率:'turnover',全A趋势:'indexTrend',题材:'sector',题材周期:'themeCycle',样本集:'sampleSet',样本来源:'sampleSource',数据来源:'source',黑天鹅:'blackSwan',极端行情:'extreme',周期:'period',数据类型:'role',可用时间:'availableAt'};
 export function parseKCsv(csv) {
   if (typeof csv !== 'string' || new TextEncoder().encode(csv).byteLength > 2*1024*1024) throw Error('每次导入上限为 2 MiB');
   csv=csv.replace(/^\uFEFF/,'');
@@ -180,6 +180,62 @@ function groups(bars){
   }
   for(const arr of map.values())arr.sort((a,b)=>compare(a.date,b.date));
   return map;
+}
+// Sorted original series lookup: avoid scanning a full leader archive for
+// every historical observation. Keep all same-date versions for conflict checks.
+function researchRowsAt(series,date){
+  if(!Array.isArray(series)||typeof date!=='string')return [];
+  let lo=0,hi=series.length;
+  while(lo<hi){const mid=(lo+hi)>>>1;if(series[mid].date<date)lo=mid+1;else hi=mid;}
+  const out=[];
+  for(let i=lo;i<series.length&&series[i].date===date;i++)out.push(series[i]);
+  return out;
+}
+// Bounded daily research lookup. Build once per historical traversal and
+// retain all visible same-day versions, including different period aliases.
+function researchBenchmarkMaps(bars){
+  const codes=new Map(),sectors=new Map();
+  for(const r of bars){
+    if(!['index','sector'].includes(r.role)||typeof r.date!=='string'||r.date.length!==10)continue;
+    const key=r.role+'/'+r.code;
+    if(!codes.has(key))codes.set(key,[]);codes.get(key).push(r);
+    if(r.role==='sector'){
+      const label=r.sector||r.code;
+      if(!sectors.has(label))sectors.set(label,[]);sectors.get(label).push(r);
+    }
+  }
+  for(const map of [codes,sectors])for(const arr of map.values())arr.sort((a,b)=>compare(a.date,b.date));
+  function window(series,date,point){
+    if(!Array.isArray(series))return [];
+    let lo=0,hi=series.length;
+    while(lo<hi){const mid=(lo+hi)>>>1;if(series[mid].date<=date)lo=mid+1;else hi=mid;}
+    const out=[],days=new Set();
+    // More than 240 inspected rows is an ambiguous bounded input, not
+    // permission to silently select a subset of conflicting revisions.
+    let inspected=0;
+    for(let i=lo-1;i>=0;i--){
+      const r=series[i];
+      if(!days.has(r.date)&&days.size>=60)break;
+      days.add(r.date);
+      if(++inspected>240)return null;
+      if(knownBy(r,point))out.push(r);
+    }
+    return out;
+  }
+  return (b,point)=>{
+    if(typeof b.date!=='string'||b.date.length!==10)return {};
+    const sector=window(sectors.get(b.sector),b.date,point);
+    let sectorRows=[];
+    if(sector){
+      const identities=[...new Set(sector.filter(r=>r.date===b.date).map(r=>r.code))];
+      if(identities.length===1){
+        const sameCode=window(codes.get('sector/'+identities[0]),b.date,point);
+        if(sameCode)sectorRows=[...new Set([...sector,...sameCode])];
+      }
+    }
+    const indexRows=b.indexCode?window(codes.get('index/'+b.indexCode),b.date,point)||[]:[];
+    return {sectorRows,indexRows};
+  };
 }
 function extract(b,history,ctx,settings={}){
   history=history.slice(-20);
@@ -318,11 +374,7 @@ function decisionMarket(rows,day,point){
     series:recent.map(r=>r===prior?{...r,stage:previousStage}:r)};
 }
 function planAt(plans,code,day,decision){
-  const eligible=(plans||[]).filter(p=>p.code===code && typeof p.frozenAt==='string' && Number.isFinite(Date.parse(p.frozenAt))).map(p=>({p,at:new Date(Date.parse(p.frozenAt)+8*36e5).toISOString().slice(0,19).replace('T',' ')}))
-    .filter(({p,at})=>(p.intendedDate||at.slice(0,10))===day && at<=decision);
-  if(eligible.length!==1)return null;
-  const {p}=eligible[0];
-  return {code,strategy:p.strategy,holdUntil:p.holdUntil,entryPrice:p.entryMax,stopPrice:p.stop,targetPrice:p.target,expectedAuctionGap:p.expectedAuctionGap,frozenAt:p.frozenAt};
+  return selectFrozenRiskPlan(plans,code,day,knowledgeCutoff(decision));
 }
 function newsAt(row,at){
   if(!row.announcementType&&!row.newsStatus)return row;
@@ -354,7 +406,7 @@ function purposeArchive(state,requested=state[researchPartition]||'real'){
 export function observations(state,asOf,options={}){
   state=purposeArchive(state,options.sampleSet);
   const until=cutoff(asOf), raw=(state.bars||[]).filter(b=>officialReceipt(state,b)&&stamp(b.date)<=until&&knownBy(b,until)), by=groups(raw), context=contextMaps(state,by), result=[];
-  const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw);
+  const archived=new Map(),stages=new Map(),minutes=intradayGroups(raw),benchmarks=researchBenchmarkMaps(raw);
   for(const check of state.checks||[]){
     if(!check.capture||!check.createdAt||!check.matches?.length)continue;
     const registered=new Date(check.createdAt).getTime();
@@ -405,6 +457,10 @@ export function observations(state,asOf,options={}){
       const {stage,series:marketSeries}=stages.get(point);
       const inferred=inferEvidence(b,history,features,market,stage,sector,state.catalog||[],settings);
       const frozenPlan=planAt(state.plans,b.code,day,point+':00');
+      const leaderSeries=by.get(['stock',b.sectorLeader,period].join('/'))||[];
+      features.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point,plan:frozenPlan,
+        currentRows:researchRowsAt(series,b.date),...benchmarks(b,point),
+        leaderRows:[...researchRowsAt(leaderSeries,history.at(-1)?.date),...researchRowsAt(leaderSeries,b.date)]});
       completeEvidence({b:{...b,frozenPlan},history,f:features,market,stage,sector,catalog:state.catalog||[],intraday:sessionRows(minutes,b),marketSeries,asOf:point},inferred.facts);
       const keys=new Set([...inferred.facts].filter(([,v])=>v.pass).map(([k])=>k));
       let {strategy,strategies,type}=classify(features,b,state.catalog||[],keys,settings);
@@ -508,6 +564,9 @@ export function deriveCheckInput(state,input){
  const {facts,main,strong}=inferEvidence(b,history,f,market,stage,sector,state.catalog,settings);
  const seconds=typeof point==='number'?new Date(point+8*36e5).toISOString().slice(0,19).replace('T',' '):asOf+':00';
  b.frozenPlan=planAt(state.plans,code,date,seconds);
+  f.chaseRiskResearch=buildChaseRiskResearch({b,history,market,sector,asOf:point,
+    currentRows:stocks.filter(r=>r.date===date),...researchBenchmarkMaps(raw)(b,point),
+    leaderRows:raw.filter(r=>(!r.role||r.role==='stock')&&r.code===b.sectorLeader)});
  const minutes=[...(state.bars||[]),...(current?obs.minuteBars||[]:[])].filter(r=>officialReceipt(state,r) && r.date.length>10 && r.date.slice(0,10)===date &&
    (r.role==='sector'?(r.sector||r.code)===b.sector:(!r.role||r.role==='stock')&&(r.code===code||b.sector&&r.sector===b.sector)));
  completeEvidence({b,history,f,market,stage,sector,catalog:state.catalog,intraday:minutes,marketSeries,asOf:point},facts);
@@ -535,7 +594,7 @@ export function deriveCheckInput(state,input){
    dictionaryVersion,inputs:ruleInputs,settingsVersion:settings.version??null,settings});
  return {code,date,stockEvidence:b,name:b.name,theme:b.sector||'',selected,mainline:stock.mainline??main,strongSector:stock.strongSector??strong,asOf,observedAtMs:typeof point==='number'?point:null,
  capture:current&&obs.latestClosed===true&&bar?{features:f,context:{sectorChange:sector.change??null,indexChange:market.indexChange??null}}:null,
- recognition:{evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8),ruleObservations}};
+ recognition:{chaseRiskResearch:f.chaseRiskResearch,evidence:[...new Set([...(current?obs.evidence||[]:[]),...evidence])],missing:[...new Set([...missing,...(current&&Array.isArray(obs.missing)?obs.missing:[])])],candidates:candidates.slice(0,8),ruleObservations}};
 }
 function knownFeature(v){return v!=null&&v!==''&&v!==MISSING}
 

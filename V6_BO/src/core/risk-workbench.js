@@ -36,6 +36,13 @@ function boundedSummary(row) {
   return {...row,summaryCoverage:coverage};
 }
 
+function typedRiskRow(row,now){
+  let state=riskState(row,now);
+  if(row.status==='resolved'&&state.assessmentState!=='not-triggered'){
+    row={...row,status:'unknown'};state=riskState(row,now);
+  }
+  return {...row,...state};
+}
 function riskRow(input,now=Date.now()) {
   const rootCauseId = text(input.rootCauseId);
   if (!rootCauseId) throw Error('风险必须保留根因标识');
@@ -54,7 +61,7 @@ function riskRow(input,now=Date.now()) {
     followUp:input.followUp || '保留观察；新证据由原后端重新核验',canTrade:false,
     ...copyStateEvidence(input)
   };
-  return {...row,...riskState(row,now)};
+  return typedRiskRow(row,now);
 }
 
 function planRootCause(planId,kind) { return 'plan/'+planId+'/'+kind; }
@@ -76,6 +83,31 @@ function riskForPlanAlert(alert,now=Date.now()) {
   },now);
 }
 
+function verifiedExit(item,now){
+  const e=item.execution;
+  return item.status==='filled'&&!!text(item.entryEventId)&&item.constraints?.remainingQuantity===0&&
+    item.continueObserving===false&&e?.evidenceStatus==='available'&&e.allowed===false&&e.checkedAt===now&&
+    !!time(item.sourceAt)&&item.sourceAt<=now&&list(item.fills).some(fill=>fill?.source==='original-paper-ledger'&&
+      fill.executionAt===item.sourceAt&&Number.isSafeInteger(fill.quantity)&&fill.quantity>0)&&
+    !list(item.orders).some(order=>order?.evidenceStatus==='conflict');
+}
+function verifiedCondition(item,now){
+  const c=item.condition,p=item.constraints?.price,q=item.constraints?.remainingQuantity;
+  if(!text(item.planId)||!['observing','condition-triggered','allowed','partially-filled','submitted','failed'].includes(item.status)||
+    !Number.isSafeInteger(q)||q<0||!c||!p||!time(c.quoteAt)||c.quoteAt>now||now-c.quoteAt>15000||
+    c.observedAt!==now||!text(c.source)||c.source!==p.source||c.quoteAt!==p.quoteAt||
+    !finite(c.price)||c.price<=0||c.price!==p.current||
+    !finite(p.stop)||p.stop<=0||!finite(p.target)||p.target<=p.stop||
+    (q>0?!text(item.entryEventId):!!item.entryEventId))return false;
+  const expected=q>0?(c.price<=p.stop?'stop':c.price>=p.target?'target':null):null;
+  return expected?c.status==='triggered'&&c.kind===expected:c.status==='not-triggered'&&c.kind===null;
+}
+function supersedesAlert(item,alert,now){
+  if(item.planId!==alert.planId||item.code!==alert.code||
+    (item.entryEventId??null)!==(alert.entryEventId??null)&&!(alert.kind==='entry'&&alert.entryEventId==null))return false;
+  return verifiedExit(item,now)&&item.sourceAt>=alert.quoteAt||
+    verifiedCondition(item,now)&&item.condition.quoteAt>alert.quoteAt;
+}
 function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityHistory=null,rules=null,actions=null,
   stress=null,research=null,market={},system={},classifications=[],strategy=null,alerts=null,planAlerts=[],accountSafety=null}={}) {
   if(!['pool','pre'].includes(accountId)||!Number.isSafeInteger(now)||now<=0)throw Error('风险工作台账户或时钟无效');
@@ -195,7 +227,7 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     facts:['账户实际生效配置尚不可读'],source:'原账户风控策略',impact:'不能证明任何新增展示限额已启用',
     restrictions:['保留原账户执行门禁'],checks:['读取权威账户版本和策略变更记录'],releaseConditions:['取得同一账户实际生效策略'],status:'unknown'});
   for(const rule of list(rules?.rules)) {
-    const configured=rule.enabled===true&&rule.configurationStatus==='active',known=finite(rule.used)&&configured&&rule.evidenceStatus==='available';
+    const configured=rule.enabled===true&&rule.configurationStatus==='active',known=finite(rule.used)&&configured&&rule.evidenceStatus==='available'&&typeof rule.exceeded==='boolean'&&!!text(rules.policyVersion);
     const breach=known&&rule.exceeded===true;
     const configurationLabel=configured?'已启用，版本 '+rules.policyVersion:
       rule.configurationStatus==='not-configured'?'未配置':rule.configurationStatus==='disabled'?'已停用':
@@ -218,12 +250,12 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
         configurationStatus:rule.configurationStatus,exceeded:known?rule.exceeded:null}});
   }
   for(const item of list(actions?.items)) {
-    const filled=item.status==='filled'&&item.execution?.evidenceStatus==='available';
-    const reconciliation=item.status==='pending-reconciliation';
+    const filled=verifiedExit(item,now),conditionKnown=verifiedCondition(item,now);
+    const reconciliation=item.status==='pending-reconciliation'||item.status==='filled'&&!filled;
     const kinds=item.planId?['stop','target']:[item.condition?.kind||'exit'];
     for(const kind of kinds){
-    const triggered=!filled&&item.condition?.status==='triggered'&&item.condition.kind===kind;
-    const unknown=reconciliation||!filled&&item.condition?.status==='unknown';
+    const triggered=!filled&&conditionKnown&&item.condition.status==='triggered'&&item.condition.kind===kind;
+    const unknown=reconciliation||!filled&&!conditionKnown;
     add({rootCauseId:planRootCause(item.planId||item.id,kind),category:'execution',object:{type:'security',id:item.code,label:item.code},
       severity:triggered?(kind==='stop'?'critical':'warning'):unknown?'unknown':'info',
       evidenceStatus:reconciliation?'conflict':unknown?(['stale','conflict','missing','partial','unknown'].includes(item.execution?.evidenceStatus)?item.execution.evidenceStatus:'missing'):'available',executionStatus:item.status,
@@ -234,15 +266,14 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
       releaseConditions:['原账本证明退出完成，或新鲜同计划观察明确解除触发；观察缺档不解除'],
       status:reconciliation?'unknown':triggered?'active':unknown?'unknown':'resolved',priceDependent:!filled,
       references:{planId:item.planId,entryEventId:item.entryEventId,orderIds:item.orderIds,kind},
-      actionEvidence:item.execution,
+      actionEvidence:reconciliation||!filled&&!conditionKnown?null:item.execution,
       followUp:item.continueObserving?'部分退出后继续观察剩余持仓':'保留计划和订单证据'});
     }
   }
   for(const alert of planAlerts){
-    const action=list(actions?.items).find(item=>item.planId===alert?.planId);
-    // A newer authoritative fill/current observation supersedes an older
-    // trigger. Retain that trigger in the original observation journal.
-    if(action&&(action.status==='filled'||time(action.condition?.quoteAt)&&action.condition.quoteAt>alert.quoteAt))continue;
+    // Only the same plan, security and lot's verified fill or newer valid
+    // observation can supersede an original trigger. Keep the journal intact.
+    if(alert&&list(actions?.items).some(item=>supersedesAlert(item,alert,now)))continue;
     if(alert&&time(alert.quoteAt)&&alert.quoteAt<=now&&now-alert.quoteAt<=15000)risks.push(riskForPlanAlert(alert,now));
   }
   add({rootCauseId:'stock/news-evidence',category:'stock',object:{type:'security',id:'all',label:'个股新闻证据'},
@@ -338,7 +369,8 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
     // executable action merely because its severity sorts before "unknown".
     const unresolved=[prior,row].filter(item=>item.status!=='resolved');
     const relevant=unresolved.length?unresolved:[prior,row];
-    const evidenceStatus=['conflict','stale','missing','unknown','partial','available']
+    const scopeConflict=prior.scopeConflict===true||prior.object?.type!==row.object?.type||prior.object?.id!==row.object?.id;
+    const evidenceStatus=scopeConflict?'conflict':['conflict','stale','missing','unknown','partial','available']
       .find(status=>relevant.some(item=>item.evidenceStatus===status))||'unknown';
     const reconciliation=relevant.some(item=>item.executionStatus==='pending-reconciliation');
     const executionStates=new Set(relevant.map(item=>item.executionStatus));
@@ -346,16 +378,20 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
       executionStates.has('unknown')?'unknown':
       ['partially-filled','submitted','failed','condition-triggered','allowed','observing','filled','not-applicable']
         .find(status=>executionStates.has(status))||'unknown';
-    const status=reconciliation?'unknown':unresolved.some(item=>item.status==='active')?'active':
+    const status=scopeConflict||reconciliation?'unknown':unresolved.some(item=>item.status==='active')?'active':
       unresolved.length?'unknown':'resolved';
-    grouped.set(row.rootCauseId,{...chosen,id:prior.id,relatedRiskIds:[...new Set([...prior.relatedRiskIds,row.id])],
-      evidenceStatus,executionStatus,status,
-      actionEvidence:reconciliation||executionStatus==='unknown'?null:chosen.actionEvidence,
+    const originalBlock=relevant.find(item=>item.actionState==='blocked'&&item.actionEvidence?.allowed===false);
+    const originalChecks=relevant.filter(item=>item.actionEvidence!=null);
+    const actionEvidence=scopeConflict||reconciliation||executionStatus==='unknown'?null:
+      originalBlock?originalBlock.actionEvidence:originalChecks.some(item=>item.actionState!=='allowed')?null:chosen.actionEvidence;
+    grouped.set(row.rootCauseId,typedRiskRow({...chosen,id:prior.id,relatedRiskIds:[...new Set([...prior.relatedRiskIds,row.id])],
+      evidenceStatus,executionStatus:scopeConflict?'unknown':executionStatus,status,scopeConflict,
+      actionEvidence,
       facts:[...new Set([...prior.facts,...row.facts])],restrictions:[...new Set([...prior.restrictions,...row.restrictions])],
       checks:[...new Set([...prior.checks,...row.checks])],releaseConditions:[...new Set([...prior.releaseConditions,...row.releaseConditions])],
       sources:[...prior.sources,{source:row.source,sourceAt:row.sourceAt}],
       evidenceReferences:[...prior.evidenceReferences,row.references],
-      references:{...prior.references,...row.references,orderIds:[...new Set([...list(prior.references?.orderIds),...list(row.references?.orderIds)])]}});
+      references:{...prior.references,...row.references,orderIds:[...new Set([...list(prior.references?.orderIds),...list(row.references?.orderIds)])]}},now));
   }
   // A failed upstream module can omit an entire root. Keep that unresolved
   // record in the shared result so home/mobile summaries cannot lose it.
@@ -368,7 +404,7 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
   }
   const retainedLevel=row=>row.status==='resolved'?0:Math.max(row.riskLevel||0,row.lastValidRisk?.riskLevel||0);
   const rows=[...grouped.values()].map(row=>{
-    let next={...row,...riskState(row,now)};
+    let next=typedRiskRow(row,now);
     const prior=list(alerts?.groups).find(group=>group.rootCauseId===row.rootCauseId);
     if(prior&&prior.status!=='resolved'){
       next.lastValidRisk=prior.lastValidRisk||null;
@@ -389,9 +425,9 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
   const active=rows.filter(r=>r.status!=='resolved');
   return {schemaVersion:1,protocol:'fayo-risk-workbench-v1',version:VERSION,generatedAt:now,account,
     accountEpoch:equity?.accountEpoch||null,accountRevision:equity?.source?.accountRevision??null,
-    summary:{status:active.some(r=>r.evidenceStatus!=='available')?'incomplete-evidence':'observed',
+    summary:{status:active.some(r=>r.evidenceStatus!=='available'||r.assessmentState==='unable-to-assess')?'incomplete-evidence':'observed',
       actionable:active.filter(r=>['critical','warning'].includes(r.severity)).length,
-      unknown:active.filter(r=>r.severity==='unknown'||r.evidenceStatus!=='available').length,
+      unknown:active.filter(r=>r.severity==='unknown'||r.evidenceStatus!=='available'||r.assessmentState==='unable-to-assess').length,
       highestRiskLevel:Math.max(0,...rows.map(retainedLevel))||null,
       assessmentCounts:{detected:rows.filter(r=>r.assessmentState==='risk-detected').length,
         notTriggered:rows.filter(r=>r.assessmentState==='not-triggered').length,unable:rows.filter(r=>r.assessmentState==='unable-to-assess').length},

@@ -1,0 +1,69 @@
+{
+  "base": "e45ea4209aca30e14e3324703ccea8ec3922be90",
+  "originalCI": {
+    "pr": 496,
+    "run": 45954237339,
+    "job": 140356894093,
+    "pass": 6165,
+    "fail": 1,
+    "skipped": 0,
+    "failingTest": "home previews three candidates from the same system picks list and links to it",
+    "expected": [
+      "/api/risk-workbench?account=pool"
+    ],
+    "actual": []
+  },
+  "sourceBlobs": {
+    "fixture": "dc5a327ad37d43b19d6ac10827e8fdb369133174",
+    "patchedFixture": "177bc340daef9e02d5f2ef485fdbee254eb23fd7",
+    "view": "a9d62bfd127aa4a4125ea2fcaab79d4175afcbf0",
+    "scope": "a6c668622e59764342ebf485fcfbc9298f77f41c",
+    "ui": "486cd673ccdfcbeca92c9131592b458bc2470f8c"
+  },
+  "environment": "V8 isolated actual createRiskSummary, actual risk scope and ui.js, extracted exact DOM/context/fixture definitions from original and modified test. Explicit EventTarget/AbortController/URLSearchParams/monotonic clock/microtask adapters; no native Node or full homepage integration. The new original homepage regression test is registered for native CI and not counted as already executed.",
+  "results": [
+    {
+      "kind": "old-default",
+      "before": [],
+      "after": [],
+      "disposed": []
+    },
+    {
+      "kind": "patched-visible",
+      "before": [
+        "/api/risk-workbench?account=pool"
+      ],
+      "after": [
+        "/api/risk-workbench?account=pool"
+      ],
+      "disposed": [
+        "/api/risk-workbench?account=pool"
+      ]
+    },
+    {
+      "kind": "unknown",
+      "before": [],
+      "after": [],
+      "disposed": []
+    },
+    {
+      "kind": "hidden",
+      "before": [],
+      "after": [
+        "/api/risk-workbench?account=pool"
+      ],
+      "disposed": [
+        "/api/risk-workbench?account=pool"
+      ]
+    },
+    {
+      "kind": "viewer",
+      "before": [],
+      "after": [],
+      "disposed": []
+    }
+  ],
+  "observedIsolationChecks": 5,
+  "expectedAllMatched": true,
+  "fullCI": false
+}
