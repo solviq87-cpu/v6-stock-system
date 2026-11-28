@@ -62,6 +62,32 @@ function neutralRows(rows,id){
   return {eligible:residuals,reason:'insufficient-industry-groups',groups:included.length};
  return {eligible:residuals,reason:null,groups:included.length};
 }
+function matchedIndustryDiagnostics(rows,id){
+ const result={status:'unknown',samples:0,groups:0,matchedRawIC:null,matchedNeutralIC:null,
+  industryMeanReturnSpreadPct:null,withinIndustrySelectionSpreadPct:null,selectionGroups:0,
+  styleExposure:null,independentHoldoutCertified:false,netReturnCertified:false,canTrade:false};
+ const neutral=neutralRows(rows,id);
+ if(neutral.reason)return {...result,reason:neutral.reason};
+ const grouped=new Map();
+ for(const row of rows)if(row.industry){const key=row.industry.code;if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(row);}
+ const eligible=[...grouped.values()].filter(g=>g.length>=2);
+ const matched=eligible.flat(),means=eligible.map(g=>mean(g.map(x=>x.returnPct)));
+ // Select highest/lowest frozen factor value within the SAME industry. Exclude
+ // groups with a tied max/min rather than arbitrate on outcomes or stock IDs.
+ const spreads=[];
+ for(const group of eligible){
+  const lo=Math.min(...group.map(x=>x.values[id])),hi=Math.max(...group.map(x=>x.values[id]));
+  if(lo===hi)continue;
+  const top=group.filter(x=>x.values[id]===hi),bottom=group.filter(x=>x.values[id]===lo);
+  spreads.push(mean(top.map(x=>x.returnPct))-mean(bottom.map(x=>x.returnPct)));
+ }
+ return {...result,status:'descriptive-only',reason:null,samples:matched.length,groups:eligible.length,
+  matchedRawIC:round(spearman(matched.map(x=>x.values[id]),matched.map(x=>x.returnPct))),
+  matchedNeutralIC:round(spearman(neutral.eligible.map(x=>x.score),neutral.eligible.map(x=>x.returnPct))),
+  industryMeanReturnSpreadPct:round(Math.max(...means)-Math.min(...means)),
+  withinIndustrySelectionSpreadPct:spreads.length>=2?round(mean(spreads)):null,selectionGroups:spreads.length,
+  note:'同一冻结证券子集，行业组均值与行业内极端因子组的毛价格差分列；不等同市场或行业因果超额、真实成交净收益、样本外独立验证'};
+}
 function checkWindow(w,signalDay,reportAsOf,h){
  if(!w||w.tradingDays!==h||
    !['observed','pending','calendar-incomplete',
@@ -132,6 +158,7 @@ function auditOneDay(features,report,{now=Date.now()}={}){
    factorIC[id]={rawIC:round(raw),industryNeutralIC:round(adjusted),
     neutralSamples:neutral.eligible.length,
     industryGroups:neutral.groups,
+    matchedIndustry:matchedIndustryDiagnostics(available,id),
     industryStatus:adjusted===null?
      neutral.reason||'insufficient-within-industry-variation':'descriptive-only',
     note:'信号时点行业分组去均值后的横截面秩相关；非净收益或因果归因'};
@@ -186,10 +213,15 @@ function auditFactorHorizonSeries(episodes,{now=Date.now(),
    const raw=days.map(x=>x.factorIC[id].rawIC).filter(finite);
    const neutral=days.map(x=>x.factorIC[id].industryNeutralIC).filter(finite);
    const conflicting=days.filter(x=>x.factorIC[id].industryStatus==='industry-taxonomy-mismatch').length;
+   const matched=days.map(x=>x.factorIC[id].matchedIndustry).filter(x=>finite(x.matchedRawIC)&&finite(x.matchedNeutralIC));
+   const spreads=days.map(x=>x.factorIC[id].matchedIndustry.withinIndustrySelectionSpreadPct).filter(finite);
    factors[id]={rawICDays:raw.length,meanRawIC:round(mean(raw)),
     industryNeutralICDays:neutral.length,meanIndustryNeutralIC:round(mean(neutral)),
     insufficientIndustryDays:days.length-neutral.length,
     taxonomyMismatchDays:conflicting,
+    matchedIndustryDays:matched.length,meanMatchedRawIC:round(mean(matched.map(x=>x.matchedRawIC))),
+    meanMatchedNeutralIC:round(mean(matched.map(x=>x.matchedNeutralIC))),withinIndustrySelectionDays:spreads.length,
+    meanWithinIndustrySelectionSpreadPct:round(mean(spreads)),styleExposure:null,independentHoldoutCertified:false,
     industryNeutralStatus:neutral.length>=minimumDays?
      'descriptive-only':'insufficient-independent-days'};
   }
@@ -249,4 +281,4 @@ function auditStoredFactorHorizonSeries({captureDir,trackingDir,now=Date.now()}=
  return {...full,fingerprint:sha(full)};
 }
 module.exports={auditOneDay,auditFactorHorizonSeries,auditStoredFactorHorizonSeries,
- spearman,neutralRows,checkWindow};
+ spearman,neutralRows,checkWindow,matchedIndustryDiagnostics};

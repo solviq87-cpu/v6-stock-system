@@ -69,7 +69,19 @@ function summarizeConditions(evaluations,{asOf}={}) {
   }
   const sharedEvidenceGroups=[...references.entries()].filter(([,g])=>g.strategies.size>1)
     .slice(0,100).map(([evidenceId,g])=>({evidenceId,strategies:[...g.strategies],fields:[...g.fields],sources:[...g.sources]}));
-  return {total:rows.length,counts,rows,missingFields:[...needs].map(([field,ids])=>({field,strategies:[...ids]})),
+  const counterfactual=sharedEvidenceGroups.map(g=>{
+    const affected=rows.filter(r=>r.status!=='disabled'&&[...r.support,...r.opposition].some(c=>c.evidenceId===g.evidenceId&&instant(c.recordedAt)));
+    const affectedIds=new Set(affected.map(r=>r.id));
+    const after=Object.fromEntries(Object.keys(counts).map(k=>[k,0]));
+    for(const row of rows)after[affectedIds.has(row.id)?'insufficient_data':row.status]++;
+    return {evidenceId:g.evidenceId,affectedStrategies:[...affectedIds],before:{...counts},after,
+      candidateCoverageChange:after.research_candidate-counts.research_candidate,
+      returnDelta:null,causalContribution:null,canTrade:false};
+  });
+  return {counterfactual:{status:counterfactual.length?'shared-reference-withholding':'no-shared-reference',
+      rows:counterfactual,scoreRecomputed:false,independentEconomicValueVerified:false,
+      basis:'同一原规则条件，撤去一个已知共享证据引用后只标未知；不重新训练、不反转条件、不计算买卖许可',canTrade:false},
+    total:rows.length,counts,rows,missingFields:[...needs].map(([field,ids])=>({field,strategies:[...ids]})),
     sharedEvidenceGroups,independenceCertified:false,independentConfirmations:null,
     independenceNote:'仅披露完全一致且时点有效的共享证据引用；不同引用或供应商不证明独立，未认证独立确认次数。',
     mixedConditions:rows.some(r=>r.status==='research_candidate')&&rows.some(r=>r.status==='not_matched'),
@@ -100,18 +112,38 @@ function summarizeRuleDisagreement(systems) {
 function buildScreeningFunnel(items) {
   let remaining=arr(items).slice();
   const steps=[];
-  for(const [id,label,test,reason]of [
+  const stages=[
     ['quality','来源与数据质量',x=>x.quality?.usable,x=>arr(x.quality?.errors).join('；')||'来源或数据证据不足'],
     ['risk','原有风险过滤',x=>typeof x.blockedBySafety==='boolean'?!x.blockedBySafety:null,x=>arr(x.strategy?.riskFilter?.reasons).join('；')||'原有安全条件未通过'],
     ['strategy','原有策略条件',x=>x.strategy?.pass,()=> '原有策略条件未通过或缺少评估'],
     ['eligibility','原有候选资格',x=>x.tradable,x=>x.quality?.fresh===false?'数据不满足原有时效要求':'候选资格未通过或未知']
-  ]){
+  ];
+  for(const [id,label,test,reason]of stages){
     const before=remaining.length,rejected=remaining.filter(x=>test(x)!==true);
     remaining=remaining.filter(x=>test(x)===true);
     steps.push({id,label,before,after:remaining.length,removed:rejected.length,unknown:rejected.filter(x=>test(x)!==false).length,
       samples:rejected.slice(0,5).map(x=>({symbol:text(x.symbol,20),name:text(x.name,100),reason:text(reason(x),500)}))});
   }
-  return {total:arr(items).length,remaining:remaining.length,steps,rankingModified:false,
+  // All predicates are original evaluations on the unchanged input pool.
+  // Do not drop a hard gate in a trade or supply hypothetical return labels.
+  const source=arr(items),knownRows=source.map(x=>stages.map(([, ,test])=>test(x)));
+  const full=knownRows.filter(a=>a.every(v=>v===true)).length;
+  const stageAblation=stages.map(([id,label],i)=>{
+    const sole=knownRows.filter(a=>a[i]===false&&a.every((v,j)=>j===i||v===true)).length;
+    const soleUnknown=knownRows.filter(a=>a[i]!==true&&a[i]!==false&&a.every((v,j)=>j===i||v===true)).length;
+    const overlaps=stages.filter((_,j)=>j!==i).map(([other],k)=>{
+      const j=stages.findIndex(s=>s[0]===other);
+      return {stage:other,bothExplicitFailures:knownRows.filter(a=>a[i]===false&&a[j]===false).length};
+    });
+    return {stage:id,label,exclusiveExplicitFailures:sole,exclusiveUnknown:soleUnknown,
+      sharedFailures:overlaps,completeInputPasses:full,diagnosticPassesWithoutOneExplicitGate:full+sole,
+      netReturnDelta:null,canTrade:false};
+  });
+  return {total:source.length,remaining:remaining.length,steps,rankingModified:false,
+    stageAblation:{status:source.length?'descriptive-only':'unknown',rows:stageAblation,
+      knownAllStages:knownRows.filter(a=>a.every(v=>v===true||v===false)).length,
+      baselinePasses:full,approvalChanged:false,canTrade:false,
+      basis:'同一输入池已有原判定；未知不放行，重叠失败不相加；仅门禁敏感性，非收益消融'},
     meaning:'本次输入池按现有判定顺序对账；每只股票只在首次淘汰步骤计数，不扩张为全市场覆盖，不授予交易许可'};
 }
 

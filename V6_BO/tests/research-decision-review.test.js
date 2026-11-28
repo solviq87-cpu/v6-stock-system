@@ -102,3 +102,17 @@ test('F22.4 rejects reversed archive time and excludes late raw reference at ori
  assert.equal(review(good).evidence.find(x=>x.id==='frozen').status,'unknown');
  assert.equal(timeline({hypotheses:[h(sha('a'),{decisionAt:at,recordedAt:at-1})]},at).total,0);
 });
+
+test('F22 and F37 evidence withholding preserves unknowns and reports only same-input gate sensitivity',()=>{
+ const e={source:'fixture',evidenceId:'shared',observedAt:at-3,availableAt:at-2,recordedAt:at-1};
+ const original=[{id:'a',checks:[{field:'a',pass:true,evidence:e}]},{id:'b',checks:[{field:'b',pass:false,evidence:e}]}];
+ const before=JSON.stringify(original),c=summarizeConditions(original,{asOf:at});
+ assert.equal(c.counterfactual.rows[0].before.research_candidate,1);
+ assert.equal(c.counterfactual.rows[0].after.insufficient_data,2);assert.equal(c.counterfactual.rows[0].candidateCoverageChange,-1);
+ assert.equal(c.counterfactual.rows[0].returnDelta,null);assert.equal(JSON.stringify(original),before);
+ const good={quality:{usable:true},blockedBySafety:false,strategy:{pass:true},tradable:true};
+ const rows=[good,{...good,blockedBySafety:true},{...good,blockedBySafety:true,tradable:false},{...good,strategy:{pass:undefined}}];
+ const f=buildScreeningFunnel(rows),risk=f.stageAblation.rows.find(x=>x.stage==='risk');
+ assert.equal(f.remaining,1);assert.equal(risk.exclusiveExplicitFailures,1);assert.equal(risk.sharedFailures.find(x=>x.stage==='eligibility').bothExplicitFailures,1);
+ assert.equal(f.stageAblation.rows.find(x=>x.stage==='strategy').exclusiveUnknown,1);assert.equal(f.stageAblation.knownAllStages,3);assert.equal(f.stageAblation.canTrade,false);
+});

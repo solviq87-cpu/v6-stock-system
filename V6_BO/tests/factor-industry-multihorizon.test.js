@@ -216,3 +216,13 @@ test('offline archived price evidence produces an append-only private research r
  fs.symlinkSync(out,alias);
  assert.throws(()=>parse(['once',captures,tracking,alias]),/符号链接/);
 });
+
+test('F29 identical industry-covered sample exposes selection spread separately from group returns',()=>{
+ const {matchedIndustryDiagnostics}=require('../src/core/factor-industry-multihorizon');
+ const rows=Array.from({length:6},(_,i)=>({values:{x:i},returnPct:(i<3?0:10)-(i%3),industry:{code:i<3?'A':'B',source:'p',classificationVersion:'v1'}}));
+ const r=matchedIndustryDiagnostics(rows,'x');assert.equal(r.samples,6);assert.equal(r.groups,2);assert.ok(r.matchedRawIC>0);assert.equal(r.matchedNeutralIC,-1);
+ assert.equal(r.industryMeanReturnSpreadPct,10);assert.equal(r.withinIndustrySelectionSpreadPct,-2);assert.equal(r.styleExposure,null);
+ assert.equal(r.netReturnCertified,false);assert.equal(matchedIndustryDiagnostics(rows.slice(0,3),'x').status,'unknown');
+ const mixed=rows.map((v,i)=>i===0?{...v,industry:{...v.industry,classificationVersion:'v2'}}:v);
+ assert.equal(matchedIndustryDiagnostics(mixed,'x').status,'unknown');
+});

@@ -122,3 +122,12 @@ test('large model catalogs paginate complete totals and bound quadratic pair com
  const root=setup(t),e=origin();for(let i=0;i<25;i++){const p=prediction(e);p.model.id='custom'+i;save(root,e,p,'many_forecasts_'+String(i).padStart(3,'0'),e.recordedAt+2000+i);}
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),v=F.evaluationView(root,[e,later],{asOf:at(71),offset:20,limit:20});assert.equal(v.groupTotal,25);assert.equal(v.groups.length,5);assert.equal(v.total,25);assert.equal(v.rows.length,5);assert.equal(v.pairs.rows.length,0);assert.equal(v.pairs.limitedGroups,1);
 });
+
+test('F36.2 same frozen interval cohort reports conditional coverage, width and uncertainty due to missing outcomes',()=>{
+ const g={quantileLevels:[.1,.9],dueUnique:4,values:[{covered:true,intervalWidthPctOfOrigin:10},{covered:false,intervalWidthPctOfOrigin:30}]};
+ const x=F.summarizeIntervalEvidence(g);
+ assert.equal(x.status,'partial-descriptive');assert.equal(x.unknownDueIntervals,2);assert.equal(x.outcomeCoveragePct,50);assert.equal(x.conditionalCoveragePct,50);
+ assert.equal(x.meanWidthPctOfOrigin,20);assert.deepEqual(x.fullDueCoverageBoundsPct,[25,75]);assert.equal(x.independentlyCalibrated,false);
+ assert.equal(F.summarizeIntervalEvidence({...g,values:[]}).conditionalCoveragePct,null);
+ assert.equal(F.summarizeIntervalEvidence({quantileLevels:[],dueUnique:3,values:[]}).status,'not-provided');
+});

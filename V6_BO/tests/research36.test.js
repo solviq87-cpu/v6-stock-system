@@ -160,3 +160,11 @@ test('F21 common coverage retains missing evidence, fixed protocol rejects overr
  assert.throws(()=>engine.experimentResearch36({...input,marketByDate:{...input.marketByDate,'2099-01-01':{}}}),/非输入交易日/);
  assert.equal(r.trialBudgetVerified,false);assert.equal(r.eligibleForPromotion,false);
 });
+
+test('F26 F35 same-window net marked equity, fees and risk comparisons use the original ledger and do not double-charge fees',()=>{
+ const mk=(value,fee)=>({buyFills:1,report:{equity:[{day:1,value:100,unpriced:[]},{day:2,value,unpriced:[]}],metrics:{initialCash:100,returnPct:value-100,maxDrawdownPct:value<100?100-value:0},orders:[{status:'filled',fees:fee,price:10,shares:1}],openPositions:[]}});
+ const x=engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:mk(103,2)}).rows.dynamic;
+ assert.equal(x.status,'descriptive-only');assert.equal(x.netMarkedReturnDeltaPct,2);assert.equal(x.feeDeltaCny,1);assert.equal(x.meanDailyReturnDeltaPct,2);assert.equal(x.actualLatencyMs,null);
+ const missing=mk(103,2);missing.report.equity[1].unpriced=['600000'];assert.equal(engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:missing}).rows.dynamic.status,'unknown');
+ const zero=mk(100,0);zero.buyFills=0;assert.equal(engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:zero}).rows.dynamic.status,'unknown');
+});

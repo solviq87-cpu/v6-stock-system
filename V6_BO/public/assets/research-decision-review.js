@@ -52,6 +52,11 @@ function render(host,r){
   const d=disclosure(rules,'共用证据 · '+arr(group.strategies).length+' 个策略');
   line(d,'证据引用',group.evidenceId);line(d,'策略',arr(group.strategies).join('、'));line(d,'字段',arr(group.fields).join('、'));
  }
+ if(arr(conditions.counterfactual?.rows).length){
+  const cf=disclosure(rules,'共享证据撤除敏感性（研究）');
+  cf.append(node('p',conditions.counterfactual.basis));
+  for(const x of conditions.counterfactual.rows)line(cf,val(x.evidenceId),arr(x.affectedStrategies).join('、')+'；候选覆盖变化 '+val(x.candidateCoverageChange));
+ }
  for(const row of arr(conditions.rows)){
   const d=disclosure(rules,row.name+' · '+label(row.status));
   for(const [key,title]of [['support','已满足'],['opposition','未满足'],['missing','待补证据']]){
@@ -108,6 +113,10 @@ function renderFunnel(host,data){
  for(const s of arr(data.steps)){
   const d=disclosure(box,s.label+'：'+s.before+' → '+s.after+' · 本步移出 '+s.removed+' · 判定未知 '+s.unknown);
   for(const row of arr(s.samples))line(d,val(row.name)+' '+val(row.symbol),row.reason);
+ }
+ if(arr(data.stageAblation?.rows).length){
+  const cf=disclosure(box,'同一筛选池阶段敏感性');cf.append(node('p',data.stageAblation.basis));
+  for(const x of data.stageAblation.rows)line(cf,x.label,'独有明确失败 '+val(x.exclusiveExplicitFailures)+'；独有未知 '+val(x.exclusiveUnknown)+'；与其它阶段共同失败 '+arr(x.sharedFailures).map(s=>s.stage+'='+val(s.bothExplicitFailures)).join(' / '));
  }
  host.append(box);
 }

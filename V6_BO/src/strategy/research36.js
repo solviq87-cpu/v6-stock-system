@@ -200,6 +200,38 @@ function routeMarketReceipt(row,date,asOf){
  return {date,source:row.source,evidenceId:row.evidenceId,observedAt:row.observedAt,availableAt:row.availableAt,
   recordedAt:row.recordedAt,scores,regime,verifiedExternal:false};
 }
+function summarizeRouteEconomics(arms){
+ const base=arms?.fixed;
+ const unknown=reason=>({status:'unknown',reason,netMarkedReturnDeltaPct:null,drawdownDeltaPct:null,feeDeltaCny:null,turnoverDelta:null,
+   dailyPairedSamples:0,meanDailyReturnDeltaPct:null,worstDailyReturnDeltaPct:null,actualLatencyMs:null,maintenanceCostCny:null,canTrade:false});
+ function facts(a){
+  const r=a?.report,e=r?.equity,o=r?.orders,m=r?.metrics;
+  if(!Array.isArray(e)||e.length<2||!Array.isArray(o)||!finite(m?.initialCash)||m.initialCash<=0||
+     !finite(m.returnPct)||!finite(m.maxDrawdownPct)||!a.buyFills||e.some((x,i)=>!Number.isSafeInteger(x.day)||i&&x.day!==e[i-1].day+1||!finite(x.value)||x.value<=0||!Array.isArray(x.unpriced)||x.unpriced.length))return null;
+  const fills=o.filter(x=>x.status==='filled');
+  if(fills.some(x=>!finite(x.fees)||x.fees<0||!finite(x.price)||x.price<=0||!Number.isSafeInteger(x.shares)||x.shares<=0))return null;
+  return {rows:e,initialCash:m.initialCash,netMarkedReturnPct:m.returnPct,drawdownPct:m.maxDrawdownPct,
+   fees:fills.reduce((n,x)=>n+x.fees,0),turnover:fills.reduce((n,x)=>n+x.price*x.shares,0),blocked:o.filter(x=>x.status==='blocked').length,
+   openPositions:r.openPositions?.length??null};
+ }
+ const baseline=facts(base),rows={};
+ for(const [name,arm]of Object.entries(arms||{})){
+  if(name==='fixed')continue;
+  const candidate=facts(arm);
+  if(!baseline||!candidate||baseline.initialCash!==candidate.initialCash||baseline.rows.length!==candidate.rows.length||baseline.rows.some((x,i)=>x.day!==candidate.rows[i].day)){rows[name]=unknown('INCOMPLETE_OR_UNMATCHED_ORIGINAL_LEDGER');continue;}
+  const delta=candidate.rows.slice(1).map((x,i)=>100*(x.value/candidate.rows[i].value-baseline.rows[i+1].value/baseline.rows[i].value));
+  if(!delta.every(finite)){rows[name]=unknown('INVALID_PAIRED_RETURN');continue;}
+  const round=x=>Number(x.toFixed(8));
+  rows[name]={...unknown(null),status:'descriptive-only',initialCash:baseline.initialCash,
+   netMarkedReturnDeltaPct:round(candidate.netMarkedReturnPct-baseline.netMarkedReturnPct),drawdownDeltaPct:round(candidate.drawdownPct-baseline.drawdownPct),
+   feeDeltaCny:round(candidate.fees-baseline.fees),turnoverDelta:round(candidate.turnover-baseline.turnover),
+   dailyPairedSamples:delta.length,meanDailyReturnDeltaPct:round(delta.reduce((a,b)=>a+b,0)/delta.length),worstDailyReturnDeltaPct:round(Math.min(...delta)),
+   baseline:{markedReturnPct:baseline.netMarkedReturnPct,drawdownPct:baseline.drawdownPct,feesCny:round(baseline.fees),turnoverCny:round(baseline.turnover),blockedOrders:baseline.blocked,openPositions:baseline.openPositions},
+   candidate:{markedReturnPct:candidate.netMarkedReturnPct,drawdownPct:candidate.drawdownPct,feesCny:round(candidate.fees),turnoverCny:round(candidate.turnover),blockedOrders:candidate.blocked,openPositions:candidate.openPositions}};
+ }
+ return {baseline:'fixed',rows,actualCapacityVerified:false,independentEconomicValueVerified:false,trialBudgetVerified:false,canTrade:false,
+  basis:'原同窗独立账本标记净值、原成交费用及成交额；费用已含于净值，不重复扣除；实际延迟、维护成本和可成交容量未认证'};
+}
 function compareResearchRoutes(input={}){
  const {stocks,evidenceByDate,config={},options={},windows,marketByDate}=input;
  validateResearchBacktest(stocks,evidenceByDate,config,options);
@@ -272,7 +304,7 @@ function compareResearchRoutes(input={}){
     additionalMetrics:researchMetrics(report),report}];
   }));
   const trace=[...cache.values()].map(x=>x.trace),sum=key=>trace.reduce((n,row)=>n+row[key],0);
-  result.push({window:clone(w),arms,trace,switchCount,expectedSymbols:sum('expectedSymbols'),commonEvaluated:sum('commonEvaluated'),
+  result.push({window:clone(w),arms,economicComparison:summarizeRouteEconomics(arms),trace,switchCount,expectedSymbols:sum('expectedSymbols'),commonEvaluated:sum('commonEvaluated'),
    comparableSymbols:sum('comparableSymbols'),marketUnknownSessions:trace.filter(x=>x.skipReason==='MARKET_EVIDENCE_UNKNOWN').length,
    riskOffSessions:trace.filter(x=>x.skipReason==='ORIGINAL_RISK_OFF_ABSTENTION').length});
  }
@@ -284,4 +316,4 @@ function compareResearchRoutes(input={}){
    '未知市场或任一代表规则未知时共同弃权；已明确风险关闭的日期共同不新增，原卖出及风险门禁继续运行',
    '权重映射为固定研究假设，不是批准调度、未来收益预测或真实成交；独立预注册、留出样本及价值另验']};
 }
-module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearchRoutes};
+module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearchRoutes,summarizeRouteEconomics};
