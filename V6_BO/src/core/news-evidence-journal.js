@@ -227,7 +227,23 @@ function queryAt(root=ROOT,{symbol=null,limit=50,offset=0,asOf=Date.now(),now=Da
    supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':!associated?'security-removed':unknown?'unknown':'source-declared-unverified'};
  });
  const current=rows.filter(e=>e.current);
- return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,
+ // Count exact complete texts separately from source statements. This is a
+ // conservative display-only grouping, not publisher authentication, a vote,
+ // or a claim that differently worded stories are independent.
+ const groups=new Map();
+ for(const row of current){
+  if(!row.eligibleForResearchSupport)continue;
+  const id=hash([row.evidence.title,row.evidence.bodyHash]);
+  groups.set(id,(groups.get(id)||0)+1);
+ }
+ for(const row of rows){
+  const id=row.eligibleForResearchSupport?hash([row.evidence.title,row.evidence.bodyHash]):null;
+  row.contentGroup=id?{id,statementCount:groups.get(id),independentSourcesVerified:false}:null;
+ }
+ const eligibleStatements=current.filter(e=>e.eligibleForResearchSupport).length;
+ const contentCoverage={eligibleStatements,distinctExactTexts:groups.size,
+  duplicateStatements:eligibleStatements-groups.size,independentSourcesVerified:false};
+ return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,contentCoverage,
    nextOffset:offset+limit<rows.length?offset+limit:null,rows:rows.slice().reverse().slice(offset,offset+limit),
    summary:{totalRevisions:rows.length,currentEvents:current.length,retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
    eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,unknownEvents:current.filter(e=>e.supportStatus==='unknown').length},
