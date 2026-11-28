@@ -17,7 +17,10 @@ function checkpoint(text) {
   return value;
 }
 function resume(root) {
-  const git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',maxBuffer:64*1024,stdio:['ignore','pipe','pipe']}).trim();
+  const git=(args,maxBuffer=64*1024)=>execFileSync('git',args,{cwd:root,encoding:'utf8',maxBuffer,stdio:['ignore','pipe','pipe']}).replace(/\r?\n$/,'');
+  // A project copied inside another repository must not inherit its SHA.
+  const gitRoot=git(['rev-parse','--show-toplevel']);
+  if(fs.realpathSync(gitRoot)!==fs.realpathSync(root))throw Error('续接目录必须是当前 Git 工作树根目录，拒绝使用上层仓库的版本证据。');
   const note=checkpoint(fs.readFileSync(path.join(root,'HANDOFF.md'),'utf8'));
   const head=git(['rev-parse','HEAD']);
   const branch=git(['branch','--show-current']) || '(detached)';
@@ -27,7 +30,8 @@ function resume(root) {
     const [behind,ahead]=git(['rev-list','--left-right','--count','refs/remotes/origin/dev...HEAD']).split(/\s+/);
     remote=`origin/dev（本地缓存）=${sha}；落后${behind}，领先${ahead}`;
   } catch {}
-  const status=git(['status','--porcelain=v1','--untracked-files=normal']);
+  // Allow ordinary large dirty trees while keeping a hard memory ceiling and bounded display.
+  const status=git(['-c','core.quotePath=true','status','--porcelain=v1','--untracked-files=normal'],8*1024*1024);
   const lines=status?status.split('\n'):[];
   const files=lines.slice(0,12).map(x=>x.slice(0,180)).join('\n') || '干净';
   return ['部署交接（接手前先读）=DEPLOYMENT.md',`当前分支=${branch.slice(0,200)}`,`HEAD=${head}`,remote,

@@ -273,10 +273,12 @@ jobs:
           python-version: '3.11'
       - name: Validate workflow syntax and Actions context availability
         run: bash ../scripts/check-github-workflows.sh
-      - name: Block OpenAI and ChatGPT runtime API dependencies
+      - name: Audit cloud model dependencies and shipped page resources
         id: noopenai
         working-directory: .
-        run: python scripts/audit-no-openai-runtime.py
+        run: |
+          python -m unittest discover -s tests -p test_runtime_network_dependencies.py -v
+          python scripts/audit-no-openai-runtime.py
       - name: Verify archived source intake guards (offline fixtures only)
         id: archivecheck
         working-directory: .

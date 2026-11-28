@@ -13,3 +13,27 @@ test('summary cannot contradict actual failures or inflate the executed test cou
  const inflated=tap({pass:1,fail:0,assertion:false}).replace('# tests 1','# tests 100').replace('# pass 1','# pass 100');
  assert.equal(classify({status:0,stdout:inflated},{baseline:true}).status,'inconclusive');
 });
+
+test('stderr cannot supply missing TAP evidence or a conflicting test receipt',()=>{
+ const output=tap();const split=output.indexOf('1..1');
+ assert.equal(classify({status:1,stdout:output.slice(0,split),stderr:output.slice(split)}).status,'inconclusive');
+ assert.equal(classify({status:1,stdout:output,stderr:'not ok 2 - unrelated\n'}).status,'inconclusive');
+});
+test('results and all summaries must be on their own side of the terminal TAP plan',()=>{
+ const output=tap(),early=output.replace('1..1\n','').replace('TAP version 13\n','TAP version 13\n1..1\n');
+ assert.equal(classify({status:1,stdout:early}).status,'inconclusive');
+ assert.equal(classify({status:1,stdout:output.replace('# fail 1\n','').replace('1..1\n','# fail 1\n1..1\n')}).status,'inconclusive');
+ assert.equal(classify({status:1,stdout:output+'Bail out! lost runner\n'}).status,'inconclusive');
+});
+test('a mix of real assertion failures and nonassertion failures is inconclusive',()=>{
+ const output=tap({tests:2,fail:2}).replace('not ok 2 - case2\n',"  ---\n  failureType: 'testCodeFailure'\n  error: 'unexpected runtime failure'\n  ...\nnot ok 2 - case2\n");
+ assert.equal(classify({status:1,stdout:output}).status,'inconclusive');
+});
+test('a native Node assertion diagnostic stays valid with benign stderr',t=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawnSync}=require('node:child_process');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-mutation-receipt-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'assertion.test.cjs');
+ fs.writeFileSync(file,"const test=require('node:test');const assert=require('node:assert/strict');test('real assertion',()=>assert.equal(1,2));\n");
+ const run=spawnSync(process.execPath,['--test','--test-reporter=tap',file],{encoding:'utf8',timeout:10000,env:{PATH:process.env.PATH,TMPDIR:dir}});
+ assert.equal(run.status,1);assert.equal(classify({...run,stderr:'ordinary diagnostic\n'}).status,'killed');
+});

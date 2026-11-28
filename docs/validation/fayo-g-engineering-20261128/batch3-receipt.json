@@ -1,0 +1,201 @@
+{
+  "scope": "isolated Node real source and temporary files",
+  "parent": "74e7e16de74e00587913ea3529b72cf606113a53",
+  "node": "22.16.0",
+  "commands": [
+    "node --check V6_BO/scripts/workstream-evidence.js",
+    "node --check V6_BO/tests/workstream-evidence.test.js",
+    "node --test V6_BO/tests/workstream-evidence.test.js"
+  ],
+  "before": {
+    "tests": 11,
+    "pass": 8,
+    "fail": 3,
+    "durationMs": 97.60677
+  },
+  "after": {
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "durationMs": 88.415877
+  },
+  "testedBlobs": {
+    "V6_BO/scripts/workstream-evidence.js": "4e63c90938abb8615d7b6c68f361a50289584c1c",
+    "V6_BO/tests/workstream-evidence.test.js": "5fcdb2ad269445a4353f8ce89daa5bb787590a3b"
+  },
+  "taskStatus": [
+    {
+      "id": "G01",
+      "n": 12,
+      "done": [
+        1,
+        9,
+        10,
+        11
+      ],
+      "partial": [
+        2,
+        3,
+        4,
+        5,
+        12
+      ],
+      "pending": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "id": "G02",
+      "n": 12,
+      "done": [
+        10
+      ],
+      "partial": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        12
+      ],
+      "pending": [
+        6,
+        9,
+        11
+      ]
+    },
+    {
+      "id": "G03",
+      "n": 16,
+      "done": [
+        1,
+        2,
+        3,
+        4,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16
+      ],
+      "partial": [
+        5,
+        6,
+        7
+      ],
+      "pending": []
+    },
+    {
+      "id": "G04",
+      "n": 16,
+      "done": [
+        1,
+        3,
+        4,
+        10,
+        12,
+        13,
+        14,
+        15
+      ],
+      "partial": [
+        2,
+        5,
+        6,
+        8,
+        11,
+        16
+      ],
+      "pending": [
+        7,
+        9
+      ]
+    },
+    {
+      "id": "G05",
+      "n": 16,
+      "done": [
+        11,
+        12,
+        15,
+        16
+      ],
+      "partial": [
+        1,
+        2,
+        3,
+        5,
+        6,
+        7,
+        9,
+        13,
+        14
+      ],
+      "pending": [
+        4,
+        8,
+        10
+      ]
+    },
+    {
+      "id": "G06",
+      "n": 12,
+      "done": [
+        10,
+        12
+      ],
+      "partial": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        11
+      ],
+      "pending": []
+    },
+    {
+      "id": "G07",
+      "n": 12,
+      "done": [
+        1,
+        12
+      ],
+      "partial": [
+        2,
+        3,
+        4,
+        5,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "pending": [
+        6
+      ]
+    }
+  ],
+  "totals": {
+    "done": 34,
+    "partial": 50,
+    "pending": 12
+  },
+  "fullSuite": "not run for new candidate",
+  "production": "not tested or changed"
+}

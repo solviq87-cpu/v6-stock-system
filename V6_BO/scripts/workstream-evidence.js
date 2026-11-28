@@ -25,15 +25,31 @@ const REQUIRED=Object.freeze({
  RELEASE:['clean-install-startup','full-regression']
 });
 function sha256(data){return crypto.createHash('sha256').update(data).digest('hex')}
+// Require a real civil date and an explicit time zone before crediting evidence.
+function validEvidenceTime(value,now){
+ if(typeof value!=='string')return false;
+ const m=/^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/.exec(value);
+ if(!m)return false;
+ const year=Number(m[1]),month=Number(m[2]),day=Number(m[3]);
+ const leap=year%4===0&&(year%100!==0||year%400===0);
+ const days=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+ if(month<1||month>12||day<1||day>days[month-1])return false;
+ const t=Date.parse(value);
+ return Number.isFinite(t)&&t<=now;
+}
 function inspectEvidence(manifest,options={}){
  const base=path.resolve(options.evidenceDir||path.join(ROOT,'acceptance-evidence'));
  const errors=[];
- const entries=manifest&&Array.isArray(manifest.entries)?manifest.entries:[];
+ const now=Date.now();
+ const validManifest=manifest!==null&&typeof manifest==='object'&&!Array.isArray(manifest)&&Array.isArray(manifest.entries);
+ if(!validManifest)errors.push('invalid evidence manifest');
+ const entries=validManifest?manifest.entries:[];
  const used=new Set();
  const checked=[];
  for(const entry of entries){
-  if(!entry||typeof entry!=='object'){errors.push('invalid evidence entry');continue}
+  if(!entry||typeof entry!=='object'||Array.isArray(entry)){errors.push('invalid evidence entry');continue}
   const {workstream,requirement,file,sha256:hash,verifiedAt,verdict}=entry;
+  if(typeof workstream!=='string'||typeof requirement!=='string'){errors.push('invalid evidence identity');continue}
   const key=`${workstream}:${requirement}`;
   if(used.has(key)){errors.push(`duplicate evidence: ${key}`);continue}
   used.add(key);
@@ -41,7 +57,7 @@ function inspectEvidence(manifest,options={}){
    errors.push(`unknown evidence requirement: ${key}`);continue;
   }
   if(verdict!=='pass'){errors.push(`nonpassing evidence: ${key}`);continue}
-  if(typeof verifiedAt!=='string'||!/^\d{4}-\d\d-\d\dT/.test(verifiedAt)||!Number.isFinite(Date.parse(verifiedAt))){errors.push(`invalid verifiedAt: ${key}`);continue}
+  if(!validEvidenceTime(verifiedAt,now)){errors.push(`invalid verifiedAt: ${key}`);continue}
   if(typeof file!=='string'||!file||path.isAbsolute(file)||file.split(/[\\/]/).some(x=>x==='..'||x==='.')||file.includes('\0')){errors.push(`unsafe evidence path: ${key}`);continue}
   const target=path.resolve(base,file);
   if(!target.startsWith(base+path.sep)){errors.push(`unsafe evidence path: ${key}`);continue}
@@ -56,9 +72,14 @@ function inspectEvidence(manifest,options={}){
  const verified=new Set(checked);
  const workstreams=STREAMS.map(([id,name])=>{
   const requirements=REQUIRED[id].map(requirement=>({requirement,verified:verified.has(`${id}:${requirement}`)}));
-  return {id,name,requirements,accepted:requirements.every(r=>r.verified)};
+  return {id,name,requirements,accepted:requirements.every(r=>r.verified),productionAccepted:false};
  });
- return {schema:1,workstreams,acceptedWorkstreams:workstreams.filter(s=>s.accepted).length,requiredEvidenceCount:Object.values(REQUIRED).flat().length,verifiedEvidenceCount:checked.length,errors,releaseReady:errors.length===0&&workstreams.every(s=>s.accepted)};
+ // Compatibility: accepted/verified counters describe file/manifest checks only.
+ // Operator-declared verdicts plus matching bytes do not authenticate the signer,
+ // the tested revision, or real-world conditions. Final signoff belongs elsewhere.
+ return {schema:1,workstreams,acceptedWorkstreams:workstreams.filter(s=>s.accepted).length,requiredEvidenceCount:Object.values(REQUIRED).flat().length,verifiedEvidenceCount:checked.length,errors,
+  evidenceScope:'operator-declared-manifest-integrity-only',manifestComplete:errors.length===0&&workstreams.every(s=>s.accepted),
+  independentAcceptanceVerified:false,releaseReady:false};
 }
 function loadAndInspect(manifestPath,options={}){
  if(!manifestPath)return inspectEvidence({entries:[]},options);
