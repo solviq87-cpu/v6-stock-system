@@ -6,10 +6,10 @@ try{
  const [action,file,output]=process.argv.slice(2);
  if(action==='catalog')process.stdout.write(JSON.stringify(engine.getCatalog(),null,2)+'\n');
  else{
-  if(!['evaluate','backtest','experiment'].includes(action)||!file)throw Error('用法: node scripts/research36.js catalog | evaluate INPUT.json [NEW_OUTPUT.json] | backtest INPUT.json [NEW_OUTPUT.json] | experiment INPUT.json [NEW_OUTPUT.json]');
+  if(!['evaluate','backtest','experiment','compare'].includes(action)||!file)throw Error('用法: node scripts/research36.js catalog | evaluate INPUT.json [NEW_OUTPUT.json] | backtest INPUT.json [NEW_OUTPUT.json] | experiment INPUT.json [NEW_OUTPUT.json] | compare INPUT.json [NEW_OUTPUT.json]');
   if(fs.statSync(file).size>32*1024*1024)throw Error('研究文件超过32MB');
   const input=JSON.parse(fs.readFileSync(file,'utf8'));
-  const result=action==='evaluate'?engine.evaluateResearch36(input):action==='experiment'?engine.experimentResearch36(input):engine.backtestResearch36(input);
+  const result=action==='evaluate'?engine.evaluateResearch36(input):action==='experiment'?engine.experimentResearch36(input):action==='compare'?engine.compareResearch36(input):engine.backtestResearch36(input);
   if(output){
    // Explicit offline export only. Refuse replacement so earlier configurations,
    // input evidence and results are not rewritten by a later experiment.
