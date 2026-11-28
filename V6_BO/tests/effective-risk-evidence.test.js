@@ -327,3 +327,9 @@ test('fee schedule unavailable leaves observed principal but not frozen or avail
   assert.equal(r.occupancy.availableCash,null);
   assert.ok(r.missing.length);
 });
+
+test('F45.4 original nonterminal sell denominator is distinct from buys and refuses malformed orders',()=>{
+ const b=pending(book());b.orders.exit={order:{orderId:'exit',symbol:'600000',side:'sell',quantity:100,limitPrice:10,tradeDate:day},state:{terminal:false,status:'partial',remainingQuantity:60},events:[]};
+ const r=report(b);assert.equal(r.occupancy.activeSellOrderCount,1);assert.equal(r.occupancy.activeSellRemainingQuantity,60);assert.equal(r.occupancy.pendingOrderCount,1);
+ b.orders.exit.state.remainingQuantity=0;const malformed=report(b);assert.equal(malformed.occupancy.activeSellOrderCount,null);assert.equal(malformed.occupancy.activeSellRemainingQuantity,null);
+});

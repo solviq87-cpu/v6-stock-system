@@ -131,3 +131,14 @@ test('F36.2 same frozen interval cohort reports conditional coverage, width and 
  assert.equal(F.summarizeIntervalEvidence({...g,values:[]}).conditionalCoveragePct,null);
  assert.equal(F.summarizeIntervalEvidence({quantileLevels:[],dueUnique:3,values:[]}).status,'not-provided');
 });
+
+test('F49.2 original frozen forecast view keeps independent target horizons and input fingerprint',t=>{
+ const root=setup(t),e=origin(),input=F.prepareInput(e),close=input.bars.at(-1).close,p=prediction(e);
+ const first=input.targets.find(x=>x.horizon===1),later=input.targets.find(x=>x.horizon===5);
+ assert.ok(first&&later);
+ p.forecasts=[{...first,point:close*.9},{...later,point:close*1.1}];
+ const saved=save(root,e,p),v=F.evaluationView(root,[e],{asOf:e.recordedAt+2000,limit:1});
+ assert.equal(v.rows.length,1);assert.equal(v.horizonContexts.total,1);const c=v.horizonContexts.rows[0];
+ assert.equal(c.forecastId,saved.forecastId);assert.equal(c.mixedDirections,true);
+ assert.deepEqual(c.horizons.map(h=>h.horizon),[1,5]);assert.ok(c.horizons.every(h=>h.inputFingerprint===input.inputFingerprint&&h.directionMatched===null));
+});

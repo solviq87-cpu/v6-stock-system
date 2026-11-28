@@ -3,6 +3,7 @@
 const {FLAGS}=require('./research-workspace-store');
 const {conditionChanges}=require('./research-workspace-decision');
 const {calcMACD}=require('../../analysis');
+const {projectRuleEvidence}=require('./fayo-model-evidence-audit');
 const array=x=>Array.isArray(x)?x:[],finite=x=>typeof x==='number'&&Number.isFinite(x);
 function inputAudit(data){
  if(!data)return {status:'not-evaluated',warmup:[],...FLAGS};
@@ -13,6 +14,7 @@ function inputAudit(data){
  const values=warmup.filter(x=>x.value),sensitive=values.length>=2&&values.some(x=>x.value.gold!==values[0].value.gold||x.value.aboveWater!==values[0].value.aboveWater);
  const financials=data.context?.financials;
  return {status:'observed-unverified',bars:bars.length,excludedRows:data.inputCoverage?.excludedBars??null,closedBarsOnly:true,
+  ruleEvidence:projectRuleEvidence(data),
   warmup,warmupStatus:values.length<2?'insufficient-history':sensitive?'signal-sensitive-to-start':'no-signal-change-in-tested-lengths',
   pointInTime:{status:'frozen-at-receipt-only',financialAvailable:!!financials,financialHistoricalEligibility:'not-certified',
    membershipScope:'observed-members-at-run-time',meaning:'只认当时封存的资料；没有公告与生效版本链时不能用作历史基本面或成分回测'},

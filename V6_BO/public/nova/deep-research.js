@@ -2,17 +2,21 @@ import {h,button,section,field,note,empty,table,dateTime,format,safeLink} from '
 const arr=value=>Array.isArray(value)?value:[];
 const titles={67:'事件影响',68:'预期差',69:'产业与公司关系',70:'盘口与竞价',71:'交易时段',72:'主题拥挤',73:'组合目标权重',74:'换仓成本门槛',75:'决策稳健性',76:'事前对照复盘'};
 const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':'暂不调整','not-evaluated':'暂不能评估',
- 'observed-research':'已有研究记录','candidate':'研究候选','prospective':'事前冻结','post-hoc-exploration':'事后探索',
+ 'declared-issuer-guidance':'公司预告原文声明，未认证','declared-consensus-entitlement':'一致预期授权声明，未独立认证','continued-relative-strength-counterexample':'事后继续相对走强（反例）','pre-strength-post-relative-fade':'事前相对强、事后相对转弱（观察）','common-downside-not-stock-specific':'共同下跌，未见个股特异走弱','stock-relative-weakness':'个股相对同行与市场走弱','relative-underperformance-mixed':'相对表现分化','elapsed-needs-new-evidence':'观察窗已到期，需新证据','in-window':'固定观察窗内','needs-new-screen-after-revision':'需修订后重新筛选核对','same-day-frozen-screen-association':'当日封存同股关联（非因果）','historical-screen-not-current':'历史筛选，非当前候选','source-evidence-unknown':'原文或时点不足','retracted':'已撤稿','no-current-support':'无当前支持证据','same-security-only':'仅同证券关联',
+ 'observed-research':'已有研究记录','declared-review':'来源声明待核','declared-path-review':'业务路径待核','public-time-only':'仅有海外发布时间','declared-issuer-document':'发布主体声明未认证','authority-unknown':'来源权威性未知','declared-plan':'计划声明','declared-execution-statement':'执行声明，非成交回执','review-only':'仅供核对','declared-text-clue':'原文线索待核','current-account-association':'当前账户关联','observed-unverified':'观察未认证','partial-or-unknown':'部分或未知','descriptive-unverified':'描述性研究未认证','upward-price-context':'长期价格向上','downward-price-context':'长期价格向下','mixed-price-context':'长期价格分化','first-session-observed':'首日已观察','two-sessions-observed':'两日已观察','first-day-rise-faded':'首日上涨次日消退','first-day-fall-faded':'首日下跌次日消退','no-first-day-direction':'首日无方向','weakened':'幅度减弱','continued':'幅度延续','candidate':'研究候选','prospective':'事前冻结','post-hoc-exploration':'事后探索',
  'development-modified':'开发副本有改动','development-source-only':'源码副本，尚非安装验收','verified-local-manifest':'本地安装文件校验一致',
  'pending-real-observation':'等待真实运行积累','evidence-or-remediation-required':'需补齐证据或修复问题','ready-for-independent-review':'达到观察窗口，等待独立复核',
  'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
  'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败',
  'missing':'缺少实现或证据','blocked':'存在阻塞','observing':'观察积累中','verified':'已有核验登记','deployed':'已有部署登记'};
-const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
+const labels={policyStudy:'政策实施与经营传导',macroStudy:'宏观信用及事前预期',creditEconomicState:'信用与经济方向对照',creditSpread:'同期限信用利差（声明研究）',margin:'披露融资余额',surprises:'事前预期差',hypotheses:'预登记假设',strategyPriceStudies:'事件价格观察（非净收益）',status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
  symbol:'股票',eventType:'事件类型',title:'事件',revision:'修订',publishedAt:'公开时点',firstKnownAt:'首次获知',recordedAt:'保存时点',
  horizonSessions:'观察交易日',horizonDays:'持有交易日',stockReturnPct:'价格变化 %',benchmarkReturnPct:'同期市场变化 %',excessReturnPct:'市场调整差额 %',
  samples:'样本数',independentEvents:'独立事件数',independentDates:'独立日期数',averageExcessReturnPct:'平均市场调整差额 %',failureCases:'失败与反向案例',
  events:'事件档案',groups:'分组比较',durationProfile:'不同观察窗口',rows:'可核对记录',limitations:'适用边界',evidence:'证据',
+ eventTracking:'按来源与事件编号追踪原文和修订',eventId:'原事件编号',original:'原版本',revisionCount:'版本数量',truncatedRevisions:'未显示的旧版本数',removedSecurities:'已移除或撤稿关联证券',candidateStatus:'候选关联核对状态',screenStatus:'原筛选状态',screenRunId:'原筛选封存编号',newsDependencyVerified:'新闻导致入选已核实',industryReaction:'事前冻结同行对照',peerReturnPct:'同行等权价格变化 %',peerExcessPct:'相对同行价格差额 %',marketExcessPct:'相对全市场价格差额 %',pricedInObservation:'事前强弱与事后反例',weaknessObservation:'个股相对走弱观察',pricedInConfirmed:'提前兑现已认证',invalidationConfirmed:'失效原因已认证',windowLifecycle:'固定观察窗与到期状态',requiresNewEvidence:'到期后需新证据',autoRenew:'自动续期',expectationBasis:'事前预告与一致预期的证据范围',consensusAuthorized:'一致预期授权已独立认证',entitlementReference:'授权声明引用',
+ eventReview:'事件与资金证据复核',reviewOrder:'去重后的研究阅读顺序（非通知队列）',holdingRelated:'当前持仓是否关联',holdingsStatus:'持仓关联状态',authority:'发布主体声明',authorityClue:'发布主体原文线索',sourceAuthorityVerified:'来源权威性已认证',notificationQueueVerified:'真实通知队列已认证',policy:'政策适用路径',policyClause:'政策适用条款',productId:'产品标识',businessClause:'企业业务条款',overseas:'海外事件与境内敞口',region:'海外区域',sourceTime:'带时区的原发布时间',domesticExposure:'境内业务关联',impactDirection:'影响方向',benefitAmount:'受益金额',exposureAmount:'敞口金额',fund:'资金行为证据',plan:'计划声明',executionDisclosure:'执行声明',executionRecord:'实际成交回执',buyerIdentity:'实际交易主体',netSubscriptions:'净申赎',mechanisms:'并列待证资金机制',preEventStudy:'事前固定窗口对照',placeboGrossExcessPct:'伪事件市场调整差额 %',regimeOverlay:'事件后长短期背景',longContext:'事件前60日价格背景',shortReaction:'事件后短期观察',dayOneReturnPct:'首日指数变化 %',twoDayReturnPct:'两日累计指数变化 %',productionRegimeChanged:'生产市场分类是否改变',causalInferenceVerified:'因果推断是否认证',phase:'变化阶段',
+ industry:'产业链经营证据',businessPaths:'业务路径',conceptObservations:'概念线索（非业务）',revenueShare:'同口径收入占比',orderEvidence:'订单声明',realizedRevenue:'已实现收入',costDirection:'成本传导假设',profitImpact:'实际利润影响',catalyst:'催化日历',plannedAt:'计划时间',actualAt:'实际发生时点',previousPlannedAt:'原计划时间',policyExpectation:'政策原文对照',textBaseline:'原文引用线索',negationHint:'否定句线索',microstructure:'盘口与成交分层',microstructureSessions:'分时段原记录覆盖',pressureKind:'压力证据种类',pressure:'压力代理',declaredDirectionalProxy:'未认证方向代理',priceImpact:'价格冲击',realizedSlippage:'实际滑点',opportunityCost:'同条件机会成本',differenceFromHold:'相对持有方案差额',differenceFromCash:'相对现金方案差额',
  expectation:'事前预期',actual:'披露结果',surprise:'预期差',classification:'分类',assessment:'判断',value:'值',metric:'指标',period:'所属期间',
  from:'关系起点',to:'关系终点',relation:'关系类型',relationClass:'业务关系类别',strength:'证据强度',validFrom:'生效时点',validUntil:'失效时点',edges:'关系',paths:'潜在传导路径',
  granularity:'数据粒度',capabilities:'能够支持的分析',spreadBps:'买卖价差（基点）',imbalance:'可见深度失衡',quoteAt:'原始报价时点',receivedAt:'取得时点',
@@ -41,7 +45,7 @@ function evidence(data,depth=0){
  const simple=[],details=[];
  for(const [key,item] of Object.entries(data)){
   if(/password|secret|credential|cookie|bearer|token/i.test(key)||['canTrade','canNotify','researchOnly','productionWeightsChanged','writesAccount','schemaVersion'].includes(key))continue;
-  if(item&&typeof item==='object')details.push(h('details',{class:'fy-details'},h('summary',{},labels[key]||key),evidence(item,depth+1)));
+  if(item&&typeof item==='object')details.push(h('details',{class:'fy-details'},h('summary',{},key==='current'&&typeof data.eventId==='string'&&data.original?'当前版本':labels[key]||key),evidence(item,depth+1)));
   else if((key==='sourceUrl'||key==='url')&&item)details.push(safeLink(item,'查看原始来源'));
   else simple.push([labels[key]||key,/At$/.test(key)?dateTime(item):item]);
  }
@@ -106,15 +110,15 @@ export function renderRuntimeObservationCoverage(observation){
 }
 
 export function renderBackgroundArchive(overview){
- const names={ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
+ const names={'szse-fund':'深交所ETF证券成交月报',ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
  const valid=overview?.mode==='official-background-archive-overview'&&overview.canTrade===false&&overview.pointInTimeBacktestReady===false;
  const state=valid?overview.status:'unavailable';
  const labels={unconfigured:'尚未配置原背景档案','missing-archive':'尚未取得原档案',empty:'该截点尚无背景记录',unavailable:'档案不可用，保留未知',partial:'部分范围待校验',available:'已核对显示范围的最新回执'};
  const rows=valid?arr(overview.rows).slice(0,12):[];
- const scopeLabel=r=>r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
+ const scopeLabel=r=>r.provider==='szse-fund'?r.scope.month:r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
   r.provider==='sec-edgar'?`CIK ${r.scope.cik} · ${r.scope.tag} · 截至 ${r.scope.asOf}`:
    `${r.scope.country} · ${r.scope.indicator} · ${r.scope.startYear} 至 ${r.scope.endYear}`;
- return section('官方背景档案','参考汇率、申报财报与宏观统计只用于研究背景；不作为实时价格、交易信号或历史外部可知性证明。',
+ return section('官方背景档案','列出本地已取得的历史资料、报告期和原文回执。',
   facts([['状态',labels[state]||labels.unavailable],['本地信息截止',valid?dateTime(overview.asOf):null],['可见数据范围',valid?overview.totalScopes:null],
    ['已复核最新回执',valid&&overview.totalScopes!=null?overview.checkedLatestReceipts:null],['待核范围',valid?overview.unverifiedScopes:null]]),
   rows.length?rows.map(r=>{
@@ -124,6 +128,11 @@ export function renderBackgroundArchive(overview){
      ['原始发布时间','未知'],['原始修订时间','未知'],['档案版本',r.version],['回执SHA-256',r.archiveHash],
      ['原响应SHA-256',r.dataVersion],['本次复核',ok?'原响应与投影哈希一致':r.status==='not-checked-budget'?'超过本次读取预算，未核验':'回执不可用']]),
     ok?facts([['记录数',r.recordCount],['明确缺值数',r.missingValues],['原始字节依据',r.byteBasis==='response-body'?'响应字节':'解码后的正文']]):null,
+    ok&&r.provider==='szse-fund'?h('div',{class:'fy-etf-monthly'},
+     note('报告期 '+r.scope.month+'。二级市场成交额以万元人民币计。净申购未知，交易主体未知。'),
+     r.records.length?table([{label:'观察基金（深市）',value:x=>x.symbol+' '+x.name},
+      {label:'目标指数',value:x=>x.trackingIndex??'未知'},{label:'当月成交额（万元）',value:x=>x.monthlyTurnoverWanCny==null?'未知':String(x.monthlyTurnoverWanCny)}],r.records):empty('本期未列入所选观察基金'),
+     /^W\d{21}\.html$/.test(r.scope.documentId)?h('a',{href:'https://docs.static.szse.cn/www/market/periodical/month/'+r.scope.documentId,target:'_blank',rel:'noopener noreferrer'},'深交所月报原表'):null):
     ok&&r.records.length?table([{label:'观察或报告期间',value:x=>x.period},{label:'数值',value:x=>x.value==null?'未知':value(x.value)},
      {label:'单位',value:x=>x.unit??'未知'},{label:'申报日期',value:x=>x.filedDate??'不适用'}],r.records.slice(0,5)):empty(ok?'暂无该范围的可见数值':'尚无已复核数值'));
   }):empty(labels[state]||labels.unavailable,'只读页面不会发起采集或创建档案。'),
@@ -270,7 +279,7 @@ export function renderDeepResearch(ctx){
  const refresh=button('读取当前证据',load,'primary');root.insertBefore(h('div',{class:'fy-toolbar'},refresh),status);
  choose.addEventListener('change',()=>{turn++;draw();if(choose.value==='acceptance'&&!acceptance)void load();});
  const file=h('input',{type:'file',accept:'.json,application/json','aria-label':'选择结构化研究证据'});
- const importStatus=note('仅接收有来源的结构化证据；首次获知时间由后台登记。');
+ const importStatus=note('仅接收自有或已授权证据；macroEvidence / policyEvidence 使用原新闻档案指纹，首次获知时间由后台登记，不能把声明当认证。');
  file.addEventListener('change',async()=>{imported=null;pendingImport=null;const ticket=++fileTurn,selected=file.files?.[0];if(!selected||!editable())return;
   if(selected.size>500000){importStatus.textContent='文件超过500KB，请按来源分批导入。';return;}
   try{const parsed=JSON.parse(await selected.text());if(!parsed||!Array.isArray(parsed.records)||!parsed.type)throw Error();if(ctx.signal?.aborted||ticket!==fileTurn)return;imported=parsed;importStatus.textContent='已读取 '+parsed.records.length+' 条，点击保存后才会进入研究档案。';}

@@ -74,6 +74,8 @@ async function verify({extra,archive,output,decisionId}) {
         await panel.getByText('决策 ID '+decisionId,{exact:true}).waitFor({timeout:8000});
         assert.match(await panel.innerText(),/原触发.*600000.*10 元/);
         assert.match(await panel.innerText(),/时段或交易日/);
+        assert.match(await panel.innerText(),/原计划入场交易日/);
+        assert.match(await panel.innerText(),/原报价有效期上界/);
         assert.equal(await page.getByText(/历史通知缺少原计划投递凭据/).isVisible(),true);
         const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
         assert.ok(overflow<=1,'page overflow '+overflow);assert.deepEqual(writes,[]);assert.deepEqual(external,[]);

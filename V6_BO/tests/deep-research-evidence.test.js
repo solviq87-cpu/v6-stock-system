@@ -350,3 +350,97 @@ test('F19.2 later consensus revision cannot replace or erase the pre-publication
  const g=D.buildExpectationStudy({expectations:[guidance,revised,first,later,near]},{asOf:t2}).guidanceRevisions.revisions[0];
  assert.equal(g.consensusRefs.length,1);assert.equal(g.consensusRefs[0].revision,1);assert.equal(g.expectedConsensus,null);assert.equal(g.independentConsensusVerified,false);
 });
+
+test('F04.5 original event outcome archive projects pre-publication placebo without replacing existing event returns',()=>{
+ const sessions=[];for(let t=Date.parse('2026-07-01T00:00:00Z');sessions.length<120;t+=86400000){const d=new Date(t);sessions.push({date:d.toISOString().slice(0,10),open:![0,6].includes(d.getUTCDay())});}
+ const dates=sessions.filter(s=>s.open).map(s=>s.date),calendar={schemaVersion:1,exchange:'SSE',source:'supplied-calendar',from:sessions[0].date,to:sessions.at(-1).date,sessions};
+ const publicAt=at(dates[65]+'T10:00:00'),asOf=at(dates[80]+'T16:00:00'),e=proof('pre-event-control',publicAt,{symbol:'600000',eventType:'policy',title:'政策原文'});
+ const bars=dates.slice(0,81).map(date=>({date,role:'stock',code:'600000',period:'日K',source:'V6/supplied-daily',knownAt:at(date+'T15:00:01'),open:10,high:12,low:9,close:11,priceBasis:'unadjusted',corporateAction:false}));
+ const market=dates.slice(0,81).map(date=>({date,indexEvidence:{name:'中证全指',source:'supplied-index',receivedAt:at(date+'T15:01:00'),rows:[{date,open:100,close:105,knownAt:at(date+'T15:00:01')}]}}));
+ const eventCalendar={status:'available',calendar,tradeDates:dates,metadata:{source:calendar.source,sha256:nativeHash(calendar),knowledgeAvailableAt:new Date(at(dates[0]+'T09:00:00')).toISOString()}};
+ const input={events:[e],archive:{scope:'live',bars,market},eventCalendar};
+ const before=JSON.stringify(input),r=D.buildDeepResearchEvidence(input,{asOf}).modules[67];
+ const first=r.rows.find(row=>row.horizonSessions===1);assert.ok(first);assert.equal(first.stockReturnPct,10);assert.equal(first.excessReturnPct,5);
+ assert.equal(first.preEventStudy.status,'descriptive-unverified');assert.equal(first.preEventStudy.cutoff,publicAt);assert.equal(first.preEventStudy.estimationDates.length,20);assert.equal(first.preEventStudy.placeboDates.length,1);assert.equal(first.preEventStudy.placeboDates[0],dates[64]);
+ assert.ok(Math.abs(first.preEventStudy.placeboGrossExcessPct-5)<1e-10);assert.equal(first.preEventStudy.matchedIndustry,null);assert.equal(first.preEventStudy.netAbnormalReturnPct,null);assert.equal(first.preEventStudy.preregistered,false);assert.equal(JSON.stringify(input),before);
+ const late=structuredClone(input);late.archive.market[64].indexEvidence.receivedAt=publicAt+1;
+ const replay=D.buildDeepResearchEvidence(late,{asOf}).modules[67].rows.find(row=>row.horizonSessions===1);
+ assert.equal(replay.excessReturnPct,5);assert.equal(replay.preEventStudy.status,'unknown');assert.equal(replay.preEventStudy.placeboGrossExcessPct,null);
+ const declared=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({preEventStudy:first.preEventStudy,inputOrigin:'explicit-private-import'})]},{asOf:t1});
+ assert.equal(declared.rows[0].preEventStudy,null,'operator-imported claim cannot substitute original archive projection');
+});
+
+test('F01/F02 shared original report reviews explicit policy and business records, fund plans and private holdings without granting action',()=>{
+ const e=event({body:'发文机关甲：产品甲适用。计划购买ETF。',policyApplicability:{entityId:'supplier-entity',productId:'alpha',clause:'产品甲适用'},publisherEvidence:{role:'issuing-entity',publisher:'发文机关甲',clause:'发文机关甲：产品甲适用'},fundActivity:{planClause:'计划购买ETF'}});
+ const r=relation('policy-path','600000',{productId:'alpha',documentText:'企业主营产品甲',businessClause:'主营产品甲'});
+ const report=D.buildDeepResearchEvidence({events:[e],relations:[r],account:account()},{asOf:t2});
+ const review=report.modules[67].eventReview;assert.equal(review.rows.length,1);assert.equal(review.rows[0].policy.status,'declared-path-review');assert.equal(review.rows[0].fund.status,'declared-plan');assert.equal(review.rows[0].fund.buyerIdentity,null);
+ assert.equal(review.rows[0].holdingRelated,true);assert.equal(review.notificationQueueVerified,false);assert.equal(review.canTrade,false);assert.equal(review.canNotify,false);
+ const revoked={...r,revision:2,retracted:true,publishedAt:t1,firstKnownAt:t1,recordedAt:t1};
+ const later=D.buildDeepResearchEvidence({events:[e],relations:[r,revoked],account:account()},{asOf:t2}).modules[67].eventReview;
+ assert.equal(later.rows[0].policy.status,'unknown');
+});
+test('F05.6 original event report retains short reaction and unknown long context without upgrading market regime',()=>{
+ const input=eventArchive(),r=D.buildDeepResearchEvidence(input,{asOf:input.asOf}).modules[67],row=r.rows.find(x=>x.horizonSessions===1);
+ assert.equal(row.regimeOverlay.longContext.status,'unknown');assert.equal(row.regimeOverlay.shortReaction.status,'two-sessions-observed');assert.equal(row.regimeOverlay.productionRegimeChanged,false);assert.equal(row.regimeOverlay.canTrade,false);
+ const forged=outcome({source:'v6-private-archive-event-study',inputOrigin:'read-only-archive-projection',regimeOverlay:row.regimeOverlay,preEventStudy:row.preEventStudy});
+ const direct=D.buildEventImpactStudy({events:[event()],eventOutcomes:[forged]},{asOf:t2});
+ assert.equal(direct.rows[0].regimeOverlay,null);assert.equal(direct.rows[0].preEventStudy,null);
+});
+
+test('F06/F07 original deep research report carries declared business path and catalyst evidence',()=>{
+ const e=event({publishedAt:t1,firstKnownAt:t1,recordedAt:t1,body:'政策适用于产品甲。尚未签订新订单。',policyApplicability:{entityId:'product:alpha',productId:'alpha',clause:'政策适用于产品甲'},catalyst:{id:'catalyst-1',status:'planned',plannedAt:t2,clause:'政策适用于产品甲'}});
+ const r=relation('business-alpha','600000',{to:'product:alpha',productId:'alpha',stage:'upstream',documentText:'主营产品甲。',businessClause:'主营产品甲'});
+ const report=D.buildDeepResearchEvidence({events:[e],relations:[r]},{asOf:t2});
+ const row=report.modules[67].eventReview.rows[0];
+ assert.equal(row.industry.status,'declared-business-review');
+ assert.equal(row.policy.status,'declared-path-review');
+ assert.equal(row.catalyst.status,'planned');
+ assert.equal(row.catalyst.active,false);
+ assert.ok(row.textBaseline.sentences.some(s=>s.negationHint));
+ assert.equal(row.industry.canTrade,false);
+});
+
+test('F16 original depth report accepts explicitly authorized L1 only and retains ordinary snapshot restriction',()=>{
+ const d=depth(),side=(price,quantity)=>({symbol:d.symbol,source:d.source,volumeUnit:'shares',quoteAt:d.quoteAt,price,quantity});
+ const row={...d,granularity:'quote-snapshot',levelOne:true,bids:[side(9.9,200)],asks:[side(10.1,100)],authorization:{...d.authorization,scope:['quote-snapshot']}};
+ const r=D.buildDepthResearch({depth:[row]},{asOf:t2});
+ assert.equal(r.rows[0].status,'observed-research');assert.equal(r.rows[0].metrics.completeOrderBook,false);assert.equal(r.rows[0].metrics.executionCapacity,null);assert.equal(r.rows[0].microstructure.pressureKind,'l1-displayed-quantity-proxy');
+ assert.equal(r.riskObservations.length,0);assert.equal(r.microstructureSessions.rows[0].uniqueQuoteTimes,1);assert.equal(r.canTrade,false);
+ const no=D.buildDepthResearch({depth:[{...row,authorization:null}]},{asOf:t2});assert.equal(no.rows[0].status,'authorization-unavailable');
+ const ordinary=D.buildDepthResearch({depth:[{...row,levelOne:false}]},{asOf:t2});assert.equal(ordinary.rows[0].status,'unsupported-granularity');
+});
+
+test('F07 original reports distinguish declared issuer guidance and missing consensus entitlement',()=>{
+ const g=expected({id:'guide',expectationKind:'company-guidance',metric:'净利润',unit:'万元',bodyScope:'declared-body',body:'2026Q3净利润100万元。',guidanceDocument:{issuerSymbol:'600000',documentKind:'issuer-guidance',clause:'2026Q3净利润100万元'}});
+ const a=actual({metric:'净利润',unit:'万元'}),c=expected({id:'market',metric:'净利润',unit:'万元'});
+ const r=D.buildExpectationStudy({actuals:[a],expectations:[g,c]},{asOf:t2});
+ assert.equal(r.rows.find(x=>x.expectationKind==='company-guidance').expectationBasis.status,'declared-issuer-guidance');
+ const denied=r.rows.find(x=>x.expectationKind==='consensus').expectationBasis;
+ assert.equal(denied.comparison,null);assert.equal(denied.consensusAuthorized,false);
+});
+test('F07.4-F07.6 original archive projection uses prior frozen industry, fixed windows and rejects imported derived claims',()=>{
+ const input=eventArchive(),dates=input.eventCalendar.tradeDates;
+ const publicAt=at('2026-11-05T10:00:00'),members=['600000','600001','600002','600003','600004','600005'];
+ input.events=[event({publishedAt:publicAt,firstKnownAt:publicAt,recordedAt:publicAt})];
+ const start=at('2026-11-02T15:00:00'),end=at('2026-11-03T15:00:00'),known=end+1000;
+ const evidence={provider:'eastmoney',symbol:'600000',tradeDate:'2026-11-03',knownAt:known,window:{start,end},returnBasis:'price',benchmark:{provider:'eastmoney',code:'000985',name:'全A',return:.01,knownAt:known},classification:{provider:'eastmoney',version:'v1',knownAt:start,effectiveAt:start},methodology:{noCorporateActions:true},boards:[{code:'A',name:'行业甲',category:'industry',members,membersKnownAt:start,membersEffectiveAt:start,return:.01,knownAt:known}],stocks:members.map(symbol=>({symbol,return:.01,knownAt:known}))};
+ input.workspaceEvents=[{kind:'analysis',sequence:1,hash:'a'.repeat(64),recordedAt:known+1000,data:{symbol:'600000',tradeDate:'2026-11-03',asOf:known,provider:'eastmoney',priceBasis:'unadjusted',context:{marketLinkageEvidence:evidence}}}];
+ const own=input.archive.bars;input.archive.bars=own.concat(members.slice(1).flatMap(code=>own.map(b=>({...b,code,open:10,low:9,high:11,close:10.1}))));
+ input.archive.market=own.map(b=>({date:b.date,indexEvidence:{name:'中证全指',source:'supplied-index',receivedAt:at(b.date+'T15:01:00'),rows:[{date:b.date,open:100,close:101,knownAt:at(b.date+'T15:00:01')}]}}));
+ const r=D.buildDeepResearchEvidence(input,{asOf:input.asOf}).modules[67],first=r.rows.find(x=>x.horizonSessions===1);
+ assert.ok(first);assert.equal(first.industryReaction.status,'descriptive-unverified');assert.equal(first.industryReaction.industry.archiveHash,'a'.repeat(64));assert.equal(first.industryReaction.pricedInConfirmed,false);
+ assert.equal(r.archiveDerivation.windowLifecycle[0].windows[0].status,'elapsed-needs-new-evidence');assert.equal(r.archiveDerivation.windowLifecycle[0].autoRenew,false);
+ const forged=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({industryReaction:first.industryReaction,inputOrigin:'explicit-private-import'})]},{asOf:t1});
+ assert.equal(forged.rows[0].industryReaction,null);
+});
+
+test('F14.2 original report projects actual news revisions and screening references separately',()=>{
+ const J=require('../src/core/news-evidence-journal');
+ const x={schemaVersion:1,source:'public-docs',eventId:'e1',sourceRevisionId:'r1',kind:'original',supersedes:null,url:'https://example.org/event',title:'原消息',body:'原文',securities:['600000'],publishedAt:t0,receivedAt:t0,revisedAt:null};
+ const seal=(input,at,sequence,previousHash)=>{const p={schemaVersion:1,sequence,previousHash,recordedAt:at,evidence:J.normalize(input,{now:at}),...J.FLAGS};return {...p,eventHash:J.hash(p)};};
+ const first=seal(x,t0,1,null),next=seal({...x,kind:'revised',sourceRevisionId:'r2',supersedes:first.eventHash,title:'澄清',body:'澄清原文',securities:['600001'],revisedAt:t1,receivedAt:t1},t1,2,first.eventHash);
+ const flags={researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false},payload={schemaVersion:1,kind:'screen',sequence:1,recordedAt:t2,...flags,data:{...flags,asOf:t2,provenance:'original-screen',codeVersion:{fingerprint:'a'.repeat(64)},total:1,rows:[{symbol:'600001',status:'selected'}]}};
+ const report=D.buildDeepResearchEvidence({newsJournalRows:[first,next],workspaceEvents:[{...payload,hash:J.hash(payload)}]},{asOf:t2});
+ const r=report.modules[67].eventTracking.rows[0];assert.equal(r.current.eventHash,next.eventHash);assert.deepEqual(r.removedSecurities,['600000']);assert.equal(r.candidates[0].symbol,'600001');assert.equal(r.candidates[0].screenStatus,'selected');assert.equal(r.newsDependencyVerified,false);assert.equal(r.canNotify,false);
+});

@@ -687,13 +687,17 @@ function sensitivityStudy(history, { scenarios } = {}) {
     return { ...ledgerSummary(s.id, result), perturbation: s, modelFingerprint: hash(strategies) };
   });
   const eligible = variants.filter(v => v.filled > 0), numbers = eligible.map(v => v.metrics.returnPct);
+  const observationDay=base.end,observationTime=Date.UTC(2020,0,1)+observationDay*86400000;
+  const frozenStocks=history.stocks.filter(s=>universeObservation(base.universeHistory,String(s.symbol||s.code),s.bars[observationDay].date).eligible)
+   .map(s=>historicalStock(s,observationDay,history.source,observationTime)).filter(s=>validateFeed(s,{now:observationTime,maxAgeMs:86400000}).usable);
+  const rankSensitivity=require('./fayo-final-model-review').rankPerturbations({stocks:frozenStocks,strategies:pack.strategies,evaluate:(stock,strategies)=>evaluateCandidate({stock,strategies})});
   return report({ status: eligible.length ? 'research-only' : 'not-evaluated', variants,
     reason: eligible.length ? null : '全部扰动均无通过原门禁的模拟成交，不能宣称稳健',
     robustness: { evaluatedVariants: variants.length, variantsWithFills: eligible.length, minimumReturnPct: numbers.length ? Math.min(...numbers) : null,
       maximumReturnPct: numbers.length ? Math.max(...numbers) : null, medianReturnPct: numbers.length ? numbers.slice().sort((a, b) => a - b)[Math.floor(numbers.length / 2)] : null,
       nonNegativeFraction: numbers.length ? numbers.filter(x => x >= 0).length / numbers.length : null,
       worstDrawdownPct: eligible.length ? Math.max(...eligible.map(v => v.metrics.maxDrawdownPct)) : null },
-    inspectedConfigurations: variants.length, selection: 'all-predeclared-variants-no-winner-selection',
+    inspectedConfigurations: variants.length, rankSensitivity, additionalRankDiagnosticConfigurations:rankSensitivity.evaluatedConfigurations, selection: 'all-predeclared-variants-no-winner-selection',
     engine: 'existing-ledger-and-native-evaluateCandidate', limitations: ['范围描述不等于稳健性证明，不选最优参数或修改生产权重',
       '敏感度检查本身暴露结果，必须作为候选试验计入研究披露', '延迟改变决策观察日，成交仍走次日开盘和既有全部门禁'] });
 }

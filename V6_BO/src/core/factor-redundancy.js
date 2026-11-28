@@ -74,7 +74,7 @@ function assessFactorRedundancy(train,ids,reliability){
  const requiredDays=Math.max(MIN_DAYS,Math.ceil(train.length*MIN_COVERAGE));
  const pairs=[];
  for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
-  const a=ids[i],b=ids[j],daily=[];
+  const a=ids[i],b=ids[j],daily=[];let comparedRows=0,exactEqualRows=0,exactEqualDays=0;
   for(const d of train){
    const xa=[],xb=[];
    for(const row of d.rows){
@@ -83,6 +83,7 @@ function assessFactorRedundancy(train,ids,reliability){
      throw Error('因子冗余评估不可补造缺失或无效冻结分数');
     xa.push(x);xb.push(y);
    }
+   comparedRows+=xa.length;const equal=xa.filter((x,k)=>x===xb[k]).length;exactEqualRows+=equal;if(equal===xa.length)exactEqualDays++;
    const corr=spearman(xa,xb);
    if(corr!==null)daily.push(corr);
   }
@@ -104,6 +105,9 @@ function assessFactorRedundancy(train,ids,reliability){
    earlyMeanRankCorrelation:round(early),recentMeanRankCorrelation:round(recent),
    positiveStrongDayPct:round(positiveStrong*100,2),
    negativeStrongDayPct:round(negativeStrong*100,2),
+   exactValueEvidence:{basis:'original-frozen-training-values',comparedRows,exactEqualRows,exactEqualDays,expectedDays:train.length,
+    status:train.length<MIN_DAYS?'insufficient-training-days':exactEqualDays===train.length?'identical-observed-values':'not-identical-across-window',
+    definitionEquivalent:null,changesOriginalSuppression:false},
    relationship:stablePositive?'strong-positive':
     stableNegative?'strong-inverse':'not-established',
    eligibleForSuppression:eligiblePositive});
@@ -128,7 +132,7 @@ function assessFactorRedundancy(train,ids,reliability){
  return {status:train.length<MIN_DAYS?'insufficient-training-days':'screened',
   evidenceBasis:'frozen-training-only',trainingDays:train.length,
   requiredPairDays:requiredDays,rankCorrelationCutoff:MIN_CORRELATION,
-  conservativeShadowPenalty:SHADOW_PENALTY,pairs,suppressedFactors:suppressed,
+  conservativeShadowPenalty:SHADOW_PENALTY,pairs,exactValueDuplicatePairs:pairs.filter(p=>p.exactValueEvidence.status==='identical-observed-values').map(p=>({factorA:p.factorA,factorB:p.factorB,...p.exactValueEvidence})),suppressedFactors:suppressed,
   suppressedFactorIds:suppressed.map(x=>x.factorId),
   canTrade:false,productionWeightsChanged:false};
 }

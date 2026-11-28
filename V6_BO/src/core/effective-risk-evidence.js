@@ -50,6 +50,7 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
   const events = known ? book.account.events : [], orderRows = known ? Object.entries(book.orders) : [];
   const strategyByEntry = new Map(events.map(e => [e.eventId, book.orders[e.orderId]?.order?.strategyId || null]));
   let heldValue = 0, pendingBuyValue = 0, reservedCash = 0, lotsKnown = known, ordersKnown = known, feesKnown = known;
+  let activeSellOrderCount=0,activeSellRemainingQuantity=0;
   const marks = {}, quoteEvidence = [], pendingOrderIds = [], seenOrderIds = new Set(), activeOrderSymbols = new Set();
   for (const [symbol, position] of Object.entries(known ? book.account.positions : {})) {
     if (!quantity(position?.quantity)) { lotsKnown = false; missing.push(symbol + ' 持仓数量无效'); continue; }
@@ -93,7 +94,13 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
       ordersKnown = false; missing.push('原未终结委托数量或事件证据无效：' + order.orderId); continue;
     }
     activeOrderSymbols.add(String(order.symbol));
-    if (order.side !== 'buy') continue;
+    if (order.side === 'sell') {
+      // Reuse the original authoritative nonterminal-order traversal.
+      if(!quantity(activeSellRemainingQuantity+remaining)||!quantity(activeSellOrderCount+1)){
+        ordersKnown=false;missing.push('原未完成卖单数量合计超限');
+      }else{activeSellOrderCount++;activeSellRemainingQuantity+=remaining;}
+      continue;
+    }
     if (!finite(order.limitPrice) || order.limitPrice <= 0) {
       ordersKnown = false; missing.push('原买单委托价无效：' + order.orderId); continue;
     }
@@ -224,7 +231,9 @@ function buildEffectiveRiskEvidence({book = null, quotes = {}, now = Date.now(),
       reservedCash: ordersKnown && feesKnown ? round(reservedCash) : null,
       availableCash: cash !== null && ordersKnown && feesKnown ? round(cash - reservedCash) : null,
       pendingOrderIds, pendingOrderCount: ordersKnown ? pendingOrderIds.length : null,
-      activeOrderSymbols: ordersKnown ? [...activeOrderSymbols].sort() : null},
+      activeOrderSymbols: ordersKnown ? [...activeOrderSymbols].sort() : null,
+      activeSellOrderCount:ordersKnown?activeSellOrderCount:null,
+      activeSellRemainingQuantity:ordersKnown?activeSellRemainingQuantity:null},
     automaticRules: {source: 'server.PAPER_CFG', version: 'legacy-automatic-paper-constraints-v1',
       fingerprint: automaticParameters ? hash(automaticParameters) : null,
       enabled: automaticEnabled, parameters: automaticParameters,

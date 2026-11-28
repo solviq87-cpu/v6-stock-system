@@ -1,0 +1,406 @@
+{
+  "schemaVersion": 1,
+  "status": "partial-integration-candidate",
+  "base": "911fcc8c2b8bbd718de2bf0fd703eebccb64b276",
+  "sources": [
+    {
+      "pr": 601,
+      "base": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+      "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375"
+    },
+    {
+      "pr": 602,
+      "base": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+      "head": "6bfd00a782c8d83b5f821ffc24f8cd7fd82fb616"
+    },
+    {
+      "pr": 600,
+      "base": "6069537f86232180c6b83820fd61e3cefe1eef0b",
+      "head": "ef50d1a42ea5b07bcf20ef13ab0dcf822154d20e"
+    },
+    {
+      "pr": 605,
+      "base": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+      "head": "1414c49e36c782d50385ad9e5507909faf00eb80"
+    }
+  ],
+  "files": [
+    {
+      "path": "V6_BO/public/assets/news-evidence-workbench.js",
+      "sourcePr": 601,
+      "blob": "6e03fd6a9e843cd714381aaf8cab1ac004ce96ce"
+    },
+    {
+      "path": "V6_BO/public/nova/evidence-workbench.mjs",
+      "sourcePr": 601,
+      "blob": "2794ca705c9abd8e92fab85c9e9b078e1e471b0f"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-attention-pair.js",
+      "sourcePr": 601,
+      "blob": "538d232b3d6e71f4511ece4047a9011cb65fde9a"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-news-attention.js",
+      "sourcePr": 601,
+      "blob": "394d8a86880f9cf113e8a90101aa08a16495b90d"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-review-feedback.js",
+      "sourcePr": 601,
+      "blob": "4ecb81403c985e60b84e273905bcb5d944624f37"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "sourcePr": 601,
+      "blob": "f2b2d5b1a3d3353ba297cd089e1fc68bd84e8939"
+    },
+    {
+      "path": "V6_BO/src/core/news-evidence-journal.js",
+      "sourcePr": 601,
+      "blob": "2d3b386be01bae183fa7acb25f24a6d341a6e4ec"
+    },
+    {
+      "path": "V6_BO/src/core/research-interaction-workbench.js",
+      "sourcePr": 601,
+      "blob": "e3bd56cebd71452edb5df99528e6db295b143b27"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-analytics.js",
+      "sourcePr": 601,
+      "blob": "be75cbf21648c4d271122fc08065bb5abbaba832"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-decision.js",
+      "sourcePr": 601,
+      "blob": "3145e52b2e3e8ad08ffae0b7183c9422ec72c786"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace.js",
+      "sourcePr": 601,
+      "blob": "01e1895227dff42d035014b67f0c9ebf036d8845"
+    },
+    {
+      "path": "V6_BO/src/core/worldbank-indicators.js",
+      "sourcePr": 601,
+      "blob": "205fd9ab95c511d1a4f2c87e76218e7520975d38"
+    },
+    {
+      "path": "V6_BO/src/server/research-interaction-http.js",
+      "sourcePr": 601,
+      "blob": "3956c96c2737e4022f58960b121d83813f729082"
+    },
+    {
+      "path": "V6_BO/tests/fayo-f38-decision-change.test.js",
+      "sourcePr": 601,
+      "blob": "eb8d584ae1ef0017695b4760a096279b2efc3439"
+    },
+    {
+      "path": "V6_BO/tests/fayo-horizon-context.test.js",
+      "sourcePr": 601,
+      "blob": "3f4828028b00db41f73a478c25a77ec4ba1a0638"
+    },
+    {
+      "path": "V6_BO/tests/fayo-news-attention.test.js",
+      "sourcePr": 601,
+      "blob": "fdc1dd1dcb1a22e47bb1d276816b7ebbe74c5fca"
+    },
+    {
+      "path": "V6_BO/tests/fayo-review-attention.test.js",
+      "sourcePr": 601,
+      "blob": "d5942ae066464fce821d1b88f407b58d942e97ed"
+    },
+    {
+      "path": "V6_BO/tests/fayo-review-feedback-integration.test.js",
+      "sourcePr": 601,
+      "blob": "9a6cdbec83951a24be518cb1410e518d9bbc841a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-worldbank-comparison.test.js",
+      "sourcePr": 601,
+      "blob": "12081706c2c753d12ded68add03eb5c3e799e41a"
+    },
+    {
+      "path": "V6_BO/tests/research-workspace.test.js",
+      "sourcePr": 601,
+      "blob": "491d41e1fc4ee45ceaea225511203ecf6abcb17f"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass2-feedback-attention/README.md",
+      "sourcePr": 601,
+      "blob": "6791021a6bfdf5daa579621301e05658664ca80e"
+    },
+    {
+      "path": "V6_BO/public/nova/risk-workbench-view.mjs",
+      "sourcePr": 602,
+      "blob": "db64ca0b16ae8b25f2f9d567cb0b438897c1f72c"
+    },
+    {
+      "path": "V6_BO/src/core/deep-decision-research.js",
+      "sourcePr": 602,
+      "blob": "631beacc39b4a2de761cb62205dcd357b29d83c7"
+    },
+    {
+      "path": "V6_BO/src/core/deep-research-workspace.js",
+      "sourcePr": 602,
+      "blob": "94b5f93890ab05d655b1c4fce7b9b9b14d51055d"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-joint-outcomes.js",
+      "sourcePr": 602,
+      "blob": "ae90a6e6d1c61423455332f8d3b2ecb1c743c6cf"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-risk-replay-review.js",
+      "sourcePr": 602,
+      "blob": "b27ce3cf37d02dfe2570a393422a726542a11f86"
+    },
+    {
+      "path": "V6_BO/src/core/historical-universe.js",
+      "sourcePr": 602,
+      "blob": "3232f55ac998c8a680809a5fead9a882585dd7dd"
+    },
+    {
+      "path": "V6_BO/src/core/portfolio-adverse-path-evidence.js",
+      "sourcePr": 602,
+      "blob": "e2f7afa0f9dc5294976cc259cf0210e99e327f52"
+    },
+    {
+      "path": "V6_BO/src/core/risk-workbench.js",
+      "sourcePr": 602,
+      "blob": "41265e09a2a9bba0d0003032279547cb507213aa"
+    },
+    {
+      "path": "V6_BO/tests/c-adverse-path-odds.test.js",
+      "sourcePr": 602,
+      "blob": "0ea1560ecdfb6ffe4073785b44030ea0bdcae15a"
+    },
+    {
+      "path": "V6_BO/tests/deep-decision-research.test.js",
+      "sourcePr": 602,
+      "blob": "61c07409f9531880b33e189db833318ee96cd625"
+    },
+    {
+      "path": "V6_BO/tests/fayo-d-pit-macro-source-integrity.test.js",
+      "sourcePr": 602,
+      "blob": "9fe7d719e3ca65a0a61705c7d77eaf86a39e8aa4"
+    },
+    {
+      "path": "V6_BO/tests/fayo-joint-outcomes.test.js",
+      "sourcePr": 602,
+      "blob": "a559cd97fb4d9336c92b257ff349ffc9c069b209"
+    },
+    {
+      "path": "V6_BO/tests/fayo-risk-replay-review.test.js",
+      "sourcePr": 602,
+      "blob": "0de9d6338628f36eac9809a4c7b3ad3445bc7ab5"
+    },
+    {
+      "path": "V6_BO/tests/risk-workbench.test.js",
+      "sourcePr": 602,
+      "blob": "ec11e4cdb30e251586ef337f6275fd17fe2799e0"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass2-risk-review-20261128.md",
+      "sourcePr": 602,
+      "blob": "c7f7930da2f853f9fc9dc85f7b430565e552e202"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-round2-20261128/README.md",
+      "sourcePr": 602,
+      "blob": "2253e5a78bcbcb865999a0dd673568dc2435c7da"
+    },
+    {
+      "path": "V6_BO/src/core/daily-research.js",
+      "sourcePr": 600,
+      "blob": "4f0c603ea85147cff005af8985cf765e667a570e"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-institutional-review.js",
+      "sourcePr": 600,
+      "blob": "dd40becb53035daaf63d9a5da74b3d34a21c9006"
+    },
+    {
+      "path": "V6_BO/src/core/historical-validation.js",
+      "sourcePr": 600,
+      "blob": "fae06621d61649234cfda61739c158c5b0e34e0c"
+    },
+    {
+      "path": "V6_BO/tests/fayo-institutional-review-integration.test.js",
+      "sourcePr": 600,
+      "blob": "e32d1ef20ed6a53740965957cf41ca5e6bfa343a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-institutional-review.test.js",
+      "sourcePr": 600,
+      "blob": "82009b31d447f320be876032f2a7b2346fd81688"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass1-institutional-review/README.md",
+      "sourcePr": 600,
+      "blob": "9b16f61171344126cf82312bb679903be57ea2c9"
+    },
+    {
+      "path": "V6_BO/public/nova/shortline/learning.mjs",
+      "sourcePr": 605,
+      "blob": "092077077c7fe1667e23566e5f3e0d2c6c0fea21"
+    },
+    {
+      "path": "V6_BO/scripts/factor-shadow-worker.js",
+      "sourcePr": 605,
+      "blob": "4450acad366de240c60519ee3483d8aae07980b8"
+    },
+    {
+      "path": "V6_BO/src/core/evolution-research-statistics.js",
+      "sourcePr": 605,
+      "blob": "b5b97efcac4bc64cc10d9598078c97468b6396b2"
+    },
+    {
+      "path": "V6_BO/src/core/factor-candidate-prereg.js",
+      "sourcePr": 605,
+      "blob": "1f83bd955ef888519e238c96e5599b8d3fa7ae5e"
+    },
+    {
+      "path": "V6_BO/src/core/factor-health.js",
+      "sourcePr": 605,
+      "blob": "f6c48691de0045b3a6f7022676f8e27128352188"
+    },
+    {
+      "path": "V6_BO/src/core/factor-model-comparison.js",
+      "sourcePr": 605,
+      "blob": "e8bf30e9311253e7dae465f8cfb681b448f579f4"
+    },
+    {
+      "path": "V6_BO/src/core/factor-redundancy.js",
+      "sourcePr": 605,
+      "blob": "f8de68d2206fbaa840c337deaab982d129840dd5"
+    },
+    {
+      "path": "V6_BO/src/core/factor-shadow-runtime-health.js",
+      "sourcePr": 605,
+      "blob": "c3e18110376db9cfd74840a2b75e916623051bd8"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-final-model-review.js",
+      "sourcePr": 605,
+      "blob": "ce5b59a964c67ce684b023113279a3e6ae80df05"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-model-evidence-audit.js",
+      "sourcePr": 605,
+      "blob": "90cf18f43f44be15cd5a73f6ee8bd289682f705a"
+    },
+    {
+      "path": "V6_BO/src/core/learning-profile-registry.js",
+      "sourcePr": 605,
+      "blob": "79366e7b369b4f5fb9f5104a1ba959704dfb85c4"
+    },
+    {
+      "path": "V6_BO/src/core/research-workspace-diagnostics.js",
+      "sourcePr": 605,
+      "blob": "92bd610d99786c5032ad203407c400edd0ce136d"
+    },
+    {
+      "path": "V6_BO/tests/factor-redundancy.test.js",
+      "sourcePr": 605,
+      "blob": "66dae055409d43f390fd058bcc4e15e2e928db71"
+    },
+    {
+      "path": "V6_BO/tests/factor-shadow-evolution.test.js",
+      "sourcePr": 605,
+      "blob": "1b03fd7ac63fce13ba30fa847a06f3f3898136ac"
+    },
+    {
+      "path": "V6_BO/tests/factor-shadow-runtime-health.test.js",
+      "sourcePr": 605,
+      "blob": "a469bb0e1d093a1566bcb8b74970e888ab8e1e09"
+    },
+    {
+      "path": "V6_BO/tests/fayo-a-learning-registry-history.test.js",
+      "sourcePr": 605,
+      "blob": "a4b45e87ecdbb97003ff5e31db0b0d49ee3b1d8b"
+    },
+    {
+      "path": "V6_BO/tests/fayo-final-model-review.test.js",
+      "sourcePr": 605,
+      "blob": "7f01e63d4a4fc077dbdfe55e95b73be562acf62a"
+    },
+    {
+      "path": "V6_BO/tests/fayo-learning-governance-review.test.js",
+      "sourcePr": 605,
+      "blob": "a2b47b989ff4654c93360db2134f904933231315"
+    },
+    {
+      "path": "V6_BO/tests/fayo-model-evidence-audit.test.js",
+      "sourcePr": 605,
+      "blob": "1b01c952604700bf3c872125d44948590d7e50fd"
+    },
+    {
+      "path": "V6_BO/tests/fayo-model-evidence-integration.test.js",
+      "sourcePr": 605,
+      "blob": "a6e8f9753ff438522dd8966d3d272597f6cbc0fd"
+    },
+    {
+      "path": "V6_BO/tests/fayo-model-evidence-workspace.test.js",
+      "sourcePr": 605,
+      "blob": "80e75790841c50f46b769caf3cbf64ab0a265af4"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass3-final-model/README.md",
+      "sourcePr": 605,
+      "blob": "34be10ac2be217f85b7e8d70a4b4b0766f7894bd"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass3-final-model/feature-review.md",
+      "sourcePr": 605,
+      "blob": "bdaf0855ea716507bb859d008ba6772d5d75e1ee"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass3-final-model/governance.md",
+      "sourcePr": 605,
+      "blob": "b2b149aa153c8af7bf9e16c0c8e17f22fe194b08"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass3-final-model/rollback-boundary.md",
+      "sourcePr": 605,
+      "blob": "7a3a4d62f85e3f0979609111cc4c758c57cf7526"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-round3-20261128/README.md",
+      "sourcePr": 605,
+      "blob": "f656e1a517248f178cbafbc45a19edb9edefd44f"
+    },
+    {
+      "path": "V6_BO/src/core/model-forward-evaluation.js",
+      "sourcePrs": [
+        591,
+        601,
+        605
+      ],
+      "merge": "preserve original changes; exact function/line anchors"
+    },
+    {
+      "path": "V6_BO/tests/model-forward-evaluation.test.js",
+      "sourcePrs": [
+        591,
+        601
+      ],
+      "merge": "preserve original changes; exact function/line anchors"
+    }
+  ],
+  "validation": {
+    "mergedForecastModuleParsed": true,
+    "mergedForecastTestFileParsed": true,
+    "horizonMixedDirectionPassed": true,
+    "nativeRepositoryTestsRun": false,
+    "fullCIPassed": false
+  },
+  "pending": [
+    "#603 plan/ETF dependency and older base reconciliation",
+    "#599 policy archive overlap",
+    "#565 GDP original evidence",
+    "#578 dated historical consumer"
+  ],
+  "releaseEligible": false,
+  "canTrade": false
+}

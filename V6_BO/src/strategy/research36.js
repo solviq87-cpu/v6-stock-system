@@ -2,6 +2,7 @@
 const crypto=require('node:crypto');
 const catalog=require('../../strategies/research36.json');
 const {barsToIndicators}=require('./historical-indicators');
+const {orderedWindowRoles,compareResearchFamilies,nativeReversalSignal,NATIVE_REVERSAL}=require('./research36-family-comparison');
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const clock=v=>Number.isSafeInteger(v)&&v>0&&v<8e15;
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -126,12 +127,13 @@ function validateResearchBacktest(stocks,evidenceByDate,config,options){
 }
 function backtestResearch36(input={}){
  const {strategyId,stocks,evidenceByDate,config={},options={}}=input;
- if(!catalog.strategies.some(s=>s.id===strategyId))throw Error('回测研究输入无效');
+ if(!(strategyId===NATIVE_REVERSAL||catalog.strategies.some(s=>s.id===strategyId)))throw Error('回测研究输入无效');
  validateResearchBacktest(stocks,evidenceByDate,config,options);
- const seen=[];
+ const seen=[],configurationHash=hash(settings(config));
  const result=require('./position-ledger-backtest').ledgerBacktest({...options,stocks,strictHistoricalStatus:true,strictMarks:true,source:'research36-imported',
   selectCandidates:(prefix,day)=>prefix.filter(s=>{
    const code=String(s.symbol||s.code),date=s.bars.at(-1)?.date,asOf=Date.parse(date+'T15:00:00+08:00');
+   if(strategyId===NATIVE_REVERSAL){const native=nativeReversalSignal(s,asOf);seen.push({code,date,day,asOf,status:native.status,configHash:configurationHash,inputHash:hash({code,bars:s.bars,asOf}),nativeEvidence:native.nativeEvidence});return native.status==='research_candidate';}
    const features=evidenceByDate[date]?.[code]||{};
    const r=evaluateResearch36({stock:{code,bars:s.bars,features},asOf,config});
    const strategy=r.evaluations.find(x=>x.id===strategyId);seen.push({code,date,day,asOf,status:strategy.status,configHash:r.configHash,inputHash:r.inputHash});
@@ -141,7 +143,7 @@ function backtestResearch36(input={}){
   selectCandidates:prefix=>prefix.map(s=>String(s.symbol||s.code)).sort()});
  return {...result,additionalMetrics:researchMetrics(result),benchmark:{name:'同池等额定期持有基准',executionModel:benchmark.executionModel,metrics:benchmark.metrics,
   additionalMetrics:researchMetrics(benchmark),equity:benchmark.equity,canTrade:false,verifiedExternal:false},
-  research36:{strategyId,version:catalog.version,configHash:hash(settings(config)),signals:seen},
+  research36:{strategyId,version:catalog.version,configHash:configurationHash,signals:seen,...(strategyId===NATIVE_REVERSAL?{nativeRule:'quality-volume-reversal-research/rsv14_reversal_confirmation'}:{})},
   predictionProbability:null,outOfSampleValidated:false,warning:'导入声明及实验参数；本次结果不是独立样本外验证。'};
 }
 function researchMetrics(result){
@@ -169,6 +171,7 @@ function validateExperimentWindows(base,windows){
   labels.add(w.label);end=w.end;
  }
  if(!['train','validation','test'].every(role=>windows.some(w=>w.role===role)))throw Error('缺少训练、验证或测试窗口');
+ if(!orderedWindowRoles(windows))throw Error('训练、验证和测试窗口必须按角色顺序且完整');
  return {configHash,purge};
 }
 function experimentResearch36(input={}){
@@ -316,4 +319,8 @@ function compareResearchRoutes(input={}){
    '未知市场或任一代表规则未知时共同弃权；已明确风险关闭的日期共同不新增，原卖出及风险门禁继续运行',
    '权重映射为固定研究假设，不是批准调度、未来收益预测或真实成交；独立预注册、留出样本及价值另验']};
 }
-module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearchRoutes,summarizeRouteEconomics};
+function compareResearch36(input={}){
+ const definitions=[...settings(input.config||{}),{id:NATIVE_REVERSAL,family:'reversal-confirmation',rules:[]}];
+ return compareResearchFamilies(input,definitions,backtestResearch36);
+}
+module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearchRoutes,summarizeRouteEconomics,compareResearch36};

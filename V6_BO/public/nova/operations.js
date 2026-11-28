@@ -419,7 +419,15 @@ function planNoticeDetails(ctx,row) {
         old && el('p',{},old.kind==='entry'?'原买入观察区间 '+old.entryMin+' 至 '+old.entryMax+' 元':
           old.kind==='stop'?'原止损观察价 '+old.stop+' 元':'原目标观察价 '+old.target+' 元'),
         old && el('p',{},'原预检 · '+old.reason),
+        old && old.intendedDate && el('p',{},'原计划入场交易日 '+old.intendedDate+'；'+(old.actionWindow==='original-entry-trading-day-only'?'入场只在原交易日复核':'退出只针对原仍持有的批次，不以入场日当退出期限')),
+        old && old.frozenAt && el('p',{},'计划冻结 '+date(old.frozenAt)+'；原观察 '+date(old.observedAt)+'；原报价收到 '+date(old.receivedAt)),
+        old && old.originalQuoteValidUntil && el('p',{},'原报价有效期上界 '+date(old.originalQuoteValidUntil)+'（历史，不代表当前可成交）'),
+        old && old.kind!=='entry' && Number.isSafeInteger(old.remainingQuantity) && el('p',{},'原观察剩余 '+old.remainingQuantity+' 股'),
         old && el('small',{},'决策 ID '+old.decisionId),
+        old && old.planVersion && el('details',{class:'fy-details'},el('summary',{},'原计划证据指纹'),
+          el('p',{},'计划 ID '+old.planId),el('p',{},'计划版本 '+old.planVersion),
+          el('p',{},'观察 ID '+old.observationId),el('p',{},'触发 ID '+old.alertId),
+          el('p',{},'输入指纹 '+old.inputProvenanceFingerprint)),
         old?.sampledPath&&el('details',{class:'fy-details'},el('summary',{},'原触发前已观察价格路径'),
           el('p',{},old.sampledPath.reason),
           old.sampledPath.status==='descriptive-only'&&el('p',{},'采样 '+old.sampledPath.sampleCount+
@@ -433,6 +441,7 @@ function planNoticeDetails(ctx,row) {
           el('small',{},'实际高低开未知；历史采样不是当前报价或成交保证')),
         status, point && el('p',{},'本次报价 · '+point.price+' 元 · '+date(point.quoteAt)+' · '+point.source),
         point && el('p',{},'模拟预检 · '+point.reason),
+        point && old?.kind!=='entry' && Number.isSafeInteger(point.remainingQuantity) && el('p',{},'当前同一原批次剩余 '+point.remainingQuantity+' 股；未保证成交'),
         el('small',{},'查看时点 '+date(result.checkedAt)+(point?' · 报价有效至 '+date(point.validUntil):'')),
         action('重新核对',refresh,'text')
       ].filter(Boolean));
