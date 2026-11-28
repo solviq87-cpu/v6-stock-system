@@ -8,7 +8,7 @@ const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':
  'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
  'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败',
  'missing':'缺少实现或证据','blocked':'存在阻塞','observing':'观察积累中','verified':'已有核验登记','deployed':'已有部署登记'};
-const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
+const labels={policyStudy:'政策实施与经营传导',macroStudy:'宏观信用及事前预期',creditEconomicState:'信用与经济方向对照',creditSpread:'同期限信用利差（声明研究）',margin:'披露融资余额',surprises:'事前预期差',hypotheses:'预登记假设',strategyPriceStudies:'事件价格观察（非净收益）',status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
  symbol:'股票',eventType:'事件类型',title:'事件',revision:'修订',publishedAt:'公开时点',firstKnownAt:'首次获知',recordedAt:'保存时点',
  horizonSessions:'观察交易日',horizonDays:'持有交易日',stockReturnPct:'价格变化 %',benchmarkReturnPct:'同期市场变化 %',excessReturnPct:'市场调整差额 %',
  samples:'样本数',independentEvents:'独立事件数',independentDates:'独立日期数',averageExcessReturnPct:'平均市场调整差额 %',failureCases:'失败与反向案例',
@@ -270,7 +270,7 @@ export function renderDeepResearch(ctx){
  const refresh=button('读取当前证据',load,'primary');root.insertBefore(h('div',{class:'fy-toolbar'},refresh),status);
  choose.addEventListener('change',()=>{turn++;draw();if(choose.value==='acceptance'&&!acceptance)void load();});
  const file=h('input',{type:'file',accept:'.json,application/json','aria-label':'选择结构化研究证据'});
- const importStatus=note('仅接收有来源的结构化证据；首次获知时间由后台登记。');
+ const importStatus=note('仅接收自有或已授权证据；macroEvidence / policyEvidence 使用原新闻档案指纹，首次获知时间由后台登记，不能把声明当认证。');
  file.addEventListener('change',async()=>{imported=null;pendingImport=null;const ticket=++fileTurn,selected=file.files?.[0];if(!selected||!editable())return;
   if(selected.size>500000){importStatus.textContent='文件超过500KB，请按来源分批导入。';return;}
   try{const parsed=JSON.parse(await selected.text());if(!parsed||!Array.isArray(parsed.records)||!parsed.type)throw Error();if(ctx.signal?.aborted||ticket!==fileTurn)return;imported=parsed;importStatus.textContent='已读取 '+parsed.records.length+' 条，点击保存后才会进入研究档案。';}
