@@ -37,6 +37,15 @@ const codes=r=>r.report.errors.map(e=>e.code);
 const set=(sheet,cell,value,other={})=>({op:'set',sheet,cell,value,...other});
 let canonical;
 const baseline=()=>canonical??=invoke(book).report;
+function gitFixture(t){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-ledger-git-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const scripts=path.join(dir,'V6_BO/scripts'),books=path.join(dir,'docs/fayo-professional/deliverables');fs.mkdirSync(scripts,{recursive:true});fs.mkdirSync(books,{recursive:true});fs.mkdirSync(path.join(dir,'empty-hooks'));
+ for(const name of ['validate-fayo-ledger.py','stock-workbook.py'])fs.copyFileSync(path.join(root,'V6_BO/scripts',name),path.join(scripts,name));const file=path.join(books,'checklist.xlsx');fs.writeFileSync(file,original);
+ const git=(...args)=>execFileSync('git',['-C',dir,'-c','core.hooksPath='+path.join(dir,'empty-hooks'),'-c','commit.gpgsign=false','-c','user.name=FayoFixture','-c','user.email=fixture@fayo.invalid',...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
+ git('init');git('add','V6_BO','docs');git('commit','-m','isolated ledger fixture');const sha=git('rev-parse','HEAD');
+ const run=(expected=sha,options={})=>{const r=spawnSync(python,['-I','-S',options.script||path.join(scripts,'validate-fayo-ledger.py'),'--repo',options.repo||dir,'--workbook',options.workbook||file,'--expect-sha',expected],{encoding:'utf8'});return {status:r.status,report:JSON.parse(r.stdout)};};
+ return {dir,scripts,file,sha,run};
+}
 test('canonical complete inventories validate offline with stdlib only and stay read-only',()=>{
  const r=invoke(book);assert.equal(r.status,0);assert.equal(r.report.structurePassed,true);assert.equal(r.report.counts.tasks,228);assert.equal(r.report.counts.modules,50);
  assert.deepEqual(r.report.counts.batches.map(b=>b.taskCount),[100,76,52]);assert.equal(r.report.counts.catalogRecords['原60项来源'],60);assert.equal(r.report.counts.catalogRecords['历史66与78项目录'],78);
@@ -101,17 +110,19 @@ test('even a structurally consistent declared complete record is not manager acc
  assert.equal(r.report.managerSignoffVerified,false);assert.equal(r.report.businessAcceptanceVerified,false);assert.equal(r.report.releaseReady,false);
 });
 test('exact version pin binds both workbook and validator plus reused XML guard; writes or stale SHAs are rejected',t=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-ledger-git-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
- const scripts=path.join(dir,'V6_BO/scripts'),books=path.join(dir,'docs/fayo-professional/deliverables');fs.mkdirSync(scripts,{recursive:true});fs.mkdirSync(books,{recursive:true});fs.mkdirSync(path.join(dir,'empty-hooks'));
- for(const name of ['validate-fayo-ledger.py','stock-workbook.py'])fs.copyFileSync(path.join(root,'V6_BO/scripts',name),path.join(scripts,name));const file=path.join(books,'checklist.xlsx');fs.writeFileSync(file,original);
- const git=(...args)=>execFileSync('git',['-C',dir,'-c','core.hooksPath='+path.join(dir,'empty-hooks'),'-c','commit.gpgsign=false','-c','user.name=FayoFixture','-c','user.email=fixture@fayo.invalid',...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
- git('init');git('add','V6_BO','docs');git('commit','-m','isolated ledger fixture');const sha=git('rev-parse','HEAD');
- const run=(expected=sha)=>{const r=spawnSync(python,['-I','-S',path.join(scripts,'validate-fayo-ledger.py'),'--repo',dir,'--workbook',file,'--expect-sha',expected],{encoding:'utf8'});return {status:r.status,report:JSON.parse(r.stdout)};};
+ const {scripts,file,sha,run}=gitFixture(t);
  let r=run();assert.equal(r.status,0);assert.equal(r.report.versionBound,true);assert.equal(r.report.repositoryHead,sha);assert.ok(!fs.existsSync(path.join(scripts,'__pycache__')));
  r=run('0'.repeat(40));assert.equal(r.status,1);assert.ok(codes(r).includes('expected-commit-or-workbook-mismatch'));
  fs.appendFileSync(path.join(scripts,'validate-fayo-ledger.py'),'\n# uncommitted validator revision\n');r=run();assert.equal(r.status,1);assert.equal(r.report.validatorMatchesRepositoryCommit,false);
  fs.copyFileSync(script,path.join(scripts,'validate-fayo-ledger.py'));fs.appendFileSync(path.join(scripts,'stock-workbook.py'),'\n# uncommitted XML guard\n');r=run();assert.equal(r.status,1);assert.equal(r.report.xmlGuardMatchesRepositoryCommit,false);
  fs.copyFileSync(path.join(root,'V6_BO/scripts/stock-workbook.py'),path.join(scripts,'stock-workbook.py'));fs.writeFileSync(file,mutate([set('228项专业能力','F2','changed target consumer')]));r=run();assert.equal(r.status,1);assert.equal(r.report.workbookMatchesRepositoryCommit,false);
+});
+test('Git subdirectory discovery cannot certify an untracked same-name copy as the committed file',t=>{
+ const {dir,scripts,file,sha,run}=gitFixture(t);
+ let r=run(sha,{repo:path.join(dir,'V6_BO')});assert.equal(r.status,0);assert.equal(r.report.versionBound,true);assert.equal(r.report.repositoryIdentityResolved,true);
+ const nested=path.join(dir,'untracked-copy');const copyScript=path.join(nested,'V6_BO/scripts/validate-fayo-ledger.py'),copyBook=path.join(nested,'docs/fayo-professional/deliverables/checklist.xlsx');
+ fs.mkdirSync(path.dirname(copyScript),{recursive:true});fs.mkdirSync(path.dirname(copyBook),{recursive:true});fs.copyFileSync(path.join(scripts,'validate-fayo-ledger.py'),copyScript);fs.copyFileSync(path.join(scripts,'stock-workbook.py'),path.join(path.dirname(copyScript),'stock-workbook.py'));fs.copyFileSync(file,copyBook);
+ r=run(sha,{script:copyScript,repo:nested,workbook:copyBook});assert.equal(r.status,1);assert.equal(r.report.repositoryHead,sha);assert.equal(r.report.versionBound,false);assert.equal(r.report.workbookMatchesRepositoryCommit,false);assert.equal(r.report.validatorMatchesRepositoryCommit,false);assert.ok(codes(r).includes('expected-commit-or-workbook-mismatch'));
 });
 test('a structure-only standalone check can run without Git; pinned acceptance cannot silently fall back',t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-ledger-no-git-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));

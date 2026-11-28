@@ -1,0 +1,47 @@
+{
+  "scope": "Read-only diagnostics of externally owned PRs; no branch mutation, comments, merges or production changes. Synthetic browser API is not live market or device acceptance.",
+  "representatives": [
+    {
+      "pr": 601,
+      "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375",
+      "job": 140873569920,
+      "failure": "TypeError: null.children in original DOM fixture; independently reproduced 10/11. Faithful primitive conversion exposes a real literal-null placeholder, 12/13. Local optional-node proposal restores 13/13.",
+      "ownerPatchAppliedToSharedRuntime": false
+    },
+    {
+      "pr": 601,
+      "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375",
+      "job": 140873569661,
+      "failure": "missing-smoke-status; required smoke run 46110763504 was queued at inspection. Gate retained. No waiver or manual success status."
+    },
+    {
+      "pr": 596,
+      "head": "d6ae6a5c295799e2087a735b983dfddce8738164",
+      "job": 140869694130,
+      "failure": "Decision checklist not-planned row timeout with warming cache. External script still has older clock fixture; own branch retains existing atomic-clock adaptation. Cause and whole PR not revalidated."
+    }
+  ],
+  "browser": {
+    "widths": [
+      1366,
+      390
+    ],
+    "beforeLiteralNulls": [
+      1,
+      1
+    ],
+    "proposedLiteralNulls": [
+      0,
+      0
+    ],
+    "requestsPerViewport": 1,
+    "externalRequests": 0,
+    "physicalDevice": false,
+    "financialData": "explicitly synthetic"
+  },
+  "sharedFixture": {
+    "originalAssertionsRetained": true,
+    "newTests": 2,
+    "sameFileOriginalSha256": "30f2c381cfec2ad1a5b56446b7083f602828f932b4f8cc390e94dc9d098ec554"
+  }
+}

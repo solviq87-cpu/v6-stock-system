@@ -1,0 +1,38 @@
+(node:1743410) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///tmp/fayo-pr601-fixture-check/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /tmp/fayo-pr601-fixture-check/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ a pending model call cannot be invalidated by a configuration click and leave controls locked (9.351538ms)
+✔ changing question cancels the request and does not expose a late answer (0.709541ms)
+✔ a completed label without an actual model call is shown as a failed receipt (1.030496ms)
+✖ returning to a replay restores the selected evidence and zoom only after rereading the same identity (25.400158ms)
+✔ replay refuses a receipt for a different sealed version even with the same stock and cutoff (0.898436ms)
+✔ unsupported single-character OR clauses are not interpreted as one industry name (1.333102ms)
+✔ unknown conditions cannot display late values as observations known at the historical cutoff (1.005869ms)
+✔ next-plan review preserves the original incident and same-plan follow-up while exposing a separately bound later fact (4.80253ms)
+✔ unbound, mismatched and future next-plan receipts fail only that disclosure without claiming compliance (14.870541ms)
+✔ a different rule version stays unknown and cannot reuse a positive label or evidence (1.329938ms)
+✔ a bound unknown receipt without a selected later plan preserves its specific archive gap (1.280744ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 10
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 153.141788
+
+✖ failing tests:
+
+test at tests/fayo-evidence-continuation-client.test.mjs:57:1
+✖ returning to a replay restores the selected evidence and zoom only after rereading the same identity (25.400158ms)
+  TypeError [Error]: Cannot read properties of null (reading 'children')
+      at walk (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:18:32)
+      at Array.flatMap (<anonymous>)
+      at walk (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:18:41)
+      at Array.flatMap (<anonymous>)
+      at walk (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:18:41)
+      at byLabel (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:20:29)
+      at TestContext.<anonymous> (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:60:52)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

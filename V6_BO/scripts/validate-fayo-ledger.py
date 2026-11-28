@@ -344,17 +344,20 @@ def main():
         report.update(validate(data))
         def git(*command):
             try:
-                return subprocess.run(['git', '-C', str(args.repo), *command], capture_output=True, timeout=10)
+                return subprocess.run(['git', '-c', 'core.quotepath=false', '-C', str(args.repo), *command], capture_output=True, timeout=10)
             except (OSError, subprocess.TimeoutExpired):
                 return None
         head = git('rev-parse', 'HEAD')
         report['repositoryHead'] = head.stdout.decode('ascii').strip() if head is not None and head.returncode == 0 else None
+        top = git('rev-parse', '--show-toplevel') if report['repositoryHead'] else None
+        repository_root = Path(top.stdout.decode('utf-8').rstrip('\r\n')).resolve() if top is not None and top.returncode == 0 else None
+        report['repositoryIdentityResolved'] = repository_root is not None
 
         def matches_commit(path, content):
-            if not report['repositoryHead']:
+            if not report['repositoryHead'] or repository_root is None:
                 return False
             try:
-                relative = path.resolve().relative_to(args.repo.resolve()).as_posix()
+                relative = path.resolve().relative_to(repository_root).as_posix()
             except ValueError:
                 return False
             blob = git('show', report['repositoryHead'] + ':' + relative)
