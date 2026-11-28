@@ -1,0 +1,50 @@
+{"status":"insufficient","metrics":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"riskPauseDays":0,"closedTrades":0,"winRatePct":null},"holdout":{"status":"evaluated","splitDay":35,"method":"预先指定分割点，同一配置分别从空仓启动。测试段指标可预热使用分割前历史，训练段持仓和订单不跨段。","inSample":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"riskPauseDays":0,"closedTrades":0,"winRatePct":null},"outOfSample":{"initialCash":100000,"finalEquity":100000,"returnPct":0,"maxDrawdownPct":0,"riskPauseDays":0,"closedTrades":0,"winRatePct":null}},"dataset":{"stocks":1,"barsPerStock":48,"firstDate":null,"lastDate":null,"source":"fixture","asOf":"2026-10-31","historicalCoverage":{"status":"unknown","complete":false,"verifiedExternal":false,"canTrade":false,"missing":["缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"]},"verifiedExternal":false}}
+✔ 完整历史研究包含每日净值、交易成本、分割样本和禁止实盘标志 (19.875803ms)
+✔ 不同股票的日历缺口和错误OHLCV被拒绝 (0.559744ms)
+✔ 缺少可追溯来源时禁止声明验证成功 (0.522669ms)
+✔ 离线CLI写出完整JSON报告并阻止覆盖数据 (6.955045ms)
+✔ consistent symbol and code accepted (2.640735ms)
+✔ conflicting symbol and code rejected (0.575068ms)
+✔ fractional or unsafe volume rejected (0.414025ms)
+✔ invalid optional turnover amount rejected (0.537321ms)
+✔ fixed periods reuse original complete reports and leave input and default workbench unchanged (394.738352ms)
+✔ zero buys never become zero-return winners, and fixed protocol changes with data and costs (141.105866ms)
+✔ shared capital, fees, sell tax, limits and raw execution evidence remain original in every period (187.10705ms)
+✔ baseline period is not recomputed and custom baseline does not replace fixed research periods (295.442918ms)
+✔ work and evidence budgets return unavailable without substituting or truncating original baseline (105.338168ms)
+✔ failed period keeps failure receipt and never publishes a favorable partial list (167.110737ms)
+✔ original historical gates and malformed opt-in still reject instead of weakening risk or price basis (2.77027ms)
+✔ original holdout is retained separately by period without certifying untouched validation (101.176037ms)
+(node:1641289) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ unknown or zero-trade periods cannot display zero-return winners (6.710355ms)
+✔ unsettled account marks remain distinct from completely closed paper returns (29.110537ms)
+✔ wrong schema, reordered periods and permission claims cannot become comparison results (0.533766ms)
+PASS 13 ledger assertions
+✔ tests/position-ledger-backtest.test.js (170.55176ms)
+✔ comparison is opt-in and leaves original backtest, paper and native results unchanged (305.824628ms)
+✔ unknown inputs and zero transactions are not treated as zero-return winners (9.393434ms)
+✔ same capital, costs and next-session execution are shared without changing original ledger math (19.84812ms)
+✔ own coverage and common evaluated coverage remain separate (0.959498ms)
+✔ known signals that cannot buy retain failures rather than fabricated performance (1.304068ms)
+✔ duplicates, future knowledge and mismatched accounts cannot certify a comparison (1.650601ms)
+✔ malformed options fail closed without changing original completed research (283.171484ms)
+✔ existing unified CLI reuses its already-computed portfolios and binds all fingerprints (40.579895ms)
+✔ interactive evidence is retained completely or the comparison is unavailable, never truncated (73.362031ms)
+(node:1641350) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ zero trades and unknown evidence remain unassessed on both the status and performance columns (64.061447ms)
+✔ actual paper estimates display only existing values and retain the research disclaimer (0.68266ms)
+✔ wrong versions, duplicated systems and permission-claiming outputs cannot become comparison cards (0.382196ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1594.500363

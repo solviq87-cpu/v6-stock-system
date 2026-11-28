@@ -1,0 +1,4287 @@
+{
+  "head": "dc713d00ba543748c9e62fcb0237bc9774fc5b77",
+  "sourceHashes": {
+    "src/core/holding-period-comparison.js": "56ec79f6765faf5700bfbf6ed34beecbb602c2cdfa7080437ec1d9859cc1e25c",
+    "src/core/complete-workbench.js": "4edf6671b2ca387a3b641cc638ebc3734e30bc314e6fe2811299b0ae021991e8",
+    "public/nova/holding-period-view.mjs": "e974c528bc104143b37e97247bcade6a6cd0bd29311c921a40e3eee213d75039",
+    "public/nova/research.js": "ef5ccfa424ecfe6d1d38d6028f04b95dcd93f5e78f214f386df2bfd8476a97f3",
+    "src/core/historical-validation.js": "b7f57ad10b2f69122bb55f0851a88a5253f31e6a3795723059e4f0365970051a",
+    "src/strategy/research-v2-position-ledger-backtest.js": "62f80e5fe3d7c8b95675275d23e5ba3f4cec5a30f3625558b0bcdf140c1fc65d",
+    "src/core/trading-fees.js": "91cc612b395c198b8a1c1ae160abf005eb50d258fd78313a1024dd6941220482",
+    "src/core/common-entry-risk.js": "a253e77ecf96ea2fb1fafa3548630108741040fb9d617fea8e323c2a85094036"
+  },
+  "clockIsControlled": true,
+  "noActualPortfolio": true,
+  "newSupplierRequests": 0,
+  "inputRawHash": "897cc0471978459dca8f1f2d0f191fd9c77ad7a4d76f0b30e0f2ab6b645b1bf3",
+  "controls": {
+    "defaultMissing": true,
+    "explicitAvailable": true,
+    "viewer": {
+      "http": 200,
+      "denied": true,
+      "readOnly": true
+    },
+    "malformed": {
+      "http": 200,
+      "denied": true
+    },
+    "originalStrategyComparisonCoexists": true,
+    "allOriginalOutputsUnchanged": true
+  },
+  "workerRoundTripMs": 292.0824379999999,
+  "comparison": {
+    "schemaVersion": 1,
+    "mode": "holding-period-research-comparison",
+    "status": "descriptive-only",
+    "datasetFingerprint": "cfe4f13b46563e26f58df0360f8aa0b146ed8944eb0270c1e65b228441c2fef3",
+    "protocolFingerprint": "994b22a3403bef35f784f5f182c2feaf78796950c9e853208eb985c92729af2a",
+    "source": "sina",
+    "asOf": "2026-11-27",
+    "dataset": {
+      "stocks": 1,
+      "barsPerStock": 120,
+      "firstDate": "2026-06-04",
+      "lastDate": "2026-11-27",
+      "source": "sina",
+      "asOf": "2026-11-27",
+      "historicalCoverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "verifiedExternal": false
+    },
+    "protocol": {
+      "schemaVersion": 1,
+      "engine": "original-runValidatedBacktest/research-v2-position-ledger-backtest",
+      "horizons": [
+        1,
+        3,
+        5,
+        10,
+        20
+      ],
+      "baselinePeriod": 1,
+      "configuration": {
+        "start": 27,
+        "topN": 3,
+        "initialCash": 100000,
+        "feeBps": 8,
+        "slippageBps": 10,
+        "sellTaxBps": 5,
+        "stopLossPct": null,
+        "maxPositionPct": 100,
+        "drawdownAlertPct": null,
+        "maxDrawdownPausePct": null,
+        "maxDailyLossPausePct": null,
+        "maxParticipationPct": null,
+        "minPriorTurnover": null,
+        "feeSchedules": null,
+        "riskPolicy": null
+      },
+      "end": 119,
+      "splitDay": null,
+      "comparison": "independent-account-trajectories; not identical-entry-cohort returns",
+      "exit": "original close-scheduled next-open exit; T+1, stop-loss, risk, capacity and blocked-exit rules retained",
+      "snapshotStage": "in-process-before-evaluation; not externally preregistered"
+    },
+    "attempts": [
+      {
+        "holdDays": 1,
+        "status": "completed",
+        "reusedBaseline": true
+      },
+      {
+        "holdDays": 3,
+        "status": "completed",
+        "reusedBaseline": false
+      },
+      {
+        "holdDays": 5,
+        "status": "completed",
+        "reusedBaseline": false
+      },
+      {
+        "holdDays": 10,
+        "status": "completed",
+        "reusedBaseline": false
+      },
+      {
+        "holdDays": 20,
+        "status": "completed",
+        "reusedBaseline": false
+      }
+    ],
+    "periods": [
+      {
+        "holdDays": 1,
+        "status": "no-buy-fills",
+        "buyFills": 0,
+        "closedTrades": 0,
+        "openPositions": 0,
+        "blockedOrders": 0,
+        "markedAccountReturnPct": null,
+        "closedAccountReturnPct": null,
+        "drawdownPct": null,
+        "evidenceFingerprint": "925bdb8184f1b200458078931221a0eeb26f8813b3e5de19225811cc103617f6",
+        "report": {
+          "status": "insufficient",
+          "dataset": {
+            "stocks": 1,
+            "barsPerStock": 120,
+            "firstDate": "2026-06-04",
+            "lastDate": "2026-11-27",
+            "source": "sina",
+            "asOf": "2026-11-27",
+            "historicalCoverage": {
+              "status": "unknown",
+              "complete": false,
+              "verifiedExternal": false,
+              "canTrade": false,
+              "missing": [
+                "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+              ]
+            },
+            "verifiedExternal": false
+          },
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "riskPauseDays": 0,
+            "closedTrades": 0,
+            "winRatePct": null
+          },
+          "statistics": {
+            "observations": 93,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "annualizedReturnPct": null,
+            "annualizedVolatilityPct": 0,
+            "sharpe": null,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "winRate95Pct": null,
+            "assumptions": [
+              "收益为每日净值变化，年化交易日数可配置，默认252",
+              "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+              "短于一年不报告年化收益；统计区间不证明策略有效性"
+            ]
+          },
+          "cashFlows": [
+            {
+              "day": 27,
+              "kind": "initial",
+              "amount": 100000,
+              "balance": 100000
+            }
+          ],
+          "holdout": {
+            "status": "not-tested",
+            "reason": "未预先指定样本外分割点"
+          },
+          "assumptions": [
+            "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+            "卖出受阻继续持仓并每日按收盘价估值",
+            "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+            "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+            "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+          ],
+          "warnings": [],
+          "trades": [],
+          "orders": [],
+          "equity": [
+            {
+              "day": 27,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 28,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 29,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 30,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 31,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 32,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 33,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 34,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 35,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 36,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 37,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 38,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 39,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 40,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 41,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 42,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 43,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 44,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 45,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 46,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 47,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 48,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 49,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 50,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 51,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 52,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 53,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 54,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 55,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 56,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 57,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 58,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 59,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 60,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 61,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 62,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 63,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 64,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 65,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 66,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 67,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 68,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 69,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 70,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 71,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 72,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 73,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 74,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 75,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 76,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 77,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 78,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 79,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 80,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 81,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 82,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 83,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 84,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 85,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 86,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 87,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 88,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 89,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 90,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 91,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 92,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 93,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 94,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 95,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 96,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 97,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 98,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 99,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 100,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 101,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 102,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 103,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 104,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 105,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 106,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 107,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 108,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 109,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 110,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 111,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 112,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 113,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 114,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 115,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 116,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 117,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 118,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 119,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            }
+          ],
+          "openPositions": [],
+          "releaseEligible": false,
+          "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+        }
+      },
+      {
+        "holdDays": 3,
+        "status": "no-buy-fills",
+        "buyFills": 0,
+        "closedTrades": 0,
+        "openPositions": 0,
+        "blockedOrders": 0,
+        "markedAccountReturnPct": null,
+        "closedAccountReturnPct": null,
+        "drawdownPct": null,
+        "evidenceFingerprint": "925bdb8184f1b200458078931221a0eeb26f8813b3e5de19225811cc103617f6",
+        "report": {
+          "status": "insufficient",
+          "dataset": {
+            "stocks": 1,
+            "barsPerStock": 120,
+            "firstDate": "2026-06-04",
+            "lastDate": "2026-11-27",
+            "source": "sina",
+            "asOf": "2026-11-27",
+            "historicalCoverage": {
+              "status": "unknown",
+              "complete": false,
+              "verifiedExternal": false,
+              "canTrade": false,
+              "missing": [
+                "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+              ]
+            },
+            "verifiedExternal": false
+          },
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "riskPauseDays": 0,
+            "closedTrades": 0,
+            "winRatePct": null
+          },
+          "statistics": {
+            "observations": 93,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "annualizedReturnPct": null,
+            "annualizedVolatilityPct": 0,
+            "sharpe": null,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "winRate95Pct": null,
+            "assumptions": [
+              "收益为每日净值变化，年化交易日数可配置，默认252",
+              "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+              "短于一年不报告年化收益；统计区间不证明策略有效性"
+            ]
+          },
+          "cashFlows": [
+            {
+              "day": 27,
+              "kind": "initial",
+              "amount": 100000,
+              "balance": 100000
+            }
+          ],
+          "holdout": {
+            "status": "not-tested",
+            "reason": "未预先指定样本外分割点"
+          },
+          "assumptions": [
+            "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+            "卖出受阻继续持仓并每日按收盘价估值",
+            "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+            "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+            "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+          ],
+          "warnings": [],
+          "trades": [],
+          "orders": [],
+          "equity": [
+            {
+              "day": 27,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 28,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 29,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 30,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 31,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 32,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 33,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 34,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 35,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 36,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 37,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 38,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 39,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 40,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 41,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 42,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 43,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 44,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 45,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 46,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 47,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 48,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 49,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 50,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 51,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 52,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 53,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 54,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 55,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 56,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 57,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 58,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 59,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 60,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 61,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 62,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 63,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 64,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 65,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 66,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 67,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 68,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 69,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 70,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 71,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 72,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 73,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 74,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 75,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 76,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 77,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 78,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 79,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 80,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 81,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 82,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 83,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 84,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 85,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 86,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 87,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 88,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 89,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 90,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 91,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 92,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 93,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 94,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 95,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 96,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 97,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 98,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 99,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 100,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 101,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 102,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 103,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 104,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 105,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 106,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 107,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 108,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 109,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 110,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 111,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 112,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 113,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 114,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 115,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 116,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 117,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 118,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 119,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            }
+          ],
+          "openPositions": [],
+          "releaseEligible": false,
+          "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+        }
+      },
+      {
+        "holdDays": 5,
+        "status": "no-buy-fills",
+        "buyFills": 0,
+        "closedTrades": 0,
+        "openPositions": 0,
+        "blockedOrders": 0,
+        "markedAccountReturnPct": null,
+        "closedAccountReturnPct": null,
+        "drawdownPct": null,
+        "evidenceFingerprint": "925bdb8184f1b200458078931221a0eeb26f8813b3e5de19225811cc103617f6",
+        "report": {
+          "status": "insufficient",
+          "dataset": {
+            "stocks": 1,
+            "barsPerStock": 120,
+            "firstDate": "2026-06-04",
+            "lastDate": "2026-11-27",
+            "source": "sina",
+            "asOf": "2026-11-27",
+            "historicalCoverage": {
+              "status": "unknown",
+              "complete": false,
+              "verifiedExternal": false,
+              "canTrade": false,
+              "missing": [
+                "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+              ]
+            },
+            "verifiedExternal": false
+          },
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "riskPauseDays": 0,
+            "closedTrades": 0,
+            "winRatePct": null
+          },
+          "statistics": {
+            "observations": 93,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "annualizedReturnPct": null,
+            "annualizedVolatilityPct": 0,
+            "sharpe": null,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "winRate95Pct": null,
+            "assumptions": [
+              "收益为每日净值变化，年化交易日数可配置，默认252",
+              "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+              "短于一年不报告年化收益；统计区间不证明策略有效性"
+            ]
+          },
+          "cashFlows": [
+            {
+              "day": 27,
+              "kind": "initial",
+              "amount": 100000,
+              "balance": 100000
+            }
+          ],
+          "holdout": {
+            "status": "not-tested",
+            "reason": "未预先指定样本外分割点"
+          },
+          "assumptions": [
+            "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+            "卖出受阻继续持仓并每日按收盘价估值",
+            "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+            "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+            "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+          ],
+          "warnings": [],
+          "trades": [],
+          "orders": [],
+          "equity": [
+            {
+              "day": 27,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 28,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 29,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 30,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 31,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 32,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 33,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 34,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 35,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 36,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 37,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 38,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 39,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 40,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 41,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 42,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 43,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 44,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 45,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 46,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 47,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 48,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 49,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 50,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 51,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 52,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 53,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 54,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 55,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 56,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 57,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 58,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 59,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 60,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 61,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 62,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 63,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 64,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 65,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 66,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 67,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 68,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 69,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 70,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 71,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 72,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 73,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 74,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 75,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 76,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 77,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 78,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 79,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 80,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 81,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 82,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 83,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 84,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 85,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 86,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 87,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 88,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 89,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 90,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 91,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 92,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 93,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 94,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 95,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 96,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 97,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 98,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 99,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 100,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 101,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 102,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 103,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 104,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 105,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 106,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 107,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 108,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 109,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 110,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 111,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 112,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 113,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 114,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 115,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 116,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 117,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 118,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 119,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            }
+          ],
+          "openPositions": [],
+          "releaseEligible": false,
+          "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+        }
+      },
+      {
+        "holdDays": 10,
+        "status": "no-buy-fills",
+        "buyFills": 0,
+        "closedTrades": 0,
+        "openPositions": 0,
+        "blockedOrders": 0,
+        "markedAccountReturnPct": null,
+        "closedAccountReturnPct": null,
+        "drawdownPct": null,
+        "evidenceFingerprint": "925bdb8184f1b200458078931221a0eeb26f8813b3e5de19225811cc103617f6",
+        "report": {
+          "status": "insufficient",
+          "dataset": {
+            "stocks": 1,
+            "barsPerStock": 120,
+            "firstDate": "2026-06-04",
+            "lastDate": "2026-11-27",
+            "source": "sina",
+            "asOf": "2026-11-27",
+            "historicalCoverage": {
+              "status": "unknown",
+              "complete": false,
+              "verifiedExternal": false,
+              "canTrade": false,
+              "missing": [
+                "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+              ]
+            },
+            "verifiedExternal": false
+          },
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "riskPauseDays": 0,
+            "closedTrades": 0,
+            "winRatePct": null
+          },
+          "statistics": {
+            "observations": 93,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "annualizedReturnPct": null,
+            "annualizedVolatilityPct": 0,
+            "sharpe": null,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "winRate95Pct": null,
+            "assumptions": [
+              "收益为每日净值变化，年化交易日数可配置，默认252",
+              "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+              "短于一年不报告年化收益；统计区间不证明策略有效性"
+            ]
+          },
+          "cashFlows": [
+            {
+              "day": 27,
+              "kind": "initial",
+              "amount": 100000,
+              "balance": 100000
+            }
+          ],
+          "holdout": {
+            "status": "not-tested",
+            "reason": "未预先指定样本外分割点"
+          },
+          "assumptions": [
+            "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+            "卖出受阻继续持仓并每日按收盘价估值",
+            "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+            "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+            "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+          ],
+          "warnings": [],
+          "trades": [],
+          "orders": [],
+          "equity": [
+            {
+              "day": 27,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 28,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 29,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 30,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 31,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 32,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 33,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 34,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 35,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 36,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 37,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 38,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 39,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 40,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 41,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 42,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 43,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 44,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 45,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 46,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 47,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 48,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 49,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 50,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 51,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 52,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 53,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 54,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 55,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 56,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 57,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 58,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 59,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 60,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 61,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 62,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 63,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 64,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 65,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 66,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 67,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 68,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 69,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 70,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 71,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 72,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 73,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 74,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 75,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 76,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 77,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 78,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 79,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 80,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 81,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 82,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 83,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 84,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 85,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 86,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 87,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 88,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 89,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 90,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 91,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 92,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 93,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 94,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 95,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 96,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 97,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 98,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 99,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 100,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 101,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 102,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 103,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 104,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 105,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 106,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 107,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 108,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 109,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 110,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 111,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 112,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 113,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 114,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 115,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 116,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 117,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 118,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 119,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            }
+          ],
+          "openPositions": [],
+          "releaseEligible": false,
+          "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+        }
+      },
+      {
+        "holdDays": 20,
+        "status": "no-buy-fills",
+        "buyFills": 0,
+        "closedTrades": 0,
+        "openPositions": 0,
+        "blockedOrders": 0,
+        "markedAccountReturnPct": null,
+        "closedAccountReturnPct": null,
+        "drawdownPct": null,
+        "evidenceFingerprint": "925bdb8184f1b200458078931221a0eeb26f8813b3e5de19225811cc103617f6",
+        "report": {
+          "status": "insufficient",
+          "dataset": {
+            "stocks": 1,
+            "barsPerStock": 120,
+            "firstDate": "2026-06-04",
+            "lastDate": "2026-11-27",
+            "source": "sina",
+            "asOf": "2026-11-27",
+            "historicalCoverage": {
+              "status": "unknown",
+              "complete": false,
+              "verifiedExternal": false,
+              "canTrade": false,
+              "missing": [
+                "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+              ]
+            },
+            "verifiedExternal": false
+          },
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "riskPauseDays": 0,
+            "closedTrades": 0,
+            "winRatePct": null
+          },
+          "statistics": {
+            "observations": 93,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "annualizedReturnPct": null,
+            "annualizedVolatilityPct": 0,
+            "sharpe": null,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "winRate95Pct": null,
+            "assumptions": [
+              "收益为每日净值变化，年化交易日数可配置，默认252",
+              "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+              "短于一年不报告年化收益；统计区间不证明策略有效性"
+            ]
+          },
+          "cashFlows": [
+            {
+              "day": 27,
+              "kind": "initial",
+              "amount": 100000,
+              "balance": 100000
+            }
+          ],
+          "holdout": {
+            "status": "not-tested",
+            "reason": "未预先指定样本外分割点"
+          },
+          "assumptions": [
+            "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+            "卖出受阻继续持仓并每日按收盘价估值",
+            "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+            "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+            "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+          ],
+          "warnings": [],
+          "trades": [],
+          "orders": [],
+          "equity": [
+            {
+              "day": 27,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 28,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 29,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 30,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 31,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 32,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 33,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 34,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 35,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 36,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 37,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 38,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 39,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 40,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 41,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 42,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 43,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 44,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 45,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 46,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 47,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 48,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 49,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 50,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 51,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 52,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 53,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 54,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 55,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 56,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 57,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 58,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 59,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 60,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 61,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 62,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 63,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 64,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 65,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 66,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 67,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 68,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 69,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 70,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 71,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 72,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 73,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 74,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 75,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 76,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 77,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 78,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 79,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 80,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 81,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 82,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 83,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 84,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 85,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 86,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 87,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 88,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 89,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 90,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 91,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 92,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 93,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 94,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 95,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 96,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 97,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 98,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 99,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 100,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 101,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 102,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 103,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 104,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 105,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 106,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 107,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 108,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 109,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 110,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 111,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 112,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 113,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 114,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 115,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 116,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 117,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 118,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            },
+            {
+              "day": 119,
+              "cash": 100000,
+              "marketValue": 0,
+              "value": 100000,
+              "openPositions": 0,
+              "unpriced": []
+            }
+          ],
+          "openPositions": [],
+          "releaseEligible": false,
+          "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+        }
+      }
+    ],
+    "backtestEvaluations": 5,
+    "workUnits": 600,
+    "trialBudgetVerified": false,
+    "independentHoldoutCertified": false,
+    "canTrade": false,
+    "canTrain": false,
+    "canNotify": false,
+    "verifiedLive": false,
+    "eligibleForPromotion": false,
+    "weightsChanged": false,
+    "limitations": [
+      "仅原研究扫描器的一组固定参数，不代表原四体系或全部策略的期限竞技",
+      "持仓期限会改变现金、再入场与后续候选，不能当相同入场信号的条件收益对照",
+      "止损可能提前退出，停牌/跌停及流动性限制可能延后退出；参数天数不是保证持有时间",
+      "未平仓估值与成熟已平仓结果分列；零成交不代表零收益赢家，不选择最佳期限",
+      "费用和滑点是原研究假设，未证明真实成交、容量、净收益优势或预测可靠性",
+      "本次协议指纹不是独立预注册、试验额度或留出集认证；即使有splitDay也不自动认证样本外",
+      "历史证券、因子、公司行为、股票池及数据用途许可仍按原输入证据核验，不能倒填点时信息"
+    ]
+  }
+}

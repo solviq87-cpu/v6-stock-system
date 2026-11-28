@@ -1,0 +1,13 @@
+{
+  "sourceHead": "dc713d00ba543748c9e62fcb0237bc9774fc5b77",
+  "datasetFingerprint": "cfe4f13b46563e26f58df0360f8aa0b146ed8944eb0270c1e65b228441c2fef3",
+  "horizons": [
+    1,
+    3,
+    5,
+    10,
+    20
+  ],
+  "kind": "preset-readonly-reuse-check",
+  "ranked": false
+}

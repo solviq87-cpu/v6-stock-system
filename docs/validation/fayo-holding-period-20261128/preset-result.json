@@ -1,0 +1,87 @@
+[
+  {
+    "holdDays": 1,
+    "status": "insufficient",
+    "metrics": {
+      "initialCash": 100000,
+      "finalEquity": 100000,
+      "returnPct": 0,
+      "maxDrawdownPct": 0,
+      "riskPauseDays": 0,
+      "closedTrades": 0,
+      "winRatePct": null
+    },
+    "orders": 0,
+    "trades": 0,
+    "open": 0,
+    "ms": 51.782404000000014
+  },
+  {
+    "holdDays": 3,
+    "status": "insufficient",
+    "metrics": {
+      "initialCash": 100000,
+      "finalEquity": 100000,
+      "returnPct": 0,
+      "maxDrawdownPct": 0,
+      "riskPauseDays": 0,
+      "closedTrades": 0,
+      "winRatePct": null
+    },
+    "orders": 0,
+    "trades": 0,
+    "open": 0,
+    "ms": 28.881730000000005
+  },
+  {
+    "holdDays": 5,
+    "status": "insufficient",
+    "metrics": {
+      "initialCash": 100000,
+      "finalEquity": 100000,
+      "returnPct": 0,
+      "maxDrawdownPct": 0,
+      "riskPauseDays": 0,
+      "closedTrades": 0,
+      "winRatePct": null
+    },
+    "orders": 0,
+    "trades": 0,
+    "open": 0,
+    "ms": 22.55024400000002
+  },
+  {
+    "holdDays": 10,
+    "status": "insufficient",
+    "metrics": {
+      "initialCash": 100000,
+      "finalEquity": 100000,
+      "returnPct": 0,
+      "maxDrawdownPct": 0,
+      "riskPauseDays": 0,
+      "closedTrades": 0,
+      "winRatePct": null
+    },
+    "orders": 0,
+    "trades": 0,
+    "open": 0,
+    "ms": 25.727940999999987
+  },
+  {
+    "holdDays": 20,
+    "status": "insufficient",
+    "metrics": {
+      "initialCash": 100000,
+      "finalEquity": 100000,
+      "returnPct": 0,
+      "maxDrawdownPct": 0,
+      "riskPauseDays": 0,
+      "closedTrades": 0,
+      "winRatePct": null
+    },
+    "orders": 0,
+    "trades": 0,
+    "open": 0,
+    "ms": 35.818299000000025
+  }
+]
