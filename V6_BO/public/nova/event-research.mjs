@@ -70,7 +70,11 @@ function projectIndexAdjustment(e,asOf,inactiveReasons){
   // A retained date can be superseded by postponement without a replacement date.
   const review=/澄清|否认|不属实|取消|延期|暂停|撤销|撤回|推迟|延后|顺延|暂缓|择期(?:实施|生效|调整)|另行通知|不再(?:实施|生效|执行|调整)|暂不(?:实施|生效|执行|调整)/.test(text);
   const day=new Date(asOf+8*3600000).toISOString().slice(0,10);
-  const status=inactiveReasons.length?'inactive':review?'manual-review':!declared?'unknown-date':
+  // A declared announcement date is not a receipt, but an impossible or
+  // contradictory chronology must never be treated as a routine event.
+  const chronologyConflict=announced.length>0&&(!announcementDate||announcementDate>day||
+    declared&&declared.date<announcementDate);
+  const status=inactiveReasons.length?'inactive':review||chronologyConflict?'manual-review':!declared?'unknown-date':
     declared.date>day?'future-date':declared.date===day?'date-reached-unverified':'date-passed-unverified';
   const lines=e.body.split(/\r?\n/),headings=[];
   for(let i=0;i<lines.length;i++){

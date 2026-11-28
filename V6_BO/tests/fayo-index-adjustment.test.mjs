@@ -37,7 +37,7 @@ test('冲突日期、冲突阶段和非法日期均不选一个计划',()=>{
 });
 test('日历按归档截点可知，晚取得旧公告不能倒填历史',()=>{
  assert.equal(projectNewsEvents([make()],t-1,t).rows.length,0);
- const p=plan(make(body.replace('2026年12月11日','2025年12月12日')));assert.equal(p.status,'date-passed-unverified');
+ const p=plan(make(body.replace('2026年11月27日','2025年11月27日').replace('2026年12月11日','2025年12月12日')));assert.equal(p.status,'date-passed-unverified');
 });
 test('撤稿、被替代、移除关联和缺链使日历失效，历史截点保留原计划',()=>{
  const a=make(),b={...make(),sequence:2,eventHash:'b'.repeat(64),recordedAt:t+1000,evidence:{...make().evidence,kind:'retracted',supersedes:a.eventHash,receivedAt:t+500,revisedAt:t+400}};
@@ -84,4 +84,20 @@ test('F27.4 已知调样计划到原实施日仍不等于同窗突发或真实�
  assert.equal(atWindow.phase,'after-close');assert.equal(atWindow.effectiveAt,null);assert.equal(atWindow.actualFlow,null);
  assert.equal(atWindow.implementationConfirmed,false);assert.equal(atWindow.canQualify,false);assert.equal(atWindow.canTrade,false);
  assert.equal(projectNewsEvents([make()],asOf,asOf).rows[0].knownAt,t);
+});
+
+test('F27.4 公告日期矛盾、未来日期及计划早于公告必须人工复核',()=>{
+ for(const text of [
+  body.replace('2026年11月27日','2026年11月29日'),
+  body.replace('2026年12月11日','2026年11月26日'),
+  body.replace('2026年11月27日','2026年2月30日'),
+  body+'\n公告日期：2026年11月26日'
+ ]){
+  const p=plan(make(text));
+  assert.equal(p.status,'manual-review');assert.equal(p.effectiveAt,null);
+  assert.equal(p.implementationConfirmed,false);assert.equal(p.canQualify,false);
+  assert.equal(p.canTrade,false);assert.equal(p.canNotify,false);
+ }
+ assert.equal(plan(make(body.replace('公告日期：2026年11月27日\n',''))).status,'future-date');
+ assert.equal(plan(make(body)).status,'future-date');
 });
