@@ -14,6 +14,7 @@ const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
 const {reviewCrossMarketLead,reviewCommonAssetShock} = require('./cross-market-lead-review');
 const {researchCohortCoverage} = require('./research-cohort-coverage');
+const {compareFrozenRankModels} = require('./factor-rank-baselines');
 const numeric = require('../../public/nova/shortline/numeric-factors');
 const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
@@ -609,8 +610,11 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
     const ordered = [...trainingIds].sort((a, b) => (raw.train[b]?.meanIC ?? -2) - (raw.train[a]?.meanIC ?? -2) || a.localeCompare(b));
     const model = fitOrthogonalFactors(phases.train, ordered, {minRows: config.factors.minCrossSection});
     const orthogonalIds = model.parameters.map(row => row.factorId);
-    const orthogonal = Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
-      factorMetrics(applyOrthogonalFactors(rows, model), orthogonalIds, config.factors.minCrossSection)]));
+    const transformed=Object.fromEntries(Object.entries(phases).map(([phase,rows])=>[phase,applyOrthogonalFactors(rows,model)]));
+    const orthogonal = Object.fromEntries(Object.entries(transformed).map(([phase, rows]) => [phase,
+      factorMetrics(rows, orthogonalIds, config.factors.minCrossSection)]));
+    const redundancy=redundancyReport(phases.train,trainingIds,raw.train,config.factors.minCrossSection,config);
+    const rankBaselines=compareFrozenRankModels({phases:transformed,factorIds:orthogonalIds,markets:alignment.markets,trainingFingerprint:model.trainingFingerprint,redundancy,trainCutoff,validationCutoff,asOf:now,minRows:config.factors.minCrossSection,minTrainDays:config.factors.minIcDays});
     const strata = Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
       Object.fromEntries([...new Set(rows.map(row => row.cycle || 'unknown'))].map(cycle => [cycle,
         {samples: rows.filter(row => (row.cycle || 'unknown') === cycle).length,
@@ -620,7 +624,7 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
       factorIds: trainingIds,
       ranges: Object.fromEntries(Object.entries(phaseDays).map(([phase, dates]) => [phase, {start: dates[0], end: dates.at(-1), tradingDays: dates.length, samples: phases[phase].length}])),
       purgeTradingDays: s.purgeTradingDays, raw, orthogonal, orthogonalization: model,
-      redundancy: redundancyReport(phases.train, trainingIds, raw.train, config.factors.minCrossSection, config), strata,
+      redundancy, rankBaselines, strata,
       maxTrainingLabelKnownAt: phases.train.length ? Math.max(...phases.train.map(row => row.labelKnownAt)) : null,
       calendarEvidenceFingerprint: hash(alignment.calendars),
       inputEvidenceFingerprint: hash(Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
