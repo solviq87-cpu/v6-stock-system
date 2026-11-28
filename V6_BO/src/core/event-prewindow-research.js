@@ -41,3 +41,37 @@ function preEventComparison({event,dates,horizon,stockSource,indexSource,calenda
   evidenceHash:hash([event.symbol,cutoff,stockSource,indexSource,calendarHash,pairs]),dailyGrossExcessMeanPct:mean,placeboStockReturnPct:stockReturn,placeboMarketReturnPct:indexReturn,placeboGrossExcessPct:stockReturn-indexReturn};
 }
 module.exports={preEventComparison};
+
+// F05.6: long-horizon price context stays separate from the short event path.
+// No inference of a bull/bear market or change of production weights.
+function eventRegimeOverlay({event,dates,indexSource,calendarKnownAt,calendarHash,readIndex,asOf}={}){
+ const out={mode:'pre-event-60-session-index-context-v1',status:'unknown',reason:null,indexSource:indexSource??null,calendarHash:null,
+  longContext:{status:'unknown',direction:null,sessions:60,returnPct:null,firstDate:null,lastDate:null,referenceHash:null},
+  shortReaction:{status:'unknown',firstDate:null,secondDate:null,dayOneReturnPct:null,twoDayReturnPct:null,phase:null},
+  causalInferenceVerified:false,productionRegimeChanged:false,canTrade:false,canNotify:false};
+ if(!event||![event.publishedAt,event.firstKnownAt,event.recordedAt,asOf].every(time)||event.publishedAt>event.firstKnownAt||event.firstKnownAt>event.recordedAt||event.recordedAt>asOf||
+    !time(calendarKnownAt)||calendarKnownAt>=event.publishedAt||typeof calendarHash!=='string'||!/^[a-f0-9]{64}$/.test(calendarHash)||!Array.isArray(dates)||dates.length>10000||!dates.every((d,i)=>dayOK(d)&&(!i||d>dates[i-1]))||typeof indexSource!=='string'||!indexSource||typeof readIndex!=='function')return {...out,reason:'event-calendar-or-index-source-unavailable'};
+ out.calendarHash=calendarHash;
+ const valid=(b,d,cutoff,strict)=>b&&b.date===d&&b.source===indexSource&&finite(b.open)&&b.open>0&&finite(b.close)&&b.close>0&&time(b.knownAt)&&time(b.receivedAt)&&b.knownAt>=close(d)&&b.knownAt<=b.receivedAt&&(strict?b.receivedAt<cutoff:b.receivedAt<=cutoff);
+ const prior=dates.filter(d=>close(d)<event.publishedAt).slice(-60),rows=prior.map(readIndex);
+ if(prior.length===60&&rows.every((b,i)=>valid(b,prior[i],event.publishedAt,true))){
+  const first=rows[0],last=rows.at(-1),ret=gross(first.open,last.close),avg=rows.reduce((s,r)=>s+r.close/60,0);
+  if(finite(ret)&&finite(avg)&&avg>0){out.longContext={status:'observed-unverified',direction:ret>0&&last.close>avg?'upward-price-context':ret<0&&last.close<avg?'downward-price-context':'mixed-price-context',sessions:60,returnPct:ret,firstDate:prior[0],lastDate:prior.at(-1),referenceHash:hash([indexSource,calendarHash,rows])};}
+ }
+ const start=dates.findIndex(d=>open(d)>event.recordedAt),firstDate=start>=0?dates[start]:null,secondDate=start>=0?dates[start+1]??null:null;
+ if(firstDate&&close(firstDate)<=asOf){
+  const first=readIndex(firstDate);
+  if(valid(first,firstDate,asOf,false)){
+   const dayOne=gross(first.open,first.close);if(finite(dayOne)){
+    out.shortReaction={...out.shortReaction,status:'first-session-observed',firstDate,secondDate,dayOneReturnPct:dayOne};
+    if(secondDate&&close(secondDate)<=asOf){const second=readIndex(secondDate);if(valid(second,secondDate,asOf,false)){
+     const twoDay=gross(first.open,second.close);
+     if(finite(twoDay))out.shortReaction={...out.shortReaction,status:'two-sessions-observed',twoDayReturnPct:twoDay,phase:dayOne>0&&twoDay<=0?'first-day-rise-faded':dayOne<0&&twoDay>=0?'first-day-fall-faded':dayOne===0?'no-first-day-direction':Math.abs(twoDay)<Math.abs(dayOne)?'weakened':'continued'};
+    }}
+   }
+  }
+ }
+ out.status=out.longContext.status==='observed-unverified'&&out.shortReaction.status!=='unknown'?'observed-unverified':'partial-or-unknown';
+ return out;
+}
+module.exports.eventRegimeOverlay=eventRegimeOverlay;
