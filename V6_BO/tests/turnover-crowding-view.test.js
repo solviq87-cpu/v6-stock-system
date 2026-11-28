@@ -17,5 +17,16 @@ test('insufficient history and permission-conflicting outputs never fabricate a 
  const v=r.observe(snap(at),{asOf:at});assert.match(turnoverCrowdingView(v).description,/历史可比交易日不足/);
  assert.equal(turnoverCrowdingView(v).metrics.some(x=>x[0]==='同样本同时段历史分位'),false);
  assert.deepEqual(turnoverCrowdingView({...v,canTrade:true}).metrics,[]);
- assert.deepEqual(turnoverCrowdingView(r.observe(snap(at,[0,0]),{asOf:at})).metrics,[]);assert.equal(turnoverCrowdingView(null),null);
+ const zero=turnoverCrowdingView(r.observe(snap(at,[0,0]),{asOf:at}));assert.deepEqual(zero.metrics.find(x=>x[0]==='成交额有效证券覆盖'),['成交额有效证券覆盖','2 / 2']);assert.equal(zero.metrics.some(x=>x[0].includes('累计成交额')),false);assert.equal(turnoverCrowdingView(null),null);
+});
+
+test('F40 shared display uses full aligned amount and exposes missing coverage without a shrink conclusion',async()=>{
+ const {turnoverCrowdingView}=await import('../public/nova/turnover-crowding-view.mjs');const tracker=createTurnoverCrowding();
+ for(const at of times.slice(0,20))tracker.observe(snap(at),{asOf:at});
+ const at=times[20],full=turnoverCrowdingView(tracker.observe(snap(at,[20,20]),{asOf:at}));
+ assert.deepEqual(full.metrics.find(x=>x[0]==='同期成交额相对变化'),['同期成交额相对变化','-60%']);
+ const missing=snap(at+1000);missing.stocks.pop();const v=turnoverCrowdingView(tracker.observe(missing,{asOf:at+1000}));
+ assert.deepEqual(v.metrics.find(x=>x[0]==='成交额有效证券覆盖'),['成交额有效证券覆盖','1 / 2']);
+ assert.match(v.metrics.find(x=>x[0]==='同期成交额比较')[1],/不判缩量/);
+ assert.equal(v.metrics.some(x=>x[0]==='同期成交额相对变化'),false);
 });

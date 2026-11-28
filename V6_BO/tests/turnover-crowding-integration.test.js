@@ -17,3 +17,12 @@ test('existing research entry adds crowding to one-fetch snapshots while preserv
 test('injected readers do not share the production or each other historical baseline',async()=>{
  for(const at of times){const v=await researchLiveMarket({now:at,fetchSnapshot:async()=>snap(at)});assert.equal(v.turnoverCrowding.referenceDays,0);}
 });
+
+test('F40 original one-fetch research consumer publishes full and incomplete liquidity coverage',async()=>{
+ const tracker=createTurnoverCrowding();let calls=0;
+ for(const at of times.slice(0,20))await researchLiveMarket({now:at,crowdingTracker:tracker,fetchSnapshot:async()=>{calls++;return snap(at);}});
+ const at=times[20],full=await researchLiveMarket({now:at,crowdingTracker:tracker,fetchSnapshot:async()=>{calls++;return snap(at,[10,10,10,10]);}});
+ assert.equal(full.turnoverCrowding.liquidity.comparableDays,20);assert.equal(full.turnoverCrowding.liquidity.currentAmount,40);
+ const missing=snap(at+1000);missing.stocks.pop();const result=await researchLiveMarket({now:at+1000,crowdingTracker:tracker,fetchSnapshot:async()=>{calls++;return missing;}});
+ assert.equal(calls,22);assert.equal(result.turnoverCrowding.liquidity.validSecurities,3);assert.equal(result.turnoverCrowding.liquidity.relativeChangePct,null);assert.equal(result.rankingModified,false);
+});
