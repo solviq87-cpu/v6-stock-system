@@ -3,6 +3,7 @@
 // No publisher certification, source fetch, order or notification authority.
 const {createHash}=require('node:crypto');
 const Journal=require('./news-evidence-journal');
+const {industryReview,catalystReview,textBaseline}=require('./industry-catalyst-review');
 const time=x=>Number.isSafeInteger(x)&&x>=946684800000&&x<4102444800000;
 const str=(x,n=2000)=>typeof x==='string'&&x.trim().length>0&&x.length<=n;
 const code=x=>typeof x==='string'&&/^\d{6}$/.test(x);
@@ -82,7 +83,7 @@ function projectEventReview({events=[],relations=[],journalRows=[],account,asOf}
  for(const raw of eligible.slice(0,100)){
   const e=eventText(raw,archive),authority=issuerClue(e),holdingRelated=held&&code(e.symbol)?held.has(e.symbol):null;
   const group=['declared-body','provider-summary'].includes(e.bodyScope)&&str(e.title,1000)&&str(e.body,50000)?hash([e.bodyScope,e.title,e.body]):hash([e.source,e.id,e.revision]);
-  const row={event:ref(e),symbol:e.symbol??null,originalPublishedAt:e.originalPublishedAt??e.publishedAt,receivedAt:e.firstKnownAt,holdingRelated,authority,policy:policyPath(e,relations),overseas:overseasPath(e,relations),fund:fundContext(e,authority),group};
+  const row={event:ref(e),symbol:e.symbol??null,originalPublishedAt:e.originalPublishedAt??e.publishedAt,receivedAt:e.firstKnownAt,holdingRelated,authority,policy:policyPath(e,relations),overseas:overseasPath(e,relations),fund:fundContext(e,authority),industry:industryReview(e,relations),catalyst:catalystReview(e,events),textBaseline:textBaseline(e),group};
   rows.push(row);
   const g=groups.get(group)||{group,refs:[],symbols:new Set(),holdingRelated:null,authorityClue:false,latestRecordedAt:0};
   g.refs.push(row.event);if(code(row.symbol))g.symbols.add(row.symbol);if(holdingRelated===true)g.holdingRelated=true;else if(holdingRelated===false&&g.holdingRelated===null)g.holdingRelated=false;if(authority.status==='declared-issuer-document')g.authorityClue=true;g.latestRecordedAt=Math.max(g.latestRecordedAt,e.recordedAt);groups.set(group,g);
