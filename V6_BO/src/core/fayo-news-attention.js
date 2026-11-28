@@ -36,7 +36,7 @@ function projectNewsAttention(events,{asOf,symbol=null}={}){
   activeRecords:active.length,exactTextGroups:all.length,exactTextDuplicateRecords:all.reduce((n,g)=>n+g.activeRecords-1,0),ungroupedRecords:ungrouped,
   sourceCount:new Set(active.map(e=>e.evidence.source)).size,independentlyConfirmedFacts:null,confirmedReposts:null,attentionCrowding:null,capitalFlow:null,
   rows:all.slice(0,20).map(({sources,urls,...g})=>({...g,sourceCount:sources.size,urlCount:urls.size,independentConfirmationAt:null})),
-  rowLimit:20,omittedGroups:Math.max(0,all.length-20),privateSocialCollection:false,researchOnly:true,canTrade:false,canTrain:false,canNotify:false,
+  rowLimit:20,omittedGroups:Math.max(0,all.length-20),privateSocialCollection:false,socialPrivacyStatus:'deferred-no-authorized-aggregate',aggregateLicenseVerified:false,samplingBiasAudited:false,botTreatmentVerified:false,researchOnly:true,canTrade:false,canTrain:false,canNotify:false,
   limitations:['仅统计本地可见新闻档案，不代表全市场关注度','同文重复不证明转载关系、独立确认或新事实；摘要与正文分组','首次入档时间不是原始发布时间','缺少授权舆情、独立确认及同期成交集中度，保持未知']};
 }
 module.exports={projectNewsAttention};

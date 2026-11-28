@@ -14,7 +14,7 @@ async function handle(req,res,url,body,{authorize,primary,sameOrigin,roots,job})
   if(write){
    if([...url.searchParams].length)throw Error();
    input=JSON.parse(body||'');
-   if(!input||typeof input!=='object'||Array.isArray(input)||!['save-template','delete-template','explain'].includes(input.action))throw Error();
+   if(!input||typeof input!=='object'||Array.isArray(input)||!['save-template','delete-template','explain','save-feedback'].includes(input.action))throw Error();
   }else{
    for(const [k,v] of url.searchParams){
     if(!['mode','symbol','runId','asOf','window','board'].includes(k)||url.searchParams.getAll(k).length!==1||v.length>120)throw Error();
