@@ -295,6 +295,7 @@ function stressPanel(report){
       row.title,yuan(row.estimatedLoss),yuan(row.potentiallySellableLoss),yuan(row.temporarilyUnsellableLoss),
       finite(row.coveredPositions)?row.coveredPositions+' / '+(row.affectedPositions??row.portfolioPositions??'未知')+' 个持仓':row.status==='unknown'?'证据不足':'见情景证据'])),
     adversePathPanel(stress),
+    report.recoveryReview?.accountId===report.account?.id&&report.recoveryReview?.accountEpoch===report.accountEpoch&&report.recoveryReview?.accountRevision===report.accountRevision&&report.recoveryReview?.observedAt===report.generatedAt&&report.recoveryReview?.authoritySnapshotFingerprint===report.equity?.source?.snapshotFingerprint&&report.recoveryReview?.riskCleared===false?note('账户与报价复核：'+(report.recoveryReview.status==='account-and-quote-reobserved'?'本次覆盖已重新观察':'仍有证据缺口')+'；'+(report.recoveryReview.unfilledRiskRetained===true?'剩余持仓、委托或风险仍待原状态机处理。':'不能据此自动解除风险。')):null,
     ...list(report.stressMissingMessages).map(value=>note(value)),
     note(stress?.note||'压力情景证据不足；不能将估计值视为最大损失保证。'),
     h('details',{class:'fy-details',id:'risk-stress-assumptions'},h('summary',{},'假设版本、来源与逐仓可卖约束'),

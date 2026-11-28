@@ -12,6 +12,19 @@ export function turnoverCrowdingView(v){
  const comparable=valid&&v.status==='observed-unverified'&&v.referenceDays===20&&v.referenceDaysRequired===20&&Array.isArray(v.references)&&v.references.length===20&&
   finite(v.empiricalPercentile)&&v.empiricalPercentile>=0&&v.empiricalPercentile<=100&&ratio(v.historicalMin)&&ratio(v.historicalMax)&&v.historicalMin<=v.historicalMax;
  if(comparable)metrics.push(['同样本同时段历史分位',n(v.empiricalPercentile)+'%'],['历史HHI范围',n(v.historicalMin)+' ～ '+n(v.historicalMax)]);
+ const liquidity=v.liquidity;
+ if(v.canTrade===false&&v.canNotify===false&&liquidity?.mode==='same-slot-market-turnover-v1'&&liquidity.canTrade===false&&liquidity.canNotify===false&&
+    Number.isSafeInteger(liquidity.expectedSecurities)&&liquidity.expectedSecurities>=2&&Number.isSafeInteger(liquidity.validSecurities)&&liquidity.validSecurities>=0){
+  metrics.push(['成交额有效证券覆盖',String(liquidity.validSecurities)+' / '+String(liquidity.expectedSecurities)]);
+  if(liquidity.completeSnapshot===true&&liquidity.validSecurities===liquidity.expectedSecurities&&finite(liquidity.currentAmount)&&liquidity.currentAmount>0&&liquidity.unit==='provider-CNY-unverified'){
+   metrics.push(['完整样本累计成交额（元，供应商口径）',n(liquidity.currentAmount)]);
+   if(liquidity.status==='observed-unverified'&&liquidity.comparableDays===20&&liquidity.referenceDaysRequired===20&&finite(liquidity.referenceMedianAmount)&&liquidity.referenceMedianAmount>0&&finite(liquidity.relativeChangePct)){
+    metrics.push(['同期成交额中位基准（元）',n(liquidity.referenceMedianAmount)],['同期成交额相对变化',n(liquidity.relativeChangePct)+'%']);
+   }else metrics.push(['同期成交额比较','匹配时点的完整历史覆盖不足']);
+  }else metrics.push(['同期成交额比较','当前成交额或有效证券覆盖不足，不判缩量']);
+  if(liquidity.dataRecovery?.status==='coverage-reobserved'&&liquidity.dataRecovery.riskCleared===false)
+   metrics.push(['数据覆盖恢复',clock(liquidity.dataRecovery.reobservedAt)+'；不解除原风险']);
+ }
  const industry=v.industry;
  if(valid&&industry?.status==='observed-unverified'&&industry.canTrade===false&&industry.covered===v.universeSize&&ratio(industry.industryHHI)&&typeof industry.classificationVersion==='string'){
   metrics.push(['行业成交额HHI',n(industry.industryHHI)],['行业分类版本',industry.classificationVersion]);

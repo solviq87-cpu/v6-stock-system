@@ -394,20 +394,72 @@ function newsFeed(ctx,kind) {
   if(editor(ctx))host.append(el('div',{class:'fy-toolbar'},action('补发新闻摘要',()=>review(ctx,host,'发送新闻摘要','这会向当前配置的通知通道发送一份新闻汇总。',()=>mutation(ctx,'/api/news-digest',{holiday:ctx.state?.trading===false})))));
   ctx.onState?.(render);return host;
 }
+function planNoticeDetails(ctx,row) {
+  const id=row.extra?.planNotice?.deliveryId;
+  if(!/^[a-f0-9]{64}$/.test(id||'')) {
+    const legacy=arr(row.extra?.signalRefs).some(r=>['plan-entry','plan-stop','plan-target'].includes(r?.type));
+    return legacy?el('p',{class:'fy-muted'},'历史通知缺少原计划投递凭据，当前条件待核验。'):null;
+  }
+  const body=el('div',{'aria-live':'polite'});
+  const details=el('details',{class:'fy-details'},el('summary',{},'核对原计划与查看时状态'),body);
+  let version=0,timer;
+  async function refresh() {
+    const attempt=++version,start=performance.now();
+    clearTimeout(timer);
+    if(!details.open || ctx.signal?.aborted || !editor(ctx))return;
+    body.replaceChildren(notice('正在读取原始触发和本次计划复核…'));
+    const active=()=>attempt===version && details.open && details.isConnected && !ctx.signal?.aborted && editor(ctx);
+    try {
+      const {result}=await request(ctx,'/api/push-log?planNotice='+encodeURIComponent(id));
+      if(!active())return;
+      const old=result.original,point=result.current;
+      const status=el('p',{},result.reason);
+      body.replaceChildren(...[
+        old && el('p',{},'原触发 · '+old.code+' · '+old.price+' 元 · '+date(old.quoteAt)+' · '+old.source),
+        old && el('p',{},old.kind==='entry'?'原买入观察区间 '+old.entryMin+' 至 '+old.entryMax+' 元':
+          old.kind==='stop'?'原止损观察价 '+old.stop+' 元':'原目标观察价 '+old.target+' 元'),
+        old && el('p',{},'原预检 · '+old.reason),
+        old && old.intendedDate && el('p',{},'原计划入场交易日 '+old.intendedDate+'；'+(old.actionWindow==='original-entry-trading-day-only'?'入场只在原交易日复核':'退出只针对原仍持有的批次，不以入场日当退出期限')),
+        old && old.frozenAt && el('p',{},'计划冻结 '+date(old.frozenAt)+'；原观察 '+date(old.observedAt)+'；原报价收到 '+date(old.receivedAt)),
+        old && old.originalQuoteValidUntil && el('p',{},'原报价有效期上界 '+date(old.originalQuoteValidUntil)+'（历史，不代表当前可成交）'),
+        old && old.kind!=='entry' && Number.isSafeInteger(old.remainingQuantity) && el('p',{},'原观察剩余 '+old.remainingQuantity+' 股'),
+        old && el('small',{},'决策 ID '+old.decisionId),
+        old && old.planVersion && el('details',{class:'fy-details'},el('summary',{},'原计划证据指纹'),
+          el('p',{},'计划 ID '+old.planId),el('p',{},'计划版本 '+old.planVersion),
+          el('p',{},'观察 ID '+old.observationId),el('p',{},'触发 ID '+old.alertId),
+          el('p',{},'输入指纹 '+old.inputProvenanceFingerprint)),
+        status, point && el('p',{},'本次报价 · '+point.price+' 元 · '+date(point.quoteAt)+' · '+point.source),
+        point && el('p',{},'模拟预检 · '+point.reason),
+        point && old?.kind!=='entry' && Number.isSafeInteger(point.remainingQuantity) && el('p',{},'当前同一原批次剩余 '+point.remainingQuantity+' 股；未保证成交'),
+        el('small',{},'查看时点 '+date(result.checkedAt)+(point?' · 报价有效至 '+date(point.validUntil):'')),
+        action('重新核对',refresh,'text')
+      ].filter(Boolean));
+      if(point){
+        const expire=()=>{if(active())status.textContent='本次报价已到复核时间，重新核对后查看新状态。';};
+        const left=point.validUntil-result.checkedAt-(performance.now()-start);
+        if(left>0)timer=setTimeout(expire,left);else expire();
+      }
+    } catch(error){if(active())failure(body,error,refresh);}
+  }
+  details.addEventListener('toggle',refresh);
+  return details;
+}
 function pushLog(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});let only='';
-  const container=el('div');
+  const container=el('div');let generation=0;
   const load=async()=>{
+    const turn=++generation;
     container.replaceChildren(notice('正在读取投递轨迹…'));
     try{
       const data=await request(ctx,'/api/push-log?n=200'+(only?'&only=sent':''));
-      if(ctx.signal?.aborted)return;
+      if(ctx.signal?.aborted || turn!==generation)return;
+      if(!editor(ctx)){container.replaceChildren(privateView());return;}
       const instance=data.replica===true?'副本':data.replica===false?'主实例':'待核验';
       const metrics=el('div',{class:'fy-metrics'},metric('今日外发记录',fmt(data.sentToday,0),'含回执未知'),metric('流水总数',fmt(data.count,0)),metric('本次显示',fmt(data.shown,0)),metric('实例身份',instance));
       const rows=arr(data.log);
-      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.deliveryLabel||row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明'),row.deliveryBasis&&el('small',{},row.deliveryBasis)))):empty('尚无通知流水');
+      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.deliveryLabel||row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明'),row.deliveryBasis&&el('small',{},row.deliveryBasis),planNoticeDetails(ctx,row)))):empty('尚无通知流水');
       container.replaceChildren(el('div',{class:'fy-stack'},data.replica===true?notice('当前是副本，自动飞书推送已停用。'):null,metrics,timeline));
-    }catch(error){if(!ctx.signal?.aborted)failure(container,error,load);}
+    }catch(error){if(!ctx.signal?.aborted && turn===generation)failure(container,error,load);}
   };
   const filter=select('push-delivery',[['','全部状态'],['sent','外发记录（含回执未知）']],'');filter.addEventListener('change',()=>{only=filter.value;load();});host.append(panel('投递追踪','查看通道回执和各道推送门槛的处理结果。',el('div',{class:'fy-toolbar'},filter,action('重新读取',load)),container));queueMicrotask(load);return host;
 }

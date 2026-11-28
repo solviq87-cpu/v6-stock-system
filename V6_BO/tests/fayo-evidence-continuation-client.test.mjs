@@ -150,3 +150,15 @@ test('a bound unknown receipt without a selected later plan preserves its specif
  const wrongAccount=await readDisciplineCase(incident,{...empty,accountId:'pre'});
  assert.equal(wrongAccount.next.dataset.nextPlanCheck,'not-ready','an empty result still needs the original account identity');
 });
+
+test('optional attention evidence never inserts a null child or keeps a previous disclosure on reread',async t=>{
+ dom(t);let attention=true,calls=0;
+ const ctx={role:'edit',api:async p=>{calls++;const q=new URL(p,'http://localhost').searchParams;return replayResult(q,attention?{attentionPair:{status:'paired-local-observations',expectedSecurities:5,validSecurities:5,pairedSecurities:5,turnoverHHI:.4,attentionHHI:.5,counterexamples:['600001']}}:{});}};
+ const view=createResearchReplay(ctx,{symbol:run.symbol,runId:run.id,asOf:cutoff});
+ await trigger(byButton(view,'读取联动回放'));
+ assert.match(view.textContent,/本地新闻与同期成交额配对/);assert.match(view.textContent,/高关注低成交反例600001/);
+ assert.ok(walk(view).every(node=>node instanceof El));
+ attention=false;await trigger(byButton(view,'读取联动回放'));
+ assert.doesNotMatch(view.textContent,/本地新闻与同期成交额配对|高关注低成交反例/);
+ assert.match(view.textContent,/逐日数值/);assert.ok(walk(view).every(node=>node instanceof El));assert.equal(calls,2);
+});

@@ -136,6 +136,7 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
   display.replaceChildren(plotReplay(visible,data.markers,enabled,paintEvents,display.clientWidth||720),
    h('p',{class:'fy-muted'},'粉色：个股 · 紫色：板块 · 青色：指数 · 黄色：事件。证券、分类或计算口径变化处断开；各自来源的涨幅不自动等于超额收益。'),
    ...arr(data.missing).map(s=>h('small',{class:'fy-muted'},s)),
+   ...(data.attentionPair?[details('本地新闻与同期成交额配对',facts([['状态',data.attentionPair.status],['完整本地股票池',data.attentionPair.expectedSecurities],['有效证券',data.attentionPair.validSecurities],['配对证券',data.attentionPair.pairedSecurities],['成交额集中度',data.attentionPair.turnoverHHI],['新闻组集中度',data.attentionPair.attentionHHI],['高关注低成交反例',arr(data.attentionPair.counterexamples).join('、')||'无已核对结果']]),note('仅本地封存样本，不代表全市场热度或资金流。舆情聚合许可、样本偏差和机器人处理证据未齐，暂停采集。'))]:[]),
    h('div',{class:'fy-inline'},days.map(r=>button(r.date+' 证据',()=>paintEvents(r.date),'quiet'))),
    details('逐日数值、数据源与原始时点',...visible.map(r=>details(r.date+' · '+(r.comparison==='same-window'?'同窗口':'非完整同口径'),
      ...['stock','sector','index','close'].map(k=>facts([[seriesLabels[k]||'未复权收盘价',r[k]?format(r[k].value,2)+(k==='close'?' 元':'%'):'未知'],['来源',r[k]?.source],['证券与口径',scalarDetails(r[k]?.identity)],['已知时点',r[k]?dateTime(r[k].knownAt):'未知'],['原研究引用',r[k]?.ref]]))))));
@@ -182,6 +183,29 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
  }
  return host;
 }
+function createFeedbackTools(ctx,{run,alive}){
+ const status=note('明确反馈与真实收益分开；未点击不等于忽略。'),output=h('div',{'aria-live':'polite'});
+ const valid=()=>alive()&&!ctx.signal?.aborted&&ctx.role==='edit'&&validHash(run?.id)&&code(run?.symbol);
+ let turn=0,busy=false;
+ const read=button('读取个人反馈',()=>act(null),'quiet'),reviewed=button('登记已读',()=>act('reviewed'),'quiet'),ignored=button('登记忽略',()=>act('ignored'),'quiet');
+ const controls=()=>{for(const b of [read,reviewed,ignored])b.disabled=busy||!valid();};
+ async function act(kind){
+  if(!valid()||busy)return;const id=++turn;busy=true;controls();output.replaceChildren();
+  try{
+   if(kind){const x=await ctx.api(endpoint,{method:'POST',body:{action:'save-feedback',symbol:run.symbol,runId:run.id,feedback:kind},signal:ctx.signal});
+    if(!valid()||id!==turn)return;const r=x.result;if(!x.ok||!noWrite(r)||r.runId!==run.id||r.symbol!==run.symbol||r.feedback!==kind||r.performanceLabel!==null)throw Error('反馈回执不匹配');
+   }
+   const r=await get(ctx,{mode:'feedback',symbol:run.symbol,runId:run.id},ctx.signal);
+   if(!valid()||id!==turn)return;
+   if(r.runId!==run.id||r.symbol!==run.symbol||r.performanceLabel!==null)throw Error('反馈身份不匹配');
+   output.replaceChildren(...arr(r.receipts).map(x=>facts([['明确选择',x.feedback==='reviewed'?'已读':'忽略'],['服务器登记',dateTime(x.recordedAt)],['原回执',x.id]])));
+   status.textContent=r.latest?'最近登记：'+(r.latest.feedback==='reviewed'?'已读':'忽略')+'；真实收益另由原结算核验。':'未登记明确反馈，偏好未知。';
+  }catch{if(valid()&&id===turn)status.textContent='未取得原反馈回执；请重新读取。';}
+  finally{if(id===turn){busy=false;controls();}}
+ }
+ ctx.signal?.addEventListener('abort',()=>{turn++;busy=false;output.replaceChildren();controls();},{once:true});controls();
+ return details('本人明确研究反馈',status,h('div',{class:'fy-inline'},read,reviewed,ignored),output);
+}
 export function createModelTools(ctx,{run,asOf,question,alive=()=>true}={}){
  const output=h('div',{class:'fy-stack','aria-live':'polite'}),status=h('p',{class:'fy-muted'},'规则解释不依赖模型；外部模型状态未读取。');
  const valid=()=>alive()&&!ctx.signal?.aborted&&ctx.role==='edit';
@@ -214,7 +238,7 @@ export function createModelTools(ctx,{run,asOf,question,alive=()=>true}={}){
  },'quiet');
  modeButton.disabled=ctx.role!=='edit';modelButton.disabled=ctx.role!=='edit';
  ctx.signal?.addEventListener('abort',()=>{turn++;request?.abort();output.replaceChildren();finish(turn);status.textContent='研究视图已关闭';},{once:true});
- return {node:h('div',{class:'fy-stack'},h('div',{class:'fy-inline'},modeButton,modelButton),status,output),
+ return {node:h('div',{class:'fy-stack'},h('div',{class:'fy-inline'},modeButton,modelButton),status,output,createFeedbackTools(ctx,{run,alive})),
   reset(){turn++;requested=null;request?.abort();output.replaceChildren();finish(turn);status.textContent='已切换问题，旧模型响应不会替换当前规则解释。';}};
 }
 export async function similarEvidence(ctx,{run,asOf,signal=ctx.signal}={}){

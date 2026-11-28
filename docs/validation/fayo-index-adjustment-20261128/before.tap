@@ -1,0 +1,164 @@
+✖ 指数调样摘要保留日期精度及收市后阶段，不补精确发布或生效时刻 (4.065335ms)
+✖ 调出调入方向来自明确列头，仅绑定同一指数及已登记证券 (0.803001ms)
+✖ 日期到达或经过仍是执行未核实，不成为已实施或实际买入 (0.45072ms)
+✖ 日期型实施声明不推断开盘、生效时分或交易日调整 (0.310068ms)
+✖ 冲突日期、冲突阶段和非法日期均不选一个计划 (0.369859ms)
+✖ 日历按归档截点可知，晚取得旧公告不能倒填历史 (0.632164ms)
+✖ 撤稿、被替代、移除关联和缺链使日历失效，历史截点保留原计划 (0.519394ms)
+✖ 澄清、取消或延期文本不把引用旧日期视为可用计划 (0.307995ms)
+✖ 反列头、重复代码、未登记关联及不完整行不猜调样方向 (0.475788ms)
+✖ 表格按明确指数标题分段，不将首表名单传播至其他指数 (0.476369ms)
+✖ 没有成分调样上下文、过长正文及缺少日期保持无能力或未知 (1.495267ms)
+✖ 文本中的交易指令、权重及金额不产生资金估算或权限 (0.320223ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 0
+ℹ fail 12
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.309065
+
+✖ failing tests:
+
+test at tests/fayo-index-adjustment.test.mjs:11:1
+✖ 指数调样摘要保留日期精度及收市后阶段，不补精确发布或生效时刻 (4.065335ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'announcementDate')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:13:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at tests/fayo-index-adjustment.test.mjs:18:1
+✖ 调出调入方向来自明确列头，仅绑定同一指数及已登记证券 (0.803001ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'tables')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:19:32)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests/fayo-index-adjustment.test.mjs:24:1
+✖ 日期到达或经过仍是执行未核实，不成为已实施或实际买入 (0.45072ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:26:54)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:29:1
+✖ 日期型实施声明不推断开盘、生效时分或交易日调整 (0.310068ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'plannedDate')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:31:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:33:1
+✖ 冲突日期、冲突阶段和非法日期均不选一个计划 (0.369859ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'plannedDate')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:35:43)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:38:1
+✖ 日历按归档截点可知，晚取得旧公告不能倒填历史 (0.632164ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:40:79)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:42:1
+✖ 撤稿、被替代、移除关联和缺链使日历失效，历史截点保留原计划 (0.519394ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:44:72)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:48:1
+✖ 澄清、取消或延期文本不把引用旧日期视为可用计划 (0.307995ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:49:93)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:52:1
+✖ 反列头、重复代码、未登记关联及不完整行不猜调样方向 (0.475788ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'tables')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:54:27)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:57:1
+✖ 表格按明确指数标题分段，不将首表名单传播至其他指数 (0.476369ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'tables')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:59:21)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at tests/fayo-index-adjustment.test.mjs:61:1
+✖ 没有成分调样上下文、过长正文及缺少日期保持无能力或未知 (1.495267ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:62:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-index-adjustment.test.mjs:66:1
+✖ 文本中的交易指令、权重及金额不产生资金估算或权限 (0.320223ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'actualFlow')
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-index-adjustment.test.mjs:68:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

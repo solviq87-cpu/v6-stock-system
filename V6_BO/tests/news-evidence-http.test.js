@@ -74,5 +74,12 @@ test('real server editor-only reads, explicit CLI writes, unknown failure and pe
  const broken=await request(p,endpoint,'GET',null,token);assert.equal(broken.status,422);assert.equal(broken.body.status,'unknown');assert.equal(broken.body.result,undefined);
  assert.equal((await request(p,endpoint+'?asOf='+firstRecordedAt,'GET',null,token)).status,422,'historical views still validate the entire original chain');fs.writeFileSync(file,before);
  const asset=await request(p,'/assets/news-evidence-workbench.js');assert.equal(asset.status,200);assert.match(asset.raw,/textContent/);
+ const initialFile=process.env.FAYO_S14_INITIAL_HTML,finalFile=process.env.FAYO_S14_FINAL_HTML;
+ if(initialFile||finalFile){
+  assert.ok(initialFile&&finalFile,'S14回放需要初步核算及最终核实两份独立原文');
+  const {replay}=require('../../docs/validation/fayo-s14-gdp/publications');
+  const result=await replay({initialFile,finalFile,endpoint,cli,request,p,token});
+  t.diagnostic('FAYO_S14_RECEIPT '+JSON.stringify(result));
+ }
  assert.equal(fs.existsSync(path.join(tmp,'paper.json')),false,'no account or trade should be written');
 });

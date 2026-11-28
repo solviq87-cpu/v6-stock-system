@@ -1,0 +1,83 @@
+{
+  "case": "2024-09-27-required-reserve-ratio",
+  "documents": [
+    {
+      "source": "xinhua",
+      "stage": "announced",
+      "documentDate": "2024-09-24",
+      "originalFile": "press-xinhua.html",
+      "originalSize": 13834,
+      "originalSha256": "2d6a5e7c68195c4182661039f40c5bba1546356e86dc643c509fc416912e91a1",
+      "input": {
+        "schemaVersion": 1,
+        "source": "xinhua",
+        "eventId": "030c9f3fcb20406099bc90d419bd7166",
+        "sourceRevisionId": "content-077e4e289c73e223e6a119bd65f9f0ab548fe23df4b03c4591307bbed18c5f71",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://www.news.cn/20240924/030c9f3fcb20406099bc90d419bd7166/c.html",
+        "title": "中国人民银行将下调存款准备金率",
+        "body": "中国人民银行行长潘功胜9月24日在国新办发布会上表示，近期将下调存款准备金率0.5个百分点，向金融市场提供长期流动性约1万亿元；今年内将视市场流动性状况，可能择机进一步下调存款准备金率。",
+        "bodyScope": "provider-summary",
+        "securities": [],
+        "publishedAt": 1727140155000,
+        "receivedAt": 1795804125674,
+        "revisedAt": null
+      },
+      "archivedAt": 1795805083386,
+      "eventHash": "16eca584d977e33b2a2fb5fd0287f6cf0610db10f4cc44b360dfe5840ff6a0c7"
+    },
+    {
+      "source": "govdata-cctv",
+      "stage": "effective-as-reported",
+      "documentDate": "2024-09-27",
+      "originalFile": "effective.html",
+      "originalSize": 8831,
+      "originalSha256": "57687051b0cdde9b4d3298a17351a06e00c04bf4989af335aa7d558809818c92",
+      "input": {
+        "schemaVersion": 1,
+        "source": "govdata-cctv",
+        "eventId": "519960",
+        "sourceRevisionId": "content-0d26e74046cff423aceebaf267fb2537cf3daf0f949e6ae4626b8f76bb199919",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://app.www.gov.cn/govdata/gov/202409/27/519960/article.html",
+        "title": "中国人民银行同步实施降准降息",
+        "body": "今天（9月27日），中国人民银行决定，9月27日起，下调金融机构存款准备金率0.5个百分点，向金融市场提供长期流动性约1万亿元。",
+        "bodyScope": "provider-summary",
+        "securities": [],
+        "publishedAt": null,
+        "receivedAt": 1795804059136,
+        "revisedAt": null
+      },
+      "archivedAt": 1795805083386,
+      "eventHash": "b81dafa3eb8c24809ae6d3ac64843e692b8b23a8ba93e57c1222320da8f973b5"
+    },
+    {
+      "source": "pbc-report",
+      "stage": "issuer-retrospective",
+      "documentDate": "2024-11-08",
+      "originalFile": "pbc-q3.original.pdf",
+      "originalSize": 1379731,
+      "originalSha256": "f8ee17abecc3b628f99c8d87b7867a6eb355f55c4e646854b2472b397da95481",
+      "input": {
+        "schemaVersion": 1,
+        "source": "pbc-report",
+        "eventId": "monetary-policy-2024-q3",
+        "sourceRevisionId": "content-c27480822f997900681a73d7ff645da8e3bf6987d70af70b025c3dcea11416f9",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://www.pbc.gov.cn/zhengcehuobisi/125207/125227/125957/5347949/afbfa5df25ee45889d916a2819b60a43/2024110815410752868.pdf",
+        "title": "中国货币政策执行报告 2024年第三季度",
+        "body": "继2月降准0.5个百分点后，9月27日，人民银行年内第二次下调金融机构人民币存款准备金率0.5个百分点，向金融市场提供中长期流动性约1万亿元。",
+        "bodyScope": "provider-summary",
+        "securities": [],
+        "publishedAt": null,
+        "receivedAt": 1795804849693,
+        "revisedAt": null
+      },
+      "archivedAt": 1795805083468,
+      "eventHash": "ae22c765990344d2b8d4244344a5de4d5389ce9c6fdff110812bb247090fc6ce"
+    }
+  ]
+}

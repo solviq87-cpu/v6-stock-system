@@ -2,6 +2,7 @@
 // Read-only extension of the original risk workbench. Its inputs are the
 // projections built from one authority read, not client-supplied account data.
 const {aShareCalendarDate}=require('./a-share-calendar');
+const {jointStress,reverseGross}=require('./fayo-joint-outcomes');
 const VERSION='fayo-adverse-path-research-v1';
 const FLAGS=Object.freeze({researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,accountMutated:false,executionGuaranteed:false,maximumLossGuarantee:false});
 const time=x=>Number.isSafeInteger(x)&&x>0&&x<8e15;
@@ -188,7 +189,7 @@ function stagedDefense(position,item,quantity,mark,now,day,uniqueHolding){
 
 function buildAdversePathEvidence({equity:e,rules:r,stress,now=Date.now()}={}){
  const result={protocol:VERSION,...identity(e),asOf:time(now)?now:null,status:'unknown',reason:null,paths:[],simultaneousThemeRetreat:null,
-  pendingBudget:null,grossLimit:null,actualFutureLimitDownPath:null,heldProtection:null,...FLAGS};
+  pendingBudget:null,grossLimit:null,actualFutureLimitDownPath:null,heldProtection:null,jointPressure:null,reverseGrossStress:null,...FLAGS};
  const h=holdings(e,now),a=stress?.assumptions;
  if(!h||!stress||stress.current!==true||stress.generatedAt!==now||stress.asOf!==e.observedAt||
     stress.accountId!==e.accountId||stress.accountEpoch!==e.accountEpoch||stress.equityEvidenceId!==e.fingerprint||
@@ -205,6 +206,8 @@ function buildAdversePathEvidence({equity:e,rules:r,stress,now=Date.now()}={}){
   {status:'unknown',reason:'ORIGINAL_PENDING_BUDGET_OR_ACCOUNT_IDENTITY_UNVERIFIED',remainingBuyNotional:null,reservedCash:null,
    estimatedRemainingFees:null,availableCash:null,orderCount:null,orderIds:[],totalExposureAtOrderPrices:null,currentEquity:yuan(h.equity)};
  result.grossLimit=rule;
+ result.jointPressure=jointStress(h,p,a);
+ result.reverseGrossStress=reverseGross(h,p,rule);
  result.heldProtection=heldProtectionReview(e,h,a.gapPct);
  for(const steps of [1,2,3]){
   const factor=(1-a.gapPct/100)**steps,heldAfter=Math.round(h.value*factor),heldLoss=h.value-heldAfter;

@@ -1,0 +1,15 @@
+{
+  "esbuild": "0.25.12",
+  "lockSha256": "772c70915a1d30d254ce67a026678422ed9a356c38adde28683754ec6a4cf09c",
+  "bundleSha256": "5055003e0b4f4c2229e5df3bfe44b616d069616b66659c36c271e75ad59f66c1",
+  "rebuildIdentical": true,
+  "npmTestExitCode": 0,
+  "testPrograms": [
+    13,
+    2,
+    22,
+    3,
+    1
+  ],
+  "tests": 41
+}
