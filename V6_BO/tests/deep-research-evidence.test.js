@@ -347,3 +347,21 @@ test('F04.5 original event outcome archive projects pre-publication placebo with
  const declared=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({preEventStudy:first.preEventStudy,inputOrigin:'explicit-private-import'})]},{asOf:t1});
  assert.equal(declared.rows[0].preEventStudy,null,'operator-imported claim cannot substitute original archive projection');
 });
+
+test('F01/F02 shared original report reviews explicit policy and business records, fund plans and private holdings without granting action',()=>{
+ const e=event({body:'发文机关甲：产品甲适用。计划购买ETF。',policyApplicability:{entityId:'supplier-entity',productId:'alpha',clause:'产品甲适用'},publisherEvidence:{role:'issuing-entity',publisher:'发文机关甲',clause:'发文机关甲：产品甲适用'},fundActivity:{planClause:'计划购买ETF'}});
+ const r=relation('policy-path','600000',{productId:'alpha',documentText:'企业主营产品甲',businessClause:'主营产品甲'});
+ const report=D.buildDeepResearchEvidence({events:[e],relations:[r],account:account()},{asOf:t2});
+ const review=report.modules[67].eventReview;assert.equal(review.rows.length,1);assert.equal(review.rows[0].policy.status,'declared-path-review');assert.equal(review.rows[0].fund.status,'declared-plan');assert.equal(review.rows[0].fund.buyerIdentity,null);
+ assert.equal(review.rows[0].holdingRelated,true);assert.equal(review.notificationQueueVerified,false);assert.equal(review.canTrade,false);assert.equal(review.canNotify,false);
+ const revoked={...r,revision:2,retracted:true,publishedAt:t1,firstKnownAt:t1,recordedAt:t1};
+ const later=D.buildDeepResearchEvidence({events:[e],relations:[r,revoked],account:account()},{asOf:t2}).modules[67].eventReview;
+ assert.equal(later.rows[0].policy.status,'unknown');
+});
+test('F05.6 original event report retains short reaction and unknown long context without upgrading market regime',()=>{
+ const input=eventArchive(),r=D.buildDeepResearchEvidence(input,{asOf:input.asOf}).modules[67],row=r.rows.find(x=>x.horizonSessions===1);
+ assert.equal(row.regimeOverlay.longContext.status,'unknown');assert.equal(row.regimeOverlay.shortReaction.status,'two-sessions-observed');assert.equal(row.regimeOverlay.productionRegimeChanged,false);assert.equal(row.regimeOverlay.canTrade,false);
+ const forged=outcome({source:'v6-private-archive-event-study',inputOrigin:'read-only-archive-projection',regimeOverlay:row.regimeOverlay,preEventStudy:row.preEventStudy});
+ const direct=D.buildEventImpactStudy({events:[event()],eventOutcomes:[forged]},{asOf:t2});
+ assert.equal(direct.rows[0].regimeOverlay,null);assert.equal(direct.rows[0].preEventStudy,null);
+});
