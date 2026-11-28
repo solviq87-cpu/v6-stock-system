@@ -1,4 +1,5 @@
 'use strict';
+const {createHash} = require('node:crypto');
 const {normalizeMarketLinkageEvidence} = require('./market-sector-stock-linkage');
 const finite = x => typeof x === 'number' && Number.isFinite(x);
 const time = x => Number.isSafeInteger(x) && x > 0;
@@ -12,14 +13,67 @@ const compound = values => {
 };
 const round = value => finite(value) ? Number(value.toFixed(10)) : null;
 const membersKey = members => JSON.stringify([...members].sort());
+const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function rankValues(rows) {
+ const ranks=new Map();
+ [...rows].sort((a,b)=>b.return-a.return).forEach((s,i)=>{if(!ranks.has(s.return))ranks.set(s.return,i+1);});
+ return ranks;
+}
+const mean = rows => rows.length ? round(rows.reduce((sum,s)=>sum+s.return,0)/rows.length) : null;
+// The prior day's front group is defined before observing today's returns.
+// Require the identical observed cohort, rather than choosing survivors today.
+function frontMigration(samples,dates,archiveClocks) {
+ const prior=samples.at(-2), current=samples.at(-1), priorClock=archiveClocks.at(-2);
+ const currentOpen=Date.parse(dates.at(-1)+'T09:30:00+08:00');
+ if(!priorClock||priorClock.recordedAt>currentOpen||priorClock.asOf>currentOpen||priorClock.recordedAt<priorClock.asOf||!prior.eligible||!current.eligible||prior.rows.length!==current.rows.length||
+    prior.rows.some(s=>!finite(current.bySymbol.get(s.symbol)?.return)))return null;
+ const priorFront=prior.rows.filter(s=>prior.ranks.get(s.return)<=Math.ceil(prior.rows.length*.2));
+ const currentFront=new Set(current.rows.filter(s=>current.ranks.get(s.return)<=Math.ceil(current.rows.length*.2)).map(s=>s.symbol));
+ const priorIds=new Set(priorFront.map(s=>s.symbol));
+ const retained=priorFront.filter(s=>currentFront.has(s.symbol)).length;
+ return {priorDate:dates.at(-2),currentDate:dates.at(-1),priorRecordedAt:priorClock.recordedAt,priorAsOf:priorClock.asOf,priorCohortHash:digest([...prior.rows.map(s=>s.symbol)].sort()),
+  priorFrontCount:priorFront.length,currentFrontCount:currentFront.size,retainedFront:retained,enteredFront:currentFront.size-retained,leftFront:priorFront.length-retained,
+  priorFrontCurrentMeanReturn:mean(current.rows.filter(s=>priorIds.has(s.symbol))),otherCurrentMeanReturn:mean(current.rows.filter(s=>!priorIds.has(s.symbol))),canTrade:false};
+}
+// Five-day retrospective structure uses a common observed cohort at this cutoff.
+// It is not a reconstruction of a signal known before the final session.
+function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveClocks){
+ const roster=daily[0].board.members,common=[...roster].sort().filter(symbol=>samples.every(s=>finite(s.bySymbol.get(symbol)?.return)));
+ const coverage=roster.length?common.length/roster.length:null;
+ const base={status:'unknown',role:'unknown',method:'five-session-common-cohort-v1',cohortBasis:'retrospective-common-coverage',
+  memberCount:roster.length,commonObserved:common.length,coverage:round(coverage),cohortHash:digest(common),
+  broadUpSessions:null,broadDownSessions:null,outperformSessions:null,underperformSessions:null,daily:[],migration:null,canTrade:false,canNotify:false};
+ if(common.length<5||coverage<.8||!finite(boardReturn)||!finite(benchmarkReturn))return base;
+ const values=daily.map(({e,board},i)=>{
+  const rows=common.map(symbol=>samples[i].bySymbol.get(symbol));
+  const up=rows.filter(s=>s.return>0).length,down=rows.filter(s=>s.return<0).length;
+  return {date:dates[i],up,down,flat:rows.length-up-down,upShare:round(up/rows.length),downShare:round(down/rows.length),boardReturn:board.return,benchmarkReturn:e.benchmark.return};
+ });
+ const broadUpSessions=values.filter(v=>v.up>common.length/2).length,broadDownSessions=values.filter(v=>v.down>common.length/2).length;
+ const outperformSessions=values.filter(v=>v.boardReturn>v.benchmarkReturn).length,underperformSessions=values.filter(v=>v.boardReturn<v.benchmarkReturn).length;
+ const excess=boardReturn-benchmarkReturn;
+ const role=boardReturn>0&&excess>0&&broadUpSessions>=3&&outperformSessions>=3?'broad-relative-strength':
+  boardReturn<0&&excess<0&&broadDownSessions>=3&&underperformSessions>=3?'broad-relative-weakness':'mixed';
+ return {...base,status:'observed-unverified',role,broadUpSessions,broadDownSessions,outperformSessions,underperformSessions,daily:values,migration:frontMigration(samples,dates,archiveClocks)};
+}
+function compareIndustries(boards,dates=[]){
+ const industries=boards.filter(b=>b.category==='industry');
+ const eligible=dates.length===5?industries.filter(b=>b.trend?.structure?.status==='observed-unverified'&&finite(b.trend.relativeReturn)):[];
+ const ranked=[...eligible].sort((a,b)=>b.trend.relativeReturn-a.trend.relativeReturn||a.code.localeCompare(b.code));
+ const ranks=new Map();ranked.forEach((b,i)=>{if(!ranks.has(b.trend.relativeReturn))ranks.set(b.trend.relativeReturn,i+1);});
+ return {status:dates.length!==5?'unknown':eligible.length<2?'insufficient-comparable-industries':'observed-unverified',scope:'selected-snapshot-industries-only',
+  totalIndustries:industries.length,eligibleIndustries:eligible.length,dates:[...dates],
+  rows:ranked.map(b=>({code:b.code,name:b.name,relativeReturn:b.trend.relativeReturn,rank:eligible.length>=2?ranks.get(b.trend.relativeReturn):null,role:b.trend.structure.role,commonObserved:b.trend.structure.commonObserved,coverage:b.trend.structure.coverage})),canTrade:false,canNotify:false};
+}
 
 // This is a read-only comparison of existing daily snapshots, never a new archive.
 function enrichMarketLinkageHistory(view, events, {selectedEvent, asOf} = {}) {
  const result = JSON.parse(JSON.stringify(view));
  const boards = Array.isArray(result.boards) ? result.boards : [];
+ result.mainlineComparison=compareIndustries(boards);
  const clear = reason => {
   for (const board of boards) {
-   board.trend = unknown(reason);
+   board.trend = {...unknown(reason),structure:null};
    for (const member of board.members || []) member.trend = unknown(reason);
    if (board.stock) board.stock.trend = unknown(reason);
   }
@@ -31,7 +85,7 @@ function enrichMarketLinkageHistory(view, events, {selectedEvent, asOf} = {}) {
  if (!Array.isArray(dates) || !dates.every(dateOK) || dates.some((d,i) => i && d <= dates[i-1])) return clear('five-consecutive-sessions-unavailable');
  const throughSelected = dates.filter(d => d <= selected.tradeDate);
  if (throughSelected.length < 6 || throughSelected.at(-1) !== selected.tradeDate) return clear('five-consecutive-sessions-unavailable');
- const days = throughSelected.slice(-6), snapshots = [];
+ const days = throughSelected.slice(-6), snapshots = [], archiveClocks = [];
  for (let i = 1; i < days.length; i++) {
   const target = days[i];
   // The selected event is the authoritative final revision. Other dates use
@@ -48,14 +102,14 @@ function enrichMarketLinkageHistory(view, events, {selectedEvent, asOf} = {}) {
   let evidence;
   try { evidence = normalizeMarketLinkageEvidence(d.context?.marketLinkageEvidence, {asOf:d.asOf,tradeDate:target,provider:d.provider,symbol:d.symbol}); } catch { return clear('daily-snapshot-invalid'); }
   if (!evidence || evidence.window.start !== close(days[i-1]) || evidence.window.end !== close(target) || evidence.methodology.noCorporateActions !== true || !evidence.benchmark.methodologyVersion || !finite(evidence.benchmark.return)) return clear('daily-window-or-method-unavailable');
-  snapshots.push(evidence);
+  snapshots.push(evidence);archiveClocks.push({recordedAt:event.recordedAt,asOf:d.asOf});
  }
  const first = snapshots[0];
  if (snapshots.some(e => e.returnBasis !== first.returnBasis || e.benchmark.provider !== first.benchmark.provider || e.benchmark.code !== first.benchmark.code || e.benchmark.methodologyVersion !== first.benchmark.methodologyVersion || e.classification.provider !== first.classification.provider || e.classification.version !== first.classification.version)) return clear('daily-method-changed');
  for (const board of boards) {
   const daily = snapshots.map(e => ({e, board:e.boards.find(b => b.code === board.code && b.category === board.category)}));
   if (daily.some(x => !x.board || !finite(x.board.return)) || daily.some(x => membersKey(x.board.members) !== membersKey(daily[0].board.members)) || membersKey((board.members || []).map(m => m.symbol)) !== membersKey(daily[0].board.members)) {
-   board.trend=unknown('board-membership-or-return-changed');
+   board.trend={...unknown('board-membership-or-return-changed'),structure:null};
    for (const m of board.members || []) m.trend=unknown('board-membership-or-return-changed');
    if (board.stock) board.stock.trend=unknown('board-membership-or-return-changed');
    continue;
@@ -63,22 +117,24 @@ function enrichMarketLinkageHistory(view, events, {selectedEvent, asOf} = {}) {
   const samples = daily.map(({e,board:b}) => {
    const bySymbol = new Map(e.stocks.map(s => [s.symbol,s]));
    const rows = b.members.map(symbol => bySymbol.get(symbol)).filter(s => s && finite(s.return));
-   return {board:b,rows,bySymbol,eligible:rows.length >= 5 && rows.length / b.members.length >= .8};
+   return {board:b,rows,bySymbol,ranks:rankValues(rows),eligible:rows.length >= 5 && rows.length / b.members.length >= .8};
   });
   const boardReturn = compound(daily.map(x => x.board.return)), benchmarkReturn = compound(daily.map(x => x.e.benchmark.return));
   board.trend = boardReturn === null || benchmarkReturn === null ? unknown('compound-overflow') : {status:'observed-unverified',sessions:5,return:round(boardReturn),relativeReturn:round(boardReturn-benchmarkReturn),frontSessions:null,role:'mixed',reason:'board-return-relative-to-benchmark'};
+  board.trend.structure=boardStructure(daily,samples,days.slice(1),boardReturn,benchmarkReturn,archiveClocks);
   for (const member of board.members || []) {
    const rows = samples.map(s => s.bySymbol.get(member.symbol));
    if (samples.some(s => !s.eligible) || rows.some(s => !s || !finite(s.return))) {member.trend=unknown('member-coverage-or-return-unavailable');continue;}
    const stockReturn=compound(rows.map(s=>s.return));
    if (stockReturn === null || boardReturn === null || !finite(stockReturn-boardReturn)) {member.trend=unknown('compound-overflow');continue;}
    let front=0, back=0;
-   samples.forEach((s,i) => {const rank=1+s.rows.filter(x=>x.return>rows[i].return).length;if(rank<=Math.ceil(s.rows.length*.2))front++;if(rank>s.rows.length*.8)back++;});
+   samples.forEach((s,i) => {const rank=s.ranks.get(rows[i].return);if(rank<=Math.ceil(s.rows.length*.2))front++;if(rank>s.rows.length*.8)back++;});
    const relative=stockReturn-boardReturn;
    member.trend={status:'observed-unverified',sessions:5,return:round(stockReturn),relativeReturn:round(relative),frontSessions:front,role:relative>0&&front>=3?'persistent-front-candidate':relative<0&&back>=3?'relative-weak-observation':'mixed',reason:'five-frozen-daily-snapshots'};
   }
   if (board.stock) board.stock.trend = board.members?.find(m=>m.symbol===board.stock.symbol)?.trend || unknown('stock-not-in-board');
  }
+ result.mainlineComparison=compareIndustries(boards,days.slice(1));
  if(boards.some(b=>b.trend?.status==='observed-unverified'))result.unknownReasons=[...(result.unknownReasons||[]).filter(x=>x!=='history-not-verified'),'history-source-not-authenticated'];
  return result;
 }
