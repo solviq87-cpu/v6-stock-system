@@ -61,7 +61,7 @@ function holdout(input,plan,evaluation){if(!evaluation.selectedId)return {eligib
 function executionContract(input){const simulation={...input.simulation};for(const key of ['start','end','settlements','universeHistory'])delete simulation[key];return hash({simulation,excludedSectors:input.selectionPolicy?.excludedSectors??null,nativeEvidenceMode:input.nativeEvidence!==undefined});}
 // A checksum detects accidental corruption, not an authenticated audit trail.
 // Reconcile the existing lifecycle before allowing any read or mutation.
-function validateRegistryHistory(s,plan){
+function validateRegistryHistory(s,plan,input){
  const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  const own=(o,k)=>Object.hasOwn(o,k);
  const reject=()=>{throw Error('参数注册历史或激活指针不满足冻结样本外门禁');};
@@ -88,11 +88,12 @@ function validateRegistryHistory(s,plan){
   if(!record(h)||typeof h.eligible!=='boolean'||(selected===null?
      h.eligible!==false||h.reason!=='NO_VALIDATED_CANDIDATE'||own(h,'selectedId'):h.selectedId!==selected))reject();
  }
- let active='baseline',retired=false;
+ let active='baseline',retired=false,repeatedPromotion=false;
  for(const [i,e] of s.events.entries()){
   if(!record(e)||e.revision!==4+i||e.from!==active)reject();
   if(e.type==='promote'){
-   if(retired||active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
+   if(active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
+   if(retired)repeatedPromotion=true;
    if(plan.marketGateMode==='required-on-promote'){
     const g=e.marketGate;
     if(!record(g)||g.mode!==plan.marketGateMode||g.marketRegime!=='not-systemic-selloff'||
@@ -110,14 +111,22 @@ function validateRegistryHistory(s,plan){
   active=e.to;
  }
  if(s.active!==active)reject();
+ // Older registry versions allowed repeated promotion after rollback. Preserve
+ // their history only if the full frozen validation and holdout replay match.
+ // The current promote() gate still forbids creating a new such transition.
+ if(repeatedPromotion){
+  let matched=false;
+  try{matched=hash(validation(input,plan))===hash(s.evaluation)&&hash(holdout(input,plan,s.evaluation))===hash(s.holdout);}catch{}
+  if(!matched)reject();
+ }
 }
 function createRegistry(root){
  root=safe(root);const file=path.join(root,'state.json'),inputFile=path.join(root,'input.json'),planFile=path.join(root,'plan.json');
- function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan);return {s,input,plan};}
+ function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan,input);return {s,input,plan};}
  function mutate(expected,fn,{beforePublish}={}){return withAccountLock(file,()=>{
   const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');
   const original=hash(s),next=fn(s,input,plan);if(next===null)return seal(s);
-  next.revision=s.revision+1;validateRegistryHistory(next,plan);
+  next.revision=s.revision+1;validateRegistryHistory(next,plan,input);
   // Under the existing lock, recheck the authoritative files after staging I/O.
   // Do not replace a damaged or unexpectedly changed snapshot with an old view.
   atomicWrite(file,JSON.stringify(seal(next))+'\n',{beforeRename:()=>{

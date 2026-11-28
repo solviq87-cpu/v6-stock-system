@@ -141,13 +141,13 @@ function summaryEntry({event,attempts}){
  const last=attempts.at(-1),status=last?.status==='captured'?'completed':attempts.length===3?'failed':'pending';
  return {id:event.id,symbol:event.intent.symbol,decisionAt:event.intent.decisionAt,queuedAt:event.queuedAt,trigger:'push-attempt',triggerStatus:'unverified',triggerEvidence:triggerEvidence(event.intent),status,attempts:attempts.length,nextAttemptAt:status==='pending'?(last?.nextAttemptAt||event.queuedAt):null,...(last?{completedAt:last.completedAt,...(last.error?{error:last.error}:{}),...(last.result?{result:last.result}:{})}:{})};
 }
-function summarize(state,now){
+function summarize(state,now,currentStorage=false){
  // Verify the complete chain first, but disclose only records visible at the
  // requested cutoff. A later capture must not rewrite a past pending state.
  const visible=state.entries.filter(e=>e.event.queuedAt<=now).map(e=>({...e,attempts:e.attempts.filter(a=>a.completedAt<=now)}));
  const rows=visible.map(summaryEntry),pending=rows.filter(r=>r.status==='pending'),completed=rows.filter(r=>r.status==='completed'),failed=rows.filter(r=>r.status==='failed');
  const all=visible.flatMap(({event,attempts})=>attempts.map(a=>({id:event.id,symbol:event.intent.symbol,attempt:a.attempt,completedAt:a.completedAt,status:a.status,...(a.error?{error:a.error}:{}),...(a.result?{result:a.result}:{})}))).sort((a,b)=>a.completedAt-b.completedAt||a.id.localeCompare(b.id)||a.attempt-b.attempt);
- return {pending,completed,failed,lastSuccess:all.filter(a=>a.status==='captured').at(-1)||null,lastFailure:all.filter(a=>a.status==='unavailable').at(-1)||null,counts:{total:rows.length,pending:pending.length,completed:completed.length,failed:failed.length,due:pending.filter(r=>r.nextAttemptAt<=now).length,attempts:all.length},bytes:visible.reduce((n,e)=>n+Buffer.byteLength(encode(e.event))+e.attempts.reduce((sum,a)=>sum+Buffer.byteLength(encode(a)),0),0),byteScope:'committed-records-visible-at-cutoff',asOf:now,...flags};
+ return {pending,completed,failed,lastSuccess:all.filter(a=>a.status==='captured').at(-1)||null,lastFailure:all.filter(a=>a.status==='unavailable').at(-1)||null,counts:{total:rows.length,pending:pending.length,completed:completed.length,failed:failed.length,due:pending.filter(r=>r.nextAttemptAt<=now).length,attempts:all.length},bytes:currentStorage?state.bytes:visible.reduce((n,e)=>n+Buffer.byteLength(encode(e.event))+e.attempts.reduce((sum,a)=>sum+Buffer.byteLength(encode(a)),0),0),byteScope:currentStorage?'current-storage-including-temporary-at-read':'committed-records-visible-at-cutoff',asOf:now,...flags};
 }
 function enqueueStockObservation(root,input){
  try{
@@ -163,8 +163,15 @@ function enqueueStockObservation(root,input){
   return blocked('QUEUE_PUBLICATION_CONFLICT');
  }catch{throw Error('采集队列参数、私有存储或完整性校验失败');}
 }
-function readStockObservationQueue(root,{now=Date.now()}={}){
- try{return summarize(readState(root),clock(now));}catch{throw Error('采集队列私有存储或完整性校验失败');}
+function readStockObservationQueue(root,{now}={}){
+ try{
+  const currentStorage=now===undefined,cutoff=currentStorage?null:clock(now);
+  const state=readState(root);
+  // A default live read may refresh an appended parent/child during traversal.
+  // Its cutoff is the completed read, whereas an explicit historical cutoff
+  // must never move. Only live storage accounting includes temporary bytes.
+  return summarize(state,currentStorage?clock(Date.now()):cutoff,currentStorage);
+ }catch{throw Error('采集队列私有存储或完整性校验失败');}
 }
 async function processStockObservationQueue(root,{capture,now=Date.now,maxJobs=1}={}){
  let key;try{key=privateDir(root);if(typeof capture!=='function'||!Number.isSafeInteger(maxJobs)||maxJobs<1||maxJobs>20)throw Error('invalid processor');clock(now);}catch{throw Error('采集队列处理参数或私有存储无效');}
