@@ -121,7 +121,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
   forecastEvaluation,marketLinkage:enrichMarketLinkageHistory(marketLinkage.buildMarketSectorStockLinkage(events,{selectedEvent:latest,asOf}),events,{selectedEvent:latest,asOf}),
   publicModelComparison:new Date(asOf+28800000).toISOString().slice(0,10)>='2026-11-14'?require('../../config/public-model-comparison-20261114.json'):{models:[],reason:'对照目录晚于回放时点，不作为当时已知资料'},
   defense:query.asOf===undefined?analytics.holdingDefense(events,accounts,quotes,asOf,preferences?.data):{rows:[],exposures:[],reason:'历史回放不借用当前持仓；原账本没有该时点快照'},
-  preferences:{revision:preferences?.revision||0,value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
+  preferences:{revision:preferences?.revision||0,configured:!!preferences,researchScope:preferences?'configured-research':'general-research',riskBudgetConfigured:typeof preferences?.data?.maxPositionPct==='number'&&Number.isFinite(preferences.data.maxPositionPct),value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
   presets:[...presetMap.values()].map(e=>({revision:e.revision,...e.data,history:events.filter(p=>p.kind==='preset'&&p.data.name===e.data.name).map(p=>({revision:p.revision,recordedAt:p.recordedAt,...p.data}))})),
   diagnostics:events.filter(e=>e.kind==='diagnostic'&&(!symbol||e.data.symbol===symbol)).slice(-20).map(e=>({id:e.hash,...e.data})),
   limits:{events:2000,maxEventBytes:2*1024*1024,totalBytes:128*1024*1024},
@@ -129,7 +129,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
 }
 function exportResearch(view){
  return {schemaVersion:1,mode:'research-reproducible-export',...store.FLAGS,asOf:view.asOf,run:view.selectedRun,
-  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,marketLinkage:view.marketLinkage,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
+  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,marketLinkage:view.marketLinkage,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,preferencesConfiguration:{configured:view.preferences.configured??false,researchScope:view.preferences.researchScope??'general-research',riskBudgetConfigured:view.preferences.riskBudgetConfigured??false},
   inputAudit:view.inputAudit,pairedComparison:view.pairedComparison,drift:view.drift,
   forecastEvaluation:view.forecastEvaluation,
   omitted:['实际账户持仓、成本、令牌、Webhook和私有文件路径'],scope:'selected-private-research-evidence-only'};
