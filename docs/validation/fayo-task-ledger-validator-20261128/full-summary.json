@@ -1,0 +1,19 @@
+{
+  "base": "110efad4903eba512ee432ee808025621bacf536",
+  "stats": {
+    "tests": 8169,
+    "pass": 8169,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 158108.769472,
+  "sha256": {
+    "V6_BO/scripts/validate-fayo-ledger.py": "848c771bcc9890cc7c3202d193bd2a043572fcc4c7da2c492b019f6e0f9a83ce",
+    "V6_BO/tests/fayo-task-ledger-validator.test.js": "556a9594c141b6227d1db6ff48137681ebd86fb07a14f4eb2581afa531c52097",
+    "V6_BO/scripts/stock-workbook.py": "504fa7ca0c496046f4e1e3de8ac7aef4202d385147bc177fa3790fac136b39a2",
+    "docs/fayo-professional/deliverables/checklist.xlsx": "592af7ce04b8d8405b574f9404de5eceb2e0be1e63652fb71aaf198f143b29df"
+  },
+  "rawLogSha256": "c1644dc0a4a1f1f637321590b9ce26bd07c7b73ed756e4405b60f60375c35998",
+  "note": "Fresh local full run before commit with these code/input hashes; exact committed pin and CI separately checked. No business acceptance inferred."
+}

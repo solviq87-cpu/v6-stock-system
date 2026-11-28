@@ -270,3 +270,7 @@ node --test V6_BO/tests/{recent-market-structure,index-window-research,market-br
 ### 固定期限原回测接线 · 2026-11-28
 
 原#562@704891afa21e90f4d18c59eb66a784c40fe124f5本轮集中处置F12.1/.3/.4、F20.1、F32.1/.2/.3、F35.1、F48.4。只F12.3/F32.2新增局部，现39局部/189待验/0签收；原财务引擎未改，归档120日K五期限均无买入，不挑最佳，不虚构成熟收益。原工作台双端与完整下载已实测，独立试验登记、路径标签、真实净收益/现场仍待。详见[逐项决定与复现](../validation/fayo-holding-period-20261128/README.md)。
+
+### 原台账只读校验 · 独立工程工具
+
+`python3 -I -B V6_BO/scripts/validate-fayo-ledger.py`核对原228项、50组、三批100/76/52、G/CN/UX/场景及历史目录、消费者引用、效率章节和筛选范围。`--expect-sha <实际HEAD>`同时绑定工作簿、校验器和原XML模块；无Git或未提交变化不生成已绑定回执。结构通过不证明业务完成，全部批准/发布标志false，`--strict`仍拒绝正式放行。复用既有Python标准库和XML安全层，股票导入规则与全部业务代码保持。已有全量测试自动发现新专项，不建立平行台账或CI。[命令、容量、反例和限制](../validation/fayo-task-ledger-validator-20261128/README.md)。
