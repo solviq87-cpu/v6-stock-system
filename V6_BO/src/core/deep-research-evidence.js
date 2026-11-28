@@ -3,6 +3,7 @@
 // Server-side, read-only evidence projections. Inputs come from the existing
 // private archives/data centre; this module neither fetches nor writes a ledger.
 const {createHash} = require('node:crypto');
+const {sampledTradePrices,reviewSimulatedFillCosts}=require('./microstructure-cost-review');
 const {quoteObservationView} = require('./quote-observation-view');
 const {aShareCalendarDate} = require('./a-share-calendar');
 const {evaluateAuctionEvidence} = require('../strategy/auction-evidence-rules');
@@ -506,7 +507,7 @@ function tickMetrics(row) {
   }
   return {trades:ticks.length,turnover:round(total),tradeImbalance:allKnown?round(signed/total):null,
     bookImbalance:null,firstTradeAt:ticks[0].at,lastTradeAt:ticks.at(-1).at,
-    measuredShares:quantity,completeMarketTape:false};
+    measuredShares:quantity,completeMarketTape:false,sampledTradePrices:sampledTradePrices(ticks)};
 }
 function buildDepthResearch(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.depth,asOf,'盘口证据',500), rows=[], rejected=[...selected.rejected], risks=[];
@@ -631,7 +632,8 @@ function stats(rows) {
     averageCostCents:round(mean(rows.map(r=>r.costCents).filter(finite))),maxDrawdownPct:null};
 }
 function buildSessionEffectiveness(input={}, options={}) {
-  const asOf=clock(options), rows=[],rejected=[],missing=[],plans=array(input.plans,'计划');
+  const asOf=clock(options), rows=[],rejected=[],missing=[],plans=array(input.plans,'计划'),costRows=[];
+  let costFillCount=0;
   const supplied=input.archive?extractDeepArchiveInputs(input.archive,{asOf}):{sessionSamples:array(input.sessionSamples,'时段结算'),plans,missing:[]};
   missing.push(...supplied.missing);const seen=new Set();
   for (const row of supplied.sessionSamples) {
@@ -639,6 +641,10 @@ function buildSessionEffectiveness(input={}, options={}) {
     if (!verified) {rejected.push({id:row?.id||null,reason:'original-settlement-evidence-unavailable'});continue;}
     if (seen.has(verified.id)) continue;seen.add(verified.id);
     const {originalTrade,...publicRow}=verified; rows.push(publicRow);
+    if(Array.isArray(options.depthRows)){
+      const p=originalTrade.paperSettlement;costFillCount+=p.entryFills.length+1;
+      if(costFillCount<=10000)costRows.push({...publicRow,executionFills:[...p.entryFills.map(l=>({eventId:l.eventId,side:'buy',at:l.time,quantity:l.quantity,grossCents:l.grossCents,feeCents:l.costCents-l.grossCents})),{eventId:p.exitEventId,side:'sell',at:p.exitTimestamp,quantity:p.exitQuantity,grossCents:p.exitGrossCents,feeCents:p.exitFeeCents}]});
+    }
   }
   let workspace=null;
   const events=array(input.workspaceEvents,'原四策略研究档案',2000).filter(e=>time(e?.recordedAt)&&e.recordedAt<=asOf&&
@@ -669,7 +675,8 @@ function buildSessionEffectiveness(input={}, options={}) {
       modeled:estimates,blockedOrMissing:selected.filter(r=>r.origin==='existing-workspace-estimate'&&!finite(r.netReturnPct)).length};
   }));
   if (!rows.length)missing.push('缺少成熟成本后结算或通过原可成交性检查的四策略样本');
-  return result(71,rows,missing,{groups,sessions:SESSIONS,systems:SYSTEMS,rejected,
+  const sampledFillCostReview=costFillCount>10000?{...reviewSimulatedFillCosts([],[],asOf),status:'input-budget-exceeded'}:reviewSimulatedFillCosts(options.depthRows??[],costRows,asOf);
+  return result(71,rows,missing,{groups,sessions:SESSIONS,systems:SYSTEMS,rejected,sampledFillCostReview,
     unassigned:rows.filter(r=>r.system==='unattributed'||!SESSIONS.some(s=>s.id===r.signalWindow)).map(r=>r.id),
     upstreamCoverage:workspace?.groups||[],limitations:['真实模拟结算与纸面成本估计分栏，不混合计算收益','时间窗口按北京时间固定；午间休市不并入上午或午后','样本重叠时不拼接成账户净值，不虚构组合最大回撤','未归属策略和缺信号时点的样本保留，但不进入四策略时段均值']});
 }
@@ -747,9 +754,10 @@ function buildDeepResearchEvidence(input={}, options={}) {
   if (input.newsJournalRows!==undefined) effective.events=[...array(input.events,'事件'),...extractNewsJournalEvents(input.newsJournalRows,{asOf})];
   const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar,workspaceEvents:input.workspaceEvents},{asOf});
   effective.eventOutcomes=[...array(input.eventOutcomes,'事件结果'),...derived.eventOutcomes];
+  const depth=buildDepthResearch(effective,{asOf});
   const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf,derivedOutcomes:derived.eventOutcomes}),
-    69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
-    71:buildSessionEffectiveness(effective,{asOf,costs:options.costs}),72:buildThemeCrowding(effective,{asOf})};
+    69:buildRelationshipGraph(effective,{asOf}),70:depth,
+    71:buildSessionEffectiveness(effective,{asOf,costs:options.costs,depthRows:depth.rows}),72:buildThemeCrowding(effective,{asOf})};
   modules[67].archiveDerivation={...derived,eventOutcomes:derived.eventOutcomes.map(o=>({id:o.id,eventId:o.eventId,horizonSessions:o.horizonSessions}))};
   // Existing version reader and original account projection remain authoritative.
   modules[67].eventReview=projectEventReview({events:versions(effective.events,asOf,'事件').rows,relations:versions(effective.relations,asOf,'关系证据',2000).rows,
