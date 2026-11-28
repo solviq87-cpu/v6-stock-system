@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const {runHoldingPeriodStudy,summarizeSettledNetReturns}=require('../src/core/holding-period-comparison');
+const {runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions}=require('../src/core/holding-period-comparison');
 const {runValidatedBacktest}=require('../src/core/historical-validation');
 const {runCompleteWorkbench}=require('../src/core/complete-workbench');
 const fixture=()=>({source:'fixture',asOf:'2026-03-01',stocks:[{symbol:'600000',market:'main',bars:Array.from({length:60},(_,i)=>({date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),open:10+i*.04,high:10.1+i*.04,low:9.9+i*.04,close:10+i*.04,volume:1000000}))}]});
@@ -94,4 +94,40 @@ test('F20.2 multi-period output consumes the original ledger distribution withou
  console.log(JSON.stringify(runHoldingPeriodStudy(h).comparison));`);
  assert.ok(r.periods.some(p=>p.settledNetDistribution.usableRecords>0));
  for(const p of r.periods)assert.deepEqual(p.settledNetDistribution,summarizeSettledNetReturns(p.report));
+});
+
+test('F20.3 modeled opening paths exclude exit-session later extrema and keep net return separate',()=>{
+ const h=fixture(),bars=h.stocks[0].bars;
+ Object.assign(bars[28],{open:10,high:12,low:9,close:11,volume:100});
+ Object.assign(bars[29],{open:11,high:99,low:1,close:11,volume:100});
+ const trade={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:11,costBasis:1005,netPnl:85};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:200,price:10},
+  {symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:11}],cashFlows:[]};
+ const d=summarizeSettledExcursions(h,report),r=d.rows[0];
+ assert.equal(d.usableRecords,1);assert.equal(r.mfePct,20);assert.equal(r.maePct,-10);
+ assert.equal(r.netReturnPct,Number((8500/1005).toFixed(6)));assert.equal(r.extremaOrder,'unknown');
+ assert.equal(d.intradayOrderKnown,false);assert.equal(d.canTrain,false);assert.equal(d.executionCertified,false);
+});
+test('F20.3 incomplete or corporate-action path and mismatched fills remain unknown rather than zero',()=>{
+ const h=fixture(),trade={symbol:'600000',buyDay:28,sellDay:30,shares:100,entry:11.12,exit:11.2,costBasis:1120,netPnl:-5};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:100,price:trade.entry},
+  {symbol:'600000',day:30,side:'sell',status:'filled',shares:100,price:trade.exit}],cashFlows:[]};
+ for(const mutate of [(h,r)=>{h.stocks[0].bars[29].volume=0;},(h,r)=>{h.stocks[0].bars[29].suspended=true;},
+  (h,r)=>{r.orders[1].price+=1;},(h,r)=>{r.cashFlows.push({symbol:'600000',kind:'corporate-action'});},
+  (h,r)=>{delete h.stocks[0].bars[29].date;}]){
+  const x=structuredClone(h),y=structuredClone(report);mutate(x,y);
+  const d=summarizeSettledExcursions(x,y);assert.equal(d.usableRecords,0);assert.equal(d.rows[0].mfePct,null);assert.equal(d.rows[0].maePct,null);
+ }
+ const empty=summarizeSettledExcursions(h,{trades:[],metrics:{closedTrades:0},orders:[],cashFlows:[]});
+ assert.equal(empty.coveragePct,null);assert.equal(empty.meanMfePct,null);
+});
+test('F20.3 original multi-period report links each path to an original settled row without rewriting the ledger',()=>{
+ const result=child(`const scanner=require.resolve('./src/strategy/research-v2-universe-scanner');require(scanner).scanUniverse=({stocks})=>({items:stocks.map(s=>({symbol:s.symbol,tradable:true}))});const {runHoldingPeriodStudy}=require('./src/core/holding-period-comparison');const h=${JSON.stringify(fixture())};h.end=48;console.log(JSON.stringify(runHoldingPeriodStudy(h).comparison));`);
+ assert.ok(result.periods.some(p=>p.settledExcursions.usableRecords>0));
+ for(const p of result.periods){
+  assert.equal(p.settledExcursions.rows.length,p.report.trades.length);
+  for(const row of p.settledExcursions.rows)assert.equal(row.symbol,p.report.trades[row.tradeIndex].symbol);
+ }
 });

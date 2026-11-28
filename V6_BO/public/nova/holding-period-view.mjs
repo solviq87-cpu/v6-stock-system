@@ -24,6 +24,12 @@ export function renderHoldingPeriodComparison(data){
     return h('li',{},row.holdDays+'日：可用/结算记录 '+value(d.usableRecords)+'/'+value(d.totalSettledRecords)+
      '；覆盖 '+pct(d.coveragePct)+'；P10 / P50 / P90 '+[d.p10Pct,d.p50Pct,d.p90Pct].map(pct).join(' / ')+'；宽度 '+pct(d.empiricalWidthPct));
    })),
+   h('h3',{},'已结算份额 · 入场后价格路径'),
+   h('p',{class:'fy-note'},'在原开盘成交模型下计算日K价格最大有利/不利变动；退出日仅用开盘价，不借用退出后的高低点。停牌缺价及公司行为保持未知。同一日高低点先后不可知，不是净收益、可成交价格或训练标签。'),
+   h('ul',{},data.periods.map(row=>{const d=row.settledExcursions||{},pct=x=>finite(x)?format(x)+'%':'未知';
+    return h('li',{},row.holdDays+'日：可用路径 '+value(d.usableRecords)+'/'+value(d.totalSettledRecords)+
+     '；平均最大有利 '+pct(d.meanMfePct)+'；平均最大不利 '+pct(d.meanMaePct));
+   })),
    h('ul',{},(data.limitations||[]).map(text=>h('li',{},text))),
    h('p',{class:'fy-muted'},'数据指纹 '+String(data.datasetFingerprint||'未知')),
    h('p',{class:'fy-muted'},'协议指纹 '+String(data.protocolFingerprint||'未知'))));
