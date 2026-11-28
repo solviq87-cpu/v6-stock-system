@@ -12,7 +12,7 @@ const {fuseMultiSourcePrices} = require('./multi-source-price-consensus');
 const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-templates');
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
-const {reviewCrossMarketLead} = require('./cross-market-lead-review');
+const {reviewCrossMarketLead,reviewCommonAssetShock} = require('./cross-market-lead-review');
 const {researchCohortCoverage} = require('./research-cohort-coverage');
 const numeric = require('../../public/nova/shortline/numeric-factors');
 const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
@@ -993,7 +993,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
     adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates, governance,
-    crossMarket: {...aligned.alignment,leadReview:reviewCrossMarketLead({plan:config.crossMarketLeadPlan,calendars:aligned.alignment.calendars,admitted:backtest.admitted,asOf:now})}, historyIntake: historyCoverage,
+    crossMarket: {...aligned.alignment,leadReview:reviewCrossMarketLead({plan:config.crossMarketLeadPlan,calendars:aligned.alignment.calendars,admitted:backtest.admitted,asOf:now}),commonAssetShock:reviewCommonAssetShock({plan:config.commonAssetShockPlan,calendar:aligned.alignment.calendars.CN,gate:backtest,asOf:now})}, historyIntake: historyCoverage,
     coverage: {archivePresent: Boolean(archive), rawBars: records.length, recordedChecks: archive?.checks?.length || 0,
       realFactorObservations: observations.length, admittedHfqGroups: backtest.admittedGroups,
       alignedFactorSamples: aligned.samples.length, missing: [!records.length && '原始行情', !backtest.admittedGroups && '同口径 hfq 多源证据',
