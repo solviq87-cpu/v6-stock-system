@@ -59,6 +59,42 @@
     const choose=button(quick,(category==='industry'?'行业 · ':'概念 · ')+text(b.name)+' '+pct(b.relativeReturn),()=>{select.value=identity(b);state.board=select.value;state.symbol='';drawSector();});choose.dataset.linkageBoard=b.code;
    }
   }
+  const count=x=>Number.isSafeInteger(x)&&x>=0;
+  const share=x=>known(x)&&x>=0&&x<=1;
+  const day=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x))&&new Date(x).toISOString().slice(0,10)===x;
+  const fiveDays=xs=>Array.isArray(xs)&&xs.length===5&&xs.every((d,i)=>day(d)&&(!i||d>xs[i-1]))&&xs[4]===data.tradeDate;
+  const strengthLabels={'broad-relative-strength':'广泛相对强势','broad-relative-weakness':'广泛相对弱势',mixed:'强弱分化'};
+  const main=data.mainlineComparison,eligible=boards.filter(b=>b.category==='industry');
+  const compare=details(sector,'同一封存快照行业比较');
+  const rows=list(main?.rows);
+  const mainValid=main?.scope==='selected-snapshot-industries-only'&&main.canTrade===false&&main.canNotify===false&&fiveDays(main.dates)&&
+   count(main.totalIndustries)&&main.totalIndustries===eligible.length&&count(main.eligibleIndustries)&&main.eligibleIndustries===rows.length&&rows.length<=eligible.length&&
+   new Set(rows.map(r=>r?.code)).size===rows.length&&rows.every(r=>r&&eligible.some(b=>b.code===r.code&&b.trend?.structure?.status==='observed-unverified'&&b.trend.relativeReturn===r.relativeReturn&&b.trend.structure.role===r.role)&&known(r.relativeReturn)&&Object.hasOwn(strengthLabels,r.role)&&
+    (rows.length>=2?r.rank===1+rows.filter(q=>q?.relativeReturn>r.relativeReturn).length:r.rank===null));
+  if(mainValid&&['observed-unverified','insufficient-comparable-industries'].includes(main.status)&&((rows.length>=2)===(main.status==='observed-unverified'))){
+   line(compare,'覆盖','可比行业 '+rows.length+' / '+main.totalIndustries+'；'+main.dates[0]+' 至 '+main.dates[4]);
+   if(rows.length<2)node('p','可比行业不足，不排名。',compare,'ml-muted');
+   else for(const r of rows)line(compare,'第 '+r.rank+' 名 · '+text(eligible.find(b=>b.code===r.code).name),pct(r.relativeReturn)+' 相对基准；'+strengthLabels[r.role]);
+  }else node('p','五日行业比较证据不足。',compare,'ml-muted');
+  node('p','仅所选快照中的行业，保留并列；非事前信号，不构成买卖建议。',compare,'ml-muted');
+  function drawStructure(parent,b){
+   const s=b.trend?.structure,rows=list(s?.daily);
+   const proof=details(parent,'五日共同样本与群体迁移');
+   const valid=s?.status==='observed-unverified'&&s.method==='five-session-common-cohort-v1'&&s.cohortBasis==='retrospective-common-coverage'&&s.canTrade===false&&s.canNotify===false&&
+    Object.hasOwn(strengthLabels,s.role)&&count(s.memberCount)&&s.memberCount===b.memberCount&&count(s.commonObserved)&&s.commonObserved>=5&&s.commonObserved<=s.memberCount&&share(s.coverage)&&s.coverage>=.8&&Math.abs(s.coverage-s.commonObserved/s.memberCount)<1e-8&&fiveDays(rows.map(r=>r?.date))&&
+    rows.every(r=>r&&[r.up,r.down,r.flat].every(count)&&r.up+r.down+r.flat===s.commonObserved&&known(r.boardReturn)&&known(r.benchmarkReturn))&&
+    [s.broadUpSessions,s.broadDownSessions,s.outperformSessions,s.underperformSessions].every(x=>count(x)&&x<=5)&&s.broadUpSessions===rows.filter(r=>r.up>s.commonObserved/2).length&&s.broadDownSessions===rows.filter(r=>r.down>s.commonObserved/2).length&&s.outperformSessions===rows.filter(r=>r.boardReturn>r.benchmarkReturn).length&&s.underperformSessions===rows.filter(r=>r.boardReturn<r.benchmarkReturn).length;
+   if(!valid){node('p','共同样本覆盖不足或证据不完整，五日结构未知。',proof,'ml-muted');return;}
+   line(proof,'五日结构',strengthLabels[s.role]+'；共同有效成员 '+s.commonObserved+' / '+s.memberCount+'（'+ratio(s.coverage)+'）');
+   line(proof,'延续性','多数上涨 '+s.broadUpSessions+' / 5日；多数下跌 '+s.broadDownSessions+' / 5日；跑赢基准 '+s.outperformSessions+' / 5日；跑输 '+s.underperformSessions+' / 5日');
+   for(const r of rows)line(proof,r.date,'涨 '+r.up+' / 跌 '+r.down+' / 平 '+r.flat+'；板块 '+pct(r.boardReturn)+' / 基准 '+pct(r.benchmarkReturn));
+   const m=s.migration,open=Date.parse(data.tradeDate+'T09:30:00+08:00');
+   const migrationValid=m?.canTrade===false&&m.priorDate===rows[3].date&&m.currentDate===rows[4].date&&Number.isSafeInteger(m.priorAsOf)&&m.priorAsOf>=Date.parse(m.priorDate+'T15:00:00+08:00')&&Number.isSafeInteger(m.priorRecordedAt)&&m.priorRecordedAt>=m.priorAsOf&&m.priorRecordedAt<=open&&
+    [m.priorFrontCount,m.currentFrontCount,m.retainedFront,m.enteredFront,m.leftFront].every(x=>count(x)&&x<=s.memberCount)&&m.priorFrontCount>0&&m.currentFrontCount>0&&m.priorFrontCount===m.retainedFront+m.leftFront&&m.currentFrontCount===m.retainedFront+m.enteredFront;
+   if(migrationValid){line(proof,'前排迁移','保留 '+m.retainedFront+' · 新进入 '+m.enteredFront+' · 离开 '+m.leftFront);line(proof,'上日前排当日均值',pct(m.priorFrontCurrentMeanReturn)+' / 其他成员 '+pct(m.otherCurrentMeanReturn));line(proof,'上日封存时点',time(m.priorRecordedAt));}
+   else node('p','前排迁移证据不足，未冻结的旧群体不回填。',proof,'ml-muted');
+   node('p','共同样本为事后覆盖对照；群体迁移仅为描述性研究，非事前信号，不构成买卖建议。',proof,'ml-muted');
+  }
   const detail=node('div',undefined,sector,'ml-sector-detail');
   function drawSector(){
    detail.replaceChildren();const b=boards.find(x=>identity(x)===select.value);if(!b){node('p',boards.length?'选择板块查看封存成员。':'未封存可比板块；不生成示例排名。',detail,'ml-muted');return;}
@@ -71,6 +107,7 @@
    const marketRelation=!known(b.return)||!known(benchmark.return)||!known(b.relativeReturn)?'同窗关系未知':b.return>0&&benchmark.return<0?'逆势上涨':b.return<0&&b.relativeReturn>0?'相对抗跌，板块仍下跌':b.return>0&&benchmark.return>0?'同向上涨':b.return<0&&benchmark.return<0?'同向下跌':'相对表现分化';
    line(detail,'板块状态',sectorState+'；'+marketRelation);
    if(b.trend?.status==='observed-unverified')line(boardProof,'连续5交易日',pct(b.trend.return)+' / 相对基准 '+pct(b.trend.relativeReturn));
+   drawStructure(boardProof,b);
    line(boardProof,'成员身份',text(b.provider||data.source)+' / '+text(b.classificationVersion)+' / '+text(b.code));
    if(b.category==='concept')node('p','概念可重叠，不能加总为指数贡献。',detail,'ml-muted');
    const members=list(b.members),membersHost=node('div',undefined,detail,'ml-members');membersHost.setAttribute('aria-label','板块实际成员');
