@@ -6,7 +6,7 @@ const {marketRequests,createMarketRequestGovernor}=require('./market-request-gov
 const {hasQuoteRedirect}=require('./public-quote-redirect-policy');
 const ENDPOINT='https://push2.eastmoney.com/api/qt/clist/get';
 // Each row is one provider quote. f5 is provider-native lots (手), NOT shares.
-const FIELDS='f12,f14,f3,f6,f13,f2,f124,f5,f8,f20,f62,f184';
+const FIELDS='f12,f14,f3,f6,f13,f2,f124,f5,f8,f20,f21,f62,f184';
 function sourceNumber(value,{min=-Infinity,max=Infinity}={}){
  if(typeof value!=='number'&&
     !(typeof value==='string'&&/^-?(?:\d+)(?:\.\d+)?$/.test(value)))
@@ -39,6 +39,7 @@ function toStock(item){
   volumeLots:sourceNumber(item?.f5,{min:0}),
   turnoverPct:sourceNumber(item?.f8,{min:0,max:100}),
   totalMarketValue:sourceNumber(item?.f20,{min:0}),
+  floatMarketValue:sourceNumber(item?.f21,{min:0.000001}),
   mainNetInflow:sourceNumber(item?.f62),
   mainNetInflowPct:sourceNumber(item?.f184,{min:-100,max:100})
  };

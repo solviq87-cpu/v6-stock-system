@@ -12,6 +12,10 @@ const {fuseMultiSourcePrices} = require('./multi-source-price-consensus');
 const {evaluateThreeToFour,evaluateTemplateLibrary} = require('./intelligence-templates');
 const {spearman, assessFactorRedundancy} = require('./factor-redundancy');
 const {assessFactorReliability} = require('./factor-learning-reliability');
+const {reviewCrossMarketLead,reviewCommonAssetShock} = require('./cross-market-lead-review');
+const {researchCohortCoverage} = require('./research-cohort-coverage');
+const {compareFrozenRankModels} = require('./factor-rank-baselines');
+const {marketStateAt,compareStateAdaptation,reviewCatalogRights} = require('./research-state-review');
 const numeric = require('../../public/nova/shortline/numeric-factors');
 const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
@@ -406,7 +410,7 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
     if (Object.keys(values).length) observations.push({id: check.id, market: typeof check.market === 'string' ? check.market : 'CN', code, day,
       signalAt, recordedAt: check.createdAt, asOf: check.asOf, values, evidence,
       regime: check.market?.systemicSelloff === true ? 'systemic-selloff' : check.market?.systemicSelloff === false ? 'not-systemic-selloff' : null,
-      cycle: check.emotion?.stage || 'unknown'});
+      marketStateEvidence:marketStateAt(check.market,day,signalAt),cycle: check.emotion?.stage || 'unknown'});
   }
   return {status: bars.length || observations.length ? 'observed' : 'missing-data', bars, observations, rejected, catalog, ruleCoverage};
 }
@@ -607,8 +611,11 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
     const ordered = [...trainingIds].sort((a, b) => (raw.train[b]?.meanIC ?? -2) - (raw.train[a]?.meanIC ?? -2) || a.localeCompare(b));
     const model = fitOrthogonalFactors(phases.train, ordered, {minRows: config.factors.minCrossSection});
     const orthogonalIds = model.parameters.map(row => row.factorId);
-    const orthogonal = Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
-      factorMetrics(applyOrthogonalFactors(rows, model), orthogonalIds, config.factors.minCrossSection)]));
+    const transformed=Object.fromEntries(Object.entries(phases).map(([phase,rows])=>[phase,applyOrthogonalFactors(rows,model)]));
+    const orthogonal = Object.fromEntries(Object.entries(transformed).map(([phase, rows]) => [phase,
+      factorMetrics(rows, orthogonalIds, config.factors.minCrossSection)]));
+    const redundancy=redundancyReport(phases.train,trainingIds,raw.train,config.factors.minCrossSection,config);
+    const rankBaselines=compareFrozenRankModels({phases:transformed,factorIds:orthogonalIds,markets:alignment.markets,trainingFingerprint:model.trainingFingerprint,redundancy,trainCutoff,validationCutoff,asOf:now,minRows:config.factors.minCrossSection,minTrainDays:config.factors.minIcDays});
     const strata = Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
       Object.fromEntries([...new Set(rows.map(row => row.cycle || 'unknown'))].map(cycle => [cycle,
         {samples: rows.filter(row => (row.cycle || 'unknown') === cycle).length,
@@ -618,7 +625,7 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
       factorIds: trainingIds,
       ranges: Object.fromEntries(Object.entries(phaseDays).map(([phase, dates]) => [phase, {start: dates[0], end: dates.at(-1), tradingDays: dates.length, samples: phases[phase].length}])),
       purgeTradingDays: s.purgeTradingDays, raw, orthogonal, orthogonalization: model,
-      redundancy: redundancyReport(phases.train, trainingIds, raw.train, config.factors.minCrossSection, config), strata,
+      redundancy, rankBaselines, strata,stateAdaptation:compareStateAdaptation(phases,rankBaselines,{trainCutoff,validationCutoff,asOf:now}),
       maxTrainingLabelKnownAt: phases.train.length ? Math.max(...phases.train.map(row => row.labelKnownAt)) : null,
       calendarEvidenceFingerprint: hash(alignment.calendars),
       inputEvidenceFingerprint: hash(Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
@@ -959,6 +966,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
     redundancy: walkforward.folds.at(-1)?.redundancy || {status: 'missing-training-window', pairs: [], suppressedFactors: []},
     note: '新校验完整保存95条规则的逐条件观察；仅来源、时点与全部条件可核对时形成数值，明确失败可以为0，未知不填0。旧top8档案单列为部分观察，不补历史。IC 限于本次有界研究样本子集，不代表全市场或全部95项有效；全样本 IC 仅描述，不能用于拟合或批准。', canTrade: false};
   factors.approvedScoring = buildApprovedScoring(archive, observations, {day,now,calendars});
+  factors.attemptCoverage=researchCohortCoverage(observations,aligned,[...new Set([...factorIds,...extracted.catalog.map(row=>'YZ-'+String(row.id).padStart(2,'0'))])]);
   const feedback = feedbackReport(archive, walkforward, backtest, now, config, quality, day, aligned.samples);
   if (historyCoverage?.rejectedRecords > 0) feedback.qualityCandidates.push({status:'source-evidence-recorded',type:'history-intake-quality-review',
     reason:'独立历史采集存在未通过多源准入的记录',affectedRecords:historyCoverage.rejectedRecords,
@@ -987,10 +995,11 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   }
   const governance = require('./fayo-research-governance').buildGovernance({archive:archive?{...archive,catalog:extracted.catalog}:null,samples:aligned.samples,walkforward,quality,execution:executionValidation,feedback,now});
   governance.probabilityResearch = probabilityResearch;
+  governance.modelLibraryRights=reviewCatalogRights(require('../../config/open-model-library-20261114.json'),now);
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
     adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates, governance,
-    crossMarket: aligned.alignment, historyIntake: historyCoverage,
+    crossMarket: {...aligned.alignment,leadReview:reviewCrossMarketLead({plan:config.crossMarketLeadPlan,calendars:aligned.alignment.calendars,admitted:backtest.admitted,asOf:now}),commonAssetShock:reviewCommonAssetShock({plan:config.commonAssetShockPlan,calendar:aligned.alignment.calendars.CN,gate:backtest,asOf:now})}, historyIntake: historyCoverage,
     coverage: {archivePresent: Boolean(archive), rawBars: records.length, recordedChecks: archive?.checks?.length || 0,
       realFactorObservations: observations.length, admittedHfqGroups: backtest.admittedGroups,
       alignedFactorSamples: aligned.samples.length, missing: [!records.length && '原始行情', !backtest.admittedGroups && '同口径 hfq 多源证据',

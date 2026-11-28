@@ -16073,7 +16073,10 @@ async function refreshNews() {
         return `▪ ${x.title}\n  关联: ${x.codes.map(c => (nameOf.get(c) || '') + '(' + c + ')').join('、')}\n  关键词归类（待核实）: ${x.why || '正向关键词线索'}` +
           `${ind.length ? `\n  板块关联线索（待核实）(${x.sectors.join('/')}): ${ind.map(s => `${s.name} ${s.pct > 0 ? '+' : ''}${s.pct}%`).join('、')}` : ''}` +
           `${x.summary ? '\n  摘要: ' + x.summary : ''}`;
-      }).join('\n') + (freshGood.length > 8 ? `\n…另有${freshGood.length - 8}条见面板` : ''));
+      }).join('\n') + (freshGood.length > 8 ? `\n…另有${freshGood.length - 8}条见面板` : ''), false, {private:true,
+        // The original news gate has already bound each displayed direct stock
+        // to the current journal revision. Indirect sector clues stay unknown.
+        signalRefs:list.filter(x=>newsDecisionAllowsItem(x)&&/^[a-f0-9]{64}$/.test(x.newsEvidence?.eventHash||'')&&Number.isSafeInteger(x.newsEvidence?.recordedAt)).flatMap(x=>x.codes.map(code=>({code,type:'news-evidence-revision',ts:x.newsEvidence.recordedAt,signalId:x.newsEvidence.eventHash})))});
     }
     // 板块间接关联个股预取：利好+利空归档里出现过的板块（异步不阻塞，30分钟缓存）
     const secNames = [...new Set([...S.news.goodAll.slice(0, 30), ...S.news.badAll.slice(0, 30)].flatMap(x => x.sectors || []))];

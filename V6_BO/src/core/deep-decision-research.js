@@ -595,6 +595,7 @@ function derivePortfolioArchiveEvidence(archive={},workspaceEvents=[],input={}, 
     windows:samples.map(({start,end})=>({start,end})),missing:[...new Set(missing)],limitations:['失败和反向窗口保留；缺失窗口不会删除后重算漂亮样本','只补已有真实成交额和历史相关性，不从分数、已卖出交易或历史均值生成预期收益','无前瞻验证时无法断言收益稳定、可成交或生产适用']};
 }
 
+const {compareOpportunityCost}=require('./research-opportunity-review');
 function reviewDecisionAlternatives(frozen,outcomes=[],{asOf=Date.now()}={}) {
   atTime(asOf);if(frozen?.type!==FREEZE||!known(frozen.recordedAt,asOf)||!known(frozen.informationCutoff,frozen.recordedAt)||!arr(frozen.alternatives).length)throw Error('对照冻结引用无效');
   if(!Array.isArray(outcomes)||outcomes.length>5)throw Error('对照结果数量超限');
@@ -618,6 +619,7 @@ function reviewDecisionAlternatives(frozen,outcomes=[],{asOf=Date.now()}={}) {
   const selected=rows.find(r=>r.selected),complete=rows.every(r=>r.status==='hypothetical-evaluated');
   return {schemaVersion:1,type:REVIEW,task:76,freezeId:frozen.id,decisionRef:frozen.decisionRef,asOf,classification:frozen.classification,
     status:complete?'compared':'pending',rows:rows.map(r=>({...r,differenceFromSelected:complete?round(r.netPnl-selected.netPnl):null})),
+    opportunityCost:compareOpportunityCost(frozen,rows,complete),
     actualExecutionClaim:false,meaning:frozen.classification==='prospective'?'与事前冻结方案作同条件纸面对照，不写入权威账户':'事后探索，不能声称当时本应知道最佳方案',...FLAGS};
 }
 function recordDecisionAlternativeReview(root,freezeId,outcomes,{requestId,expectedRevision,now=Date.now(),beforeCommit,authorize}={}) {
