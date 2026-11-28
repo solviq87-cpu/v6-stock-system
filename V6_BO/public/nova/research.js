@@ -316,7 +316,19 @@ function evidence(ctx){
     if(projection.status==='unknown')return root;
     for(const event of projection.rows){
       const row=event.row;
-      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'摘要或节选':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'摘要或节选':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],...(!event.indexAdjustment?[['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知']]:[]),['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const adjustment=event.indexAdjustment;
+      if(adjustment){
+        const states={'future-date':'计划日期未到','date-reached-unverified':'已到计划日期，实施未核实','date-passed-unverified':'已过计划日期，实施未核实','unknown-date':'计划日期不明确','manual-review':'存在澄清或计划变更，待复核',inactive:'该截点不作为有效计划'};
+        const panel=box('指数调样计划',states[adjustment.status]||'未知',facts([
+          ['公告日期（材料声明）',adjustment.announcementDate||'未知；不补发布时间'],
+          ['计划生效',adjustment.plannedDate?adjustment.plannedDate+' · '+(adjustment.phase==='after-close'?'收市后，未提供具体时分':'仅日期，时分未知'):'未知或冲突'],
+          ['本页研究截点',clock(asOf)],['实际实施与成交','未核实'],['权重、跟踪规模与配置金额','未知']]),n('p',adjustment.note,'fy-note'));
+        if(adjustment.status==='inactive')panel.append(n('p',arr(event.securityIdentity?.inactiveReasons).map(x=>x.label).join('；'),'fy-note'));
+        for(const table of adjustment.tables)panel.append(box(table.indexName+' · 名单节选',table.status==='source-excerpt'?'材料列头方向，未核实完整名单':'列头、行或关联不完整，方向未知',
+          facts([['计划调出',table.removals.map(x=>x.symbol+' '+x.name).join('、')||'未知'],['计划调入',table.additions.map(x=>x.symbol+' '+x.name).join('、')||'未知']])));
+        card.append(panel);
+      }
       const identity=event.securityIdentity;
       const inactiveLabel=arr(identity?.inactiveReasons).map(x=>x.label).filter(x=>typeof x==='string'&&x).join('；')||'使用条件未确认，待核对';
       if(identity?.rows.some(x=>x.type||x.typeConflict||x.status==='conflict'))card.append(box('证券类型线索','原文声明，正式证券身份未核实',

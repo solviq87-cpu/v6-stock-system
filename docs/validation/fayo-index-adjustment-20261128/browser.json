@@ -1,0 +1,185 @@
+{
+  "scope": "Original software, CSS viewports only, all external browser requests blocked. Not physical-device or mainland-network acceptance.",
+  "records": [
+    {
+      "case": "actual-current",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        1366,
+        900
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 1366,
+        "scrollWidth": 1366
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "actual-old",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        1366,
+        900
+      ],
+      "http": 200,
+      "label": "已过计划日期，实施未核实",
+      "geometry": {
+        "viewport": 1366,
+        "scrollWidth": 1366
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-withdrawn",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        1366,
+        900
+      ],
+      "http": 200,
+      "label": "该截点不作为有效计划",
+      "geometry": {
+        "viewport": 1366,
+        "scrollWidth": 1366
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-historical",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        1366,
+        900
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 1366,
+        "scrollWidth": 1366
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "actual-current",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        390,
+        844
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 390,
+        "scrollWidth": 390
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "actual-old",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        390,
+        844
+      ],
+      "http": 200,
+      "label": "已过计划日期，实施未核实",
+      "geometry": {
+        "viewport": 390,
+        "scrollWidth": 390
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-withdrawn",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        390,
+        844
+      ],
+      "http": 200,
+      "label": "该截点不作为有效计划",
+      "geometry": {
+        "viewport": 390,
+        "scrollWidth": 390
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-historical",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        390,
+        844
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 390,
+        "scrollWidth": 390
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "actual-current",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        320,
+        740
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 320,
+        "scrollWidth": 320
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "actual-old",
+      "inputClass": "actual public excerpt",
+      "viewport": [
+        320,
+        740
+      ],
+      "http": 200,
+      "label": "已过计划日期，实施未核实",
+      "geometry": {
+        "viewport": 320,
+        "scrollWidth": 320
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-withdrawn",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        320,
+        740
+      ],
+      "http": 200,
+      "label": "该截点不作为有效计划",
+      "geometry": {
+        "viewport": 320,
+        "scrollWidth": 320
+      },
+      "pageErrors": []
+    },
+    {
+      "case": "synthetic-historical",
+      "inputClass": "synthetic isolated control",
+      "viewport": [
+        320,
+        740
+      ],
+      "http": 200,
+      "label": "计划日期未到",
+      "geometry": {
+        "viewport": 320,
+        "scrollWidth": 320
+      },
+      "pageErrors": []
+    }
+  ]
+}

@@ -48,6 +48,55 @@ export function projectSecurityIdentity(e,{active=true,inactiveReasons=[]}={}){
     note:'仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。',...flags};
 }
 
+// A calendar of source statements, not an index master or a fund-flow estimate.
+// Keep this inside the existing offline module: evidence reads need no new asset or service.
+function projectIndexAdjustment(e,asOf,inactiveReasons){
+  if(typeof e.body!=='string'||e.body.length>50000||typeof e.title!=='string'||e.title.length>1000)return null;
+  const text=e.title+'\n'+e.body;
+  if(!/指数[^\n。]{0,20}(?:样本|成分)[^\n。]{0,12}调整/.test(text))return null;
+  const date=(y,m,d)=>{
+    const value=y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
+    return Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value?value:null;
+  };
+  const dates=[...e.body.matchAll(/(?:于|自)\s*(\d{4})年(\d{1,2})月(\d{1,2})日\s*(收市后|起)?\s*(?:生效|实施)/g)]
+    .map(m=>({date:date(m[1],m[2],m[3]),phase:m[4]==='收市后'?'after-close':'date-only',quote:m[0]}));
+  const unique=new Set(dates.map(x=>x.date+'|'+x.phase));
+  const declared=dates.length&&dates.every(x=>x.date)&&unique.size===1?dates[0]:null;
+  const announced=[...e.body.matchAll(/公告日期[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/g)].map(m=>date(m[1],m[2],m[3]));
+  const announcementDate=announced.length&&announced.every(Boolean)&&new Set(announced).size===1?announced[0]:null;
+  const review=/澄清|否认|不属实|取消|延期|暂停|撤销|撤回/.test(text);
+  const day=new Date(asOf+8*3600000).toISOString().slice(0,10);
+  const status=inactiveReasons.length?'inactive':review?'manual-review':!declared?'unknown-date':
+    declared.date>day?'future-date':declared.date===day?'date-reached-unverified':'date-passed-unverified';
+  const lines=e.body.split(/\r?\n/),headings=[];
+  for(let i=0;i<lines.length;i++){
+    const m=lines[i].trim().match(/^([\p{Script=Han}A-Za-z0-9 \t]{1,50}指数)\s*(?:样本|成分)调整名单[：:]$/u);
+    if(m)headings.push({indexName:m[1].replace(/\s/g,''),line:i});
+  }
+  const tables=[];
+  // Unsupported layouts remain raw evidence. Never guess direction or propagate a table.
+  for(let h=0;h<Math.min(headings.length,20);h++){
+    const heading=headings[h],block=lines.slice(heading.line+1,headings[h+1]?.line??lines.length).map(s=>s.trim()).filter(Boolean);
+    const removals=[],additions=[],seen=new Set();
+    let valid=headings.filter(x=>x.indexName===heading.indexName).length===1&&
+      block[0]?.replace(/\s/g,'')==='调出名单调入名单'&&block[1]?.replace(/\s/g,'')==='证券代码证券名称证券代码证券名称'&&
+      block.length>=3&&block.length<=102&&Array.isArray(e.securities)&&e.securities.length<=100;
+    for(const line of valid?block.slice(2):[]){
+      const cells=line.split(/\s{2,}|\t+/);
+      if(cells.length!==4||![cells[0],cells[2]].every(c=>/^\d{6}$/.test(c)&&e.securities.includes(c)&&!seen.has(c))||
+        cells[0]===cells[2]||![cells[1],cells[3]].every(n=>/^[\p{Script=Han}A-Za-z0-9*（）()·\-]{1,40}$/u.test(n))){valid=false;break;}
+      seen.add(cells[0]);seen.add(cells[2]);
+      removals.push({symbol:cells[0],name:cells[1]});additions.push({symbol:cells[2],name:cells[3]});
+    }
+    tables.push({indexName:heading.indexName,status:valid?'source-excerpt':'unknown',
+      removals:valid?removals:[],additions:valid?additions:[],fullListVerified:false});
+  }
+  return {status,announcementDate,plannedDate:declared?.date??null,phase:declared?.phase??null,quote:declared?.quote??null,
+    effectiveAt:null,tables,inactiveReasons:[...inactiveReasons],implementationConfirmed:false,actualFlow:null,weights:null,trackingAssets:null,
+    note:'仅本页已归档材料中的调样计划与名单节选；日期到达不代表实施完成。权重、跟踪规模、实际配置和成交未知。',
+    sourceVerified:false,canQualify:false,canTrade:false,canTrain:false,canNotify:false};
+}
+
 // Read-only, point-in-time view of existing news journal receipts. No trade or notification API.
 export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={}){
   const validTime=(v)=>Number.isSafeInteger(v)&&v>0&&v<=now;
@@ -104,6 +153,7 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
       e.kind==='retracted'?'retracted':null,!chainComplete?'incomplete-chain':null].filter(Boolean);
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,
       securityIdentity:projectSecurityIdentity(e,{active:inactiveReasons.length===0,inactiveReasons}),
+      indexAdjustment:projectIndexAdjustment(e,asOf,inactiveReasons),
       effectiveAt:null,effectiveDate:effective?.date??null,effectiveQuote:effective?.quote??null,formalDisclosure:disclosure,chainComplete,missing,
       revisionStatus:row.current===false?'已被后续版本替代':row.associated===false?'证券关联已移除':e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
       researchOnly:true,canTrade:false,canNotify:false});
