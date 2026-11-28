@@ -3,6 +3,7 @@
 // This adapter never changes sizing, exits, cash or positions. A confirmed plan
 // can only call the existing paperBuy path, then report its committed fill.
 const {aShareCalendarDate} = require('./a-share-calendar');
+const {observedPlanPath}=require('./research-opportunity-review');
 const {executionTimeOf} = require('./paper-fill-evidence');
 const {digest}=require('./research-workspace-store');
 const PLAN_PREFIX = '作战台计划[';
@@ -307,7 +308,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
         observations:touches.slice(-1).map(reference),eventIds:context.sells.map(s=>s.eventId)});
     }
     rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,
-      remainingQuantity:context.remaining,coverage,facts});
+      remainingQuantity:context.remaining,coverage,facts,observedPath:observedPlanPath(plan,samples,{day,cutoff})});
   }
   const facts=rows.flatMap(r=>r.facts),assessed=facts.filter(f=>['符合','触发'].includes(f.status));
   const unknown=facts.filter(f=>f.status==='资料不足').length,passed=assessed.filter(f=>f.status==='符合').length;
