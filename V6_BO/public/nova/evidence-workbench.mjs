@@ -136,7 +136,7 @@ export function createResearchReplay(ctx,{symbol='',runId=null,asOf=null,signal=
   display.replaceChildren(plotReplay(visible,data.markers,enabled,paintEvents,display.clientWidth||720),
    h('p',{class:'fy-muted'},'粉色：个股 · 紫色：板块 · 青色：指数 · 黄色：事件。证券、分类或计算口径变化处断开；各自来源的涨幅不自动等于超额收益。'),
    ...arr(data.missing).map(s=>h('small',{class:'fy-muted'},s)),
-   data.attentionPair?details('本地新闻与同期成交额配对',facts([['状态',data.attentionPair.status],['完整本地股票池',data.attentionPair.expectedSecurities],['有效证券',data.attentionPair.validSecurities],['配对证券',data.attentionPair.pairedSecurities],['成交额集中度',data.attentionPair.turnoverHHI],['新闻组集中度',data.attentionPair.attentionHHI],['高关注低成交反例',arr(data.attentionPair.counterexamples).join('、')||'无已核对结果']]),note('仅本地封存样本，不代表全市场热度或资金流。舆情聚合许可、样本偏差和机器人处理证据未齐，暂停采集。')):null,
+   ...(data.attentionPair?[details('本地新闻与同期成交额配对',facts([['状态',data.attentionPair.status],['完整本地股票池',data.attentionPair.expectedSecurities],['有效证券',data.attentionPair.validSecurities],['配对证券',data.attentionPair.pairedSecurities],['成交额集中度',data.attentionPair.turnoverHHI],['新闻组集中度',data.attentionPair.attentionHHI],['高关注低成交反例',arr(data.attentionPair.counterexamples).join('、')||'无已核对结果']]),note('仅本地封存样本，不代表全市场热度或资金流。舆情聚合许可、样本偏差和机器人处理证据未齐，暂停采集。'))]:[]),
    h('div',{class:'fy-inline'},days.map(r=>button(r.date+' 证据',()=>paintEvents(r.date),'quiet'))),
    details('逐日数值、数据源与原始时点',...visible.map(r=>details(r.date+' · '+(r.comparison==='same-window'?'同窗口':'非完整同口径'),
      ...['stock','sector','index','close'].map(k=>facts([[seriesLabels[k]||'未复权收盘价',r[k]?format(r[k].value,2)+(k==='close'?' 元':'%'):'未知'],['来源',r[k]?.source],['证券与口径',scalarDetails(r[k]?.identity)],['已知时点',r[k]?dateTime(r[k].knownAt):'未知'],['原研究引用',r[k]?.ref]]))))));
