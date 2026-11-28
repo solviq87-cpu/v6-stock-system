@@ -55,4 +55,25 @@ function reviewCrossMarketLead({plan,calendars={},admitted=[],asOf}={}){
  const comparable=holdouts.every(x=>x.deltaMatchRate!==null);
  return {...empty,status:comparable?'descriptive-holdout-comparison':'insufficient-comparable-samples',planFingerprint:hash(plan),calendarFingerprint:hash([fc,cc]),training:{attempted:train.length,paired:training.length,decided:trainingDecided.length,baselineDirection:baseline||null,pairs:training},holdouts,unknownRows,relationshipReversal:comparable?(holdouts[0].deltaMatchRate>0&&holdouts[1].deltaMatchRate<0||holdouts[0].deltaMatchRate<0&&holdouts[1].deltaMatchRate>0):null};
 }
-module.exports={reviewCrossMarketLead};
+// Same CN session common movement on the existing dual-source admission.
+// Missing or disputed source observations cannot turn into a market shock.
+function reviewCommonAssetShock({plan,calendar:cal,gate,asOf}={}){
+ const empty={mode:'same-session-common-asset-observation-v1',status:'not-configured',rows:[],shock:null,sourceFault:null,causalInferenceVerified:false,preregistered:false,canTrade:false,canNotify:false};
+ if(!plan)return empty;
+ const bad=reason=>({...empty,status:'unknown',reason});
+ if(!time(asOf)||!day(plan.date)||!time(plan.registeredAt)||!Array.isArray(plan.series)||plan.series.length<2||plan.series.length>20||!finite(plan.thresholdPct)||plan.thresholdPct<=0||plan.thresholdPct>20||!Array.isArray(gate?.admitted)||!Array.isArray(gate?.comparisons))return bad('invalid-declared-plan');
+ const ids=plan.series.map(r=>r?.code),classes=new Set(plan.series.map(r=>r?.kind));
+ if(new Set(ids).size!==ids.length||!classes.has('broad-index')||!classes.has('industry-etf')||!plan.series.every(r=>typeof r?.code==='string'&&/^[A-Za-z0-9.:-]{1,48}$/.test(r.code)&&['broad-index','industry-etf','broad-etf'].includes(r.kind)&&typeof r.source==='string'&&r.source))return bad('series-identity-unavailable');
+ const sessions=calendar(cal,'CN'),session=sessions?.find(r=>r.date===plan.date);
+ if(!session||plan.registeredAt>=session.open||cal.knownAtMs>=session.open||asOf<session.close)return bad('same-session-not-mature-or-plan-late');
+ const rows=plan.series.map(s=>{
+  const matches=gate.admitted.filter(r=>r.market==='CN'&&r.code===s.code&&r.day===plan.date&&r.adjustment==='hfq'),cmp=gate.comparisons.filter(r=>r.market==='CN'&&r.code===s.code&&r.day===plan.date&&r.adjustment==='hfq');
+  const r=matches.length===1?matches[0]:null;
+  const ready=r&&cmp.length===1&&cmp[0].status==='admitted'&&cmp[0].independentSources>=2&&r.source===s.source&&r.currency==='CNY'&&r.canTrade===false&&r.suspended===false&&Array.isArray(r.supportingSources)&&new Set(r.supportingSources).size>=2&&time(r.consensusKnownAt)&&r.consensusKnownAt>=session.close&&r.consensusKnownAt<=asOf&&finite(r.open)&&r.open>0&&finite(r.close)&&r.close>0&&finite(100*(r.close/r.open-1));
+  return {code:s.code,kind:s.kind,source:s.source,status:ready?'admitted-observation':'source-evidence-unavailable',returnPct:ready?100*(r.close/r.open-1):null,knownAt:ready?r.consensusKnownAt:null,sourceStatus:cmp.length===1?cmp[0].status:null};
+ });
+ if(rows.some(r=>r.returnPct===null))return {...empty,status:'incomplete-source-evidence',rows,sourceFault:'not-established; missing or disputed evidence',shock:null};
+ const down=rows.every(r=>r.returnPct<=-plan.thresholdPct),up=rows.every(r=>r.returnPct>=plan.thresholdPct);
+ return {...empty,status:'descriptive-same-session',rows,shock:down?'common-down-observation':up?'common-up-observation':'no-joint-threshold-observation',thresholdPct:plan.thresholdPct,sourceFault:'not-established',planFingerprint:hash(plan)};
+}
+module.exports={reviewCrossMarketLead,reviewCommonAssetShock};
