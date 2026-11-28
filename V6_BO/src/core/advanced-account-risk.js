@@ -4,7 +4,7 @@
 const {quoteUseEligibility,quoteSnapshotFields}=require('./quote-observation-view');
 const {tradingFees}=require('./trading-fees');
 const {exitRisk}=require('./advanced-portfolio-evidence');
-const {reconcileAccountSnapshot,defensiveStatus}=require('./account-safety-state');
+const {reconcileAccountSnapshot,defensiveStatus,pendingBuyOrderBudget}=require('./account-safety-state');
 const MAX_HOLDINGS=220;
 const qty=x=>Number.isSafeInteger(x)&&x>=0;
 const num=x=>typeof x==='number'&&Number.isFinite(x);
@@ -80,8 +80,9 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   if(o.side==='sell'){const amount=(sellFrozen.get(o.symbol)||0)+s.remainingQuantity;if(!qty(amount))return unavailable(account,'FROZEN_QUANTITY_OVERFLOW');sellFrozen.set(o.symbol,amount);}
   else try{
    if(!dateOk(o.tradeDate)||!num(o.limitPrice)||o.limitPrice<=0)throw Error('invalid order');
-   const fee=tradingFees({side:'buy',quantity:s.remainingQuantity,price:o.limitPrice,tradeDate:[o.tradeDate,day].sort().at(-1),policy:book.feePolicy,schedules:book.feeSchedules||null,priorFills:item.events});
-   reservedCash+=s.remainingQuantity*o.limitPrice+fee.total;
+   // F24.3: use the original authority's execution-day reservation and
+   // fill-only commission credit, including its nonnegative-fee guard.
+   reservedCash+=pendingBuyOrderBudget(book,item,day);
    if(!num(reservedCash)||reservedCash<0)throw Error('invalid cash');
   }catch{feesComplete=false;}
  }
@@ -121,6 +122,7 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
    exitCostBasis:"unavailable",estimatedFeeBasis:fee===null?null:"current-mark-single-order-fee",multiSessionExitCost:null,actualExitCost:null,
    guaranteedFill:false,alerts:rowAlerts});
  }
+ if(feesComplete&&(!num(money(reservedCash))||!num(money(book.account.cash-reservedCash))))feesComplete=false;
  if(feesComplete&&reservedCash>book.account.cash+0.011)return unavailable(account,'CASH_RESERVATION_MISMATCH');
  if(!feesComplete)alerts.push(issue('CASH_RESERVATION_UNKNOWN','high','原待买委托费率或预算证据不足',account,'不确认可用资金；建议核对原委托','核对生效费率及未终结委托','原冻结资金可核对'));
  const marksComplete=markedCount===positions.length&&num(markedValue);
