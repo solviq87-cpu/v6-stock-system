@@ -72,8 +72,8 @@ function matchedIndustryDiagnostics(rows,id){
  for(const row of rows)if(row.industry){const key=row.industry.code;if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(row);}
  const eligible=[...grouped.values()].filter(g=>g.length>=2);
  const matched=eligible.flat(),means=eligible.map(g=>mean(g.map(x=>x.returnPct)));
- // Select highest/lowest frozen factor value within the SAME industry. Exclude
- // groups with a tied max/min rather than arbitrate on outcomes or stock IDs.
+ // Select highest/lowest frozen factor value within the SAME industry. Average
+ // tied extremes; exclude constant groups without choosing by outcomes or IDs.
  const spreads=[];
  for(const group of eligible){
   const lo=Math.min(...group.map(x=>x.values[id])),hi=Math.max(...group.map(x=>x.values[id]));

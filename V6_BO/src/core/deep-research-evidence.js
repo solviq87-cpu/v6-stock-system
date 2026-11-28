@@ -277,14 +277,18 @@ function summarizeGuidanceRevisions(expectations,asOf){
   const input=array(expectations,'事前预期',2000),current=versions(input,asOf,'事前预期',2000);
   const revisions=[],unknown=[];
   const valid=x=>x&&x.expectationKind==='company-guidance'&&symbol(x.symbol)&&text(x.period,80)&&text(x.metric,80)&&text(x.unit,60)&&finite(x.value)&&x.retracted!==true;
-  const consensus=current.rows.filter(x=>x.expectationKind==='consensus'&&x.retracted!==true&&finite(x.value)&&Number.isSafeInteger(x.sampleSize)&&x.sampleSize>=1);
+  // Use the consensus visible before each guidance publication; a later revision
+  // must not erase the earlier reference or enter the historical comparison.
+  const snapshots=new Map();
   for(const row of current.rows){
     if(!valid(row))continue;
-    const matchedConsensus=consensus.filter(x=>['symbol','period','metric','unit'].every(k=>x[k]===row[k])&&x.recordedAt<=row.recordedAt);
+    const cutoff=row.publishedAt-1;
+    if(!snapshots.has(cutoff))snapshots.set(cutoff,versions(input,cutoff,'事前一致预期',2000).rows.filter(x=>x.expectationKind==='consensus'&&x.retracted!==true&&finite(x.value)&&Number.isSafeInteger(x.sampleSize)&&x.sampleSize>=1));
+    const matchedConsensus=snapshots.get(cutoff).filter(x=>['symbol','period','metric','unit'].every(k=>x[k]===row[k]));
     const common={id:row.id,source:row.source,symbol:row.symbol,period:row.period,metric:row.metric,unit:row.unit,
       currentValue:row.value,currentRevision:row.revision,currentEvidence:provenance(row,asOf),
       consensusStatus:matchedConsensus.length?'same-definition-declared-consensus-present':'no-matching-consensus-in-visible-input',
-      consensusRefs:matchedConsensus.map(x=>provenance(x,asOf)),expectedConsensus:null,
+      consensusRefs:matchedConsensus.map(x=>provenance(x,cutoff)),expectedConsensus:null,
       independentConsensusVerified:false,canTrade:false};
     const earlier=versions(input,row.recordedAt-1,'事前指引',2000).rows.find(x=>x.source===row.source&&x.id===row.id);
     if(!valid(earlier)||earlier.revision!==row.revision-1||earlier.recordedAt>=row.recordedAt||

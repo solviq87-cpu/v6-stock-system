@@ -342,3 +342,11 @@ test('F30.3 directed business path follows event-time versions and current holdi
  const r=D.buildRelationshipGraph({relations:[direct,link,later,reversed,concept],events:[event({entityIds:['issuer']})],account:account()},{asOf:t2}).directedExposure;
  assert.equal(r.rows.length,1);assert.deepEqual(r.rows[0].paths[0].nodes,['issuer','middle','600000']);assert.deepEqual(r.rows[0].currentHoldingExposure.symbols,['600000']);assert.equal(r.rows[0].holdingAtEventCertified,false);assert.equal(r.rows[0].impactDirection,null);assert.equal(r.causalPropagationEstablished,false);
 });
+
+test('F19.2 later consensus revision cannot replace or erase the pre-publication consensus',()=>{
+ const guidance=expected({id:'guidance-only',expectationKind:'company-guidance',sampleSize:undefined}),revised={...guidance,revision:2,publishedAt:t1,firstKnownAt:t1,recordedAt:t1+1000,value:120};
+ const first=expected({id:'consensus-only',expectationKind:'consensus',sampleSize:3}),later={...first,revision:2,publishedAt:t2,firstKnownAt:t2,recordedAt:t2,value:150};
+ const near=expected({id:'too-late-consensus',expectationKind:'consensus',sampleSize:3,publishedAt:t1,firstKnownAt:t1,recordedAt:t1});
+ const g=D.buildExpectationStudy({expectations:[guidance,revised,first,later,near]},{asOf:t2}).guidanceRevisions.revisions[0];
+ assert.equal(g.consensusRefs.length,1);assert.equal(g.consensusRefs[0].revision,1);assert.equal(g.expectedConsensus,null);assert.equal(g.independentConsensusVerified,false);
+});
