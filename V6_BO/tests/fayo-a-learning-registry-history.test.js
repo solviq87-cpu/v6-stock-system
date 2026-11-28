@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const {fixture}=require('./helpers/adaptive-fixture'),{createRegistry}=require('../src/core/learning-profile-registry');
+const {fixture}=require('./helpers/adaptive-fixture'),{createRegistry,applyActiveProfile}=require('../src/core/learning-profile-registry');
 // Synthetic historical prices, not a production strategy or a live account.
 function setup(t,{marketGate=false,noCandidate=false}={}){
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'v6-a35-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
@@ -30,3 +30,6 @@ test('A35 historical market gate receipts are mandatory for market-gated promoti
 test('A35 an honest no-candidate holdout remains readable but cannot promote',t=>{const x=ready(t,{noCandidate:true});const s=x.r.status();assert.equal(s.holdout.eligible,false);assert.equal(s.evaluation.selectedId,null);assert.equal(x.r.activeProfile(3).id,'baseline');assert.throws(()=>x.r.promote(3),/门禁/);});
 test('A35 a rolled-back candidate cannot reuse the old holdout to promote again',t=>{const x=ready(t);x.r.promote(3);x.r.rollback(4);const before=fs.readFileSync(x.file);assert.throws(()=>x.r.promote(5),/回滚隔离/);assert.deepEqual(fs.readFileSync(x.file),before);assert.equal(x.r.activeProfile(5).id,'baseline');});
 test('A35 an older valid repeated promotion history stays readable, but future reuse after rollback is blocked',t=>{const x=ready(t);x.r.promote(3);x.r.rollback(4);const s=state(x);s.events.push({type:'promote',from:'baseline',to:'prior4',revision:6});s.revision=6;s.active='prior4';save(x,s);assert.equal(x.r.verify({replay:true}).active,'prior4');assert.equal(x.r.promote(6).revision,6);assert.equal(x.r.rollback(6).active,'baseline');assert.throws(()=>x.r.promote(7),/回滚隔离/);assert.equal(x.r.status().events.length,4);});
+
+test('F50.3 already-bound research input cannot rebind to a newly rolled-back active version',t=>{const x=ready(t);x.r.promote(3);const old=x.r.activeProfile(4);x.r.rollback(4);const input={version:'original@profile-'+old.fingerprint.slice(0,16)+'-r4',parameterProfile:old},before=JSON.stringify(input),stateBefore=fs.readFileSync(x.file);assert.throws(()=>applyActiveProfile(input,x.root,5),/历史研究不得重新套用/);assert.equal(JSON.stringify(input),before);assert.deepEqual(fs.readFileSync(x.file),stateBefore);assert.equal(x.r.activeProfile(5).id,'baseline');});
+test('F50.3 removing the frozen receipt alone cannot silently renew a tagged research version',()=>{assert.throws(()=>applyActiveProfile({version:'original@profile-0123456789abcdef-r4'},'/not-opened',5),/历史研究不得重新套用/);});
