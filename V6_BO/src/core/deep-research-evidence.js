@@ -13,6 +13,7 @@ const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
 const {preEventComparison,eventRegimeOverlay} = require('./event-prewindow-research');
 const {projectEventReview} = require('./event-path-review');
+const {levelOneReview,microstructureReview,summarizeMicrostructureSessions} = require('./microstructure-evidence-review');
 
 const LIMIT = 10000;
 const FLAGS = Object.freeze({researchOnly:true, canTrade:false, canNotify:false,
@@ -489,7 +490,7 @@ function buildDepthResearch(input={}, options={}) {
     if (!symbol(r.symbol)||!['depth-snapshot','trade-ticks','auction-indicative','quote-snapshot'].includes(r.granularity)) {
       rejected.push({id:r.id,reason:'identity-or-granularity-missing'});continue;
     }
-    if (r.granularity==='quote-snapshot') {rows.push({...base,status:'unsupported-granularity',missing:['普通报价快照不包含逐笔、队列或可靠盘口深度']});continue;}
+    if (r.granularity==='quote-snapshot'&&r.levelOne!==true) {rows.push({...base,status:'unsupported-granularity',missing:['普通报价快照不包含逐笔、队列或可靠盘口深度']});continue;}
     if (!authorization(r)) {rows.push({...base,status:'authorization-unavailable',missing:['缺少涵盖本源、本粒度、证券范围与原始时点的授权证据']});continue;}
     const wire={...r,price:r.price,quoteAt:r.quoteAt,receivedAt:r.receivedAt,quoteSource:r.source};
     const freshness=quoteObservationView(wire,asOf), receipt=quoteObservationView(wire,r.recordedAt);
@@ -498,7 +499,10 @@ function buildDepthResearch(input={}, options={}) {
       rows.push({...base,status:'source-time-unusable',freshness,missing:['原始报价、首次接收或15秒采集门禁未通过']});continue;
     }
     let metrics=null,auction=null,missing=[];
-    if (r.granularity==='depth-snapshot') {
+    if (r.granularity==='quote-snapshot') {
+      metrics=Array.isArray(r.bids)&&Array.isArray(r.asks)&&[...r.bids,...r.asks].every(p=>matchingDepthIdentity(p,r,r.quoteAt))?levelOneReview(r,receipt):null;
+      if(!metrics)missing.push('缺少经原授权和时点门禁的同一证券双边L1股数、价格与来源');
+    } else if (r.granularity==='depth-snapshot') {
       metrics=depthMetrics(r);if(!metrics)missing.push('盘口档位、证券身份、股数单位、顺序或价差无效');
     } else if (r.granularity==='trade-ticks') {
       metrics=tickMetrics(r);
@@ -519,11 +523,12 @@ function buildDepthResearch(input={}, options={}) {
     const current=usable&&entitlementCurrent&&freshness.quoteStatus==='recent-unverified'&&freshness.missingReason===null&&
       aShareCalendarDate(r.quoteAt)===aShareCalendarDate(asOf)&&
       (r.granularity!=='trade-ticks'||asOf-metrics.lastTradeAt<=15000);
-    rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing});
-    if (current&&metrics?.spreadBps>=100) risks.push(risk('liquidity-spread',r.symbol,[base.evidence],
+    rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing,
+      microstructure:metrics?microstructureReview(r,metrics,sessionOf(r.quoteAt)):null});
+    if (current&&r.granularity==='depth-snapshot'&&metrics?.spreadBps>=100) risks.push(risk('liquidity-spread',r.symbol,[base.evidence],
       '同源真实买卖价差达到100个基点，仅覆盖所提供档位','同源新鲜盘口价差低于阈值并经原风险中心重新核验',asOf));
   }
-  return result(70,rows,rows.length?[]:['尚无合法授权且带真实粒度的盘口或竞价数据'],{rejected,riskObservations:risks,
+  return result(70,rows,rows.length?[]:['尚无合法授权且带真实粒度的盘口或竞价数据'],{rejected,riskObservations:risks,microstructureSessions:summarizeMicrostructureSessions(rows),
     limitations:['买卖挂单失衡不是成交失衡；均不代表主力意图','盘口深度仅覆盖提供档位，不估算排队位置','逐笔样本不等于完整市场成交带','授权仅为声明的研究证据，未独立认证','历史记录可供研究；15秒外数据不生成当前盘口预警']});
 }
 
