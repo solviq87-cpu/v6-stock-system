@@ -1,0 +1,11 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const {conditionChanges}=require('../src/core/research-workspace-decision');
+const {timeline}=require('../src/core/research-workspace-analytics');
+const snapshot=(id,time,overrides={})=>({symbol:'600000',provider:'tencent',priceBasis:'unadjusted',asOf:time,tradeDate:'2026-11-27',targetDate:'2026-11-30',observationHash:id,bundleHash:id,conditions:[{id:'rule',field:'x',name:'rule',status:'pass',value:5,threshold:4,op:'>',version:'v1',evidenceIds:[id]}],evidence:[{id,symbol:'600000',field:'x',value:5,source:'official',sourceTimestamp:1,periodEnd:1,status:'derived-unverified',receivedAt:time,bundleHash:id,...overrides}],systems:[{id:'test',verdict:'pass'}]});
+const before=snapshot('a',10),same=snapshot('b',20),revised=snapshot('c',30,{source:'revised'});
+test('F38.3 same decision new capture does not create a semantic change',()=>assert.equal(conditionChanges(same,before).changes.length,0));
+test('F38.3 actual source correction with unchanged rule value is visible',()=>assert.deepEqual(conditionChanges(revised,same).changes[0].fields,['evidence']));
+test('F38.3 missing reference is not silently treated as valid evidence',()=>assert.deepEqual(conditionChanges({...same,evidence:[]},before).changes[0].fields,['evidence']));
+test('F38.3 timeline links exact previous run of the same identity and respects cutoff',()=>{const events=[before,same,{...same,provider:'eastmoney',asOf:25},revised].map((data,i)=>({kind:'analysis',hash:'run'+i,sequence:i+1,recordedAt:data.asOf,data}));const r=timeline(events,'600000',30);assert.deepEqual(r.map(x=>x.previousRunId),[null,'run0',null,'run1']);assert.deepEqual(r.map(x=>x.changeDetected),[false,false,false,true]);assert.equal(timeline(events,'600000',25).length,3);});
+test('F38.3 rule status and version change still detected',()=>{const c=structuredClone(same);c.conditions[0].status='fail';c.conditions[0].version='v2';const r=conditionChanges(c,before);assert.equal(r.changes[0].kind,'rule-version-changed');assert.deepEqual(r.changes[0].fields,['status','version']);});

@@ -249,13 +249,22 @@ function buildWorkspaceDecision(result,{pythonEvidence,gptEvidence,fourteenEvide
   diagnostics:array(r.decisionReview?.diagnostics),
   limitations:['四体系条件独立，不相加为买卖票数','八字维度pass仅表示评分证据存在','研究观察不认证供应商真实性或可成交性']};
 }
+// Compare semantic fields, not node IDs that also hash capture time and bundle.
+function evidenceMeaning(nodes,row){
+ return [...new Set(array(row.evidenceIds).map(id=>{
+  const n=nodes.get(id);
+  return n?JSON.stringify(['symbol','field','value','source','sourceTimestamp','periodEnd','status','missingReason'].map(k=>n[k]??null)):JSON.stringify(['unresolved-reference']);
+ }))].sort();
+}
 function conditionChanges(current,previous){
  if(!previous)return {status:'first-observation',changes:[],systemChanges:[]};
  if(current.symbol!==previous.symbol||current.provider!==previous.provider||current.priceBasis!==previous.priceBasis)throw Error('不同身份不能直接比较判断');
  const old=new Map(array(previous.conditions).map(r=>[r.id,r])),changes=[];
+ const currentNodes=new Map(array(current.evidence).map(n=>[n.id,n])),previousNodes=new Map(array(previous.evidence).map(n=>[n.id,n]));
  for(const r of array(current.conditions)){
   const p=old.get(r.id);if(!p){changes.push({condition:r.id,name:r.name,kind:'added',after:r.status});continue;}
-  const changed=['status','value','threshold','op','version'].filter(k=>JSON.stringify(r[k])!==JSON.stringify(p[k]));
+  const changed=['status','value','threshold','op','version','field','coverageOnly','reason','invalidation'].filter(k=>JSON.stringify(r[k])!==JSON.stringify(p[k]));
+  if(JSON.stringify(evidenceMeaning(currentNodes,r))!==JSON.stringify(evidenceMeaning(previousNodes,p)))changed.push('evidence');
   if(changed.length)changes.push({condition:r.id,name:r.name,kind:r.version!==p.version?'rule-version-changed':
    current.tradeDate===previous.tradeDate&&(current.observationHash!==previous.observationHash||current.bundleHash!==previous.bundleHash)?'data-revision':'observed-change',
    fields:changed,before:{status:p.status,value:p.value,threshold:p.threshold},after:{status:r.status,value:r.value,threshold:r.threshold},
