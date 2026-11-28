@@ -40,7 +40,11 @@ async function reviewPlanNotice(ref,{clock,canRead,available,session,store,readA
       r.planVersion===alert.planVersion && r.code===alert.code && r.day===day);
     if(!record)return finish('unknown','原通知缺少可核对的已归档触发与报价');
     original={code:record.code,kind:alert.kind,decisionId:record.decisionId,planId:record.planId,
-      planVersion:record.planVersion,observedAt:record.observedAt,quoteAt:record.quoteAt,
+      planVersion:record.planVersion,observationId:record.fingerprint,alertId:alert.id,
+      inputProvenanceFingerprint:record.inputProvenanceFingerprint,intendedDate:record.intendedDate,frozenAt:record.frozenAt,
+      observedAt:record.observedAt,quoteAt:record.quoteAt,receivedAt:record.receivedAt,
+      originalQuoteValidUntil:record.quoteAt+15000,entryEventId:record.entryEventId,remainingQuantity:record.remainingQuantity,
+      actionWindow:alert.kind==='entry'?'original-entry-trading-day-only':'original-held-lot-only',
       price:record.price,source:record.source,gate:alert.availability,reason:alert.reason,
       entryMin:record.entryMin,entryMax:record.entryMax,stop:record.stop,target:record.target};
     if(!available())return finish('historical','当前计划观察已暂停或版本已变化');
@@ -66,9 +70,13 @@ async function reviewPlanNotice(ref,{clock,canRead,available,session,store,readA
        (point.quoteAt===record.quoteAt && point.price!==record.price))
       return finish('unknown','缺少可核对的当前同股报价，或与原时点报价矛盾');
     const gate=ref.kind==='entry'?point.entry:point.exit;
-    const current={price:point.price,quoteAt:point.quoteAt,source:point.source,validUntil:point.quoteAt+15000,
-      conditionObserved:alertsForRecord(point).some(a=>a.kind===ref.kind && a.entryEventId===alert.entryEventId),
-      gate:gate.allowed,reason:gate.reason};
+    const sameOriginalContext=point.entryEventId===alert.entryEventId;
+    const current={price:point.price,quoteAt:point.quoteAt,receivedAt:point.receivedAt,source:point.source,validUntil:point.quoteAt+15000,
+      observedAt:point.observedAt,observationId:point.fingerprint,sameOriginalContext,
+      remainingQuantity:sameOriginalContext?point.remainingQuantity:null,
+      conditionObserved:sameOriginalContext&&alertsForRecord(point).some(a=>a.kind===ref.kind && a.entryEventId===alert.entryEventId),
+      // A new lot in the same stock cannot supply the original notification's gate.
+      gate:sameOriginalContext?gate.allowed:null,reason:sameOriginalContext?gate.reason:'当前原持仓批次或入场状态已变化，不能沿用其他批次的预检'};
     if(!current.conditionObserved)return finish('waiting','当前报价或原持仓批次已不满足原触发条件',current);
     if(current.gate!==true)return finish(current.gate===false?'blocked':'unknown',gate.reason,current);
     return finish('observed','本次只读复核观察到原计划条件',current);
