@@ -24,8 +24,8 @@ function eventText(e,archive){
  return e;
 }
 function pathsFor(e,relations,{entity,product,region}={}){
- if(!str(entity,180))return [];
- return relations.filter(r=>proof(r,e.recordedAt)&&r.relationClass==='business'&&r.bodyScope==='declared-body'&&href(r.sourceUrl)&&time(r.validFrom)&&r.validFrom<=e.recordedAt&&(r.validUntil==null||time(r.validUntil)&&r.validUntil>e.recordedAt)&&
+ if(!code(e.symbol)||!str(entity,180))return [];
+ return relations.filter(r=>proof(r,e.recordedAt)&&str(r.from,180)&&str(r.to,180)&&r.from!==r.to&&str(r.relation,80)&&r.relationClass==='business'&&r.bodyScope==='declared-body'&&href(r.sourceUrl)&&time(r.validFrom)&&r.validFrom<=e.recordedAt&&(r.validUntil==null||time(r.validUntil)&&r.validUntil>e.recordedAt)&&
   (r.from===e.symbol&&r.to===entity||r.to===e.symbol&&r.from===entity)&&
   (product===undefined||r.productId===product)&&(region===undefined||r.marketRegion===region)&&excerpt(r.documentText,r.businessClause))
   .slice(0,20).map(r=>({entity,productId:r.productId??null,marketRegion:r.marketRegion??null,businessClause:r.businessClause,evidence:ref(r)}));
@@ -69,14 +69,15 @@ function projectEventReview({events=[],relations=[],journalRows=[],account,asOf}
  // The existing versions() reader is authoritative for selected versions.
  // Defensively reject duplicate identities instead of choosing input order.
  const counts=new Map();for(const e of events){if(proof(e,asOf))counts.set(sameIdentity(e),(counts.get(sameIdentity(e))||0)+1);}
+ const held=account&&['observed-account','incomplete-valuation'].includes(account.status)&&time(account.sourceAt)&&account.sourceAt<=asOf&&asOf-account.sourceAt<=15000&&Array.isArray(account.positions)&&account.positions.length<=1000&&account.positions.every(p=>code(p.symbol)&&Number.isSafeInteger(p.shares)&&p.shares>0)&&new Set(account.positions.map(p=>p.symbol)).size===account.positions.length?new Set(account.positions.map(p=>p.symbol)):null;
+ const eligible=events.filter(e=>proof(e,asOf)&&(code(e.symbol)||e.symbol==null&&(e.overseasEvent||e.policyApplicability||e.fundActivity))&&counts.get(sameIdentity(e))===1).sort((a,b)=>Number(held?.has(b.symbol)===true)-Number(held?.has(a.symbol)===true)||b.recordedAt-a.recordedAt||a.source.localeCompare(b.source)||a.id.localeCompare(b.id));
+ const wanted=new Set(eligible.slice(0,100).map(e=>e.evidenceId).filter(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)));
  const archive=new Map();
  for(const row of journalRows){
-  if(!row||!time(row.recordedAt)||row.recordedAt>asOf||!row.evidence||!/^[a-f0-9]{64}$/.test(row.eventHash||''))continue;
+  if(!row||!wanted.has(row.eventHash)||!time(row.recordedAt)||row.recordedAt>asOf||!row.evidence)continue;
   const {eventHash,...payload}=row;
   if(Journal.hash(payload)===eventHash)archive.set(eventHash,row);
  }
- const held=account&&['observed-account','incomplete-valuation'].includes(account.status)&&time(account.sourceAt)&&account.sourceAt<=asOf&&asOf-account.sourceAt<=15000&&Array.isArray(account.positions)&&account.positions.length<=1000&&account.positions.every(p=>code(p.symbol)&&Number.isSafeInteger(p.shares)&&p.shares>0)&&new Set(account.positions.map(p=>p.symbol)).size===account.positions.length?new Set(account.positions.map(p=>p.symbol)):null;
- const eligible=events.filter(e=>proof(e,asOf)&&(code(e.symbol)||e.symbol==null&&(e.overseasEvent||e.policyApplicability||e.fundActivity))&&counts.get(sameIdentity(e))===1).sort((a,b)=>b.recordedAt-a.recordedAt||a.source.localeCompare(b.source)||a.id.localeCompare(b.id));
  const rows=[],groups=new Map();
  for(const raw of eligible.slice(0,100)){
   const e=eventText(raw,archive),authority=issuerClue(e),holdingRelated=held&&code(e.symbol)?held.has(e.symbol):null;
