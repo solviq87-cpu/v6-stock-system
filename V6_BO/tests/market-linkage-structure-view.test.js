@@ -13,7 +13,7 @@ function fixture(){
  }
  const doc={createElement:tag=>new Element(tag)},host=new Element('section');
  const all=(tag,parent=host)=>parent.children.flatMap(x=>[...(x.tagName===tag?[x]:[]),...all(tag,x)]);
- return {host,all,choose:b=>{const s=all('select')[0];s.value=b.value;s.dispatchEvent(new Event('change'));}};
+ return {host,all,click:b=>b.dispatchEvent(new Event('click')),choose:b=>{const s=all('select')[0];s.value=b.value;s.dispatchEvent(new Event('change'));}};
 }
 const dates=['2026-11-06','2026-11-09','2026-11-10','2026-11-11','2026-11-12','2026-11-13'],close=d=>Date.parse(d+'T15:00:00+08:00');
 const symbols=['600000','600001','600002','600003','600004'],other=['600010','600011','600012','600013','600014'];
@@ -57,4 +57,11 @@ test('unknown or malformed comparison and unsafe permissions cannot render resea
 test('old projection and cleared host retain unknown, never reuse previous comparison',()=>{
  const f=fixture(),v=archive().project();C.render(f.host,v);C.clear(f.host,true);assert.equal(f.host.textContent,'');
  delete v.mainlineComparison;v.boards.forEach(b=>delete b.trend.structure);C.render(f.host,v);assert.match(f.host.textContent,/五日行业比较证据不足/);assert.doesNotMatch(f.host.textContent,/前排迁移：保留/);
+});
+test('F05.4 existing relative strength and observed turnover roles remain independent in the card',()=>{
+ const f=fixture(),a=archive();const q=a.events.at(-1).data.context.marketLinkageEvidence;
+ q.stocks.forEach((r,i)=>r.turnover=i===0?100:1);
+ const v=a.project(),board=v.boards[0];assert.equal(board.members[0].role,'relative-back');assert.equal(board.members[0].turnoverRole,'turnover-core');assert.equal(board.members[1].role,'relative-front');assert.equal(board.members[1].turnoverRole,'unknown');
+ C.render(f.host,v);assert.match(f.host.textContent,/600000 · 当期相对后排/);assert.match(f.host.textContent,/成交角色：成交核心观察/);
+ f.click(f.all('button').find(b=>b.dataset.linkageSymbol==='600001'));assert.match(f.host.textContent,/600001 · 当期相对前排/);assert.match(f.host.textContent,/成交角色：成交证据不足/);assert.doesNotMatch(f.host.textContent,/涨停概率/);
 });
