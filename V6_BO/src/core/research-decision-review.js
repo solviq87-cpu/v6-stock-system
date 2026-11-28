@@ -15,13 +15,17 @@ function buildHypothesisTimeline(state, asOf) {
   if (!instant(asOf)) throw Error('研究时间线需要明确时点');
   const hypotheses = arr(state?.hypotheses);
   if (hypotheses.length > 500 || arr(state?.outcomes).length > 500 || arr(state?.corrections).length > 1000) throw Error('研究时间线超限');
-  const visible = hypotheses.filter(h => hash(h?.hypothesisHash) && known(h.decisionAt,asOf) && known(h.recordedAt,asOf));
+  const visible = hypotheses.filter(h => hash(h?.hypothesisHash) && known(h.decisionAt,asOf) && known(h.recordedAt,asOf) && h.decisionAt<=h.recordedAt);
   const ids = new Set();
   if (visible.some(h => ids.has(h.hypothesisHash) || !ids.add(h.hypothesisHash))) throw Error('研究时间线身份重复');
   visible.sort((a,b) => a.decisionAt-b.decisionAt || a.recordedAt-b.recordedAt || a.hypothesisHash.localeCompare(b.hypothesisHash));
-  const outcomes = arr(state?.outcomes).filter(o => known(o?.knownAt,asOf) && known(o.recordedAt,asOf));
+
+  const outcomes = arr(state?.outcomes);
   const rows = visible.map((h,i) => {
-    const outcome = outcomes.find(o => o.hypothesisHash === h.hypothesisHash && o.targetDate === h.targetDate);
+    // Preserve the first label: an invalid receipt must not be replaced by a later duplicate.
+    const first = outcomes.find(o => o?.hypothesisHash === h.hypothesisHash && o.targetDate === h.targetDate);
+    const outcome = first && known(first.knownAt,asOf) && known(first.recordedAt,asOf) &&
+      first.knownAt>h.decisionAt && first.knownAt<=first.recordedAt && first.recordedAt>=h.recordedAt ? first:null;
     const previous = visible[i-1], before = new Set(arr(previous?.matchedPatternIds)), after = new Set(arr(h.matchedPatternIds));
     const changes = [];
     for (const key of ['prediction','state']) if (previous && previous[key] !== h[key]) changes.push({field:key,before:text(previous[key]),after:text(h[key])});
@@ -32,24 +36,42 @@ function buildHypothesisTimeline(state, asOf) {
       observationHash:hash(h.observationHash),previousId:previous?.hypothesisHash||null,changes,
       addedPatterns:[...after].filter(x=>!before.has(x)).map(x=>text(x,90)),removedPatterns:[...before].filter(x=>!after.has(x)).map(x=>text(x,90)),
       outcome:outcome?{direction:text(outcome.outcome),matched:typeof outcome.matched==='boolean'?outcome.matched:null,knownAt:outcome.knownAt,recordedAt:outcome.recordedAt,evidenceBundleHash:hash(outcome.evidenceBundleHash)}:null,
-      corrections:arr(state?.corrections).filter(c=>c.hypothesisHash===h.hypothesisHash&&known(c.knownAt,asOf)&&known(c.recordedAt,asOf)).length};
+      corrections:outcome?arr(state?.corrections).filter(c=>c?.hypothesisHash===h.hypothesisHash&&known(c.knownAt,asOf)&&known(c.recordedAt,asOf)&&c.knownAt>h.decisionAt&&c.knownAt<=c.recordedAt&&c.recordedAt>=outcome.recordedAt).length:0};
   });
   return {total:rows.length,limit:50,truncated:rows.length>50,rows:rows.slice(-50),...flags,
     meaning:'冻结研究判断的变化记录；不同目标日的差异不等于因果解释，结果修订不重写首次评价'};
 }
 
-function summarizeConditions(evaluations) {
+function summarizeConditions(evaluations,{asOf}={}) {
   const rows = arr(evaluations).slice(0,100).map(r => {
     const checks = arr(r.checks), support=checks.filter(c=>c.pass===true&&!c.missing), opposition=checks.filter(c=>c.pass===false&&!c.missing), missing=checks.filter(c=>c.missing||c.pass!==true&&c.pass!==false);
-    const describe=c=>({field:text(c.field,90),value:c.missing?null:c.value??null,op:text(c.op,20),threshold:c.threshold??null,
-      reason:text(c.missing),source:text(c.evidence?.source,160),evidenceId:text(c.evidence?.evidenceId,200)});
+
+    const describe=c=>{
+      const e=c.evidence,dated=instant(asOf)&&known(e?.observedAt,asOf)&&known(e?.availableAt,asOf)&&known(e?.recordedAt,asOf)&&
+        e.observedAt<=e.availableAt&&e.availableAt<=e.recordedAt;
+      return {field:text(c.field,90),value:c.missing?null:c.value??null,op:text(c.op,20),threshold:c.threshold??null,
+        reason:text(c.missing),source:text(e?.source,160),evidenceId:text(e?.evidenceId,200),
+        observedAt:dated?e.observedAt:null,availableAt:dated?e.availableAt:null,recordedAt:dated?e.recordedAt:null};
+    };
     const status=r.status==='disabled'?'disabled':!checks.length||missing.length?'insufficient_data':opposition.length?'not_matched':'research_candidate';
     return {id:text(r.id,90),name:text(r.name,100),family:text(r.family,100),status,support:support.map(describe),opposition:opposition.map(describe),missing:missing.map(describe),invalidation:text(r.invalidation,500)};
   });
   const counts=Object.fromEntries(['disabled','insufficient_data','not_matched','research_candidate'].map(k=>[k,rows.filter(r=>r.status===k).length]));
   const needs=new Map();
   for(const r of rows.filter(r=>r.status!=='disabled'))for(const c of r.missing){if(!needs.has(c.field))needs.set(c.field,new Set());needs.get(c.field).add(r.id);}
+
+  // Exact shared reference identity is a lower bound on shared data, not independence certification.
+  const references=new Map();
+  for(const row of rows.filter(r=>r.status!=='disabled'))for(const c of [...row.support,...row.opposition]){
+    if(!c.source||!c.evidenceId||!instant(c.recordedAt)||c.evidenceId.length>=200)continue;
+    if(!references.has(c.evidenceId))references.set(c.evidenceId,{strategies:new Set(),fields:new Set(),sources:new Set()});
+    const ref=references.get(c.evidenceId);ref.strategies.add(row.id);ref.fields.add(c.field);ref.sources.add(c.source);
+  }
+  const sharedEvidenceGroups=[...references.entries()].filter(([,g])=>g.strategies.size>1)
+    .slice(0,100).map(([evidenceId,g])=>({evidenceId,strategies:[...g.strategies],fields:[...g.fields],sources:[...g.sources]}));
   return {total:rows.length,counts,rows,missingFields:[...needs].map(([field,ids])=>({field,strategies:[...ids]})),
+    sharedEvidenceGroups,independenceCertified:false,independentConfirmations:null,
+    independenceNote:'仅披露完全一致且时点有效的共享证据引用；不同引用或供应商不证明独立，未认证独立确认次数。',
     mixedConditions:rows.some(r=>r.status==='research_candidate')&&rows.some(r=>r.status==='not_matched'),
     meaning:'同一股票的规则覆盖分布；不是全市场选股淘汰数量，不将相关策略重复计为独立票数'};
 }
@@ -98,8 +120,10 @@ function buildDecisionReview(result, {viewAt=result?.asOf}={}) {
   if(!instant(at)||!instant(viewAt)||viewAt<at)throw Error('研究详情缺少明确时点');
   const s=r.stock||{}, b=r.evidenceBundle||{}, h=r.history||{}, f=r.currentFormation||{};
   const validBundle=hash(b.hash)&&b.symbol===s.symbol&&b.provider===s.provider&&b.priceBasis===s.priceBasis&&
-    b.observationHash===r.observation?.observationHash&&known(b.decisionAt,at)&&known(b.recordedAt,viewAt);
-  const refs=validBundle?arr(b.sourceRefs).slice(0,200).map(x=>({source:text(x.source,160),sha256:hash(x.sha256),receivedAt:known(x.receivedAt,at)?x.receivedAt:null})):[];
+    
+    b.observationHash===r.observation?.observationHash&&known(b.decisionAt,at)&&known(b.recordedAt,viewAt)&&b.decisionAt<=b.recordedAt;
+  const refs=validBundle?arr(b.sourceRefs).slice(0,200).filter(x=>x&&hash(x.sha256)&&known(x.receivedAt,b.decisionAt))
+    .map(x=>({source:text(x.source,160),sha256:x.sha256,receivedAt:x.receivedAt})):[];
   const evidence=[];
   function item(id,label,observed,source,publishedAt,receivedAt,reason,extra={}){
     evidence.push({id,label,status:observed?'observed-unverified':'unknown',source:text(source,160)||null,
@@ -112,11 +136,12 @@ function buildDecisionReview(result, {viewAt=result?.asOf}={}) {
   item('context','市场与板块快照',!!validBundle&&b.marketContext?.status==='observed-unverified',b.marketContext?.source,b.marketContext?.sourceTimestamp,b.marketContext?.retrievedAt,
     validBundle?'与本次观察绑定的冻结上下文；各字段仍需核对日期':'封存引用与当前股票、来源、观察版本或时点不一致');
   const hypothesis=r.priceEventResearch?.currentHypothesis, frozen=r.hypothesisEvidence;
-  const frozenOK=!!hash(hypothesis?.evidenceBundleHash)&&frozen?.hash===hypothesis.evidenceBundleHash&&frozen.symbol===s.symbol&&frozen.provider===s.provider&&
-    known(frozen.decisionAt,hypothesis.decisionAt)&&known(frozen.recordedAt,hypothesis.recordedAt)&&known(hypothesis.recordedAt,viewAt);
+  const frozenOK=!!hash(hypothesis?.evidenceBundleHash)&&frozen?.hash===hypothesis.evidenceBundleHash&&frozen.symbol===s.symbol&&frozen.provider===s.provider&&frozen.priceBasis===s.priceBasis&&
+    known(hypothesis.decisionAt,at)&&known(hypothesis.recordedAt,viewAt)&&hypothesis.decisionAt<=hypothesis.recordedAt&&
+    known(frozen.decisionAt,hypothesis.decisionAt)&&known(frozen.recordedAt,hypothesis.recordedAt)&&frozen.decisionAt<=frozen.recordedAt;
   item('frozen','原判断封存证据',frozenOK,frozen?.provider,null,frozen?.recordedAt,frozenOK?'原判断单独保留，不用新上下文替换':'原判断封存证据缺失或引用不一致');
   const ruleOK=r.research36?.code===s.symbol&&known(r.research36?.asOf,at);
-  const conditions=summarizeConditions(ruleOK?r.research36.evaluations:[]);
+  const conditions=summarizeConditions(ruleOK?r.research36.evaluations:[],{asOf:at});
   const linkage=r.linkage||{}, linkOK=linkage.tradeDate===h.tradeDate&&safeDate(h.tradeDate,at);
   const boards=linkOK?arr(linkage.memberBoards).slice(0,6).map(x=>{
     const dated=x.sameQuoteDate===true&&x.quoteDate===h.tradeDate&&known(x.membersObservedAt,at)&&known(x.quoteAt,at);
