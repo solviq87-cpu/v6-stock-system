@@ -277,6 +277,7 @@ function researchPanels(report,ctx){
   panel('L2 · 策略健康与模型治理',
    paragraph('研究诊断不改变原生产参数。独立样本、连续权益或执行依据不足时保持未验证。'),
    paragraph('衰减线索：'+((report.governance?.decay?.reasons||[]).map(r=>r.meaning).join('；')||'尚无可用衰减诊断')),
+   detail('模型资料库：源码、权重与数据许可分列',h('div',{},paragraph('源码固定版本 '+(report.governance?.modelLibraryRights?.codeVersionPinned??'未知')+' 项；权重及训练数据许可尚未独立认证，不代表可安装或运行。'),evidenceDetails('原目录及逐项许可声明',report.governance?.modelLibraryRights||{}))),
    list(report.governance?.factors).length?detail('同口径因子体检',table([
     {label:'因子',value:r=>r.factorId},{label:'训练 IC',value:r=>ic(r.trainingIC)},
     {label:'时间外 IC',value:r=>ic(r.validationIC)},{label:'样本外 IC',value:r=>ic(r.holdoutIC)},

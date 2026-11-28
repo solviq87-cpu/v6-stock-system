@@ -15,6 +15,7 @@ const {assessFactorReliability} = require('./factor-learning-reliability');
 const {reviewCrossMarketLead,reviewCommonAssetShock} = require('./cross-market-lead-review');
 const {researchCohortCoverage} = require('./research-cohort-coverage');
 const {compareFrozenRankModels} = require('./factor-rank-baselines');
+const {marketStateAt,compareStateAdaptation,reviewCatalogRights} = require('./research-state-review');
 const numeric = require('../../public/nova/shortline/numeric-factors');
 const {approvedModelEvidenceReview,uniqueEvidenceRows,evidenceVisibleAt,learningIdentityVisibleAt,isLearningTestSample,isTestSample,verifiedLearningObservation}=require('../../public/nova/shortline/sample-quality.mjs');
 const MAX_BARS = 20000, MAX_CHECKS = 5000, MAX_FACTORS = 128;
@@ -409,7 +410,7 @@ function extractArchiveResearchInputs(archive, {now = Date.now()} = {}) {
     if (Object.keys(values).length) observations.push({id: check.id, market: typeof check.market === 'string' ? check.market : 'CN', code, day,
       signalAt, recordedAt: check.createdAt, asOf: check.asOf, values, evidence,
       regime: check.market?.systemicSelloff === true ? 'systemic-selloff' : check.market?.systemicSelloff === false ? 'not-systemic-selloff' : null,
-      cycle: check.emotion?.stage || 'unknown'});
+      marketStateEvidence:marketStateAt(check.market,day,signalAt),cycle: check.emotion?.stage || 'unknown'});
   }
   return {status: bars.length || observations.length ? 'observed' : 'missing-data', bars, observations, rejected, catalog, ruleCoverage};
 }
@@ -624,7 +625,7 @@ function buildWalkForward(samples, alignment, {config = defaults, now = Date.now
       factorIds: trainingIds,
       ranges: Object.fromEntries(Object.entries(phaseDays).map(([phase, dates]) => [phase, {start: dates[0], end: dates.at(-1), tradingDays: dates.length, samples: phases[phase].length}])),
       purgeTradingDays: s.purgeTradingDays, raw, orthogonal, orthogonalization: model,
-      redundancy, rankBaselines, strata,
+      redundancy, rankBaselines, strata,stateAdaptation:compareStateAdaptation(phases,rankBaselines,{trainCutoff,validationCutoff,asOf:now}),
       maxTrainingLabelKnownAt: phases.train.length ? Math.max(...phases.train.map(row => row.labelKnownAt)) : null,
       calendarEvidenceFingerprint: hash(alignment.calendars),
       inputEvidenceFingerprint: hash(Object.fromEntries(Object.entries(phases).map(([phase, rows]) => [phase,
@@ -994,6 +995,7 @@ function buildIntelligenceResearch({day, now = Date.now(), archive = null, bars 
   }
   const governance = require('./fayo-research-governance').buildGovernance({archive:archive?{...archive,catalog:extracted.catalog}:null,samples:aligned.samples,walkforward,quality,execution:executionValidation,feedback,now});
   governance.probabilityResearch = probabilityResearch;
+  governance.modelLibraryRights=reviewCatalogRights(require('../../config/open-model-library-20261114.json'),now);
   const report = {authority: 'fayo-intelligence-research', schemaVersion: 1, ruleVersion: config.ruleVersion, day,
     generatedAt: new Date(now).toISOString(), status: config.enabled ? extracted.status : 'disabled',
     adjustment: {...config.adjustment}, quality, factors, walkforward, executionValidation, feedback, templates, governance,
