@@ -2,6 +2,7 @@
 const crypto=require('node:crypto');
 const catalog=require('../../strategies/research36.json');
 const {barsToIndicators}=require('./historical-indicators');
+const {orderedWindowRoles,compareResearchFamilies,nativeReversalSignal,NATIVE_REVERSAL}=require('./research36-family-comparison');
 const finite=v=>typeof v==='number'&&Number.isFinite(v);
 const clock=v=>Number.isSafeInteger(v)&&v>0&&v<8e15;
 const plain=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -119,15 +120,16 @@ function evaluateResearch36({stock,asOf,config={}}={}){
 }
 function backtestResearch36(input={}){
  const {strategyId,stocks,evidenceByDate,config={},options={}}=input;
- if(!catalog.strategies.some(s=>s.id===strategyId)||!Array.isArray(stocks)||stocks.length>200||!plain(evidenceByDate)||!plain(options))throw Error('回测研究输入无效');
+ if(!(strategyId===NATIVE_REVERSAL||catalog.strategies.some(s=>s.id===strategyId))||!Array.isArray(stocks)||stocks.length>200||!plain(evidenceByDate)||!plain(options))throw Error('回测研究输入无效');
  settings(config);
  const allowed=['start','end','initialCash','topN','holdDays','feeBps','slippageBps','sellTaxBps','maxParticipationPct','minPriorTurnover','maxDrawdownPausePct','maxDailyLossPausePct','feeSchedules','riskPolicy','universeHistory','settlements','tradingDates'];
  if(Object.keys(options).some(k=>!allowed.includes(k)))throw Error('不允许覆盖回测选择器或真实性门禁');
  if(stocks.some(s=>!Array.isArray(s.bars)||s.bars.length>3000)||stocks.reduce((n,s)=>n+s.bars.length,0)>50000)throw Error('历史长度超限');
- const seen=[];
+ const seen=[],configurationHash=hash(settings(config));
  const result=require('./position-ledger-backtest').ledgerBacktest({...options,stocks,strictHistoricalStatus:true,strictMarks:true,source:'research36-imported',
   selectCandidates:(prefix,day)=>prefix.filter(s=>{
    const code=String(s.symbol||s.code),date=s.bars.at(-1)?.date,asOf=Date.parse(date+'T15:00:00+08:00');
+   if(strategyId===NATIVE_REVERSAL){const native=nativeReversalSignal(s,asOf);seen.push({code,date,day,asOf,status:native.status,configHash:configurationHash,inputHash:hash({code,bars:s.bars,asOf}),nativeEvidence:native.nativeEvidence});return native.status==='research_candidate';}
    const features=evidenceByDate[date]?.[code]||{};
    const r=evaluateResearch36({stock:{code,bars:s.bars,features},asOf,config});
    const strategy=r.evaluations.find(x=>x.id===strategyId);seen.push({code,date,day,asOf,status:strategy.status,configHash:r.configHash,inputHash:r.inputHash});
@@ -137,7 +139,7 @@ function backtestResearch36(input={}){
   selectCandidates:prefix=>prefix.map(s=>String(s.symbol||s.code)).sort()});
  return {...result,additionalMetrics:researchMetrics(result),benchmark:{name:'同池等额定期持有基准',executionModel:benchmark.executionModel,metrics:benchmark.metrics,
   additionalMetrics:researchMetrics(benchmark),equity:benchmark.equity,canTrade:false,verifiedExternal:false},
-  research36:{strategyId,version:catalog.version,configHash:hash(settings(config)),signals:seen},
+  research36:{strategyId,version:catalog.version,configHash:configurationHash,signals:seen,...(strategyId===NATIVE_REVERSAL?{nativeRule:'quality-volume-reversal-research/rsv14_reversal_confirmation'}:{})},
   predictionProbability:null,outOfSampleValidated:false,warning:'导入声明及实验参数；本次结果不是独立样本外验证。'};
 }
 function researchMetrics(result){
@@ -165,9 +167,13 @@ function experimentResearch36(input={}){
    !Number.isInteger(w.start)||!Number.isInteger(w.end)||w.start<27||w.end<=w.start||w.end>=length||w.start<=end+purge)throw Error('窗口重叠、顺序、角色、数据覆盖或隔离期无效');
   labels.add(w.label);end=w.end;
  }
- if(!['train','validation','test'].every(role=>windows.some(w=>w.role===role)))throw Error('缺少训练、验证或测试窗口');
+ if(!orderedWindowRoles(windows))throw Error('训练、验证和测试窗口必须按角色顺序且完整');
  const result=windows.map(w=>({window:clone(w),result:backtestResearch36({...base,options:{...base.options,start:w.start,end:w.end}})}));
  return {researchOnly:true,canTrade:false,configHash,purgeSessions:purge,windows:result,productionWeightsChanged:false,outOfSampleValidated:false,
   note:'固定配置分窗评估，不执行参数拟合或按测试集选参；窗口标签不证明事前注册或独立样本外认证。'};
 }
-module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36};
+function compareResearch36(input={}){
+ const definitions=[...settings(input.config||{}),{id:NATIVE_REVERSAL,family:'reversal-confirmation',rules:[]}];
+ return compareResearchFamilies(input,definitions,backtestResearch36);
+}
+module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearch36};
