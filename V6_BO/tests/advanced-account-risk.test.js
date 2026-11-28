@@ -61,3 +61,30 @@ test('worker reads original account without modifying it and rejects corrupt pee
   assert.equal((await runAdvancedAccountRiskJob({...input,replica:true})).status,'replica');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+
+test('F24.2 original risk diagnostic ignores non-fill fee metadata and shares one reservation budget',()=>{
+ const {pendingBuyOrderBudget}=require('../src/core/account-safety-state');
+ const day='2026-11-25',now=Date.parse(day+'T10:00:00+08:00'),policy={version:'v1',feeBps:0,minFee:5,sellTaxBps:0,commissionScope:'order-day'};
+ const item={order:{orderId:'pending',symbol:'600000',side:'buy',quantity:100,limitPrice:10,tradeDate:day},
+  state:{terminal:false,remainingQuantity:100},events:[{type:'not-a-fill',date:day,feeEvidence:{version:'v1',gross:1000,commission:5,tax:0,transfer:0,total:5}}]};
+ const book={revision:1,paperOnly:true,brokerConnected:false,feePolicy:policy,account:{cash:10000,events:[],eventHashes:{},positions:{}},orders:{pending:item}};
+ const before=JSON.stringify(book),input={account:'pool',day,now,marketOpen:true,continuous:true};
+ const result=mod.accountExitDiagnostics(book,input);
+ eq(result.reservedCash,pendingBuyOrderBudget(book,item,day));eq(result.reservedCash,1005);eq(result.availableCash,8995);
+ eq(result.reconciliation.reservedCash,result.reservedCash);eq(result.canTrade,false);eq(JSON.stringify(book),before);
+});
+test('F24.3 same and next-day partial fill reservations never count historical minimum fee twice or borrow old commission credit',()=>{
+ const {pendingBuyOrderBudget}=require('../src/core/account-safety-state');
+ const day='2026-11-25',policy={version:'v1',feeBps:0,minFee:5,sellTaxBps:0,commissionScope:'order-day'};
+ const item={order:{orderId:'pending',symbol:'600000',side:'buy',quantity:300,limitPrice:10,tradeDate:day},state:{terminal:false,remainingQuantity:200},
+  events:[{eventId:'fill1',type:'fill',date:day,quantity:100,price:10,feeEvidence:{version:'v1',gross:1000,commission:5,tax:0,transfer:0,total:5}}]};
+ const book={revision:1,paperOnly:true,brokerConnected:false,feePolicy:policy,account:{cash:9000,events:[{eventId:'fill1'}],eventHashes:{},positions:{}},orders:{pending:item}};
+ for(const [date,expected] of [[day,2000],['2026-11-26',2005]]){
+  const r=mod.accountExitDiagnostics(book,{account:'pool',day:date,now:Date.parse(date+'T10:00:00+08:00'),marketOpen:true,continuous:true});
+  eq(r.reservedCash,expected);eq(r.reservedCash,pendingBuyOrderBudget(book,item,date));eq(r.availableCash,9000-expected);eq(r.writesAccount,false);
+ }
+ // A contradictory incremental fee cannot increase available cash.
+ item.events[0].feeEvidence.total=100;
+ const r=mod.accountExitDiagnostics(book,{account:'pool',day,now:Date.parse(day+'T10:00:00+08:00'),marketOpen:true,continuous:true});
+ eq(r.reservedCash,null);eq(r.availableCash,null);eq(r.canTrade,false);
+});

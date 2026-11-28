@@ -4,7 +4,7 @@
 const {quoteUseEligibility,quoteSnapshotFields}=require('./quote-observation-view');
 const {tradingFees}=require('./trading-fees');
 const {exitRisk}=require('./advanced-portfolio-evidence');
-const {reconcileAccountSnapshot,defensiveStatus}=require('./account-safety-state');
+const {reconcileAccountSnapshot,defensiveStatus,pendingBuyOrderBudget}=require('./account-safety-state');
 const MAX_HOLDINGS=220;
 const qty=x=>Number.isSafeInteger(x)&&x>=0;
 const num=x=>typeof x==='number'&&Number.isFinite(x);
@@ -80,9 +80,10 @@ function accountExitDiagnostics(book,{account,day,now,marketOpen,continuous,quot
   if(o.side==='sell'){const amount=(sellFrozen.get(o.symbol)||0)+s.remainingQuantity;if(!qty(amount))return unavailable(account,'FROZEN_QUANTITY_OVERFLOW');sellFrozen.set(o.symbol,amount);}
   else try{
    if(!dateOk(o.tradeDate)||!num(o.limitPrice)||o.limitPrice<=0)throw Error('invalid order');
-   const fee=tradingFees({side:'buy',quantity:s.remainingQuantity,price:o.limitPrice,tradeDate:[o.tradeDate,day].sort().at(-1),policy:book.feePolicy,schedules:book.feeSchedules||null,priorFills:item.events});
-   reservedCash+=s.remainingQuantity*o.limitPrice+fee.total;
-   if(!num(reservedCash)||reservedCash<0)throw Error('invalid cash');
+   // F24.2/F24.3: consume the same execution-day reservation and
+   // fill-only commission credit as original submission/reconciliation.
+   reservedCash+=pendingBuyOrderBudget(book,item,day);
+   if(!num(reservedCash)||reservedCash<0||!num(money(reservedCash)))throw Error('invalid cash');
   }catch{feesComplete=false;}
  }
  if(seenFills.size!==seen.size)return unavailable(account,'ORPHAN_LEDGER_EVENT');
