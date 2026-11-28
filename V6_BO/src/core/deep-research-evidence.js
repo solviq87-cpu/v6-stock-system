@@ -11,6 +11,7 @@ const {scorecards} = require('./research-workspace-analytics');
 const {validatePlan} = require('./paper-decision-plan');
 const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
+const {preEventComparison} = require('./event-prewindow-research');
 
 const LIMIT = 10000;
 const FLAGS = Object.freeze({researchOnly:true, canTrade:false, canNotify:false,
@@ -214,6 +215,8 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
       }
       const priceEvidence=bars.map(b=>({date:b.date,source:b.source,knownAt:b.knownAt,open:b.open,close:b.close,
         corporateAction:b.corporateAction,corporateActionKnownAt:b.corporateActionKnownAt??b.knownAt}));
+      const preEventStudy=preEventComparison({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,
+        readStock:d=>prices.get(['stock',e.symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const id=hash({event:[e.source,e.id,e.revision],source,h,priceEvidence,benchmark,calendarHash});
       eventOutcomes.push({id:'archive-'+id,revision:1,source:'v6-private-archive-event-study',evidenceId:id,
         // This is a newly produced read projection. Original source receipts
@@ -221,7 +224,7 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         publishedAt:asOf,firstKnownAt:asOf,recordedAt:asOf,inputOrigin:'read-only-archive-projection',
         eventId:e.id,eventSource:e.source,eventRevision:e.revision,symbol:e.symbol,horizonSessions:h,startAt,endAt,
         stock:{source,startPrice:first.open,endPrice:last.close,currency:'CNY',priceBasis:'unadjusted',corporateAction:false},
-        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version});
+        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy});
       if(!benchmark)fail(e,h,'股票端点已成熟，但缺少同区间实际接收的全A指数，超额收益保持未知',source);
     }
   }
@@ -249,7 +252,8 @@ function buildEventImpactStudy(input={}, options={}) {
       ...computed,failure:computed.excessReturnPct===null?null:computed.excessReturnPct<=0,
       priceSource:text(o.stock.source,160)?o.stock.source:o.source,
       evidence:[e,computed.proof],priceEvidence:o.inputOrigin==='read-only-archive-projection'?o.priceEvidence:null,
-      calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,drawdownPct:null});
+      calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,
+      preEventStudy:o.inputOrigin==='read-only-archive-projection'&&o.source==='v6-private-archive-event-study'?o.preEventStudy??null:null,drawdownPct:null});
   }
   rows.sort((a,b)=>a.startAt-b.startAt||a.eventId.localeCompare(b.eventId)||a.horizonSessions-b.horizonSessions||
     a.priceSource.localeCompare(b.priceSource)||a.id.localeCompare(b.id));
@@ -270,7 +274,7 @@ function buildEventImpactStudy(input={}, options={}) {
   if (!rows.length) missing.push('缺少已成熟、与事件可知时点对应的价格结果');
   return result(67,rows,missing,{events,groups:summaries,rejected,
     durationProfile:summaries.map(g=>({eventType:g.eventType,regime:g.regime,horizonSessions:g.horizonSessions,samples:g.samples,averageExcessReturnPct:g.averageExcessReturnPct})),
-    limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益']});
+    limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益','事前固定窗口仅为未独立验证的全市场调整伪事件对照，不是预注册试验或行业匹配；净异常收益及置信区间未知']});
 }
 
 function buildExpectationStudy(input={}, options={}) {
