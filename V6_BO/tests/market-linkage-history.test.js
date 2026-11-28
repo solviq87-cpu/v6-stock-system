@@ -139,3 +139,14 @@ test('F15.3 changing observed membership cannot define the prior cohort after th
  const v=enrichMarketLinkageHistory(x.view,x.events,{selectedEvent:x.selectedEvent,asOf:x.asOf}).boards[0].trend.structure.leadLag;
  assert.equal(v.pairedEvaluated,3);assert.equal(v.unknown,1);assert.equal(v.pairs.at(-1).reason,'same-cohort-unavailable');
 });
+
+test('F18.1 first qualifying transition and adjacent confirmation bind original receipt clocks only',()=>{
+ const x=setup();const first=x.events[0].data.context.marketLinkageEvidence;first.boards[0].return=-.01;first.stocks.forEach(s=>s.return=-.01);
+ const v=x.run().boards[0].trend.structure.earlyObservation;
+ assert.equal(v.status,'confirmed-within-window');assert.equal(v.firstDate,'2026-11-10');assert.equal(v.confirmedDate,'2026-11-11');assert.equal(v.firstObservedAt,x.events[1].recordedAt);assert.equal(v.confirmationDelayMs,x.events[2].recordedAt-x.events[1].recordedAt);assert.equal(v.forwardValueVerified,false);assert.equal(v.actualCatalystVerified,false);
+ x.events.at(-1).data.context.marketLinkageEvidence.boards[0].return=-.01;assert.equal(x.run().boards[0].trend.structure.earlyObservation.status,'invalidated-observation');
+});
+test('F18.1 existing strength is left-censored, late archive cannot be the first observation',()=>{
+ const x=setup();assert.equal(x.run().boards[0].trend.structure.earlyObservation.status,'left-censored-existing-strength');
+ x.events[0].data.context.marketLinkageEvidence.boards[0].return=-.01;x.events[1].recordedAt=Date.parse('2026-11-11T10:00:00+08:00');assert.equal(x.run().boards[0].trend.structure.earlyObservation.status,'unknown');
+});
