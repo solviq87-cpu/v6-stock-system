@@ -328,3 +328,22 @@ test('news adapter preserves each actual receipt and cannot stamp an unknown rev
   assert.equal(withdrawals[1].associationRemoved,true);assert.equal(withdrawals[1].retracted,true);
   assert.equal(D.buildEventImpactStudy({events:withdrawals},{asOf:t2}).events[0].retracted,true);
 });
+
+test('F04.5 original event outcome archive projects pre-publication placebo without replacing existing event returns',()=>{
+ const sessions=[];for(let t=Date.parse('2026-07-01T00:00:00Z');sessions.length<120;t+=86400000){const d=new Date(t);sessions.push({date:d.toISOString().slice(0,10),open:![0,6].includes(d.getUTCDay())});}
+ const dates=sessions.filter(s=>s.open).map(s=>s.date),calendar={schemaVersion:1,exchange:'SSE',source:'supplied-calendar',from:sessions[0].date,to:sessions.at(-1).date,sessions};
+ const publicAt=at(dates[65]+'T10:00:00'),asOf=at(dates[80]+'T16:00:00'),e=proof('pre-event-control',publicAt,{symbol:'600000',eventType:'policy',title:'政策原文'});
+ const bars=dates.slice(0,81).map(date=>({date,role:'stock',code:'600000',period:'日K',source:'V6/supplied-daily',knownAt:at(date+'T15:00:01'),open:10,high:12,low:9,close:11,priceBasis:'unadjusted',corporateAction:false}));
+ const market=dates.slice(0,81).map(date=>({date,indexEvidence:{name:'中证全指',source:'supplied-index',receivedAt:at(date+'T15:01:00'),rows:[{date,open:100,close:105,knownAt:at(date+'T15:00:01')}]}}));
+ const eventCalendar={status:'available',calendar,tradeDates:dates,metadata:{source:calendar.source,sha256:nativeHash(calendar),knowledgeAvailableAt:new Date(at(dates[0]+'T09:00:00')).toISOString()}};
+ const input={events:[e],archive:{scope:'live',bars,market},eventCalendar};
+ const before=JSON.stringify(input),r=D.buildDeepResearchEvidence(input,{asOf}).modules[67];
+ const first=r.rows.find(row=>row.horizonSessions===1);assert.ok(first);assert.equal(first.stockReturnPct,10);assert.equal(first.excessReturnPct,5);
+ assert.equal(first.preEventStudy.status,'descriptive-unverified');assert.equal(first.preEventStudy.cutoff,publicAt);assert.equal(first.preEventStudy.estimationDates.length,20);assert.equal(first.preEventStudy.placeboDates.length,1);assert.equal(first.preEventStudy.placeboDates[0],dates[64]);
+ assert.ok(Math.abs(first.preEventStudy.placeboGrossExcessPct-5)<1e-10);assert.equal(first.preEventStudy.matchedIndustry,null);assert.equal(first.preEventStudy.netAbnormalReturnPct,null);assert.equal(first.preEventStudy.preregistered,false);assert.equal(JSON.stringify(input),before);
+ const late=structuredClone(input);late.archive.market[64].indexEvidence.receivedAt=publicAt+1;
+ const replay=D.buildDeepResearchEvidence(late,{asOf}).modules[67].rows.find(row=>row.horizonSessions===1);
+ assert.equal(replay.excessReturnPct,5);assert.equal(replay.preEventStudy.status,'unknown');assert.equal(replay.preEventStudy.placeboGrossExcessPct,null);
+ const declared=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({preEventStudy:first.preEventStudy,inputOrigin:'explicit-private-import'})]},{asOf:t1});
+ assert.equal(declared.rows[0].preEventStudy,null,'operator-imported claim cannot substitute original archive projection');
+});
