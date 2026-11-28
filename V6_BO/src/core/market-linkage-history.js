@@ -61,6 +61,19 @@ function leadLagDiagnostic(daily,samples,dates,clocks){
   concurrentMatches:evaluated.length?evaluated.filter(p=>p.concurrentMatch).length:null,
   outOfSampleVerified:false,leadingConfirmed:false,canTrade:false,canNotify:false};
 }
+// Report the first transition only WITHIN the supplied five consecutive
+// archived sessions. The pre-open receipt gate prevents late revisions from
+// retroactively becoming a discovery or confirmation. No event or value claim.
+function earlyBoardObservation(samples,values,dates,clocks){
+ const base={mode:'five-frozen-session-early-observation-v1',status:'unknown',firstObservedAt:null,firstDate:null,confirmedAt:null,confirmedDate:null,confirmationDelayMs:null,invalidatedAt:null,scope:'five-session-window-only',actualCatalystVerified:false,forwardValueVerified:false,canTrade:false,canNotify:false};
+ if(samples.some(s=>!s.eligible||s.rows.length!==samples[0].rows.length||samples[0].rows.some(r=>!finite(s.bySymbol.get(r.symbol)?.return))))return base;
+ if(clocks.some((c,i)=>!time(c.asOf)||!time(c.recordedAt)||c.asOf<close(dates[i])||c.recordedAt<c.asOf||i&&c.recordedAt<=clocks[i-1].recordedAt||i+1<dates.length&&c.recordedAt>=Date.parse(dates[i+1]+'T09:30:00+08:00')||i===dates.length-1&&new Date(c.recordedAt+28800000).toISOString().slice(0,10)!==dates[i]))return base;
+ const qualifies=values.map((r,i)=>r.boardReturn>0&&r.boardReturn>r.benchmarkReturn&&samples[i].rows.filter(x=>x.return>0).length>samples[i].rows.length/2);
+ if(qualifies[0])return {...base,status:'left-censored-existing-strength'};
+ const index=qualifies.indexOf(true);if(index<0)return {...base,status:'no-qualified-observation'};
+ const confirmed=index+1<dates.length&&qualifies[index+1],failure=qualifies.findIndex((q,i)=>i>index&&!q);
+ return {...base,status:failure>=0?'invalidated-observation':confirmed?'confirmed-within-window':'first-observation-only',firstObservedAt:clocks[index].recordedAt,firstDate:dates[index],confirmedAt:confirmed?clocks[index+1].recordedAt:null,confirmedDate:confirmed?dates[index+1]:null,confirmationDelayMs:confirmed?clocks[index+1].recordedAt-clocks[index].recordedAt:null,invalidatedAt:failure>=0?clocks[failure].recordedAt:null};
+}
 // Five-day retrospective structure uses a common observed cohort at this cutoff.
 // It is not a reconstruction of a signal known before the final session.
 function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveClocks){
@@ -68,7 +81,7 @@ function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveC
  const coverage=roster.length?common.length/roster.length:null;
  const base={status:'unknown',role:'unknown',method:'five-session-common-cohort-v1',cohortBasis:'retrospective-common-coverage',
   memberCount:roster.length,commonObserved:common.length,coverage:round(coverage),cohortHash:digest(common),
-  broadUpSessions:null,broadDownSessions:null,outperformSessions:null,underperformSessions:null,daily:[],migration:null,leadLag:null,canTrade:false,canNotify:false};
+  broadUpSessions:null,broadDownSessions:null,outperformSessions:null,underperformSessions:null,daily:[],migration:null,leadLag:null,earlyObservation:null,canTrade:false,canNotify:false};
  if(common.length<5||coverage<.8||!finite(boardReturn)||!finite(benchmarkReturn))return base;
  const values=daily.map(({e,board},i)=>{
   const rows=common.map(symbol=>samples[i].bySymbol.get(symbol));
@@ -80,7 +93,7 @@ function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveC
  const excess=boardReturn-benchmarkReturn;
  const role=boardReturn>0&&excess>0&&broadUpSessions>=3&&outperformSessions>=3?'broad-relative-strength':
   boardReturn<0&&excess<0&&broadDownSessions>=3&&underperformSessions>=3?'broad-relative-weakness':'mixed';
- return {...base,status:'observed-unverified',role,broadUpSessions,broadDownSessions,outperformSessions,underperformSessions,daily:values,migration:frontMigration(samples,dates,archiveClocks),leadLag:leadLagDiagnostic(daily,samples,dates,archiveClocks)};
+ return {...base,status:'observed-unverified',role,broadUpSessions,broadDownSessions,outperformSessions,underperformSessions,daily:values,migration:frontMigration(samples,dates,archiveClocks),leadLag:leadLagDiagnostic(daily,samples,dates,archiveClocks),earlyObservation:earlyBoardObservation(samples,values,dates,archiveClocks)};
 }
 function compareIndustries(boards,dates=[]){
  const industries=boards.filter(b=>b.category==='industry');
