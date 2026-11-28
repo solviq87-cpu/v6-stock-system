@@ -125,3 +125,47 @@ test('48 saturated diagnostic budget never changes queue behavior or leaves acti
  trace.sync('task.tick',()=>{h.q.send('a');h.q.send('b');});h.run();
  assert.deepEqual(sent,['a','b']);assert.equal(h.q.running,false);assert.equal(trace.read().active,0);assert.ok(trace.read().dropped>=2);
 });
+
+// H05.9: distinguish elapsed observations from sums of synchronous calls.
+test('H05 separate local span duration from batch total without changing legacy counters',()=>{
+ let now=0;const t=createRuntimeTrace({monotonic:()=>now,clock:()=>1000});
+ t.sync('factor.evaluate',()=>{now+=2;});const b=t.batch('factor.evaluate');
+ b.run(()=>{now+=4;});b.run(()=>{now+=6;});b.end();
+ const s=t.summary(),v=s.timingBreakdown.find(x=>x.stage==='factor.evaluate');
+ assert.deepEqual(v.elapsedSpan,{samples:1,timedSamples:1,p50Ms:2,p95Ms:2});
+ assert.deepEqual(v.sumOfActualCalls,{samples:1,timedSamples:1,p50Ms:10,p95Ms:10});
+ assert.equal(s.hooks.find(x=>x.stage==='factor.evaluate').p95Ms,10);
+ assert.deepEqual(t.summary(),s);
+});
+test('H05 unknown batch timing stays unknown instead of becoming zero',()=>{
+ let now=0;const t=createRuntimeTrace({monotonic:()=>now,clock:()=>1000});const b=t.batch('factor.evaluate');
+ b.run(()=>{now=NaN;});b.end();
+ assert.deepEqual(t.summary().timingBreakdown.find(x=>x.stage==='factor.evaluate').sumOfActualCalls,
+ {samples:1,timedSamples:0,p50Ms:null,p95Ms:null});
+});
+function h05Receipt(t,child={}){
+ const p=t.capture(),root={traceId:p.traceId,spanId:'a'.repeat(32),parentSpanId:p.spanId,stage:'factor.worker-execute',status:'completed',reasonCode:null,startedAt:1000,finishedAt:1001,durationMs:1};
+ return {p,root,leaf:{...root,spanId:'b'.repeat(32),parentSpanId:root.spanId,stage:'factor.evaluate',durationMs:.5,...child}};
+}
+test('H05 worker receipt retains validated batch timing metadata',()=>{
+ const t=createRuntimeTrace({clock:()=>1000});t.sync('factor.worker-dispatch',()=>{
+  const {p,root,leaf}=h05Receipt(t,{calls:3,timing:'sum-of-actual-calls'});
+  assert.equal(t.importWorkerReceipt(p,{version:1,spans:[root,leaf]},root.stage),true);
+ });const row=t.read().spans.find(x=>x.stage==='factor.evaluate');
+ assert.equal(row.calls,3);assert.equal(row.timing,'sum-of-actual-calls');
+ assert.equal(t.summary().timingBreakdown.find(x=>x.stage==='factor.evaluate').sumOfActualCalls.timedSamples,1);
+});
+test('H05 malformed batch timing cannot poison the original dispatch receipt',()=>{
+ for(const bad of [{calls:0,timing:'sum-of-actual-calls'},{calls:2},{calls:2,timing:'bogus'},{calls:1.5,timing:'sum-of-actual-calls'}]){
+  const t=createRuntimeTrace({clock:()=>1000});t.sync('factor.worker-dispatch',()=>{
+   const {p,root,leaf}=h05Receipt(t,bad);
+   assert.equal(t.importWorkerReceipt(p,{version:1,spans:[root,leaf]},root.stage),false);
+   assert.equal(t.importWorkerReceipt(p,{version:1,spans:[root]},root.stage),true);
+  });
+ }
+});
+test('H05 legacy elapsed worker receipts keep their original durations',()=>{
+ const t=createRuntimeTrace({clock:()=>1000});t.sync('factor.worker-dispatch',()=>{
+  const {p,root}=h05Receipt(t);assert.equal(t.importWorkerReceipt(p,{version:1,spans:[root]},root.stage),true);
+ });assert.equal(t.read().spans.find(x=>x.stage==='factor.worker-execute').durationMs,1);
+});

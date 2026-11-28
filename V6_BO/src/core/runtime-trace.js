@@ -22,6 +22,93 @@ const CODES=new Set(['STAGE_FAILED','SOURCE_UNAVAILABLE','RISK_REJECTED','BUSINE
  'MISSING_IMPORTED_SECTOR','MISSING_IMPORTED_PRIOR_CLOSE','PENDING_BUY_BUDGET_UNKNOWN',
  'PENDING_CASH_RESERVATION_MISMATCH','PENDING_SELL_RESERVATION_MISMATCH']);
 const OUTCOMES=new Set(['completed','blocked','failed','unknown','skipped']);
+// Interpret only existing allowlisted receipts. Grouping repeated observations
+// is NOT root-cause correlation, liveness proof or authorization to recover.
+const ISSUE_RULES=Object.freeze({
+ SOURCE_UNAVAILABLE:{outcomes:['blocked','failed','unknown'],severity:'warning',nextAction:'核查原供应商和采集回执；原因未证实时保持未知'},
+ STAGE_FAILED:{outcomes:['failed','blocked'],severity:'error',nextAction:'核查原任务的授权诊断及失败回执'},
+ QUEUE_FULL:{outcomes:['blocked','failed','skipped'],severity:'warning',nextAction:'核查原队列容量与排队时间，不重复提交'},
+ ALREADY_RUNNING:{outcomes:['skipped'],severity:'info',nextAction:'原并发保护已触发；核对运行任务，不强制重启'},
+ AUTOMATIC_QUOTE_NOT_CURRENT:{outcomes:['blocked','skipped'],severity:'warning',nextAction:'等待通过原报价时点及来源门禁的证据'},
+ DELIVERY_UNKNOWN:{outcomes:['unknown'],severity:'warning',nextAction:'核对实际接收回执；不把受理当送达或改发公共通道'},
+ DELIVERY_FAILED:{outcomes:['failed'],severity:'error',nextAction:'核对原私密通知失败回执'},
+ DELIVERY_RETRY:{outcomes:['failed'],severity:'warning',nextAction:'核对原有界重试；不再发起第二套重试'},
+ UNCLASSIFIED_FAILURE:{outcomes:['failed'],severity:'error',nextAction:'原因待核实，核对原始失败回执'},
+ UNCLASSIFIED_OUTCOME:{outcomes:['unknown'],severity:'warning',nextAction:'结果待核实，核对原始回执'}
+});
+const validIssueTime=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
+function issueRule(stage,status,code){
+ if(typeof code!=='string'||!STAGES.has(stage)||!Object.hasOwn(ISSUE_RULES,code))return null;
+ const rule=ISSUE_RULES[code];
+ return rule.outcomes.includes(status)?rule:null;
+}
+function addIssue(groups,row){
+ let code=row.reasonCode;
+ // Unknown or failed observations must not disappear because of an unrelated code.
+ if(!issueRule(row.stage,row.status,code))code=row.status==='failed'?'UNCLASSIFIED_FAILURE':
+  row.status==='unknown'?'UNCLASSIFIED_OUTCOME':null;
+ if(!issueRule(row.stage,row.status,code))return;
+ const key=JSON.stringify([row.stage,row.status,code]);
+ let group=groups.get(key);
+ if(!group){group={stage:row.stage,outcome:row.status,reasonCode:code,observations:0,
+  firstObservedAt:null,lastObservedAt:null,unknownTimeCount:0};groups.set(key,group);}
+ group.observations++;
+ if(!validIssueTime(row.startedAt)||!validIssueTime(row.finishedAt)||row.finishedAt<row.startedAt){
+  group.unknownTimeCount++;return;
+ }
+ group.firstObservedAt=group.firstObservedAt===null?row.finishedAt:Math.min(group.firstObservedAt,row.finishedAt);
+ group.lastObservedAt=group.lastObservedAt===null?row.finishedAt:Math.max(group.lastObservedAt,row.finishedAt);
+}
+function projectRuntimeIssues(trace,now,hooks){
+ const result=(status,groups=[])=>({scope:'bounded-original-trace-observations',status,groups,
+  grouping:'same-stage-outcome-and-code-only',rootCauseCertified:false,currentFaultCertified:false,
+  recoveryAuthorized:false,deliveryCertified:false,canTrade:false,canNotify:false});
+ const raw=trace?.diagnosticIssues;
+ if(trace?.scope!=='this-process-observed-stages'||raw===undefined)return result('not-observed');
+ if(raw?.schemaVersion!==1||!validIssueTime(now)||!Array.isArray(hooks)||
+    !Array.isArray(raw.groups)||raw.groups.length>1024||
+    !Number.isSafeInteger(trace.observedSpanCount)||trace.observedSpanCount<0||trace.observedSpanCount>1024)
+  return result('invalid-evidence');
+ const counts=new Map(),seen=new Set(),groups=[];
+ const validCount=n=>Number.isSafeInteger(n)&&n>=0&&n<=1024;
+ const fields=['samples','completed','failed','blocked','unknown','skipped'];
+ // Verify original hooks as well as the public projection; sanitized zeroes
+ // cannot stand in for missing or malformed original observations.
+ if(!Array.isArray(trace.hooks)||trace.hooks.length!==STAGES.size||hooks.length!==STAGES.size)return result('invalid-evidence');
+ for(const hook of trace.hooks){
+  if(!STAGES.has(hook?.stage)||counts.has(hook.stage)||!fields.every(k=>validCount(hook[k]))||
+     fields.slice(1).reduce((sum,k)=>sum+hook[k],0)!==hook.samples||
+     hook.status!==(hook.samples?'observed':'not-observed'))return result('invalid-evidence');
+  counts.set(hook.stage,hook);
+ }
+ let samples=0;const projected=new Set();
+ for(const hook of hooks){
+  const source=counts.get(hook?.stage);
+  if(!source||projected.has(hook.stage)||!fields.every(k=>source[k]===hook[k]))return result('invalid-evidence');
+  projected.add(hook.stage);samples+=hook.samples;
+ }
+ if(samples!==trace.observedSpanCount)return result('invalid-evidence');
+ const used=new Map();
+ for(const row of raw.groups){
+  const rule=issueRule(row?.stage,row?.outcome,row?.reasonCode);
+  if(!rule)return result('invalid-evidence');
+  const key=JSON.stringify([row.stage,row.outcome,row.reasonCode]),bucket=JSON.stringify([row.stage,row.outcome]);
+  const available=counts.get(row.stage)?.[row.outcome],n=row.observations,unknown=row.unknownTimeCount;
+  if(seen.has(key)||!Number.isSafeInteger(n)||n<1||!Number.isSafeInteger(unknown)||unknown<0||unknown>n||
+     !Number.isSafeInteger(available)||available<0||(used.get(bucket)||0)+n>available)return result('invalid-evidence');
+  const first=row.firstObservedAt,last=row.lastObservedAt;
+  if(unknown===n?(first!==null||last!==null):(!validIssueTime(first)||!validIssueTime(last)||first>last||last>now||n-unknown===1&&first!==last))
+   return result('invalid-evidence');
+  seen.add(key);used.set(bucket,(used.get(bucket)||0)+n);
+  groups.push({stage:row.stage,outcome:row.outcome,reasonCode:row.reasonCode,observations:n,
+   firstObservedAt:first,lastObservedAt:last,unknownTimeCount:unknown,severity:rule.severity,
+   affectedStage:row.stage,nextAction:rule.nextAction,rootCauseStatus:'unverified'});
+ }
+ // Every failed or unknown original outcome is classified or explicitly unknown.
+ for(const [stage,hook] of counts)for(const outcome of ['failed','unknown'])
+  if((used.get(JSON.stringify([stage,outcome]))||0)!==hook[outcome])return result('invalid-evidence');
+ return result(groups.length?'observed':samples?'no-classified-issues-in-retained-window':'not-observed',groups);
+}
 const HASH=/^[a-f0-9]{64}$/;
 const ID=/^[a-f0-9]{32}$/;
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
@@ -106,17 +193,21 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  function summary(){
   // Aggregate the bounded ring once. Keep each exact duration for the
   // existing percentiles; neither sampling nor history retention changes.
-  const accumulator=()=>({samples:0,completed:0,failed:0,blocked:0,unknown:0,skipped:0,times:[]});
+  const accumulator=()=>({samples:0,completed:0,failed:0,blocked:0,unknown:0,skipped:0,times:[],elapsed:[],batch:[],elapsedSamples:0,batchSamples:0});
+  const diagnosticGroups=new Map();
   const groups=new Map(GROUPS.map(stage=>[stage,accumulator()]));
   const byHook=new Map([...STAGES].map(stage=>[stage,accumulator()]));
   function add(value,row){
    if(!value)return;
    value.samples++;value[row.status]++;
-   if(Number.isFinite(row.durationMs))value.times.push(row.durationMs);
+   const batch=row.timing==='sum-of-actual-calls';
+   if(batch)value.batchSamples++;else value.elapsedSamples++;
+   if(Number.isFinite(row.durationMs)){value.times.push(row.durationMs);(batch?value.batch:value.elapsed).push(row.durationMs);}
   }
   for(const row of rows){
    add(groups.get(row.stage.slice(0,row.stage.indexOf('.'))),row);
    add(byHook.get(row.stage),row);
+   addIssue(diagnosticGroups,row);
   }
   const describe=(stage,{times,samples,completed,failed,blocked,unknown,skipped})=>{
    times.sort((a,b)=>a-b);
@@ -126,7 +217,12 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
   };
   const stages=[...groups].map(([stage,value])=>describe(stage,value));
   const hooks=[...byHook].map(([stage,value])=>describe(stage,value));
-  return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,coverage:'only executed hooks; unobserved stages are not inferred'};
+  // Do not use a sum of synchronous calls as a single request latency.
+  const describeTiming=(samples,times)=>{times.sort((a,b)=>a-b);return {samples,timedSamples:times.length,
+   p50Ms:times.length?times[Math.ceil(times.length*.5)-1]:null,p95Ms:times.length?times[Math.ceil(times.length*.95)-1]:null};};
+  const timingBreakdown=[...byHook].map(([stage,v])=>({stage,elapsedSpan:describeTiming(v.elapsedSamples,v.elapsed),
+   sumOfActualCalls:describeTiming(v.batchSamples,v.batch)}));
+  return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,timingBreakdown,diagnosticIssues:{schemaVersion:1,groups:[...diagnosticGroups.values()].map(row=>({...row}))},coverage:'only executed hooks; unobserved stages are not inferred'};
  }
  // Only internal workerData may carry this small envelope. Main-thread callers
  // cannot restore a JSON/client context; same-process resume requires issuance.
@@ -155,8 +251,11 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
    if(!row||row.traceId!==parent.traceId||typeof row.spanId!=='string'||!ID.test(row.spanId)||existing.has(row.spanId)||ids.has(row.spanId)||
     typeof row.parentSpanId!=='string'||!ID.test(row.parentSpanId)||![executionStage,'research.stage','factor.evaluate'].includes(row.stage)||
     !OUTCOMES.has(row.status)||!(row.reasonCode===null||CODES.has(row.reasonCode))||!ts(row.startedAt)||!ts(row.finishedAt)||!duration(row.durationMs))return false;
+   const hasBatch=Object.hasOwn(row,'calls')||Object.hasOwn(row,'timing');
+   if(hasBatch&&(row.timing!=='sum-of-actual-calls'||!Number.isSafeInteger(row.calls)||row.calls<1||row.stage===executionStage))return false;
    ids.add(row.spanId);clean.push({traceId:parent.traceId,spanId:row.spanId,parentSpanId:row.parentSpanId,links:[],stage:row.stage,
     startedAt:row.startedAt,finishedAt:row.finishedAt,durationMs:row.durationMs,status:row.status,reasonCode:row.reasonCode,origin:'worker-thread',
+    ...(hasBatch?{calls:row.calls,timing:row.timing}:{}),
     versions:hashes(row.versions,['application','source','strategy','factor','riskPolicy','feePolicy']),refs:hashes(row.refs,['signal','decision','input','account','event'])});
   }
   const roots=clean.filter(row=>row.parentSpanId===parent.spanId);
@@ -188,4 +287,4 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  const wrapAsync=(stage,fn,meta)=>function(...args){return asyncStage(stage,()=>fn.apply(this,args),typeof meta==='function'?safeCall(()=>meta(...args),{}):meta);};
  return {begin,sync,async:asyncStage,wrapSync,wrapAsync,batch,capture,markCurrent,annotateCurrent,resume,detached,withLinks,associate,contextOf,read,summary,workerContext,inWorker,workerReceipt,importWorkerReceipt,createStageTrace};
 }
-module.exports={...createRuntimeTrace(),createRuntimeTrace};
+module.exports={...createRuntimeTrace(),createRuntimeTrace,projectRuntimeIssues};

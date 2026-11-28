@@ -139,7 +139,12 @@ async function initialize({root,bundle},deps={}){rootPath(root);const report=dep
  writeNew(path.join(root,'installation.json'),{schemaVersion:1,ready:true,sourceSha:manifest.sourceSha,manifestHash:digest(serialized)});
  return {code:'initialized',sourceSha:manifest.sourceSha,dependencies:report,phoneConnected:false};}
 async function start({root,smoke=false},deps={}){const env=deps.env||process.env;dependencyGate(env);metadata(root,deps);const release=lock(root);try{updateGuard(root,deps);const meta=safeStartup(root,deps),old=processState(root);
- if(old){if(ownedProcess(root,old))return {code:'already-running',sourceSha:meta.sourceSha,mode:old.mode,health:await health(old.port),phoneConnected:false};requireThat(archiveStoppedRecord(root,old),'stale-process-record');}
+ if(old){if(ownedProcess(root,old)){
+  requireThat(old.sourceSha===meta.sourceSha,'running-source-mismatch');
+  const healthy=await health(old.port);
+  requireThat(ownedProcess(root,old),'server-exited');
+  return {code:'already-running',sourceSha:meta.sourceSha,mode:old.mode,health:healthy,phoneConnected:false};
+ }requireThat(archiveStoppedRecord(root,old),'stale-process-record');}
  const port=deps.port||8787;requireThat(await portFree(port),'port-in-use');let child;
  const childEnv=childEnvironment(env,port,smoke);
  if(smoke){const guard=path.join(root,'run/smoke-guard.cjs');requireThat(read(guard,65536,true).toString()===smokeGuard(root),'smoke-guard-changed');childEnv.NODE_OPTIONS='--require '+JSON.stringify(guard);}
@@ -155,9 +160,31 @@ async function start({root,smoke=false},deps={}){const env=deps.env||process.env
  if(!identity&&inspectionError)throw inspectionError;
  requireThat(identity&&!spawnError,'server-start-failed');
  const state={...identity,port,mode:smoke?'smoke':'normal',sourceSha:meta.sourceSha};delete state.cmd;delete state.cwd;delete state.uid;writeNew(path.join(root,'run/process.json'),state);
- const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now()))return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};await sleep(Math.max(0,Math.min(100,until-performance.now())));}
+ const until=performance.now()+(deps.startupTimeoutMs||10000);while(performance.now()<until){if(!ownedProcess(root,state))fail('server-exited');if(await health(port,until-performance.now())){requireThat(ownedProcess(root,state),'server-exited');return {code:'started',sourceSha:meta.sourceSha,mode:state.mode,health:true,url:'http://127.0.0.1:'+port,phoneConnected:false};}await sleep(Math.max(0,Math.min(100,until-performance.now())));}
  fail('health-not-ready');}finally{release();}}
-async function checkHost({root},deps={}){const report=dependencies(deps.env||process.env);try{const meta=metadata(root,deps),state=processState(root),running=state&&ownedProcess(root,state);return {code:running?'running':'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:running?await health(state.port):false,phoneConnected:false};}catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}}
+async function checkHost({root},deps={}){
+ const report=dependencies(deps.env||process.env);
+ try{
+  const meta=metadata(root,deps),state=processState(root);
+  const stopped=()=>({code:'stopped',sourceSha:meta.sourceSha,dependencies:report,mode:state?.mode||null,health:false,phoneConnected:false});
+  if(!state)return stopped();
+  if(!ownedProcess(root,state)){
+   const actual=processIdentity(state.pid);
+   // An unrelated live PID in the same boot is unresolved, not a safe stop.
+   requireThat(!actual||actual.bootId!==state.bootId,'stale-process-record');
+   return stopped();
+  }
+  requireThat(state.sourceSha===meta.sourceSha,'running-source-mismatch');
+  const healthy=await health(state.port);
+  // The health response belongs to an interval, not to the instant it is returned.
+  // Re-read both version and process record; concurrent updates cannot certify a stale instance.
+  const latest=metadata(root,deps),after=processState(root);
+  requireThat(latest.sourceSha===meta.sourceSha&&latest.manifestHash===meta.manifestHash,'running-source-mismatch');
+  requireThat(after&&['pid','startTime','bootId','exe','port','sourceSha','mode'].every(key=>after[key]===state[key]),'process-record-changed');
+  requireThat(ownedProcess(root,state),'server-exited');
+  return {code:'running',sourceSha:meta.sourceSha,dependencies:report,mode:state.mode||null,health:healthy,phoneConnected:false};
+ }catch(e){if(!fs.existsSync(root))return {code:'not-initialized',dependencies:report,health:false,phoneConnected:false};throw e;}
+}
 async function stop({root},deps={}){
  const meta=metadata(root,deps),release=lock(root);
  try{
@@ -182,7 +209,7 @@ async function stop({root},deps={}){
  }finally{release();}
 }
 function parseArgs(args){const [action,...rest]=args;requireThat(['init','start','check','stop'].includes(action),'usage');let root=path.join(os.homedir(),'.tian-shu-local'),bundle,smoke=false;const seen=new Set();for(let i=0;i<rest.length;i++){const flag=rest[i];requireThat(!seen.has(flag),'usage');seen.add(flag);if(flag==='--home')root=rest[++i];else if(flag==='--bundle'&&action==='init')bundle=rest[++i];else if(flag==='--smoke'&&action==='start')smoke=true;else fail('usage');}rootPath(root);requireThat(action!=='init'||typeof bundle==='string','usage');return {action,root,bundle,smoke};}
-const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','process-inspection-failed','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','health-not-ready','stop-timeout','update-in-progress','update-recovery-required']);
+const CODES=new Set(['usage','unsafe-private-path','unsafe-private-permissions','unsafe-file','unsafe-lock','unsafe-log','invalid-state','invalid-installation','invalid-process-record','process-inspection-failed','dependencies-not-ready','invalid-manifest','invalid-payload','bundle-symlink','bundle-special-file','server-missing','manifest-file-set-mismatch','manifest-hash-mismatch','installation-already-exists','installed-manifest-changed','installed-code-changed','smoke-guard-changed','external-delivery-not-disabled','paper-not-disabled','host-busy','stale-process-record','port-in-use','server-start-failed','server-exited','running-source-mismatch','process-record-changed','health-not-ready','stop-timeout','update-in-progress','update-recovery-required']);
 async function main(args,deps={}){try{process.umask(0o077);const options=parseArgs(args);return await ({init:initialize,start,check:checkHost,stop}[options.action])(options,deps);}catch(e){return {code:CODES.has(e?.code)?e.code:'host-operation-failed',phoneConnected:false};}}
 if(require.main===module)main(process.argv.slice(2)).then(result=>{process.stdout.write(JSON.stringify(result)+'\n');if(!['initialized','started','already-running','running','stopped','already-stopped'].includes(result.code))process.exitCode=2;});
 module.exports={main,parseArgs,verifyBundle,dependencies,childEnvironment,initialize,start,checkHost,stop,processIdentity,ownedProcess,safeStartup};

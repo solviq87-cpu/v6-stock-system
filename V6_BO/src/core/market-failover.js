@@ -23,7 +23,7 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
     entry.client=createMarketDataCenter({...source,outputFile:file,fetchImpl:guardedFetch,clock:readClock});
     return entry;
   });
-  let busy=false,last=null,lastClock=null,clockFault=false;
+  let busy=false,last=null,lastClock=null,clockFault=false,passAttemptedAt=null;
   const validClock=at=>Number.isSafeInteger(at)&&at>0&&at<8e15;
   function readClock(){
     let at;try{at=clock();}catch{at=null;}
@@ -85,16 +85,19 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
       receivedAt:archive.receivedAt,availableAt:archive.availableAt};
   }
   async function sync(){
-    if(busy)return {updated:false,reason:'busy'};busy=true;clockFault=false;const attempts=[],unverified=new Set();
+    if(busy)return {updated:false,reason:'busy'};busy=true;clockFault=false;passAttemptedAt=null;const attempts=[],unverified=new Set();
     const unavailable=()=>last={mode:'unavailable',updated:false,stale:true,canTrade:false,verifiedLive:false,attempts,error:'全部行情源及允许时效内缓存不可用'};
     try{
-      readClock();
+      passAttemptedAt=readClock();
       for(const [index,e] of entries.entries()){
         for(let attempt=0;attempt<=retries;attempt++){
-          let result;e.restriction=null;
+          let result,adapterThrew=false;e.restriction=null;
+          const receipt={id:e.source.id,attempt:attempt+1,ok:false,status:'attempt-started',
+            attemptedAt:readClock(),finishedAt:null};attempts.push(receipt);
           try{result=await (governor?governor.run(e.source.url,()=>e.client.sync()):e.client.sync());}
-          catch(error){result=null;if(error?.code==='MARKET_RESTRICTED')e.restriction=error;}
-          const now=readClock(),receipt={id:e.source.id,attempt:attempt+1,ok:false};attempts.push(receipt);
+          catch(error){adapterThrew=true;result=null;if(error?.code==='MARKET_RESTRICTED')e.restriction=error;}
+          let now;
+          try{now=readClock();receipt.finishedAt=now;}catch(error){receipt.status='clock-unverified';throw error;}
           if(e.restriction){
             receipt.status='restricted';
             receipt.httpStatus=[403,429].includes(e.restriction.status)?e.restriction.status:null;
@@ -103,6 +106,8 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
             break; // never retry a restricted route inside this sync
           }
           if(!result||result.error||result.reason==='busy'||typeof result.updated!=='boolean'||typeof result.hash!=='string'||!/^[a-f0-9]{64}$/.test(result.hash)){
+            receipt.status=adapterThrew?'adapter-threw':result?.reason==='busy'?'adapter-busy':
+             !result||result.error?'adapter-unavailable':'invalid-receipt';
             if(result?.updated===true||result?.hash!==undefined)unverified.add(e.source.id);
             continue;
           }
@@ -115,9 +120,12 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
             if(archive)readData(e,readClock(),hash);
             const acceptedAt=readClock();
             e.verified={hash,acceptedAt:archive?.receivedAt??acceptedAt};
-            receipt.ok=true;last={mode:index?'fallback':'primary',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:result.updated,stale:false,canTrade:false,verifiedLive:false,attempts,data,
+            receipt.ok=true;receipt.status='verified-original-research-receipt';receipt.finishedAt=acceptedAt;last={mode:index?'fallback':'primary',sourceId:e.source.id,provider:e.source.provider,datasetId:e.source.datasetId,updated:result.updated,stale:false,canTrade:false,verifiedLive:false,attempts,data,
               archiveEvidence:archive};return structuredClone(last);
-          }catch(error){if(error.code==='FAILOVER_CLOCK')throw error;unverified.add(e.source.id);}
+          }catch(error){
+            if(error.code==='FAILOVER_CLOCK'){receipt.status='clock-unverified';receipt.finishedAt=null;throw error;}
+            receipt.status='persisted-evidence-rejected';unverified.add(e.source.id);
+          }
         }
       }
       for(const e of entries){if(unverified.has(e.source.id))continue;try{
@@ -142,6 +150,8 @@ function createMarketFailover({sources,directory,fetchImpl=globalThis.fetch,retr
     }catch(error){if(error.code==='FAILOVER_CLOCK')return structuredClone(unavailable());throw error;}
     finally{busy=false;}
   }
-  return {sync,status:()=>last?structuredClone({...last,data:undefined}): {mode:'not-started',canTrade:false,verifiedLive:false}};
+  return {sync,status:()=>({...(
+    last?structuredClone({...last,data:undefined}):{mode:'not-started',canTrade:false,verifiedLive:false}),
+    running:busy,currentPass:busy?'in-progress':'not-running',lastPassAttemptedAt:passAttemptedAt,currentLiveCertified:false})};
 }
 module.exports={createMarketFailover};
