@@ -365,3 +365,16 @@ test('F05.6 original event report retains short reaction and unknown long contex
  const direct=D.buildEventImpactStudy({events:[event()],eventOutcomes:[forged]},{asOf:t2});
  assert.equal(direct.rows[0].regimeOverlay,null);assert.equal(direct.rows[0].preEventStudy,null);
 });
+
+test('F06/F07 original deep research report carries declared business path and catalyst evidence',()=>{
+ const e=event({publishedAt:t1,firstKnownAt:t1,recordedAt:t1,body:'政策适用于产品甲。尚未签订新订单。',policyApplicability:{entityId:'product:alpha',productId:'alpha',clause:'政策适用于产品甲'},catalyst:{id:'catalyst-1',status:'planned',plannedAt:t2,clause:'政策适用于产品甲'}});
+ const r=relation('business-alpha','600000',{to:'product:alpha',productId:'alpha',stage:'upstream',documentText:'主营产品甲。',businessClause:'主营产品甲'});
+ const report=D.buildDeepResearchEvidence({events:[e],relations:[r]},{asOf:t2});
+ const row=report.modules[67].eventReview.rows[0];
+ assert.equal(row.industry.status,'declared-business-review');
+ assert.equal(row.policy.status,'declared-path-review');
+ assert.equal(row.catalyst.status,'planned');
+ assert.equal(row.catalyst.active,false);
+ assert.ok(row.textBaseline.sentences.some(s=>s.negationHint));
+ assert.equal(row.industry.canTrade,false);
+});
