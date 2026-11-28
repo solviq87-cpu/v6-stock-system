@@ -113,3 +113,29 @@ test('common history may remain usable when previous and current coverage differ
  const view=buildMarketSectorStockLinkage(x.events,{selectedEvent:x.selectedEvent,asOf:x.asOf});const v=enrichMarketLinkageHistory(view,x.events,{selectedEvent:x.selectedEvent,asOf:x.asOf}).boards[0].trend.structure;
  assert.equal(v.status,'observed-unverified');assert.equal(v.commonObserved,5);assert.equal(v.migration,null);
 });
+
+test('F15.3 fixed lag compares only identical pairs; simultaneous alternating shocks are not leading evidence',()=>{
+ const x=setup();for(let i=0;i<x.events.length;i++){
+  const q=x.events[i].data.context.marketLinkageEvidence,dir=i%2?-1:1;
+  q.stocks.forEach(s=>s.return=dir*.02);q.benchmark.return=dir*.01;
+ }
+ const v=x.run().boards[0].trend.structure.leadLag;
+ assert.equal(v.lagSessions,1);assert.equal(v.attempted,4);assert.equal(v.pairedEvaluated,4);assert.equal(v.lagMatches,0);assert.equal(v.concurrentMatches,4);
+ assert.equal(v.leadingConfirmed,false);assert.equal(v.outOfSampleVerified,false);assert.equal(v.canTrade,false);
+});
+test('F15.3 late or reversed archive clocks cannot be used as a pre-open signal',()=>{
+ const x=setup();x.events[3].recordedAt=Date.parse('2026-11-13T10:00:00+08:00');
+ let v=x.run().boards[0].trend.structure.leadLag;assert.equal(v.unknown,1);assert.equal(v.pairs.at(-1).reason,'clock-not-point-in-time');assert.equal(v.pairs.at(-1).lagMatch,null);
+ x.events[3].recordedAt=x.events[3].data.asOf-1;v=x.run().boards[0].trend.structure.leadLag;assert.equal(v.unknown,2);assert.equal(v.pairedEvaluated,2);
+});
+test('F15.3 neutral direction is an abstention for both comparisons, not a successful prediction',()=>{
+ const x=setup();for(const e of x.events)e.data.context.marketLinkageEvidence.benchmark.return=0;
+ const v=x.run().boards[0].trend.structure.leadLag;assert.equal(v.pairedEvaluated,0);assert.equal(v.abstained,4);assert.equal(v.lagMatches,null);assert.equal(v.concurrentMatches,null);
+});
+test('F15.3 changing observed membership cannot define the prior cohort after the outcome',()=>{
+ const x=setup();for(const e of x.events){const q=e.data.context.marketLinkageEvidence;q.boards[0].members.push('600005');q.stocks.push({symbol:'600005',return:.01,knownAt:q.knownAt});}
+ x.events.at(-1).data.context.marketLinkageEvidence.stocks.at(-1).return=null;
+ x.view=buildMarketSectorStockLinkage(x.events,{selectedEvent:x.selectedEvent,asOf:x.asOf});
+ const v=enrichMarketLinkageHistory(x.view,x.events,{selectedEvent:x.selectedEvent,asOf:x.asOf}).boards[0].trend.structure.leadLag;
+ assert.equal(v.pairedEvaluated,3);assert.equal(v.unknown,1);assert.equal(v.pairs.at(-1).reason,'same-cohort-unavailable');
+});
