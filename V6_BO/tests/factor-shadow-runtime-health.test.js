@@ -81,3 +81,5 @@ test('future frozen dates, duplicate dates and corrupt pulse fail closed',()=>{
  assert.throws(()=>assess({pulse:{...pulse,observedAt:now+1}}),/心跳无效/);
  assert.throws(()=>assess({pulse:{...pulse,intervalMs:1}}),/心跳无效/);
 });
+
+test('F50 original runtime health exposes only same-manifest bound local receipt',()=>{const M=require('../src/core/fayo-final-model-review'),id='a'.repeat(64),a=M.runtimeAttempt({manifestFingerprint:id,canonical:true,operatorMode:true,startedAt:pulse.observedAt,elapsedMs:1,outcome:pulse.outcome,lastStatus:pulse.lastStatus});const r=assess({manifestFingerprint:id,pulse:{...pulse,attempt:a,lastFailure:null}});assert.equal(r.runtimeReceipt.status,'local-process-receipt');assert.equal(r.runtimeReceipt.attempt.elapsedMs,1);assert.equal(r.verifiedLive,false);assert.equal(r.trainingProgressCertified,false);});

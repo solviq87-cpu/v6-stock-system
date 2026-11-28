@@ -26,6 +26,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
  const windowStart=days[Math.max(0,days.length-WINDOW_DAYS)];
  const asOfDay=days.at(-1);
  const counted=[],fingerprints=new Set();
+ const statusCounts=Object.fromEntries([...INSPECTED,...MONITOR_ONLY].map(s=>[s,0]));
  const knownDays=new Set(days),firstKnownDay=days[0];
  // Only dates inside the supplied manifest span can be reconciled locally.
  // Older archived trials still count in all-time history.
@@ -45,6 +46,7 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   const inspected=INSPECTED.has(report.status),monitorOnly=MONITOR_ONLY.has(report.status);
   if(!inspected&&!monitorOnly)
    throw Error('全局试验历史报告状态无效，拒绝跳过');
+  statusCounts[report.status]++;
   const hasAudit=Object.hasOwn(report,'trialAudit'),audit=report.trialAudit;
   if(hasAudit&&(!audit||typeof audit!=='object'||Array.isArray(audit)||
      audit.schemaVersion!==1||
@@ -123,6 +125,8 @@ function assessGlobalTrialBudget(reports,signalDays,packFingerprint){
   windowStartDay:windowStart,asOfDay,windowHistoryComplete,
   carriedBeforeManifestTrials:recent.filter(x=>x.inspectionDay<firstKnownDay).length,
   allTimeTrialCount:counted.length,usedTrials:recent.length,
+  historicalTrialDisposition:{...statusCounts,retainedOrShockInspections:statusCounts['shadow-retained']+statusCounts['paused-market-shock'],
+   omittedNegativeTrialsPermitted:false,independentNetReturnMatrixCertified:false},
   remainingTrials:Math.max(0,MAX_TRIALS-recent.length),
   lastTrialFingerprint:recent.at(-1)?.fingerprint||null,
   holdoutAlreadyInspected:recent.length>0,

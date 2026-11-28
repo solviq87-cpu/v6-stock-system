@@ -14,6 +14,8 @@ const root=path.resolve(__dirname,'..'),publicRoot=path.join(root,'public');
 const output=process.env.FAYO_DEEP_RESEARCH_QA_DIR||(process.env.V6_UI_QA_DIR?path.join(process.env.V6_UI_QA_DIR,'deep-research'):fs.mkdtempSync(path.join(os.tmpdir(),'fayo-deep-browser-report-')));
 const privateRoot=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-deep-browser-fixture-'));
 fs.mkdirSync(output,{recursive:true});
+const etfReceiptPath=process.argv[2]==='--etf-monthly-archive'?process.argv[3]:null;
+if(process.argv.length>2&&(!etfReceiptPath||!path.isAbsolute(etfReceiptPath)||process.argv.length!==4))throw Error('需要显式指定已采集的深交所月报档案绝对路径');
 const taskEvidence=JSON.parse(fs.readFileSync(path.join(root,'config/deep-research-tasks.json'),'utf8'));
 const requests=[],responses=[],unexpectedWrites=[];
 let session;
@@ -35,7 +37,7 @@ function harness(viewer){
  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <title>绯曜深度研究隔离验收</title><link rel="stylesheet" href="/nova/fayo.css">
  <style>body{margin:0;padding:24px;background:#140f1c;color:#f5eafa}main{max-width:1220px;margin:auto;min-width:0}.qa-banner{font-size:13px;color:#bea8c9}@media(max-width:600px){body{padding:12px}}</style></head>
- <body><main><h1>绯曜 FAYO · 深度研究验收</h1><p class="qa-banner">隔离测试输入 · 真实界面、后台处理器与研究档案 · 不代表行情、成交、部署或长期验收</p><div id="research"></div></main>
+ <body><main><h1>绯曜 FAYO · 深度研究验收</h1><p class="qa-banner">${etfReceiptPath?'隔离验收环境 · 深交所历史成交月报 · 实际运行界面':'隔离测试输入 · 真实界面、后台处理器与研究档案 · 不代表行情、成交、部署或长期验收'}</p><div id="research"></div></main>
  <script type="module">
  import {renderDeepResearch} from '/nova/deep-research.js';
  const controller=new AbortController(),calls=[];let role='${viewer?'view':'edit'}';
@@ -78,6 +80,43 @@ const server=http.createServer(async(req,res)=>{
  reply(res,200,file.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8',fs.readFileSync(file));
 });
 async function waitFor(check,message){const until=Date.now()+15000;while(!check()){if(Date.now()>until)throw Error(message);await new Promise(resolve=>setTimeout(resolve,25));}}
+async function checkEtfMonth(browser, origin) {
+ const views=[];
+ for(const viewport of [{width:1536,height:1000,path:'/'},{width:390,height:844,path:'/m'}]){
+  session=fixture('etf-'+viewport.width);
+  session.backgroundRoot=etfReceiptPath;
+  const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'});
+  try{
+   const page=await context.newPage(),errors=[],external=[];
+   page.on('pageerror',error=>errors.push(error.message));
+   await page.route('**/*',route=>{
+    if(new URL(route.request().url()).origin===origin)return route.continue();
+    external.push(new URL(route.request().url()).origin);return route.abort();
+   });
+   await page.goto(origin+viewport.path,{waitUntil:'networkidle'});
+   await page.getByRole('button',{name:'读取当前证据',exact:true}).click();
+   const label='深交所ETF证券成交月报 · 2025-04';
+   await page.getByText(label,{exact:true}).click();
+   const panel=page.locator('details').filter({has:page.getByText(label,{exact:true})});
+   const row=panel.locator('tr').filter({hasText:'159915'}),readout=await row.innerText();
+   assert.match(readout,/创业板ETF/);assert.match(readout,/399006/);assert.match(readout,/6684564.1/);
+   assert.match(await panel.innerText(),/净申购未知，交易主体未知/);
+   const result=responses.filter(r=>r.path==='/api/research/deep'&&r.ok).at(-1).result.background;
+   const receipt=result.rows.find(r=>r.scope?.documentId==='W020250513504907210876.html');
+   assert.equal(receipt.dataVersion,'1b27d2992eb8e9adb65169e89d111a623531276eded33d40ff7e51b83bbf205f');
+   assert.equal(result.canTrade,false);assert.equal(receipt.netSubscriptions,null);assert.equal(receipt.buyerIdentity,null);
+   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+   const tableOverflow=await panel.locator('.fy-table-wrap').evaluate(el=>el.scrollWidth-el.clientWidth);
+   assert.ok(tableOverflow<=1,'成交额在手机首屏表格内可见');
+   assert.ok(overflow<=1);assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+   await panel.screenshot({path:path.join(output,'FAYO-ETF-'+viewport.width+'.png')});
+   views.push({viewport,api:'/api/research/deep',archiveHash:receipt.archiveHash,dataVersion:receipt.dataVersion,overflow,tableOverflow,errors,external,readout});
+  }finally{await context.close();}
+ }
+ const report={passed:true,mode:'isolated-http-worker-real-archived-monthly-document',productionDeployed:false,physicalDevices:false,views};
+ fs.writeFileSync(path.join(output,'etf-browser-report.json'),JSON.stringify(report,null,2));
+ console.log(JSON.stringify(report));
+}
 async function run(){
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const origin='http://127.0.0.1:'+server.address().port;let browser;
@@ -85,6 +124,7 @@ async function run(){
   backend:['deepResearchHttp','runWorkspaceJob','deepAccountProjection','runtimeAcceptance.report','inspectReleaseProvenanceAsync'],views:[]};
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.V6_UI_BROWSER||'/usr/bin/chromium',args:['--no-sandbox','--disable-dev-shm-usage']});
+  if(etfReceiptPath){await checkEtfMonth(browser,origin);return;}
   for(const viewport of [{width:1536,height:1000,path:'/'},{width:390,height:844,path:'/m'}]){
    session=fixture('view-'+viewport.width);const current=session;
    const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},serviceWorkers:'block'}),page=await context.newPage();

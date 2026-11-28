@@ -5,6 +5,7 @@
  * a calculation of real investment return.
  */
 const {aShareCalendarAgeDays}=require('./a-share-calendar');
+const {runtimeProjection}=require('./fayo-final-model-review');
 const MIN_INTERVAL=30000,MAX_INTERVAL=3600000;
 const validMs=x=>Number.isSafeInteger(x)&&x>0&&Number.isFinite(new Date(x).getTime());
 const validDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
@@ -12,7 +13,7 @@ const validDay=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  new Date(x+'T00:00:00Z').toISOString().slice(0,10)===x;
 function assessShadowRuntimeHealth({now=Date.now(),signalDays=[],
  reportFilesPresent=[],pulse=null,budget=null,accepted=null,trial=null,
- registration=null,cooldown=null}={}){
+ registration=null,cooldown=null,manifestFingerprint=null}={}){
  if(!validMs(now)||!Array.isArray(signalDays)||signalDays.length<36||
     signalDays.length>400||!Array.isArray(reportFilesPresent)||
     reportFilesPresent.length!==signalDays.length||
@@ -81,7 +82,7 @@ function assessShadowRuntimeHealth({now=Date.now(),signalDays=[],
    trial?.lastObservationDay??null,
   registrationStatus:registration?'sealed-candidate-present':'none',
   researchState,budgetState,remainingTrialBudget:budget?.remainingTrials??null,
-  heartbeat,issues,readOnly:true,verifiedLive:false,
+  heartbeat,runtimeReceipt:runtimeProjection(pulse,manifestFingerprint,now),issues,readOnly:true,verifiedLive:false,
   trainingProgressCertified:false,canTrain:false,canTrade:false,
   productionWeightsChanged:false};
 }

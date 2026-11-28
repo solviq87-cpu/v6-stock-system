@@ -1,0 +1,80 @@
+{
+  "mode": "isolated-real-http-with-official-historical-documents",
+  "route": "/api/research/news-evidence",
+  "rawHashes": [
+    {
+      "sha256": "278383cce68511b7668d5ec7bd35fe7403ab9741636dbbf2585ca78689a0d716",
+      "path": "202501/t20250118_1958363.html"
+    },
+    {
+      "sha256": "c1970caa2e8d276c2fff7c462641abdddf59d828d9ee3fc3139a754595b25188",
+      "path": "202512/t20251226_1962144.html"
+    }
+  ],
+  "cutoff": 1795797764977,
+  "beforeLocalImport": 0,
+  "frozen": [
+    {
+      "eventHash": "15368041163fb8f512bb031d57e1a3badc32762c977a4a33fa30807d739d53e9",
+      "supersedes": null,
+      "current": true,
+      "recordedAt": 1795797764977,
+      "locallyReadAt": 1795797764934,
+      "publishedAt": 1737163800000,
+      "revisedAt": null,
+      "url": "https://www.stats.gov.cn/sj/zxfb/202501/t20250118_1958363.html",
+      "title": "2024年四季度和全年国内生产总值初步核算结果",
+      "summary": "国家统计局。2024年全国GDP（初步核算）。现价总量 1349084 亿元，不变价同比增速 5.0%。",
+      "bodyScope": "provider-summary"
+    }
+  ],
+  "latest": [
+    {
+      "eventHash": "ea12109a7a73847fca7240f9b11bfed35323a69887ad4a93c9ef997ab1c1de16",
+      "supersedes": "15368041163fb8f512bb031d57e1a3badc32762c977a4a33fa30807d739d53e9",
+      "current": true,
+      "recordedAt": 1795797765040,
+      "locallyReadAt": 1795797764999,
+      "publishedAt": 1737163800000,
+      "revisedAt": 1766712600000,
+      "url": "https://www.stats.gov.cn/sj/zxfb/202512/t20251226_1962144.html",
+      "title": "国家统计局关于2024年国内生产总值最终核实的公告",
+      "summary": "国家统计局。2024年全国GDP（最终核实）。现价总量 1348066 亿元，不变价同比增速 5.0%。",
+      "bodyScope": "provider-summary"
+    },
+    {
+      "eventHash": "15368041163fb8f512bb031d57e1a3badc32762c977a4a33fa30807d739d53e9",
+      "supersedes": null,
+      "current": false,
+      "recordedAt": 1795797764977,
+      "locallyReadAt": 1795797764934,
+      "publishedAt": 1737163800000,
+      "revisedAt": null,
+      "url": "https://www.stats.gov.cn/sj/zxfb/202501/t20250118_1958363.html",
+      "title": "2024年四季度和全年国内生产总值初步核算结果",
+      "summary": "国家统计局。2024年全国GDP（初步核算）。现价总量 1349084 亿元，不变价同比增速 5.0%。",
+      "bodyScope": "provider-summary"
+    }
+  ],
+  "duplicateRevisionCount": 2,
+  "canTrade": false,
+  "productionDeployed": false,
+  "originalHttpFetches": [
+    {
+      "vintage": "initial",
+      "sourceUrl": "https://www.stats.gov.cn/sj/zxfb/202501/t20250118_1958363.html",
+      "rawSha256": "278383cce68511b7668d5ec7bd35fe7403ab9741636dbbf2585ca78689a0d716",
+      "bytes": 295304,
+      "startedAt": "2026-11-27T16:37:52.440519+00:00",
+      "receivedAt": "2026-11-27T16:37:56.681789+00:00"
+    },
+    {
+      "vintage": "revised",
+      "sourceUrl": "https://www.stats.gov.cn/sj/zxfb/202512/t20251226_1962144.html",
+      "rawSha256": "c1970caa2e8d276c2fff7c462641abdddf59d828d9ee3fc3139a754595b25188",
+      "bytes": 188244,
+      "startedAt": "2026-11-27T16:37:56.738011+00:00",
+      "receivedAt": "2026-11-27T16:38:05.405608+00:00"
+    }
+  ]
+}

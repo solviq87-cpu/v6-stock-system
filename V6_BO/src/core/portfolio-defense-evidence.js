@@ -2,6 +2,7 @@
 // Read-only research over the existing advanced portfolio report, never a
 // second account, a source of execution permissions, or a policy installer.
 const {validateEntryPolicy}=require('./common-entry-risk');
+const {jointStress}=require('./fayo-joint-outcomes');
 const {quoteUseEligibility}=require('./quote-observation-view');
 const VERSION='fayo-portfolio-defense-research-v1';
 const FLAGS=Object.freeze({researchOnly:true,canTrade:false,canNotify:false,writesAccount:false,canAuthorize:false,guaranteedFill:false});
@@ -207,17 +208,52 @@ function coLoss(h,observations,tail,now){
   nominalTailDays:k,tailBoundaryScenarioCount:worst?worst.filter(r=>r.portfolio===boundary).length:null,
   note:'使用原完整同源对齐后复权收益与当前固定权重；最差十分位包括边界同损失样本，实际天数可能超过名义十分位。事后描述非独立危机标签、共同因子归因或概率。'};
 }
+// Alternative shocks on relative size groups of the exact earlier frozen cohort.
+// Reuse F45 mark shock. Each all-fill alternative charges original fees once.
+function styleShock(h,p,partition,assumptions){
+ const out={status:'unknown',reason:'ORIGINAL_FROZEN_SIZE_OR_PENDING_EVIDENCE_UNAVAILABLE',scenarios:[],actualLoss:null,realizedLoss:null,...FLAGS};
+ if(!h||!p||!assumptions||partition?.status!=='declared-point-in-time-partition'||!Array.isArray(partition.groups)||partition.groups.length!==2||
+  !qty(h.eq)||h.eq===0||!Array.isArray(h.rows)||!Array.isArray(p.rows)||!qty(p.fees))return out;
+ // The original two groups must contain the entire frozen cohort, not
+ // merely the securities currently held or ordered in this account.
+ const groups=partition.groups,ids=['relatively-smaller','relatively-larger'];
+ if(groups.some((g,i)=>g?.id!==ids[i]||!Array.isArray(g.members)||!g.members.length))return out;
+ const count=groups.reduce((n,g)=>n+g.members.length,0);
+ if(count<6||count>500||partition.expected!==count||partition.observed!==count||
+  groups[0].members.length!==Math.floor(count/2))return out;
+ const members=new Map();
+ for(const g of groups){
+  for(const row of g.members){if(!code(row?.symbol)||members.has(row.symbol))return out;members.set(row.symbol,g.id);}
+ }
+ if([...h.rows,...p.rows].some(row=>!members.has(row?.symbol)||!qty(row.value)))return out;
+ const heldTotal=sum(h.rows.map(x=>x.value)),pendingTotal=sum(p.rows.map(x=>x.value));
+ if(heldTotal===null||pendingTotal===null||sum([heldTotal,pendingTotal,p.fees])===null||heldTotal+pendingTotal+p.fees>h.eq)return out;
+ for(const id of ids){
+  const hv=sum(h.rows.filter(x=>members.get(x.symbol)===id).map(x=>x.value)),pv=sum(p.rows.filter(x=>members.get(x.symbol)===id).map(x=>x.value));
+  if(hv===null||pv===null)return out;
+  const held=jointStress({value:hv,equity:hv,cash:0,locked:null},null,assumptions),
+   pending=jointStress({value:pv,equity:pv,cash:0,locked:null},null,assumptions);
+  const hl=cents(held.heldMarkLoss),pl=cents(pending.heldMarkLoss),loss=sum([hl,pl,p.fees]);
+  if(loss===null||loss>h.eq)return {...out,scenarios:[],reason:'F45_SHOCK_ASSUMPTION_INVALID'};
+  out.scenarios.push({group:id,heldExposure:money(hv),remainingPendingExposure:money(pv),combinedDeclinePct:held.combinedDeclinePct,
+   heldMarkLoss:money(hl),additionalPendingMarkLoss:money(pl),originalEstimatedFees:money(p.fees),allPendingFillLoss:money(loss),
+   allPendingFillEquityAfter:money(h.eq-loss),actualLoss:null,realizedLoss:null,...FLAGS});
+ }
+ return {...out,status:'conditional-style-scenarios',reason:null,signalDay:partition.signalDay,source:partition.source,datasetId:partition.datasetId,
+  assumptionVersion:assumptions.version??null,accountObservationDay:partition.accountObservationDay??null,referenceKind:partition.referenceKind??null,currentClassificationCertified:false,otherGroupUnchanged:true,includesFilledHoldingsOnce:true,
+  note:'按原冻结候选截面相对规模分组；复用F45复合冲击。每行独立假设全部未成买单成交，原冻结估计费用计一次；不同情景不能相加，不代表实际亏损、概率或批准交易。'};
+}
 function buildPortfolioDefense(input={}){
  const h=bound(input);
  const out={version:VERSION,status:'unknown',reason:'ORIGINAL_BOUND_ACCOUNT_UNAVAILABLE',account:input.account??null,
   accountRevision:null,accountEvidenceRef:null,checkedAt:input.now??null,reverseStress:null,additions:[],heldProfitRisk:[],liquidityStress:null,
-  jointLoss:null,pending:null,...FLAGS};
+  jointLoss:null,pending:null,styleShock:styleShock(null,null,null,null),...FLAGS};
  if(!h)return out;
  const {book,now}=input,p=pending(book,h);
  return {...out,status:p?'observed-research':'partial',reason:p?null:'ORIGINAL_PENDING_ORDER_EVIDENCE_UNAVAILABLE',
   accountRevision:book.revision,accountEvidenceRef:book.fingerprint,
   pending:p?{orderCount:p.rows.length,remainingNotional:money(p.notional),estimatedReservedFees:money(p.fees),includesFilledHoldingsOnce:true}:null,
   reverseStress:reverse(h,p,book.riskPolicy??null),additions:additionRows(h,input.previews,book,now),heldProfitRisk:profitRows(h),
-  liquidityStress:liquidity(h,input.exits),jointLoss:coLoss(h,input.observations,input.tail,now)};
+  liquidityStress:liquidity(h,input.exits),jointLoss:coLoss(h,input.observations,input.tail,now),styleShock:styleShock(h,p,input.stylePartition,input.styleAssumptions)};
 }
-module.exports={buildPortfolioDefense,VERSION};
+module.exports={buildPortfolioDefense,styleShock,VERSION};

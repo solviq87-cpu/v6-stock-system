@@ -850,6 +850,10 @@ test('exhausted global budget denies the next challenger before opening absent h
  const denied=runShadowWorker({manifestFile,outputDir,now:finalClock});
  assert.equal(denied.status,'skipped-global-trial-budget-exhausted');
  assert.equal(denied.usedTrials,6);
+ const deniedRegistration=runRegisterAuto({manifestFile,outputDir,now:finalClock});
+ assert.equal(deniedRegistration.status,'skipped-global-trial-budget-exhausted');
+ assert.equal(deniedRegistration.usedTrials,6);
+ assert.equal(fs.readdirSync(outputDir).filter(x=>x.startsWith('prereg-')).length,0);
  assert.equal(denied.canTrade,false);
  assert.equal(denied.productionWeightsChanged,false);
  assert.equal(fs.existsSync(path.join(outputDir,'.shadow-worker.lock')),false);

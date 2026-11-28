@@ -106,3 +106,76 @@ test('a late refusal leaves the next day quota intact',async()=>{
  assert.equal(quota.total,1);
  assert.equal(quota.by['盘中'],1);
 });
+
+test('private queue rechecks a newer native price while the frozen signal is still fresh', async () => {
+ const e=engine(), initial=row(), text='当前价格10 · 已审核候选';
+ vm.runInContext(fn('ingestPx'),e.c);
+ e.c.S.lastPx=new Map();
+ const opts=e.c.recommendationSendOptions([initial],{private:true,undo:['original-slot']});
+ let unblock;
+ e.c.feishuProbe=async (_id,_secret,body)=>{
+  if(body==='占用队列') return new Promise(resolve=>{unblock=resolve;});
+  e.sends.push(body);return {ok:true};
+ };
+ const first=e.c.feishuSendPrivate('占用队列',{});
+ assert.equal(e.c.pushAll(text,false,opts),true);
+ e.set(at+2000);
+ e.c.ingestPx([row({price:11,quoteAt:at+1000,receivedAt:at+2000,canTrade:true})]);
+ assert.equal(e.c.S.lastPx.get(initial.code).wireQuote.price,11);
+ assert.equal(e.c.reviewRecommendation(opts.recommendationRows[0],'intraday-recommendation',at+2000).canRecommend,true);
+ unblock({ok:true});await first;await new Promise(setImmediate);
+ assert.deepEqual(e.sends,[],'a known superseding price must stop the queued current-price wording');
+ assert.equal(e.quota.total,0);
+ assert.deepEqual(e.releases,['original-slot']);
+ assert.equal(opts.recommendationRows[0].price,10);
+});
+
+test('only a qualified changed quote can supersede current wording, never the original decision',()=>{
+ const e=engine(),opts=e.c.recommendationSendOptions([row()]),current='当前价格10';
+ const next=row({price:11,quoteAt:at,receivedAt:at});
+ const cases=[
+  [next,true],
+  [{...next,quoteAt:at-1000},true],
+  [{...next,price:10},false],
+  [{...next,code:'000002'},false],
+  [{...next,quoteAt:at-2000},false],
+  [{...next,quoteAt:at+1000,receivedAt:at+1000},false],
+  [{...next,canNotify:false},false],
+  [{...next,sourceConflict:true},false],
+  [{...next,mode:'historical'},false]
+ ];
+ for(const [quote,changed] of cases){
+  e.c.S.lastPx=new Map([['000001',{wireQuote:quote}]]);
+  const result=e.c.prepareRecommendationDelivery(current,opts,at);
+  assert.equal(result.canRecommend,!changed,JSON.stringify(quote));
+  if(changed){
+   assert.equal(result.kind,'historical-trigger-observation');
+   assert.match(result.text,/当时报价10/);
+   assert.doesNotMatch(result.text,/当前价格10/);
+   assert.equal(result.reason,'CURRENT_PRICE_CHANGED');
+  }
+ }
+ e.c.S.lastPx=new Map([['000001',{wireQuote:next}]]);
+ const prohibited=e.c.recommendationSendOptions([row({canNotify:false})]);
+ assert.equal(e.c.prepareRecommendationDelivery(current,prohibited,at).ok,false);
+ assert.equal(opts.recommendationRows[0].quoteAt,at-1000);
+});
+
+test('explicit public transport rechecks the frozen text on retry and before email dispatch',async()=>{
+ const e=engine(),{c}=e,opts=c.recommendationSendOptions([row()],{public:true,undo:['public-slot']});
+ c.feishuReady=()=>true;c.mailReady=()=>true;c.S.config.qqMail={};c.S.lastPx=new Map();
+ vm.runInContext(fn('ingestPx'),c);
+ let checks=0,mailCalls=0;
+ c.feishuSend=(_text,cb,transport)=>{
+  assert.equal(transport.beforeSend().ok,true);checks++;
+  e.set(at+2000);
+  c.ingestPx([row({price:11,quoteAt:at+1000,receivedAt:at+2000,canTrade:true})]);
+  const retry=transport.beforeSend();
+  assert.equal(retry.ok,false);assert.match(retry.why,/价格已变化/);checks++;
+  cb(false,retry.why);
+ };
+ c.sendQQMail=()=>{mailCalls++;};
+ c.pushAll('当前价格10',false,opts);await new Promise(setImmediate);
+ assert.equal(checks,2);assert.equal(mailCalls,0);
+ assert.deepEqual(e.releases,['public-slot']);assert.equal(e.quota.total,0);
+});

@@ -3,6 +3,7 @@ const {ledgerBacktest}=require('../strategy/research-v2-position-ledger-backtest
 const {holdoutBacktest}=require('../strategy/holdout-backtest');
 const {validateUniverseHistory,historicalUniverseCoverage}=require('./historical-universe');
 const {corporateAction}=require('./corporate-actions');
+const {institutionalReview}=require('./fayo-institutional-review');
 const {validateSettlementTable}=require('./corporate-settlements');
 const {assertUnadjustedExecutionPriceBasis}=require('./historical-execution-price-basis');
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
@@ -58,6 +59,7 @@ function validateDataset(data){
   historicalCoverage:historicalUniverseCoverage(data),verifiedExternal:false};
 }
 function validateBacktestConfig(history,barCount){
+ if(history.institutionalReview!==undefined&&typeof history.institutionalReview!=='boolean')throw Error('制度断点复核开关必须为布尔值');
  const integer=(name,min,max)=>{const value=history[name];if(value!==undefined&&(!Number.isSafeInteger(value)||value<min||value>max))throw Error(name+' 参数无效');};
  const numeric=(name,min,max,allowNull=false)=>{const value=history[name];if(value===undefined||(allowNull&&value===null))return;if(!finite(value)||value<min||value>max)throw Error(name+' 参数无效');};
  for(const key of ['maxDrawdownPausePct','maxDailyLossPausePct','maxParticipationPct'])numeric(key,0.000001,100,true);
@@ -87,6 +89,7 @@ function runValidatedBacktest(history){
   maxParticipationPct:history.maxParticipationPct??null,minPriorTurnover:history.minPriorTurnover??null,
   ...(history.end===undefined?{}:{end:history.end})};
  const result=ledgerBacktest(options);
+ const institutions=institutionalReview(history,{coverage:dataset.historicalCoverage,options,result,replay:ledgerBacktest});
  let holdout={status:'not-tested',reason:'未预先指定样本外分割点'};
  if(Number.isInteger(history.splitDay)){
   const split=holdoutBacktest({...options,splitDay:history.splitDay});
@@ -94,7 +97,7 @@ function runValidatedBacktest(history){
    inSample:split.inSample.metrics,outOfSample:split.outOfSample.metrics};
  }
  return {status:result.metrics.closedTrades?'research-only':'insufficient',dataset,
-  metrics:result.metrics,statistics:result.statistics,cashFlows:result.cashFlows,holdout,assumptions:result.assumptions,warnings:result.warnings,
+  metrics:result.metrics,statistics:result.statistics,cashFlows:result.cashFlows,signalExecution:result.signalExecution,holdout,institutionalReview:institutions,assumptions:result.assumptions,warnings:result.warnings,
   trades:result.trades,orders:result.orders,equity:result.equity,openPositions:result.openPositions,
   releaseEligible:false,reason:'研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收'};
 }

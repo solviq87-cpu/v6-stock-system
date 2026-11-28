@@ -73,3 +73,46 @@ test('funnel counts first rejection only and never mutates original ranking',()=
  assert.deepEqual(r.steps.map(x=>[x.before,x.after]),[[5,4],[4,3],[3,2],[2,1]]);assert.equal(r.steps.reduce((n,s)=>n+s.removed,0)+r.remaining,r.total);
  assert.equal(buildScreeningFunnel([{}]).steps[0].unknown,1);
 });
+
+test('F22.1 shared exact references are disclosed, not counted as independent confirmations',()=>{
+ const e={source:'fixture',evidenceId:'daily-prefix:'+sha('e'),observedAt:at-3,availableAt:at-2,recordedAt:at-1};
+ const input=[{id:'a',checks:[{field:'trend',pass:true,evidence:e}]},{id:'b',checks:[{field:'flow',pass:false,evidence:{...e,source:'second-name'}}]},
+  {id:'c',checks:[{field:'risk',pass:true,evidence:{...e,evidenceId:'another'}}]},{id:'disabled',status:'disabled',checks:[{field:'trend',pass:true,evidence:e}]},
+  {id:'future',checks:[{field:'future',pass:true,evidence:{...e,recordedAt:at+1}}]}];
+ const before=JSON.stringify(input),r=summarizeConditions(input,{asOf:at});
+ assert.equal(r.sharedEvidenceGroups.length,1);assert.deepEqual(r.sharedEvidenceGroups[0].strategies,['a','b']);
+ assert.equal(r.independentConfirmations,null);assert.equal(r.independenceCertified,false);
+ assert.equal(r.rows[0].support[0].recordedAt,at-1);assert.equal(r.rows[4].support[0].recordedAt,null);
+ assert.equal(JSON.stringify(input),before);
+});
+test('F22.4 impossible first label cannot be replaced by later duplicate',()=>{
+ const first={hypothesisHash:sha('a'),targetDate:'2026-11-13',knownAt:at-30,recordedAt:at-15,outcome:'up',matched:true};
+ const later={...first,knownAt:at+200,recordedAt:at+200};
+ const state={hypotheses:[h()],outcomes:[first,later],corrections:[{hypothesisHash:sha('a'),knownAt:at+201,recordedAt:at+201}]};
+ const r=timeline(state,at+201).rows[0];assert.equal(r.status,'awaiting-evidence');assert.equal(r.outcome,null);assert.equal(r.corrections,0);
+ state.outcomes=[later];state.corrections=[{hypothesisHash:sha('a'),knownAt:at+100,recordedAt:at+100},{hypothesisHash:sha('a'),knownAt:at+201,recordedAt:at+201}];
+ const good=timeline(state,at+201).rows[0];assert.equal(good.status,'evaluated');assert.equal(good.corrections,1);
+});
+test('F22.4 rejects reversed archive time and excludes late raw reference at original decision',()=>{
+ const f=fixture();f.evidenceBundle.sourceRefs.push({source:'tencent',sha256:sha('d'),receivedAt:at+1});
+ assert.deepEqual(review(f,{viewAt:at+10}).sourceRefs.map(x=>x.sha256),[sha('c')]);
+ f.evidenceBundle.recordedAt=at-1;assert.equal(review(f).evidenceBundleHash,null);
+ const good=fixture();good.priceEventResearch={currentHypothesis:{evidenceBundleHash:sha('d'),decisionAt:at-100,recordedAt:at-90}};
+ good.hypothesisEvidence={...good.evidenceBundle,hash:sha('d'),priceBasis:'adjusted',decisionAt:at-100,recordedAt:at-90};
+ assert.equal(review(good).evidence.find(x=>x.id==='frozen').status,'unknown');
+ assert.equal(timeline({hypotheses:[h(sha('a'),{decisionAt:at,recordedAt:at-1})]},at).total,0);
+});
+
+test('F22 and F37 evidence withholding preserves unknowns and reports only same-input gate sensitivity',()=>{
+ const e={source:'fixture',evidenceId:'shared',observedAt:at-3,availableAt:at-2,recordedAt:at-1};
+ const original=[{id:'a',checks:[{field:'a',pass:true,evidence:e}]},{id:'b',checks:[{field:'b',pass:false,evidence:e}]}];
+ const before=JSON.stringify(original),c=summarizeConditions(original,{asOf:at});
+ assert.equal(c.counterfactual.rows[0].before.research_candidate,1);
+ assert.equal(c.counterfactual.rows[0].after.insufficient_data,2);assert.equal(c.counterfactual.rows[0].candidateCoverageChange,-1);
+ assert.equal(c.counterfactual.rows[0].returnDelta,null);assert.equal(JSON.stringify(original),before);
+ const good={quality:{usable:true},blockedBySafety:false,strategy:{pass:true},tradable:true};
+ const rows=[good,{...good,blockedBySafety:true},{...good,blockedBySafety:true,tradable:false},{...good,strategy:{pass:undefined}}];
+ const f=buildScreeningFunnel(rows),risk=f.stageAblation.rows.find(x=>x.stage==='risk');
+ assert.equal(f.remaining,1);assert.equal(risk.exclusiveExplicitFailures,1);assert.equal(risk.sharedFailures.find(x=>x.stage==='eligibility').bothExplicitFailures,1);
+ assert.equal(f.stageAblation.rows.find(x=>x.stage==='strategy').exclusiveUnknown,1);assert.equal(f.stageAblation.knownAllStages,3);assert.equal(f.stageAblation.canTrade,false);
+});

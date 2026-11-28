@@ -793,9 +793,9 @@
       "dataClass": "cn-fund",
       "market": "CN",
       "access": "permission-review",
-      "adapter": "candidate",
+      "adapter": "manual-monthly-etf-publication",
       "evidenceUrl": "https://www.szse.cn",
-      "note": ""
+      "note": "按需读取交易所公开ETF成交月报，用于历史研究。申赎、买方身份和盘中数据缺口分别保留。"
     },
     {
       "id": "efinance-fund",

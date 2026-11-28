@@ -189,6 +189,14 @@
   }else if(tab==='timeline'){
    const c=card('判断变化');for(const row of arr(view.timeline)){const d=detail(c,row.tradeDate+' · '+clock(row.asOf));
     line(d,'来源 / 目标日',row.provider+' / '+val(row.targetDate));line(d,'比较状态',label(row.changes?.status));
+    if(typeof row.previousRunId==='string'&&/^[a-f0-9]{64}$/.test(row.previousRunId)){
+     const prior=button(d,'查看上一封存判断',()=>{tab='evidence';navigate({runId:row.previousRunId});});
+     prior.dataset.workspacePreviousRun=row.previousRunId;prior.setAttribute('aria-label','查看上一封存判断 '+row.previousRunId.slice(0,10));
+    }
+    const assessmentLabels={status:'综合状态',action:'研究行动',marketRegime:'市场环境',support:'支持体系',opposition:'反对体系',unresolved:'待复核体系',blockers:'阻塞原因'};
+    const assessmentNames={'aligned-research-only':'研究一致','strategy-disagreement':'策略分歧','opposition-present':'存在反对','insufficient-evidence':'证据不足',observe:'观察',defer:'暂缓'};
+    const assessmentValue=x=>Array.isArray(x)?x.length?x.map(label).join('；'):'无':assessmentNames[x]||label(x);
+    for(const change of arr(row.changes?.assessmentChanges))line(d,assessmentLabels[change.field]||change.field,assessmentValue(change.before)+' → '+assessmentValue(change.after));
     for(const change of arr(row.changes?.systemChanges))line(d,label(change.system),label(change.before)+' → '+label(change.after));
     for(const change of arr(row.changes?.changes)){line(d,change.name||change.condition,label(change.kind)+'：'+val(change.before)+' → '+val(change.after));}
     if(!arr(row.changes?.changes).length)line(d,'条件变化','首次观察或原条件未变');
@@ -210,16 +218,38 @@
    const c=card('市场—题材—个股位置');line(c,'市场分组',label(r?.regime));line(c,'说明',r?.regimeMeaning);
    for(const b of arr(view.marketPosition?.boards)){const d=detail(c,b.name+' · '+label(b.phase)+' · '+label(b.role));line(d,'数据日 / 成员覆盖',b.tradeDate+' / '+b.observedMembers+' / '+b.memberCount);line(d,'同日相对位置',b.rank);line(d,'阶段依据',b.phaseBasis);line(d,'角色依据',b.roleBasis);for(const h of arr(b.history))line(d,h.date,h.changePct+'%');}
    line(c,'范围与缺口',view.marketPosition?.reason);
+   const overview=view.researchOverview,market=overview?.market;
+   if(overview?.canTrade===false&&overview.canNotify===false&&market?.scope==='selected-snapshot-industries-only'){
+    const d=detail(c,'市场结构与当前证据');line(d,'同快照可比行业',val(market.comparableIndustries)+' / '+val(market.totalIndustries));
+    line(d,'市场状态',market.status==='descriptive-industry-comparison'?'同窗相对表现（仅研究）':'证据不足');
+    line(d,'价格机会',overview.opportunity?.reason);line(d,'风险边界',overview.risk?.reason);
+   }
   }else if(tab==='scorecard'){
    const c=card('策略 × 行情环境 × 观察周期');for(const g of arr(view.scorecard?.groups)){const d=detail(c,label(g.system)+' · '+label(g.regime)+' · '+g.horizon+'日 · '+label(g.status));
     line(d,'来源 / 策略版本',g.provider+' / '+g.version);
     line(d,'全部 / 满足 / 未满足 / 未知',[g.total,g.passed,g.rejected,g.unknown].join(' / '));line(d,'待到期 / 缺后续证据 / 成交证据不足',[g.pending,g.missing,g.blocked].join(' / '));
     line(d,'可观察价格样本 / 成本化样本',g.observedPriceCount+' / '+g.modeledCount);line(d,'独立股票 / 信号日',g.distinctSymbols+' / '+g.independentSignalDays);
     line(d,'非重叠持有窗口',g.nonOverlappingWindows);
+    const t=g.tailRisk,e=g.environmentEvidence;
+    if(t?.canTrade===false&&t.canApprove===false&&t.executionVerified===false){
+     line(d,'已建模 / 满足条件',val(t.modeled)+' / '+val(t.attempted));
+     line(d,'最差成本后样本',t.worstNetReturnPct==null?'未知':val(t.worstNetReturnPct)+'%');
+     line(d,'最差10%样本均值',t.tailMeanNetReturnPct==null?'未知':val(t.tailMeanNetReturnPct)+'% · '+val(t.tailCount)+'条');
+     line(d,'适用限制','尾部样本仅描述性估计，不代表真实成交或容量');
+    }
+    if(e?.canApprove===false&&e.productionRegimeCertified===false)line(d,'环境样本',e.status==='descriptive-only'?'同日指数方向分组（仅研究）':e.status==='unknown-frozen-environment'?'原环境未知':'独立样本不足');
     line(d,'平均价格变化 / 成本后估计',val(g.averagePriceReturnPct)+'% / '+val(g.averageNetReturnPct)+'%');line(d,'同口径基准超额',g.excessReturnPct===null?'缺少匹配基准':g.excessReturnPct+'%');}
    if(!view.scorecard?.groups?.length)line(c,'样本','尚未积累冻结判断和后续结果，不生成示例成绩');
    for(const text of arr(view.scorecard?.limitations))node('p',text,c);
    for(const scenario of arr(view.scorecard?.stress)){const d=detail(c,'费用压力：佣金 '+scenario.assumptions.feeBps+'bp / 滑点 '+scenario.assumptions.slippageBps+'bp');for(const g of scenario.groups)line(d,label(g.system)+' / '+g.horizon+'日',g.averageNetReturnPct===null?'缺少可成交样本':g.averageNetReturnPct+'%（纸面估计）');}
+   const review=view.researchOverview?.dailyReview;
+   if(review?.canTrade===false&&review.canNotify===false&&review.status==='selected-run-descriptive-review'&&review.runId===r?.id&&review.symbol===r?.symbol){
+    const d=card('所选决策复盘 · 各体系与周期分列');
+    line(d,'已建模 / 受阻 / 待证据 / 未满足 / 未知',[review.counts?.modeled,review.counts?.blocked,review.counts?.missing,review.counts?.rejected,review.counts?.unknown].map(val).join(' / '));
+    const labels={modeled:'纸面估计',blocked:'成交证据不足',missing:'尚缺对应结果',rejected:'条件未满足',unknown:'判断未知'};
+    for(const x of arr(review.rows).slice(0,16))line(d,label(x.system)+' / '+x.horizon+'日',labels[x.status]+' · '+(x.status==='modeled'&&Number.isFinite(x.netReturnPct)?x.netReturnPct+'%':'收益未知'));
+    node('p','所选封存记录的研究对照，不代表当日实际成交、净收益或可执行指令。',d);
+   }
    renderForecasts(view.forecastEvaluation);
   }else if(tab==='defense'){
    const c=card('持仓防守 · 原账户只读');for(const p of arr(view.defense?.rows)){const d=detail(c,p.name+' '+p.symbol+' · '+label(p.status));stockAction(d,p.symbol);line(d,'账户',p.accountId);line(d,'原始报价年龄',p.quoteAgeMs===null?'未知':p.quoteAgeMs+'毫秒');line(d,'判断数据日 / 封存时间',val(p.currentTradeDate)+' / '+clock(p.currentEvidenceAt));line(d,'成本变化 / 估值集中度',val(p.costChangePct)+'% / '+val(p.weightPct)+'%');line(d,'集中度关注',p.concentrationWarning?'已达到研究关注线':'未达到或证据不足');line(d,'锁仓 / 静默',val(p.locked)+' / '+val(p.muted));line(d,'原入选依据',p.entryRunId||'尚未封存，不能借用今天判断补写');for(const x of arr(p.invalidated))line(d,'原条件失效',x.name);line(d,'待补证据',arr(p.missing).join('；'));if(arr(p.avoidedBoards).length)line(d,'命中回避板块',p.avoidedBoards.join('；'));if(p.excludedByResearchPreference)line(d,'研究排除名单','已列入');}

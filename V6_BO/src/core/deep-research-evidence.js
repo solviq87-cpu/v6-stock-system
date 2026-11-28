@@ -3,6 +3,7 @@
 // Server-side, read-only evidence projections. Inputs come from the existing
 // private archives/data centre; this module neither fetches nor writes a ledger.
 const {createHash} = require('node:crypto');
+const {sampledTradePrices,reviewSimulatedFillCosts}=require('./microstructure-cost-review');
 const {quoteObservationView} = require('./quote-observation-view');
 const {aShareCalendarDate} = require('./a-share-calendar');
 const {evaluateAuctionEvidence} = require('../strategy/auction-evidence-rules');
@@ -11,6 +12,12 @@ const {scorecards} = require('./research-workspace-analytics');
 const {validatePlan} = require('./paper-decision-plan');
 const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
+const {preEventComparison,eventRegimeOverlay} = require('./event-prewindow-research');
+const {projectEventReview} = require('./event-path-review');
+const {expectationBasis,eventWindowLifecycle,frozenIndustryReaction}=require('./catalyst-window-review');
+const {trackEventCandidates}=require('./event-candidate-tracking');
+const {levelOneReview,microstructureReview,summarizeMicrostructureSessions} = require('./microstructure-evidence-review');
+const {macroStudy,policyStudy}=require('./fayo-policy-macro-study');
 
 const LIMIT = 10000;
 const FLAGS = Object.freeze({researchOnly:true, canTrade:false, canNotify:false,
@@ -125,17 +132,18 @@ const EVENT_HORIZONS=Object.freeze([1,5,20,60]);
 // This consumes the existing raw daily archive and its received all-A index
 // bundles. It never infers a session calendar from the observed price rows.
 // Daily outcomes are endpoint price studies, not executable intraday returns.
-function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
+function deriveEventOutcomes({events=[],archive={},calendar,workspaceEvents=[]}={}, options={}) {
   const asOf=clock(options),visible=versions(events,asOf,'事件').rows.filter(e=>symbol(e.symbol)&&e.retracted!==true);
   const selected=visible.slice(-100),pending=[],eventOutcomes=[];
+  let windowLifecycle=selected.map(event=>eventWindowLifecycle({event,asOf}));
   const policy={version:'event-next-open-fixed-horizons-v1',horizons:EVENT_HORIZONS,
     entry:'first-calendar-session-open-after-event-recorded',exit:'horizon-session-close',
     scope:'latest-100-known-event-versions',executableReturn:false};
   const fail=(e,horizon,reason,source=null)=>pending.push({eventId:e.id,eventRevision:e.revision,symbol:e.symbol,horizonSessions:horizon,source,status:'pending',reason});
-  if(!selected.length)return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:0};
+  if(!selected.length)return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:0};
   if(!archive||archive.scope==='demo'||archive.synthetic===true||archive.fixture===true||['test','demo','synthetic'].includes(archive.sampleSet)){
     for(const e of selected)for(const h of EVENT_HORIZONS)fail(e,h,'原真实短线档案不可用');
-    return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+    return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
   }
   let dates=null,calendarAt=null,calendarHash=null,calendarExchanges=[];
   try{
@@ -151,10 +159,12 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
   }catch{dates=null;}
   if(!dates){
     for(const e of selected)for(const h of EVENT_HORIZONS)fail(e,h,'缺少带首次观察时点的完整原交易日历');
-    return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+    return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
   }
+  const exchangeOf=s=>/^(4|8|92)/.test(s)?'BSE':/^[569]/.test(s)?'SSE':/^[023]/.test(s)?'SZSE':null;
+  windowLifecycle=selected.map(event=>eventWindowLifecycle({event,asOf,...(calendarExchanges.includes(exchangeOf(event.symbol))?{dates,calendarKnownAt:calendarAt,calendarHash}:{})}));
   const closeOf=d=>Date.parse(d+'T15:00:00+08:00'),openOf=d=>Date.parse(d+'T09:30:00+08:00');
-  const prices=new Map(),indices=new Map(),conflicts=new Set();
+  const prices=new Map(),indices=new Map(),conflicts=new Set(),industryWorkBudget={remaining:100000};
   function retain(map,key,b){
     const prior=map.get(key);
     if(prior&&prior.knownAt===b.knownAt&&hash(prior)!==hash(b)){conflicts.add(key);return;}
@@ -189,7 +199,7 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
     const start=dates.findIndex(d=>openOf(d)>e.recordedAt),sources=[...(stockSources.get(e.symbol)||[])].sort().slice(0,4);
     // The original calendar reader's six-digit exchange families. A bundled
     // SSE/SZSE calendar supplies no evidence for a BSE event window.
-    const exchange=/^(4|8|92)/.test(e.symbol)?'BSE':/^[569]/.test(e.symbol)?'SSE':/^[023]/.test(e.symbol)?'SZSE':null;
+    const exchange=exchangeOf(e.symbol);
     if(!exchange||!calendarExchanges.includes(exchange)){for(const h of EVENT_HORIZONS)fail(e,h,'原交易日历未证实覆盖该证券交易所');continue;}
     if(calendarAt>e.recordedAt){for(const h of EVENT_HORIZONS)fail(e,h,'交易日历在事件之后才可知，不倒填事前窗口');continue;}
     if(start<0){for(const h of EVENT_HORIZONS)fail(e,h,'事件之后的交易日历覆盖不足');continue;}
@@ -214,6 +224,12 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
       }
       const priceEvidence=bars.map(b=>({date:b.date,source:b.source,knownAt:b.knownAt,open:b.open,close:b.close,
         corporateAction:b.corporateAction,corporateActionKnownAt:b.corporateActionKnownAt??b.knownAt}));
+      const preEventStudy=preEventComparison({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,
+        readStock:d=>prices.get(['stock',e.symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
+      const regimeOverlay=h===1?eventRegimeOverlay({event:e,dates,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,
+        readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))}):null;
+      const industryReaction=frozenIndustryReaction({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,workspaceEvents,workBudget:industryWorkBudget,
+        readStock:(symbol,d)=>prices.get(['stock',symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const id=hash({event:[e.source,e.id,e.revision],source,h,priceEvidence,benchmark,calendarHash});
       eventOutcomes.push({id:'archive-'+id,revision:1,source:'v6-private-archive-event-study',evidenceId:id,
         // This is a newly produced read projection. Original source receipts
@@ -221,11 +237,11 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         publishedAt:asOf,firstKnownAt:asOf,recordedAt:asOf,inputOrigin:'read-only-archive-projection',
         eventId:e.id,eventSource:e.source,eventRevision:e.revision,symbol:e.symbol,horizonSessions:h,startAt,endAt,
         stock:{source,startPrice:first.open,endPrice:last.close,currency:'CNY',priceBasis:'unadjusted',corporateAction:false},
-        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version});
+        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy,regimeOverlay,industryReaction});
       if(!benchmark)fail(e,h,'股票端点已成熟，但缺少同区间实际接收的全A指数，超额收益保持未知',source);
     }
   }
-  return {eventOutcomes,pending,policy,status:eventOutcomes.length?'derived-research':'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+  return {eventOutcomes,pending,policy,windowLifecycle,status:eventOutcomes.length?'derived-research':'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
 }
 
 function buildEventImpactStudy(input={}, options={}) {
@@ -243,13 +259,16 @@ function buildEventImpactStudy(input={}, options={}) {
     if (!e || e.retracted || !computed || o.startAt<e.recordedAt) {
       rejected.push({id:o.id,reason:!e?'event-version-unavailable':e.retracted?'event-retracted':!computed?'invalid-or-immature-outcome':'entry-before-event-known'}); continue;
     }
+    const derived=options.derivedOutcomes instanceof Map?options.derivedOutcomes.get(o.id):null;
+    const bound=derived===o?derived:null;
     if (computed.benchmarkReturnPct===null) missing.push('同区间、币种和价格口径的市场基准缺失，超额收益保持未知');
     rows.push({id:o.id,eventId:e.id,eventRevision:e.revision,symbol:o.symbol,eventType:e.eventType,
       horizonSessions:o.horizonSessions,startAt:o.startAt,endAt:o.endAt,regime:text(o.regime,80)?o.regime:'unknown',
       ...computed,failure:computed.excessReturnPct===null?null:computed.excessReturnPct<=0,
       priceSource:text(o.stock.source,160)?o.stock.source:o.source,
       evidence:[e,computed.proof],priceEvidence:o.inputOrigin==='read-only-archive-projection'?o.priceEvidence:null,
-      calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,drawdownPct:null});
+      calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,
+      preEventStudy:bound?.preEventStudy??null,regimeOverlay:bound?.regimeOverlay??null,industryReaction:bound?.industryReaction??null,drawdownPct:null});
   }
   rows.sort((a,b)=>a.startAt-b.startAt||a.eventId.localeCompare(b.eventId)||a.horizonSessions-b.horizonSessions||
     a.priceSource.localeCompare(b.priceSource)||a.id.localeCompare(b.id));
@@ -270,12 +289,61 @@ function buildEventImpactStudy(input={}, options={}) {
   if (!rows.length) missing.push('缺少已成熟、与事件可知时点对应的价格结果');
   return result(67,rows,missing,{events,groups:summaries,rejected,
     durationProfile:summaries.map(g=>({eventType:g.eventType,regime:g.regime,horizonSessions:g.horizonSessions,samples:g.samples,averageExcessReturnPct:g.averageExcessReturnPct})),
-    limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益']});
+    limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益','事前固定窗口仅为未独立验证的全市场调整伪事件对照，不是预注册试验或行业匹配；净异常收益及置信区间未知']});
 }
 
+function summarizeGuidanceRevisions(expectations,asOf){
+  const input=array(expectations,'事前预期',2000),current=versions(input,asOf,'事前预期',2000);
+  const revisions=[],unknown=[];
+  const valid=x=>x&&x.expectationKind==='company-guidance'&&symbol(x.symbol)&&text(x.period,80)&&text(x.metric,80)&&text(x.unit,60)&&finite(x.value)&&x.retracted!==true;
+  // Use the consensus visible before each guidance publication; a later revision
+  // must not erase the earlier reference or enter the historical comparison.
+  const snapshots=new Map();
+  for(const row of current.rows){
+    if(!valid(row))continue;
+    const cutoff=row.publishedAt-1;
+    if(!snapshots.has(cutoff))snapshots.set(cutoff,versions(input,cutoff,'事前一致预期',2000).rows.filter(x=>x.expectationKind==='consensus'&&x.retracted!==true&&finite(x.value)&&Number.isSafeInteger(x.sampleSize)&&x.sampleSize>=1));
+    const matchedConsensus=snapshots.get(cutoff).filter(x=>['symbol','period','metric','unit'].every(k=>x[k]===row[k]));
+    const common={id:row.id,source:row.source,symbol:row.symbol,period:row.period,metric:row.metric,unit:row.unit,
+      currentValue:row.value,currentRevision:row.revision,currentEvidence:provenance(row,asOf),
+      consensusStatus:matchedConsensus.length?'same-definition-declared-consensus-present':'no-matching-consensus-in-visible-input',
+      consensusRefs:matchedConsensus.map(x=>provenance(x,cutoff)),expectedConsensus:null,
+      independentConsensusVerified:false,canTrade:false};
+    const earlier=versions(input,row.recordedAt-1,'事前指引',2000).rows.find(x=>x.source===row.source&&x.id===row.id);
+    if(!valid(earlier)||earlier.revision!==row.revision-1||earlier.recordedAt>=row.recordedAt||
+       ['symbol','period','metric','unit','expectationKind'].some(k=>earlier[k]!==row[k])){
+      unknown.push({...common,status:'unknown',reason:'NO_CONTIGUOUS_SAME_DEFINITION_PRIOR_GUIDANCE',priorValue:null,change:null,changePct:null});continue;
+    }
+    const delta=row.value-earlier.value;
+    if(!finite(delta)){unknown.push({...common,status:'unknown',reason:'NONFINITE_GUIDANCE_CHANGE',priorValue:null,change:null,changePct:null});continue;}
+    revisions.push({...common,status:'observed-unverified',priorValue:earlier.value,priorRevision:earlier.revision,
+      priorEvidence:provenance(earlier,asOf),change:round(delta),changePct:earlier.value!==0?round(100*delta/Math.abs(earlier.value)):null});
+  }
+  return {status:revisions.length?'observed-unverified':'unknown',revisions,unknown,sourceRejections:current.rejected,
+    canTrade:false,note:'同一公司指引、来源、期间、指标及单位的连续归档版本；未取得的指引或一致预期保持未知，不用实际业绩替代预期。'};
+}
+// Keep the first disclosed financial value separate from a restatement. The
+// existing declaration reader supplies identity and chronology checks. A later
+// revision, or a same-code event without the exact first-revision reference,
+// cannot supply the first disclosure's historical outcome.
+function firstDisclosureReview(a,raw,events,derived,asOf){
+  const base={status:'unknown',first:null,latest:provenance(a,asOf),latestValue:a.value,mediumTerm:[],canTrade:false,canNotify:false,actualExecutionVerified:false};
+  const matches=raw.filter(r=>r?.source===a.source&&r.id===a.id&&r.revision===1&&provenance(r,asOf));
+  const originals=[...new Map(matches.map(r=>[hash(r),r])).values()],f=originals[0];
+  if(originals.length!==1||f.retracted===true||f.publishedAt!==a.announcementAt||!finite(f.value)||!['symbol','period','metric','unit','announcementAt'].every(k=>f[k]===a[k]))return base;
+  const first={...provenance(f,asOf),value:f.value,announcementAt:f.announcementAt};
+  const event=f.eventRef,key=event&&JSON.stringify([event.source,event.id,event.revision,f.symbol]),e=key?events.get(key):null;
+  const bound=e&&e.retracted!==true&&e.eventType==='earnings'&&e.publishedAt===f.announcementAt&&e.recordedAt<=f.recordedAt&&e.revision===1;
+  const mediumTerm=bound?derived.filter(o=>o.eventSource===e.source&&o.eventId===e.id&&o.eventRevision===e.revision&&o.symbol===f.symbol&&[20,60].includes(o.horizonSessions)&&o.startAt>f.recordedAt&&priceOutcome(o,asOf)).map(o=>{
+    const r=priceOutcome(o,asOf);return {id:o.id,horizonSessions:o.horizonSessions,startAt:o.startAt,endAt:o.endAt,priceSource:o.stock.source,stockReturnPct:r.stockReturnPct,benchmarkReturnPct:r.benchmarkReturnPct,excessReturnPct:r.excessReturnPct,evidence:r.proof};
+  }):[];
+  return {...base,status:'declared-first-disclosure',first,restated:a.revision!==f.revision,mediumTerm,mediumTermStatus:mediumTerm.length?'descriptive-unverified':'unknown-first-event-or-mature-window',firstEvent:bound?provenance(e,asOf):null};
+}
 function buildExpectationStudy(input={}, options={}) {
   const asOf=clock(options), actuals=versions(input.actuals,asOf,'业绩实际值',500), rows=[], missing=[], rejected=[...actuals.rejected];
   const rawActuals=array(input.actuals,'业绩实际值',500);
+  const firstEventIndex=new Map(versions(input.events,asOf,'财报关联事件').rows.map(e=>[JSON.stringify([e.source,e.id,e.revision,e.symbol]),e]));
+  const derived=Array.isArray(options.derivedOutcomes)?options.derivedOutcomes:[];
   for (const a of actuals.rows) {
     if(a.retracted===true)continue;
     if (!symbol(a.symbol) || !text(a.period,80) || !text(a.metric,80) || !text(a.unit,60) || !finite(a.value) ||
@@ -284,6 +352,7 @@ function buildExpectationStudy(input={}, options={}) {
       ['symbol','period','metric','unit','announcementAt'].some(k=>r[k]!==a[k]))){
       rejected.push({id:a.id,reason:'actual-identity-or-original-announcement-rewritten'});continue;
     }
+    const firstDisclosure=firstDisclosureReview(a,rawActuals,firstEventIndex,derived,asOf);
     // Freeze the expectation strictly before the ORIGINAL announcement, even
     // when the actual financial result has subsequently been revised.
     const selected=versions(input.expectations,a.announcementAt-1,'事前预期',2000);
@@ -292,7 +361,7 @@ function buildExpectationStudy(input={}, options={}) {
       (e.expectationKind!=='consensus'||Number.isSafeInteger(e.sampleSize)&&e.sampleSize>=1));
     if (!expectations.length) {
       rows.push({id:a.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,actual:a.value,
-        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,
+        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,firstDisclosure,expectationBasis:expectationBasis(a,null),
         evidence:[provenance(a,asOf)],missing:['没有真实且严格早于原始公告的同口径预期']});continue;
     }
     for (const e of expectations) {
@@ -303,7 +372,7 @@ function buildExpectationStudy(input={}, options={}) {
         [reaction.startPrice,reaction.endPrice].every(x=>finite(x)&&x>0)&&finite(100*(reaction.endPrice/reaction.startPrice-1))&&reaction.priceBasis==='unadjusted'&&reaction.corporateAction===false;
       const priceReaction=validReaction?{returnPct:round(100*(reaction.endPrice/reaction.startPrice-1)),startAt:reaction.startAt,endAt:reaction.endAt,evidence:rp}:null;
       rows.push({id:a.id+'|'+e.source+'|'+e.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,
-        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),
+        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),firstDisclosure,expectationBasis:expectationBasis(a,e),
         surprisePct:e.value===0?null:round(delta/Math.abs(e.value)*100),
         classification:sign===null?'direction-unknown':sign>0?'above-expectation':sign<0?'below-expectation':'in-line',
         priceReaction,priceResponseCase:!priceReaction||sign===null?'unknown':sign>0&&priceReaction.returnPct<0?'positive-surprise-negative-response':
@@ -314,7 +383,7 @@ function buildExpectationStudy(input={}, options={}) {
   }
   if (!rows.length) missing.push('缺少具备来源、原始公告时点和数值口径的实际业绩');
   if (rows.some(x=>x.expected===null)) missing.push('部分实际业绩没有可信事前预期，保持未知');
-  return result(68,rows,missing,{rejected,limitations:['不同来源预期分别展示，不自动拼接为市场共识','价格反应与预期差的组合是研究分类，不证明利好兑现或利空出尽的因果关系']});
+  return result(68,rows,missing,{guidanceRevisions:summarizeGuidanceRevisions(input.expectations,asOf),rejected,limitations:['不同来源预期分别展示，不自动拼接为市场共识','价格反应与预期差的组合是研究分类，不证明利好兑现或利空出尽的因果关系']});
 }
 
 function accountProjection(account, asOf) {
@@ -342,6 +411,47 @@ function exposure(symbols, account) {
   return {accountId:account.accountId,symbols:held.map(p=>p.symbol),marketValue:round(value),
     weightOfHoldingsPct:known&&account.totalMarketValue>0?round(value/account.totalMarketValue*100):null,
     weightOfAccountPct:known&&account.equity>0?round(value/account.equity*100):null};
+}
+function directedEventHoldingExposure(input,asOf,account){
+  const events=versions(input.events,asOf,'事件').rows.filter(e=>e.retracted!==true);
+  const empty={status:'unknown',rows:[],eventCount:events.length,currentAccountAt:account.sourceAt??null,causalPropagationEstablished:false,canTrade:false};
+  if(events.length>100)return {...empty,reason:'DIRECTED_EVENT_RESEARCH_BUDGET'};
+  const held=new Set(account.positions.map(p=>p.symbol)),cache=new Map(),output=[];
+  let work=0;
+  for(const event of events){
+    const cutoff=event.recordedAt;
+    if(!cache.has(cutoff)){
+      const edges=versions(input.relations,cutoff,'关系证据',2000).rows.filter(r=>r.retracted!==true&&r.relationClass==='business'&&r.bodyScope==='declared-body'&&
+        text(r.from)&&text(r.to)&&r.from!==r.to&&text(r.relation,80)&&time(r.validFrom)&&r.validFrom<=cutoff&&
+        (r.validUntil==null||time(r.validUntil)&&r.validUntil>cutoff&&r.validUntil>r.validFrom));
+      const adjacency=new Map();for(const r of edges){if(!adjacency.has(r.from))adjacency.set(r.from,[]);adjacency.get(r.from).push(r);}
+      cache.set(cutoff,adjacency);
+    }
+    const adjacency=cache.get(cutoff),entities=[...new Set(array(event.entityIds,'事件实体',100).filter(x=>text(x)))];
+    for(const entity of entities){
+      const paths=[];
+      const stack=[{at:entity,nodes:[entity],edges:[]}];
+      while(stack.length){
+        const path=stack.pop();
+        if(path.edges.length&&symbol(path.at)&&held.has(path.at))paths.push({symbol:path.at,nodes:path.nodes,edges:path.edges});
+        if(path.edges.length===2)continue;
+        for(const edge of adjacency.get(path.at)||[]){
+          if(++work>20000)return {...empty,reason:'DIRECTED_RELATION_WORK_BUDGET'};
+          if(path.nodes.includes(edge.to))continue;
+          stack.push({at:edge.to,nodes:[...path.nodes,edge.to],edges:[...path.edges,{id:edge.id,from:edge.from,to:edge.to,relation:edge.relation,evidence:provenance(edge,cutoff)}]});
+        }
+      }
+      if(paths.length){
+        const securities=[...new Set(paths.map(p=>p.symbol))].sort();
+        output.push({eventId:event.id,eventEvidence:provenance(event,asOf),entity,eventCutoff:cutoff,paths,
+          currentHoldingExposure:exposure(securities,account),holdingAtEventCertified:false,impactDirection:null,
+          relationDirectionBasis:'declared-from-to-business-links-only',canTrade:false});
+      }
+    }
+  }
+  return {...empty,status:output.length?'observed-unverified':'unknown',rows:output,
+    reason:output.length?null:'NO_DIRECTED_PATH_TO_CURRENT_HOLDINGS',work,
+    note:'只沿原事件时点已知的明确业务关系方向（最多两跳）连接当前原账户持仓；不反推关系、不传播统计关联、不用当前持仓冒充事件当时持仓。价格影响方向及因果仍未知。'};
 }
 function buildRelationshipGraph(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.relations,asOf,'关系证据',2000), rows=[], rejected=[...selected.rejected];
@@ -376,7 +486,7 @@ function buildRelationshipGraph(input={}, options={}) {
     }
   }
   return result(69,rows,rows.length?[]:['缺少带有效期和原始来源的关系；旧概念映射不作为业务关系'],
-    {nodes,commonExposures,eventExposure,account,rejected,
+    {nodes,commonExposures,eventExposure,directedExposure:directedEventHoldingExposure(input,asOf,account),account,rejected,
       limitations:['业务、间接和概念关系分开保留；相同题材不证明真实业务','共同关联只表示潜在共同风险暴露，不推断价格方向','持仓主题交叉，比例不可直接相加']});
 }
 
@@ -469,7 +579,7 @@ function tickMetrics(row) {
   }
   return {trades:ticks.length,turnover:round(total),tradeImbalance:allKnown?round(signed/total):null,
     bookImbalance:null,firstTradeAt:ticks[0].at,lastTradeAt:ticks.at(-1).at,
-    measuredShares:quantity,completeMarketTape:false};
+    measuredShares:quantity,completeMarketTape:false,sampledTradePrices:sampledTradePrices(ticks)};
 }
 function buildDepthResearch(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.depth,asOf,'盘口证据',500), rows=[], rejected=[...selected.rejected], risks=[];
@@ -480,7 +590,7 @@ function buildDepthResearch(input={}, options={}) {
     if (!symbol(r.symbol)||!['depth-snapshot','trade-ticks','auction-indicative','quote-snapshot'].includes(r.granularity)) {
       rejected.push({id:r.id,reason:'identity-or-granularity-missing'});continue;
     }
-    if (r.granularity==='quote-snapshot') {rows.push({...base,status:'unsupported-granularity',missing:['普通报价快照不包含逐笔、队列或可靠盘口深度']});continue;}
+    if (r.granularity==='quote-snapshot'&&r.levelOne!==true) {rows.push({...base,status:'unsupported-granularity',missing:['普通报价快照不包含逐笔、队列或可靠盘口深度']});continue;}
     if (!authorization(r)) {rows.push({...base,status:'authorization-unavailable',missing:['缺少涵盖本源、本粒度、证券范围与原始时点的授权证据']});continue;}
     const wire={...r,price:r.price,quoteAt:r.quoteAt,receivedAt:r.receivedAt,quoteSource:r.source};
     const freshness=quoteObservationView(wire,asOf), receipt=quoteObservationView(wire,r.recordedAt);
@@ -489,7 +599,10 @@ function buildDepthResearch(input={}, options={}) {
       rows.push({...base,status:'source-time-unusable',freshness,missing:['原始报价、首次接收或15秒采集门禁未通过']});continue;
     }
     let metrics=null,auction=null,missing=[];
-    if (r.granularity==='depth-snapshot') {
+    if (r.granularity==='quote-snapshot') {
+      metrics=Array.isArray(r.bids)&&Array.isArray(r.asks)&&[...r.bids,...r.asks].every(p=>matchingDepthIdentity(p,r,r.quoteAt))?levelOneReview(r,receipt):null;
+      if(!metrics)missing.push('缺少经原授权和时点门禁的同一证券双边L1股数、价格与来源');
+    } else if (r.granularity==='depth-snapshot') {
       metrics=depthMetrics(r);if(!metrics)missing.push('盘口档位、证券身份、股数单位、顺序或价差无效');
     } else if (r.granularity==='trade-ticks') {
       metrics=tickMetrics(r);
@@ -510,11 +623,12 @@ function buildDepthResearch(input={}, options={}) {
     const current=usable&&entitlementCurrent&&freshness.quoteStatus==='recent-unverified'&&freshness.missingReason===null&&
       aShareCalendarDate(r.quoteAt)===aShareCalendarDate(asOf)&&
       (r.granularity!=='trade-ticks'||asOf-metrics.lastTradeAt<=15000);
-    rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing});
-    if (current&&metrics?.spreadBps>=100) risks.push(risk('liquidity-spread',r.symbol,[base.evidence],
+    rows.push({...base,status:!usable?'insufficient-data':current?'observed-research':'historical-only',freshness,current,metrics,auction,missing,
+      microstructure:metrics?microstructureReview(r,metrics,sessionOf(r.quoteAt)):null});
+    if (current&&r.granularity==='depth-snapshot'&&metrics?.spreadBps>=100) risks.push(risk('liquidity-spread',r.symbol,[base.evidence],
       '同源真实买卖价差达到100个基点，仅覆盖所提供档位','同源新鲜盘口价差低于阈值并经原风险中心重新核验',asOf));
   }
-  return result(70,rows,rows.length?[]:['尚无合法授权且带真实粒度的盘口或竞价数据'],{rejected,riskObservations:risks,
+  return result(70,rows,rows.length?[]:['尚无合法授权且带真实粒度的盘口或竞价数据'],{rejected,riskObservations:risks,microstructureSessions:summarizeMicrostructureSessions(rows),
     limitations:['买卖挂单失衡不是成交失衡；均不代表主力意图','盘口深度仅覆盖提供档位，不估算排队位置','逐笔样本不等于完整市场成交带','授权仅为声明的研究证据，未独立认证','历史记录可供研究；15秒外数据不生成当前盘口预警']});
 }
 
@@ -590,7 +704,8 @@ function stats(rows) {
     averageCostCents:round(mean(rows.map(r=>r.costCents).filter(finite))),maxDrawdownPct:null};
 }
 function buildSessionEffectiveness(input={}, options={}) {
-  const asOf=clock(options), rows=[],rejected=[],missing=[],plans=array(input.plans,'计划');
+  const asOf=clock(options), rows=[],rejected=[],missing=[],plans=array(input.plans,'计划'),costRows=[];
+  let costFillCount=0;
   const supplied=input.archive?extractDeepArchiveInputs(input.archive,{asOf}):{sessionSamples:array(input.sessionSamples,'时段结算'),plans,missing:[]};
   missing.push(...supplied.missing);const seen=new Set();
   for (const row of supplied.sessionSamples) {
@@ -598,6 +713,10 @@ function buildSessionEffectiveness(input={}, options={}) {
     if (!verified) {rejected.push({id:row?.id||null,reason:'original-settlement-evidence-unavailable'});continue;}
     if (seen.has(verified.id)) continue;seen.add(verified.id);
     const {originalTrade,...publicRow}=verified; rows.push(publicRow);
+    if(Array.isArray(options.depthRows)){
+      const p=originalTrade.paperSettlement;costFillCount+=p.entryFills.length+1;
+      if(costFillCount<=10000)costRows.push({...publicRow,executionFills:[...p.entryFills.map(l=>({eventId:l.eventId,side:'buy',at:l.time,quantity:l.quantity,grossCents:l.grossCents,feeCents:l.costCents-l.grossCents})),{eventId:p.exitEventId,side:'sell',at:p.exitTimestamp,quantity:p.exitQuantity,grossCents:p.exitGrossCents,feeCents:p.exitFeeCents}]});
+    }
   }
   let workspace=null;
   const events=array(input.workspaceEvents,'原四策略研究档案',2000).filter(e=>time(e?.recordedAt)&&e.recordedAt<=asOf&&
@@ -628,7 +747,8 @@ function buildSessionEffectiveness(input={}, options={}) {
       modeled:estimates,blockedOrMissing:selected.filter(r=>r.origin==='existing-workspace-estimate'&&!finite(r.netReturnPct)).length};
   }));
   if (!rows.length)missing.push('缺少成熟成本后结算或通过原可成交性检查的四策略样本');
-  return result(71,rows,missing,{groups,sessions:SESSIONS,systems:SYSTEMS,rejected,
+  const sampledFillCostReview=costFillCount>10000?{...reviewSimulatedFillCosts([],[],asOf),status:'input-budget-exceeded'}:reviewSimulatedFillCosts(options.depthRows??[],costRows,asOf);
+  return result(71,rows,missing,{groups,sessions:SESSIONS,systems:SYSTEMS,rejected,sampledFillCostReview,
     unassigned:rows.filter(r=>r.system==='unattributed'||!SESSIONS.some(s=>s.id===r.signalWindow)).map(r=>r.id),
     upstreamCoverage:workspace?.groups||[],limitations:['真实模拟结算与纸面成本估计分栏，不混合计算收益','时间窗口按北京时间固定；午间休市不并入上午或午后','样本重叠时不拼接成账户净值，不虚构组合最大回撤','未归属策略和缺信号时点的样本保留，但不进入四策略时段均值']});
 }
@@ -704,12 +824,34 @@ function extractNewsJournalEvents(journalRows, options={}) {
 function buildDeepResearchEvidence(input={}, options={}) {
   const asOf=clock(options), effective={...input};
   if (input.newsJournalRows!==undefined) effective.events=[...array(input.events,'事件'),...extractNewsJournalEvents(input.newsJournalRows,{asOf})];
-  const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar},{asOf});
+  const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar,workspaceEvents:input.workspaceEvents},{asOf});
   effective.eventOutcomes=[...array(input.eventOutcomes,'事件结果'),...derived.eventOutcomes];
-  const modules={67:buildEventImpactStudy(effective,{asOf}),68:buildExpectationStudy(effective,{asOf}),
-    69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
-    71:buildSessionEffectiveness(effective,{asOf,costs:options.costs}),72:buildThemeCrowding(effective,{asOf})};
+  const depth=buildDepthResearch(effective,{asOf});
+  const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf,derivedOutcomes:derived.eventOutcomes}),
+    69:buildRelationshipGraph(effective,{asOf}),70:depth,
+    71:buildSessionEffectiveness(effective,{asOf,costs:options.costs,depthRows:depth.rows}),72:buildThemeCrowding(effective,{asOf})};
   modules[67].archiveDerivation={...derived,eventOutcomes:derived.eventOutcomes.map(o=>({id:o.id,eventId:o.eventId,horizonSessions:o.horizonSessions}))};
+  // Existing version reader and original account projection remain authoritative.
+  modules[67].eventReview=projectEventReview({events:versions(effective.events,asOf,'事件').rows,relations:versions(effective.relations,asOf,'关系证据',2000).rows,
+    journalRows:input.newsJournalRows??[],account:modules[69].account,asOf});
+  modules[67].eventTracking=trackEventCandidates({journalRows:input.newsJournalRows??[],workspaceEvents:input.workspaceEvents??[],asOf});
+  modules[67].policyStudy=policyStudy(input.policyEvidence,input.newsJournalRows,modules[67],{asOf});
+  modules[68].macroStudy=macroStudy(input.macroEvidence,input.newsJournalRows,{asOf,background:input.background});
+  // Operating evidence and observed share-price leadership are independent.
+  // A peer cohort is not certified event-free without a complete news receipt.
+  // Match the exact event revision, never the symbol alone.
+  const outcomeIndex=new Map();
+  for(const o of derived.eventOutcomes){const key=JSON.stringify([o.eventSource,o.eventId,o.eventRevision,o.symbol]),group=outcomeIndex.get(key)||[];group.push(o);outcomeIndex.set(key,group);}
+  const trackedIndex=new Map((modules[67].eventTracking.rows||[]).filter(t=>t.current?.eventHash).map(t=>[JSON.stringify([t.source,t.current.eventHash,t.current.sequence]),t]));
+  modules[67].businessResearch={mode:'original-event-business-and-peer-review-v1',canTrade:false,canNotify:false,causalInferenceVerified:false,rows:modules[67].eventReview.rows.filter(r=>r.industry.businessPaths.length||r.policy.paths.length||r.overseas.paths.length).map(r=>{
+    const key=JSON.stringify([r.event.source,r.event.id,r.event.revision,r.symbol]),linked=outcomeIndex.get(key)||[];
+    const track=trackedIndex.get(JSON.stringify([r.event.source,r.event.evidenceId,r.event.revision]));
+    const screen=track?.candidates.find(c=>c.symbol===r.symbol)||null;
+    const peers=linked.filter(o=>o.industryReaction?.status==='descriptive-unverified').map(o=>({id:o.id,horizonSessions:o.horizonSessions,priceSource:o.stock.source,industry:o.industryReaction.industry,post:o.industryReaction.post,relativePriceLeading:o.industryReaction.post.peerExcessPct>0}));
+    return {event:r.event,symbol:r.symbol,businessPaths:r.industry.businessPaths,policyPaths:r.policy.paths,overseasPaths:r.overseas.paths,
+      operatingOrders:r.industry.businessPaths.filter(p=>p.orderEvidence!==null).map(p=>({entityId:p.entityId,productId:p.productId,evidence:p.evidence,order:p.orderEvidence})),
+      priceLeadership:peers,screenAssociation:screen,noEventMatchedControl:null,causalInferenceVerified:false,currentCandidateCertified:false,canTrade:false,canNotify:false};
+  })};
   modules[67].missing=[...new Set([...modules[67].missing,...derived.pending.map(r=>r.reason)])];
   return {schemaVersion:1,asOf,modules,riskObservations:Object.values(modules).flatMap(m=>m.riskObservations),
     missing:Object.values(modules).flatMap(m=>m.missing.map(reason=>({task:m.task,reason}))),...FLAGS};

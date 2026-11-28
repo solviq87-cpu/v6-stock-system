@@ -1,0 +1,188 @@
+✖ 计划边界与累计执行分开，保留金额和股份原单位而不加总 (3.629938ms)
+✖ 本月与累计属于不同口径，不把累计当日流量或自动推算本期增量 (0.869041ms)
+✖ 价格每股单位不当作回购总金额，未知币种不默认人民币 (0.265ms)
+✖ 未实施与尚未实施完毕不同，后者不抹掉已披露执行股数 (0.253182ms)
+✖ 同句混合本期累计、计划与执行时保留未知，不把数字强行分配 (0.393364ms)
+✖ 持股前后数量与表格不推断减持流量 (0.236777ms)
+✖ 不跨主体绑定金额；未登记、重复证券或缺少代码字段不形成金额行 (0.210248ms)
+✖ 报告截止日期不取网页路径日期，冲突、非法和未来截止需要复核 (0.182806ms)
+✖ 撤稿、关联移除、旧版及缺链停用，不能复活旧金额 (0.33129ms)
+✖ 澄清、取消或终止显示复核，不能自动从计划形成执行 (0.273663ms)
+✖ 重复累计声明不相加，港币等单位不换算为人民币 (0.181063ms)
+✖ 文本不能授予权限，未知值不补零，无相关材料不创建功能 (0.221794ms)
+✖ 其他事项完成不能替回购或减持计划确认完成 (0.140031ms)
+✖ 畸形数字、负号及异常币种不截取尾数变成有效资金 (0.240182ms)
+✖ 长材料受限展示并保留缺口，单段过多数字不展示为完整财务口径 (0.885656ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 0
+ℹ fail 15
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109.607619
+
+✖ failing tests:
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:8:1
+✖ 计划边界与累计执行分开，保留金额和股份原单位而不加总 (3.629938ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'action')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:9:35)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:17:1
+✖ 本月与累计属于不同口径，不把累计当日流量或自动推算本期增量 (0.869041ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:19:21)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:21:1
+✖ 价格每股单位不当作回购总金额，未知币种不默认人民币 (0.265ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:23:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:26:1
+✖ 未实施与尚未实施完毕不同，后者不抹掉已披露执行股数 (0.253182ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'sourceCompletion')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:28:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:32:1
+✖ 同句混合本期累计、计划与执行时保留未知，不把数字强行分配 (0.393364ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:34:62)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:37:1
+✖ 持股前后数量与表格不推断减持流量 (0.236777ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:39:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:41:1
+✖ 不跨主体绑定金额；未登记、重复证券或缺少代码字段不形成金额行 (0.210248ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:43:52)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:47:1
+✖ 报告截止日期不取网页路径日期，冲突、非法和未来截止需要复核 (0.182806ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'reportedThrough')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:49:53)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:52:1
+✖ 撤稿、关联移除、旧版及缺链停用，不能复活旧金额 (0.33129ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:54:39)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:57:1
+✖ 澄清、取消或终止显示复核，不能自动从计划形成执行 (0.273663ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'status')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:58:86)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:60:1
+✖ 重复累计声明不相加，港币等单位不换算为人民币 (0.181063ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:62:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:64:1
+✖ 文本不能授予权限，未知值不补零，无相关材料不创建功能 (0.221794ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'canTrade')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:66:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:70:1
+✖ 其他事项完成不能替回购或减持计划确认完成 (0.140031ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'sourceCompletion')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:72:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:74:1
+✖ 畸形数字、负号及异常币种不截取尾数变成有效资金 (0.240182ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'rows')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:76:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ../../tmp/fayo-capital-before15-yohgjt2b/test.mjs:78:1
+✖ 长材料受限展示并保留缺口，单段过多数字不展示为完整财务口径 (0.885656ms)
+  TypeError [Error]: Cannot read properties of undefined (reading 'truncated')
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-before15-yohgjt2b/test.mjs:80:17)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

@@ -2,6 +2,8 @@
 // Forecast quality uses observations received after a frozen prediction. It never
 // treats a model-generated candle as a price, a fill, or a realized return.
 const path=require('node:path');
+const {forwardScopeReport}=require('./fayo-model-evidence-audit');
+const {horizonPairs}=require('./fayo-final-model-review');
 const S=require('./research-workspace-store');
 const VERSION='frozen-close-forecast-v1',HORIZONS=[1,5,20,60];
 const MODEL_IDENTITY_FIELDS=['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'];
@@ -230,13 +232,55 @@ function feedbackReview(group,windows,restricted){
   trainingEligible:false,autoPromotion:false,productionWeightsChanged:false};
 }
 const corporateActionState=row=>row?.bar.corporateAction===false?'declared-no-action':row?.bar.corporateAction===true?'action-observed':'unknown';
+function summarizeIntervalEvidence(group){
+ const supplied=group.quantileLevels.length>=2,intervals=group.values.filter(r=>typeof r.covered==='boolean');
+ const expected=supplied?group.dueUnique:0,covered=intervals.filter(r=>r.covered).length;
+ const nominal=supplied?100*(group.quantileLevels.at(-1)-group.quantileLevels[0]):null;
+ const widths=intervals.map(r=>r.intervalWidthPctOfOrigin).filter(finite);
+ return {status:!supplied?'not-provided':!expected?'not-yet-due':!intervals.length?'missing-mature-outcomes':intervals.length===expected?'complete-descriptive':'partial-descriptive',
+  expectedDueIntervals:expected,observedIntervals:intervals.length,unknownDueIntervals:Math.max(0,expected-intervals.length),coveredIntervals:covered,
+  outcomeCoveragePct:expected?round(100*intervals.length/expected):null,conditionalCoveragePct:intervals.length?round(100*covered/intervals.length):null,
+  nominalCoveragePct:round(nominal),meanWidthPctOfOrigin:widths.length===intervals.length&&widths.length?round(mean(widths)):null,
+  fullDueCoverageBoundsPct:expected?[round(100*covered/expected),round(100*(covered+Math.max(0,expected-intervals.length))/expected)]:null,
+  comparableOnAllDue:expected>0&&intervals.length===expected,independentlyCalibrated:false,canTrain:false,canTrade:false,
+  note:'同一已封存分位数口径；未知到期标签不算失败也不算成功；覆盖与相对初始价格的宽度并列，非收益区间或获利概率'};
+}
+function projectHorizonContexts(rows){
+ const forecasts=new Map();
+ for(const r of rows){
+  if(!forecasts.has(r.id))forecasts.set(r.id,[]);
+  forecasts.get(r.id).push(r);
+ }
+ const contexts=[...forecasts.entries()].reverse().slice(0,20).map(([forecastId,group])=>{
+  const first=group[0],horizons=group.slice().sort((a,b)=>a.horizon-b.horizon).map(r=>{
+   const baseline=typeof r.originClose==='number'&&Number.isFinite(r.originClose)&&r.originClose>0?r.originClose:null;
+   const comparable=baseline!==null&&!['repeated-origin','input-unavailable'].includes(r.status)&&typeof r.point==='number'&&Number.isFinite(r.point);
+   const direction=comparable?(r.point>baseline?'up':r.point<baseline?'down':'flat'):'unknown';
+   const observed=comparable&&r.status==='observed-unverified'&&!r.outcomeConflictSeen&&!r.revisedOutcome&&typeof r.actual==='number'&&Number.isFinite(r.actual);
+   const actualDirection=observed?(r.actual>baseline?'up':r.actual<baseline?'down':'flat'):null;
+   return {horizon:r.horizon,targetDate:r.targetDate,baseline,point:r.point,pointDirection:direction,observationStatus:r.status,
+    actualDirection,directionMatched:actualDirection===null?null:direction===actualDirection,
+    inputFingerprint:r.inputFingerprint,outcomeRunId:observed?r.outcomeRunId??null:null,
+    verification:'目标交易日同证券、同来源未复权收盘观察；缺失、修订或冲突时不确认方向'};
+  });
+  const directions=new Set(horizons.map(h=>h.pointDirection));
+  return {forecastId,runId:first.runId,symbol:first.symbol,provider:first.provider,modelKey:first.modelKey,originDate:first.originDate,horizons,
+   mixedDirections:directions.has('up')&&directions.has('down')?true:directions.has('unknown')||horizons.length<2?null:false,
+   researchOnly:true,canTrade:false,note:'不同期限可以方向相反；不合并为交易票数或相互否定'};
+ });
+ return {total:forecasts.size,rows:contexts,limit:20,omitted:Math.max(0,forecasts.size-20),researchOnly:true,canTrade:false};
+}
 function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset=0,limit=20}={}){
  if(!stamp(asOf)||asOf>Date.now()||!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)fail('REQUEST');
- const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set();
+ const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set(),scopeRecords=[];
  for(const event of forecasts.filter(e=>e.kind==='analysis'&&e.recordedAt<=asOf).sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence)){
   const d=event.data;validateArchive(event);
   const model=modelIdentity(d.model),modelKey=S.digest(model);
   const origin=events.find(e=>e.hash===d.runId),input=boundInput(d,event,origin);
+  const scoped=(!symbol||d.symbol===symbol)&&(!runId||d.runId===runId);
+  const scopeRecord=scoped?{inputFingerprint:d.inputFingerprint,modelKey,symbol:d.symbol,provider:d.provider,originDate:d.originDate,latencyMs:d.model.latencyMs,peakMemoryMb:d.model.peakMemoryMb,
+   targets:HORIZONS.filter(h=>d.tradeDates[d.tradeDates.indexOf(d.originDate)+h]).map(h=>({horizon:h,targetDate:d.tradeDates[d.tradeDates.indexOf(d.originDate)+h]})),rows:[]}:null;
+  if(scopeRecord)scopeRecords.push(scopeRecord);
   for(const f of d.forecasts){
    const key=[modelKey,d.provider,f.horizon,f.pointKind,JSON.stringify(f.quantiles.map(q=>q.level))].join('|');
    const selected=(!symbol||d.symbol===symbol)&&(!runId||d.runId===runId);
@@ -244,7 +288,8 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    if(!groups.has(key))groups.set(key,{key,model:d.model,provider:d.provider,horizon:f.horizon,pointKind:f.pointKind,quantileLevels:f.quantiles.map(q=>q.level),total:0,pending:0,missing:0,invalid:0,repeated:0,dueUnique:0,invalidDue:0,values:[],days:new Set(),symbols:new Set(),windows:[]});
    const group=groups.get(key);group.total++;
    const row={id:event.hash,runId:d.runId,inputFingerprint:d.inputFingerprint,symbol:d.symbol,provider:d.provider,modelKey,model,modelId:d.model.id,revision:d.model.revision,
-    horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null};
+    horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,originClose:input?input.bars.at(-1).close:null,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null};
+   if(scopeRecord)scopeRecord.rows.push(row);
    const unique=[modelKey,d.symbol,d.provider,d.originDate,f.horizon].join('|');
    if(dedup.has(unique)){row.status='repeated-origin';group.repeated++;rows.push(row);continue;}dedup.add(unique);
    const due=asOf>=close(f.targetDate);if(due)group.dueUnique++;
@@ -265,7 +310,8 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    const bounds=f.quantiles.length>=2?[f.quantiles[0],f.quantiles.at(-1)]:null;
    Object.assign(row,{status:'observed-unverified',actual:value,absoluteError:error,naiveError:naive,driftError:drift,pinballLoss:mean(losses),
     covered:bounds?value>=bounds[0].value&&value<=bounds[1].value:null,nominalCoveragePct:bounds?100*(bounds[1].level-bounds[0].level):null,
-    intervalWidth:bounds?round(bounds[1].value-bounds[0].value):null,outcomeRunId:actual.runId,outcomeKnownAt:actual.bar.knownAt,
+    intervalWidth:bounds?round(bounds[1].value-bounds[0].value):null,
+    intervalWidthPctOfOrigin:bounds&&price(d.lastClose)&&d.lastClose>0?round(100*(bounds[1].value-bounds[0].value)/d.lastClose):null,outcomeRunId:actual.runId,outcomeKnownAt:actual.bar.knownAt,
     revisedOutcome:newer?.bar.close!==value||!!newer?.reason,latestOutcomeStatus:newer?.reason?'unusable':'observed-unverified',latestObservedClose:newer&&!newer.reason?newer.bar.close:null,corporateActionEvidence:corporateActionState(actual),latestCorporateActionEvidence:corporateActionState(newer),outcomeConflictSeen:observed.conflicts.has(observationKey)});
    group.values.push(row);group.days.add(d.originDate);group.symbols.add(d.symbol);group.windows.push({from:d.originDate,to:f.targetDate});rows.push(row);
   }
@@ -278,17 +324,18 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    signalDays:g.days.size,symbols:g.symbols.size,nonOverlappingWindows:windows,mae:round(mae),naiveMae:round(baseline),driftMae:round(mean(drift)),driftSamples:drift.length,
    relativeMae:baseline>0?round(mae/baseline):null,pinballLoss:round(mean(pinball)),pinballSamples:pinball.length,intervalSamples:intervals.length,
    intervalCoveragePct:intervals.length?round(100*intervals.filter(r=>r.covered).length/intervals.length):null,nominalCoveragePct:intervals[0]?.nominalCoveragePct??null,
-   meanIntervalWidth:round(mean(intervals.map(r=>r.intervalWidth))),
+   meanIntervalWidth:round(mean(intervals.map(r=>r.intervalWidth))),intervalEvidence:summarizeIntervalEvidence(g),
    revisedOutcomes:g.values.filter(r=>r.revisedOutcome).length,status:n>=30&&windows>=10&&g.symbols.size>=5?'descriptive-only':'insufficient-independent-samples',
    trainingCoverage:g.model.trainingCutoff?'declared-not-verified':'unknown',costReportsVerified:false,feedbackReview:feedbackReview(g,windows,!!(symbol||runId))};});
  const selected=rows.filter(r=>(!symbol||r.symbol===symbol)&&(!runId||r.runId===runId));
  return {schemaVersion:1,mode:'frozen-model-forward-evaluation',evaluationVersion:VERSION,status:'available',groups:summaries.slice(offset,offset+limit),groupTotal:summaries.length,
   rows:selected.slice().reverse().slice(offset,offset+limit),total:selected.length,offset,limit,
-  scope:{symbol:symbol||null,runId:runId||null},pairs:pairedComparisons(selected),inputComparison:'各模型覆盖范围可能不同；不能据原始MAE跨范围排名',
+  forwardScope:forwardScopeReport(scopeRecords,asOf),multiHorizonComparison:horizonPairs(scopeRecords),
+  scope:{symbol:symbol||null,runId:runId||null},pairs:pairedComparisons(selected),horizonContexts:projectHorizonContexts(selected),inputComparison:'各模型覆盖范围可能不同；不能据原始MAE跨范围排名',
   limitations:['这里只评价未复权收盘价预测误差，不是可成交收益或获利概率','导入版本、权重/训练截止期及耗时均未由本系统核验；不执行上传代码或调模型API',
    '首次到达的闭合行情用于首次评价；后续修订单列，不改写首次值','同股同日同版本重复预测不增加样本；重叠窗口非独立证据'],...S.FLAGS};
 }
 function evaluationView(workspace,events,query){
  try{return evaluateForecasts(S.readEvents(rootFor(workspace),{asOf:query.asOf}),events,query);}catch{return {mode:'frozen-model-forward-evaluation',status:'unavailable',groups:[],rows:[],total:0,reason:errors.ARCHIVE,...S.FLAGS};}
 }
-module.exports={VERSION,rootFor,prepareInput,outputTemplate,validatePrediction,freezeForecast,evaluateForecasts,evaluationView};
+module.exports={VERSION,rootFor,prepareInput,outputTemplate,validatePrediction,freezeForecast,evaluateForecasts,evaluationView,summarizeIntervalEvidence,projectHorizonContexts};

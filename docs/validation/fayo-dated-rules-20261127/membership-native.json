@@ -1,0 +1,197 @@
+{
+  "scope": "Synthetic dated membership consumed by the original authenticated complete-run worker and original desktop/mobile research page. Existing declared-unverified membership and master contracts only. No ETF/type/exchange or source certification.",
+  "baseline": "bf02b02b7ba87c5948e3caff7924b5aa65f097e9",
+  "sourceFiles": {
+    "src/core/historical-universe.js": "02460ab792a96ccddaa01bb6ebb85e7c806b1b7c217f17b0cadd36cf22d38590",
+    "src/core/research-explanation-projection.js": "b61e6886944b765d74708d52c10a598eb2ba38f2caeb5023fae5e261004ef7f0",
+    "src/core/complete-workbench.js": "19d6d2e117c281c6890d4f6172c89009544f2fd3f72fa75fd25bebbf5c829c33",
+    "public/nova/research.js": "aee51c08ce9518fc8f688277e6806044a44468c32493852e87198530797b0e4a"
+  },
+  "rows": [
+    {
+      "input": "membership-allowed.json",
+      "sha256": "09d5ea8b56969723ce989c5c37a6a7b8b19fc709818ba35ff80b2f0d05c3ac8a",
+      "http": 200,
+      "matched": true,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "pointInTimeUniverse": {
+        "eligible": true,
+        "verified": false,
+        "sector": null,
+        "source": "isolated-membership",
+        "knownAt": "2025-12-31T00:00:00Z",
+        "declared": true,
+        "reason": null
+      },
+      "universeExcluded": 0,
+      "ruleIds": [
+        "original:trend",
+        "original:momentum",
+        "original:breakout",
+        "playbook:platform_breakout",
+        "playbook:first_board_quality",
+        "playbook:first_to_second",
+        "pattern:ma5_ma20_volume",
+        "linked:donchian20_liquidity",
+        "linked:narrow_range_expansion"
+      ],
+      "modelPassedCount": 1
+    },
+    {
+      "input": "membership-excluded.json",
+      "sha256": "73ff5bd9f660c78a4a8eb62030080ab9ab5d5e323c74eb1e54b1ce2f0c856e37",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "pointInTimeUniverse": {
+        "eligible": false,
+        "verified": false,
+        "sector": null,
+        "source": "isolated-membership",
+        "knownAt": "2025-12-31T00:00:00Z",
+        "declared": true,
+        "reason": "NOT_IN_POINT_IN_TIME_UNIVERSE"
+      },
+      "universeExcluded": 1,
+      "ruleIds": [
+        "original:trend",
+        "original:momentum",
+        "original:breakout",
+        "playbook:platform_breakout",
+        "playbook:first_board_quality",
+        "playbook:first_to_second",
+        "pattern:ma5_ma20_volume",
+        "linked:donchian20_liquidity",
+        "linked:narrow_range_expansion"
+      ],
+      "modelPassedCount": 0
+    },
+    {
+      "input": "membership-late.json",
+      "sha256": "6c12b38107629f079651eccf4de92c335c8b116e91193db163e98d6d50ef0aae",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "pointInTimeUniverse": {
+        "eligible": false,
+        "verified": false,
+        "sector": null,
+        "reason": "NO_POINT_IN_TIME_MEMBERSHIP",
+        "declared": true
+      },
+      "universeExcluded": 1,
+      "ruleIds": [
+        "original:trend",
+        "original:momentum",
+        "original:breakout",
+        "playbook:platform_breakout",
+        "playbook:first_board_quality",
+        "playbook:first_to_second",
+        "pattern:ma5_ma20_volume",
+        "linked:donchian20_liquidity",
+        "linked:narrow_range_expansion"
+      ],
+      "modelPassedCount": 0
+    },
+    {
+      "input": "membership-gap.json",
+      "sha256": "a70447b8a7fe22b86de82a300cf21934d97c26ec147861c16b17f4dbe769ec73",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "pointInTimeUniverse": {
+        "eligible": false,
+        "verified": false,
+        "sector": null,
+        "reason": "NO_POINT_IN_TIME_MEMBERSHIP",
+        "declared": true
+      },
+      "universeExcluded": 1,
+      "ruleIds": [
+        "original:trend",
+        "original:momentum",
+        "original:breakout",
+        "playbook:platform_breakout",
+        "playbook:first_board_quality",
+        "playbook:first_to_second",
+        "pattern:ma5_ma20_volume",
+        "linked:donchian20_liquidity",
+        "linked:narrow_range_expansion"
+      ],
+      "modelPassedCount": 0
+    },
+    {
+      "input": "membership-legacy.json",
+      "sha256": "1371b5bc281afc40810bd0cbb34f221fab6f62e268c253b36a5d609dab517a64",
+      "http": 200,
+      "matched": true,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "pointInTimeUniverse": {
+        "eligible": true,
+        "verified": false,
+        "sector": null,
+        "declared": false,
+        "reason": null
+      },
+      "universeExcluded": 0,
+      "ruleIds": [
+        "original:trend",
+        "original:momentum",
+        "original:breakout",
+        "playbook:platform_breakout",
+        "playbook:first_board_quality",
+        "playbook:first_to_second",
+        "pattern:ma5_ma20_volume",
+        "linked:donchian20_liquidity",
+        "linked:narrow_range_expansion"
+      ],
+      "modelPassedCount": 1
+    }
+  ],
+  "viewerReturnedReport": false
+}

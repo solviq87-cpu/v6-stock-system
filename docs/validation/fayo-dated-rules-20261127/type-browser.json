@@ -1,0 +1,26 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "typeCards": 3,
+    "pageErrors": [],
+    "originalPublicationShownUnknown": true,
+    "realDocumentExcerpts": true,
+    "permission": "editor-research-view-only"
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "typeCards": 3,
+    "pageErrors": [],
+    "originalPublicationShownUnknown": true,
+    "realDocumentExcerpts": true,
+    "permission": "editor-research-view-only"
+  }
+]

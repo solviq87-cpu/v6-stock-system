@@ -9,6 +9,8 @@ const {atLockedLimit, assertAligned} = require('../strategy/historical-session')
 const {executionCapacity} = require('./execution-risk');
 const {corporateAction, entitlement} = require('./corporate-actions');
 const {validateUniverseHistory, universeObservation} = require('./historical-universe');
+const {replayExecutionCoverage}=require('./fayo-joint-outcomes');
+const {historicalStress,pendingStress}=require('./fayo-risk-replay-review');
 const {assertUnadjustedExecutionPriceBasis} = require('./historical-execution-price-basis');
 const {validateEntryPolicy, evaluateEntryRisk} = require('./common-entry-risk');
 const FLAGS = Object.freeze({researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false});
@@ -595,6 +597,7 @@ function derivePortfolioArchiveEvidence(archive={},workspaceEvents=[],input={}, 
     windows:samples.map(({start,end})=>({start,end})),missing:[...new Set(missing)],limitations:['失败和反向窗口保留；缺失窗口不会删除后重算漂亮样本','只补已有真实成交额和历史相关性，不从分数、已卖出交易或历史均值生成预期收益','无前瞻验证时无法断言收益稳定、可成交或生产适用']};
 }
 
+const {compareOpportunityCost}=require('./research-opportunity-review');
 function reviewDecisionAlternatives(frozen,outcomes=[],{asOf=Date.now()}={}) {
   atTime(asOf);if(frozen?.type!==FREEZE||!known(frozen.recordedAt,asOf)||!known(frozen.informationCutoff,frozen.recordedAt)||!arr(frozen.alternatives).length)throw Error('对照冻结引用无效');
   if(!Array.isArray(outcomes)||outcomes.length>5)throw Error('对照结果数量超限');
@@ -618,6 +621,7 @@ function reviewDecisionAlternatives(frozen,outcomes=[],{asOf=Date.now()}={}) {
   const selected=rows.find(r=>r.selected),complete=rows.every(r=>r.status==='hypothetical-evaluated');
   return {schemaVersion:1,type:REVIEW,task:76,freezeId:frozen.id,decisionRef:frozen.decisionRef,asOf,classification:frozen.classification,
     status:complete?'compared':'pending',rows:rows.map(r=>({...r,differenceFromSelected:complete?round(r.netPnl-selected.netPnl):null})),
+    opportunityCost:compareOpportunityCost(frozen,rows,complete),
     actualExecutionClaim:false,meaning:frozen.classification==='prospective'?'与事前冻结方案作同条件纸面对照，不写入权威账户':'事后探索，不能声称当时本应知道最佳方案',...FLAGS};
 }
 function recordDecisionAlternativeReview(root,freezeId,outcomes,{requestId,expectedRevision,now=Date.now(),beforeCommit,authorize}={}) {
@@ -641,7 +645,7 @@ function evaluateDecisionAlternatives(frozen,{evaluateAlternative,asOf=Date.now(
  * risk and corporate-action functions. It never calls an account writer. */
 function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
   atTime(asOf);
-  const pending=reason=>({...reviewDecisionAlternatives(frozen,[],{asOf}),missing:[reason],replayDetails:[]});
+  const pending=reason=>({...reviewDecisionAlternatives(frozen,[],{asOf}),missing:[reason],replayDetails:[],historicalStress:pendingStress()});
   const snap=frozen?.sourceSnapshot;
   if(!snap||frozen.sourceSnapshotHash!==S.digest(snap))return pending('缺少完整、指纹一致的冻结账户与规则快照');
   const {account,quotes,constraints:c,costs}=snap;
@@ -679,7 +683,7 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
     let cash=account.cash,totalCosts=0,peak=account.equity,maxDrawdown=0;
     const holdings=new Map(account.positions.map(p=>[p.symbol,{...p}])),orders=[],equity=[];
     const scheduled=start+alternative.delaySessions;
-    const block=(date,id,side,reason)=>orders.push({date,symbol:id,side,status:'hypothetical-blocked',reason});
+    const block=(date,id,side,reason,quantity)=>orders.push({date,symbol:id,side,status:'hypothetical-blocked',reason,quantity});
     for(let d=start;d<=end;d++){
       const date=dates[d],openAt=Date.parse(date+'T09:30:00+08:00');
       for(const [id,p] of holdings){
@@ -695,15 +699,15 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
           const target=Math.ceil(weight*account.equity/bar.open-1e-7),requested=Math.max(0,p.quantity-target);
           if(!requested)continue;
           const lock=atLockedLimit(bar,prior,stock,'sell');
-          if(bar.suspended===true||bar.tradable===false||bar.volume===0||lock.blocked){block(date,id,'sell',lock.reason||'停牌或无成交');continue;}
+          if(bar.suspended===true||bar.tradable===false||bar.volume===0||lock.blocked){block(date,id,'sell',lock.reason||'停牌或无成交',requested);continue;}
           const available=Math.min(requested,p.availableQuantity);
-          if(!available){block(date,id,'sell','T+1可卖数量不足');continue;}
+          if(!available){block(date,id,'sell','T+1可卖数量不足',requested);continue;}
           const capacity=executionCapacity(stock,prior,available,1,{maxParticipationPct:c.maxParticipation*100,minPriorTurnover:c.minPriorTurnover??null});
-          if(capacity.shares<=0){block(date,id,'sell',capacity.reason);continue;}
+          if(capacity.shares<=0){block(date,id,'sell',capacity.reason,requested);continue;}
           const quantity=capacity.shares,price=Math.max(lock.boundary,bar.open*(1-frictionBps/10000)),fee=tradingFees({side:'sell',quantity,price,tradeDate:date,policy:costs.feePolicy});
           cash+=quantity*price-fee.total;totalCosts+=fee.total+quantity*(bar.open-price);p.quantity-=quantity;p.availableQuantity-=quantity;
           orders.push({date,symbol:id,side:'sell',quantity,price,fees:fee.total,status:'hypothetical-filled'});
-          if(quantity<requested)block(date,id,'sell',capacity.reason||'可卖数量限制，剩余继续估值');
+          if(quantity<requested)block(date,id,'sell',capacity.reason||'可卖数量限制，剩余继续估值',requested-quantity);
         }
         // A frozen reduction authorizes only lower exposure. A later price gap
         // can imply a larger share target at the same weight; never buy it back.
@@ -711,20 +715,21 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
           if(weight<=0)continue;
           const stock=bySymbol.get(id),bar=stock.bars[d],prior=stock.bars[d-1],p=holdings.get(id)||{symbol:id,quantity:0,availableQuantity:0},lotSize=paperBuyLotSize(id);
           const requested=Math.floor(Math.max(0,weight*account.equity/bar.open-p.quantity)/lotSize)*lotSize;if(!requested)continue;
-          if(p.quantity===0&&[...holdings.values()].filter(h=>h.quantity>0).length>=c.maxPositions){block(date,id,'buy','原后台持仓数量上限');continue;}
+          if(p.quantity===0&&[...holdings.values()].filter(h=>h.quantity>0).length>=c.maxPositions){block(date,id,'buy','原后台持仓数量上限',requested);continue;}
           const lock=atLockedLimit(bar,prior,stock,'buy'),membership=universeObservation(history.universeHistory,id,date,{at:'open'});
-          if(bar.isST===true||bar.suspended===true||bar.tradable===false||bar.volume===0||lock.blocked||!membership.eligible){block(date,id,'buy',lock.reason||'证券状态或历史股票池禁止入场');continue;}
+          if(bar.isST===true||bar.suspended===true||bar.tradable===false||bar.volume===0||lock.blocked||!membership.eligible){block(date,id,'buy',lock.reason||'证券状态或历史股票池禁止入场',requested);continue;}
           const price=Math.min(lock.boundary,bar.open*(1+frictionBps/10000)),affordable=maxAffordableQuantity({budget:cash,price,lotSize,tradeDate:date,policy:costs.feePolicy});
           const capacity=executionCapacity(stock,prior,Math.min(requested,affordable),lotSize,{maxParticipationPct:c.maxParticipation*100,minPriorTurnover:c.minPriorTurnover??null});
-          const quantity=capacity.shares;if(quantity<=0){block(date,id,'buy',capacity.reason||'资金不足一手');continue;}
+          const quantity=capacity.shares;if(quantity<=0){block(date,id,'buy',capacity.reason||'资金不足一手',requested);continue;}
           const risk=evaluateEntryRisk({policy:c.riskPolicy,symbol:id,strategyId:quoteMap.get(id)?.strategyId||p.strategyId,
             quantity,price,cash,positions:[...holdings.values()].filter(p=>p.quantity>0),marks:Object.fromEntries(stocks.map(s=>[s.symbol,s.bars[d-1].close])),
             sectors:Object.fromEntries(stocks.map(s=>[s.symbol,universeObservation(history.universeHistory,s.symbol,date,{at:'open'}).sector])),
             lossStreak:account.lossStreak??null,previousClose:equity.length?{priorEquity:equity.at(-1).value,priorPeak:peak,previousEquity:equity.at(-2)?.value??account.equity}:account.previousClose??null});
-          if(!risk.allowed){block(date,id,'buy',risk.reasonCodes.join(','));continue;}
+          if(!risk.allowed){block(date,id,'buy',risk.reasonCodes.join(','),requested);continue;}
           const fee=tradingFees({side:'buy',quantity,price,tradeDate:date,policy:costs.feePolicy});cash-=quantity*price+fee.total;
           totalCosts+=fee.total+quantity*(price-bar.open);p.quantity+=quantity;holdings.set(id,p);
           orders.push({date,symbol:id,side:'buy',quantity,price,fees:fee.total,status:'hypothetical-filled'});
+          if(quantity<requested)block(date,id,'buy',capacity.reason||'资金或容量限制，剩余未成交',requested-quantity);
         }
       }
       const value=cash+[...holdings.values()].reduce((n,p)=>n+p.quantity*bySymbol.get(p.symbol).bars[d].close,0);
@@ -736,9 +741,11 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
       constraintsHash:frozen.constraintsHash,costPolicyHash:frozen.costPolicyHash,capital:frozen.capital,horizonDays:frozen.horizonDays,
       periodStartAt:Date.parse(dates[start]+'T09:30:00+08:00'),periodEndAt:endAt,knownAt:history.knownAt,source:history.source,
       mode:'constrained-paper-replay',constraintsVerified:true,mature:true,grossPnl:round(netPnl+totalCosts),totalCosts:round(totalCosts),netPnl:round(netPnl)});
-    replayDetails.push({alternativeId:alternative.id,orders,equity,maxDrawdown:round(maxDrawdown),finalHoldings:[...holdings.values()],actualExecutionClaim:false,...FLAGS});
+    const finalHoldings=[...holdings.values()];
+    replayDetails.push({alternativeId:alternative.id,orders,equity,maxDrawdown:round(maxDrawdown),finalHoldings,executionCoverage:replayExecutionCoverage(orders,finalHoldings),actualExecutionClaim:false,...FLAGS});
   }
-  return {...reviewDecisionAlternatives(frozen,outcomes,{asOf}),outcomes,replayDetails,
+  const review=reviewDecisionAlternatives(frozen,outcomes,{asOf});
+  return {...review,outcomes,replayDetails,historicalStress:historicalStress(frozen,history,dates.slice(start,end+1),replayDetails,review),jointOutcomeEvidence:{status:review.status==='compared'?'single-window-hypothetical':'pending',horizonDays:frozen.horizonDays,expectedUtility:null,profitProbability:null,rows:review.rows.map(row=>({alternativeId:row.id,markedNetPnl:row.netPnl,totalCosts:row.totalCosts,executionCoverage:replayDetails.find(d=>d.alternativeId===row.id)?.executionCoverage??null,realizedNetPnl:null})),actualExecutionClaim:false,canTrade:false},
     limitations:['仅在冻结当日之后的首个交易日开盘（加事前延迟）调仓一次；受阻部分继续持有，不事后选择更有利的时点重试','收盘估值包含未实现盈亏，未假定期末必能清仓','只有历史约束下的纸面对照；没有真实订单队列或成交保证']};
 }
 function buildDeepDecisionResearch(input={},options={}) {

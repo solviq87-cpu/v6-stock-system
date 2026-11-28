@@ -1,0 +1,124 @@
+{
+  "march": {
+    "provider": "szse-fund",
+    "month": "2025-03",
+    "sourceUrl": "https://docs.static.szse.cn/www/market/periodical/month/W020250402560972808549.html",
+    "count": 450,
+    "observedAt": 1795797213267,
+    "archiveReceipt": {
+      "hash": "e4ec5d9a90f44f3c317aa7fff4081c4cf3b58d95981e9a3169b1439d69f8ab9f",
+      "scopeId": "50a9f500667544c06feaf2ff14f20dc4f6e21660a861e817a30ffe81753d8405",
+      "dataVersion": "2a6e9230393646084c5d9cbc69af41b29340d5e4bc07cd52e7cbd34347c06fe3",
+      "version": 1,
+      "availableAt": 1795797213344,
+      "firstKnownAt": 1795797213344,
+      "sourceRevisionKnown": false
+    },
+    "canTrade": false
+  },
+  "april": {
+    "provider": "szse-fund",
+    "month": "2025-04",
+    "sourceUrl": "https://docs.static.szse.cn/www/market/periodical/month/W020250513504907210876.html",
+    "count": 467,
+    "observedAt": 1795797220520,
+    "archiveReceipt": {
+      "hash": "16d37194b759e37f0c773e83f6ebb7d29f454d2b2e355cc494951730dac73c61",
+      "scopeId": "21764b99218e5a4c798a0608a19175b08b0b3cad2d3628ce17da5097cb702e09",
+      "dataVersion": "1b27d2992eb8e9adb65169e89d111a623531276eded33d40ff7e51b83bbf205f",
+      "version": 1,
+      "availableAt": 1795797220651,
+      "firstKnownAt": 1795797220651,
+      "sourceRevisionKnown": false
+    },
+    "canTrade": false
+  },
+  "comparison": {
+    "symbol": "159915",
+    "exchange": "SZSE",
+    "decisionAt": 1795797220676,
+    "months": [
+      {
+        "month": "2025-03",
+        "receipt": "e4ec5d9a90f44f3c317aa7fff4081c4cf3b58d95981e9a3169b1439d69f8ab9f",
+        "availableAt": 1795797213344,
+        "row": {
+          "symbol": "159915",
+          "name": "创业板ETF",
+          "trackingIndex": "399006",
+          "monthlyTurnoverWanCny": 5254497.96
+        }
+      },
+      {
+        "month": "2025-04",
+        "receipt": "16d37194b759e37f0c773e83f6ebb7d29f454d2b2e355cc494951730dac73c61",
+        "availableAt": 1795797220651,
+        "row": {
+          "symbol": "159915",
+          "name": "创业板ETF",
+          "trackingIndex": "399006",
+          "monthlyTurnoverWanCny": 6684564.1
+        }
+      }
+    ],
+    "status": "observed",
+    "reason": null,
+    "turnoverRatio": 1.2721603759077298,
+    "unit": "万元人民币",
+    "frequency": "calendar-month",
+    "intradayAnomaly": null,
+    "netSubscriptions": null,
+    "buyerIdentity": null,
+    "researchOnly": true,
+    "canTrade": false,
+    "canNotify": false,
+    "productionWeightsChanged": false
+  },
+  "browser": {
+    "passed": true,
+    "mode": "isolated-http-worker-real-archived-monthly-document",
+    "productionDeployed": false,
+    "physicalDevices": false,
+    "views": [
+      {
+        "viewport": {
+          "width": 1536,
+          "height": 1000,
+          "path": "/"
+        },
+        "api": "/api/research/deep",
+        "archiveHash": "16d37194b759e37f0c773e83f6ebb7d29f454d2b2e355cc494951730dac73c61",
+        "dataVersion": "1b27d2992eb8e9adb65169e89d111a623531276eded33d40ff7e51b83bbf205f",
+        "overflow": 0,
+        "tableOverflow": 0,
+        "errors": [],
+        "external": [],
+        "readout": "159915 创业板ETF\t399006\t6684564.1"
+      },
+      {
+        "viewport": {
+          "width": 390,
+          "height": 844,
+          "path": "/m"
+        },
+        "api": "/api/research/deep",
+        "archiveHash": "16d37194b759e37f0c773e83f6ebb7d29f454d2b2e355cc494951730dac73c61",
+        "dataVersion": "1b27d2992eb8e9adb65169e89d111a623531276eded33d40ff7e51b83bbf205f",
+        "overflow": 0,
+        "tableOverflow": 0,
+        "errors": [],
+        "external": [],
+        "readout": "159915 创业板ETF\t399006\t6684564.1"
+      }
+    ]
+  },
+  "rollback": {
+    "mode": "isolated-mixed-archive",
+    "realSzseReceipts": 2,
+    "syntheticEcb": 1,
+    "newReaderVisibleScopes": 3,
+    "oldReaderVisibleScopes": 1,
+    "retainedEcbHash": "9ee190404c1717a54583453bf15929054aa905c962a25dcefd0730e1fa96ec0e",
+    "sourceBytesRetained": 3
+  }
+}
