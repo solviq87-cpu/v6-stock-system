@@ -183,3 +183,27 @@ test('industry membership freezes only from the same stock and signal-time sourc
  assert.equal(partial.features.features[0].industry,undefined);
  assert.equal(partial.features.features[4].industry.code,'SW_B');
 });
+
+test('F29 capture retains explicit same-source size evidence known at snapshot cutoff',()=>{
+ const input=inputs(),feed=input.factorSnapshot.feed;
+ for(let i=0;i<input.factorSnapshot.rows.length;i++){
+  const r=input.factorSnapshot.rows[i];r.sizeEvidence={symbol:r.code,tradeDate:day,source:feed.provider,datasetId:feed.datasetId,evidenceId:'size-'+r.code,
+   basis:'total-market-cap',unit:'CNY',valueYuan:(i+1)*1e9,observedAt:at(day,'15:00:00'),knownAt:at(day,'15:30:00')};
+ }
+ input.candidates.items[0].hit.push({id:2,text:'第二条原命中'});input.candidates.items[0].hitIds.push(2);
+ const a=captureFactorEpisode({...input,now});
+ assert.deepEqual(a.sizeCoverage,{expected:5,observed:5,missing:0,invalid:0});
+ assert.equal(a.features.features.length,6);assert.equal(a.features.features[0].sizeEvidence.valueYuan,1e9);
+ assert.deepEqual(a.features.features[0].sizeEvidence,a.features.features[1].sizeEvidence);
+ const report=evaluateForward(a.cohort,input.market,{now});
+ assert.equal(verifyAndJoin(a.features,report,now)[0].sizeEvidence.valueYuan,1e9);
+ const bad=structuredClone(input);bad.factorSnapshot.rows[0].sizeEvidence.knownAt=at(day,'16:02:30');
+ delete bad.factorSnapshot.rows[1].sizeEvidence;bad.factorSnapshot.rows[1].marketCap=99;
+ bad.factorSnapshot.rows[2].sizeEvidence.source='wrong-provider';
+ const b=captureFactorEpisode({...bad,now});
+ assert.deepEqual(b.sizeCoverage,{expected:5,observed:2,missing:1,invalid:2});
+ assert.equal(b.features.features[0].sizeEvidence,undefined);
+ assert.equal(b.features.features[2].sizeEvidence,undefined);
+ assert.equal(b.features.features.length,6);assert.equal(b.features.factors.length,2);
+ assert.equal(b.features.canTrade,false);
+});

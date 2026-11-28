@@ -37,3 +37,12 @@ test('F29 F45 relative size shock counts existing and remaining buy exposure and
  assert.equal(styleShock(h,p,partition,{...a,gapPct:NaN}).status,'unknown');
  assert.equal(styleShock(h,p,null,a).status,'unknown');
 });
+
+test('F29 repeated exact stock evidence counts once; conflicting repeated signal invalidates size partition',()=>{
+ const input=rows(),prior=buildSizePartition(input,options);
+ const repeated=[...input,{...input[0],signalId:'other-rule'}],result=buildSizePartition(repeated,options);
+ assert.equal(result.status,'declared-point-in-time-partition');assert.equal(result.expected,10);assert.equal(result.originalSignalCount,11);
+ assert.equal(result.duplicateSignalCount,1);assert.deepEqual(result.groups,prior.groups);
+ const bad={...input[0],signalId:'other-rule',sizeEvidence:{...input[0].sizeEvidence,valueYuan:2e9}};
+ assert.equal(buildSizePartition([...input,bad],options).status,'unknown');
+});

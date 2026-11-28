@@ -22,11 +22,20 @@ function normalizeSizeEvidence(e,{symbol,tradeDate,signalAt,provider,datasetId}=
 function buildSizePartition(rows,{provider,datasetId,signalDay}={}){
  const out={status:'unknown',reason:'INCOMPLETE_ORIGINAL_SIZE_COHORT',expected:Array.isArray(rows)?rows.length:null,
   observed:0,groups:[],signalDay:signalDay??null,source:provider??null,datasetId:datasetId??null,...flags};
- if(!Array.isArray(rows)||rows.length<6||rows.length>500||new Set(rows.map(x=>x?.symbol)).size!==rows.length)return out;
- const values=rows.map(x=>normalizeSizeEvidence(x?.sizeEvidence,{symbol:x?.symbol,tradeDate:signalDay,signalAt:x?.signalAt,provider,datasetId}));
- const observed=values.filter(Boolean).length;
- if(observed!==rows.length)return {...out,observed};
- const sorted=values.slice().sort((a,b)=>a.valueYuan-b.valueYuan||a.symbol.localeCompare(b.symbol)),mid=Math.floor(sorted.length/2);
+ if(!Array.isArray(rows)||rows.length<6||rows.length>500||rows.some(x=>!code(x?.symbol)))return out;
+ // Repeated original signals for one security must not increase its weight.
+ const bySymbol=new Map(),invalid=new Set();
+ for(const row of rows){
+  const v=normalizeSizeEvidence(row.sizeEvidence,{symbol:row.symbol,tradeDate:signalDay,signalAt:row.signalAt,provider,datasetId});
+  if(!v){invalid.add(row.symbol);continue;}
+  const before=bySymbol.get(row.symbol);
+  if(before&&JSON.stringify(before)!==JSON.stringify(v))invalid.add(row.symbol);
+  else if(!before)bySymbol.set(row.symbol,v);
+ }
+ const expected=new Set(rows.map(r=>r.symbol)).size,observed=[...bySymbol.keys()].filter(s=>!invalid.has(s)).length;
+ Object.assign(out,{expected,observed,originalSignalCount:rows.length,duplicateSignalCount:rows.length-expected});
+ if(expected<6||observed!==expected)return out;
+ const sorted=[...bySymbol.values()].sort((a,b)=>a.valueYuan-b.valueYuan||a.symbol.localeCompare(b.symbol)),mid=Math.floor(sorted.length/2);
  if(sorted[mid-1].valueYuan===sorted[mid].valueYuan)return {...out,observed,reason:'SIZE_BOUNDARY_TIE'};
  return {...out,status:'declared-point-in-time-partition',reason:null,observed,
   groups:[{id:'relatively-smaller',members:sorted.slice(0,mid)},{id:'relatively-larger',members:sorted.slice(mid)}],
@@ -41,6 +50,7 @@ function compareSizeVersions(days,ids,versions,score){
   const p=d?.sizePartition,observed=d?.rows;
   if(p?.status!=='declared-point-in-time-partition'||!Array.isArray(observed)||
      observed.some(r=>!finite(r.returnPct))||new Set(observed.map(r=>r.symbol)).size!==observed.length)continue;
+  if(!Array.isArray(p.groups)||p.groups.length!==2||p.groups.some(g=>!Array.isArray(g.members)))continue;
   const groups=p.groups.map(g=>{const members=new Set(g.members.map(m=>m.symbol)),matched=observed.filter(r=>members.has(r.symbol));
    return {id:g.id,expected:members.size,observed:matched.length,meanGrossPriceReturnPct:round(mean(matched.map(r=>r.returnPct))),matched};});
   if(groups.length!==2||groups.reduce((n,g)=>n+g.observed,0)!==observed.length||groups.some(g=>g.observed<5))continue;
