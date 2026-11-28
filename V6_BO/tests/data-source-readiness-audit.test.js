@@ -309,13 +309,14 @@ test('both npm entry points invoke the existing read-only readiness CLI',()=>{
 test('all registered routes keep static adapter, actual attempt, successful data and business execution phases separate',()=>{
  const r=audit({asOf:NOW}),s=r.summary,byId=new Map(r.routes.map(x=>[x.id,x]));
  assert.equal(s.registeredRoutes,122);assert.equal(new Set(r.routes.map(x=>x.id)).size,122);
- assert.equal(s.candidateRegistrationOnlyRoutes,98);assert.equal(s.namedAdapterCodeReviewedRoutes,19);
+ assert.equal(s.candidateRegistrationOnlyRoutes,97);assert.equal(s.namedAdapterCodeReviewedRoutes,20);
  assert.equal(s.genericGatewayContractRoutes,2);assert.equal(s.manualImportContractRoutes,3);
  assert.equal(s.namedAdapterNotReviewedRoutes,0);assert.equal(s.staticBusinessAnalysisPathRoutes,4);
  assert.equal(s.businessAnalysisExecutionRoutesVerified,0);assert.equal(s.productionActiveSourcesVerified,0);
  assert.equal(byId.get('itick').integration.staticWiringScope,'conditional-diagnostic-only');
  assert.equal(byId.get('ecb-fx-daily').integration.adapterStage,'candidate-registration-only');
  assert.equal(byId.get('ecb').integration.staticWiringScope,'manual-background-archive');
+ assert.equal(byId.get('szse-fund').integration.staticWiringScope,'manual-background-archive');
  assert.ok(r.routes.every(x=>x.phases.businessAnalysis==='unknown'&&x.integration.businessAnalysisExecutionVerified===null&&x.phases.actualCall==='unknown'));
  const q=audit({asOf:NOW,snapshot:snapshot()});
  assert.equal(q.routes.find(x=>x.id==='tencent').phases.actualCall,'attempt-reported');

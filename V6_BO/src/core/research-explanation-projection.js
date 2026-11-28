@@ -10,6 +10,8 @@ const {assessWeakMarketSectorPreference}=require('../strategy/weak-market-sector
 const {linkIssuerEvents}=require('../strategy/issuer-event-linkage');
 const {evaluateSectorCohortRps}=require('../strategy/sector-cohort-rps');
 const {evaluateDailySectorStrength}=require('../strategy/daily-sector-strength');
+const {historicalSecurityState}=require('../strategy/historical-session');
+const {validateUniverseHistory,universeObservation}=require('./historical-universe');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 function historicalExplanations(history,{market={},announcements=[]}={}){
  if(!Array.isArray(announcements)||announcements.length>500)throw Error('上市公司公告研究输入数量无效');
@@ -20,10 +22,11 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
  if(!/^\d{4}-\d{2}-\d{2}$/.test(last?.date||''))return empty;
  const date=last.date,timestamp=Date.parse(date+'T15:00:00+08:00');
  if(!finite(timestamp)||timestamp<=0)return empty;
+ validateUniverseHistory(history.universeHistory);
  const source=history.source==='imported'?'imported':'simulated';
  const stocks=history.stocks.map(s=>{
    const latest=s.bars.at(-1);
-   return {...s,symbol:String(s.symbol||s.code),close:latest.close,price:latest.close,
+   return {...s,...historicalSecurityState(s,latest),symbol:String(s.symbol||s.code),close:latest.close,price:latest.close,
      volume:latest.volume,bars:s.bars,feed:{source,timestamp}};
  });
  const scan=scanUniverseWithRationale({stocks,market,now:timestamp,maxAgeMs:0,requireReal:false});
@@ -63,7 +66,12 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
   const studyBlocked=research.strategies.some(x=>x.status==='risk_blocked')||
     linked.strategies.some(x=>x.status==='risk_blocked')||
     quality.strategies.some(x=>x.status==='risk_blocked');
-  const watchEligible=!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
+  // Reuse the ledger's dated membership contract at this view's close cutoff.
+  // Keep every computed rule for replay; exclusion only changes eligibility.
+  const membership=universeObservation(history.universeHistory,item.symbol,date,{at:'close'});
+  const pointInTimeUniverse={...membership,declared:history.universeHistory!=null,
+   reason:membership.eligible?null:membership.reason||'NOT_IN_POINT_IN_TIME_UNIVERSE'};
+  const watchEligible=membership.eligible&&!item.blockedBySafety&&!studyBlocked&&item.quality?.usable===true&&
     item.quality?.fresh===true&&item.quality?.simulated===false&&rules.length>0&&
     stocksByCode.has(item.symbol)&&item.rationale.reviewPriority?.sourceStatus!=='ambiguous'&&
     item.strategy?.riskFilter?.pass!==false;
@@ -76,7 +84,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
   const issuerRiskNotes=[...issuer.riskClues,...issuer.conflicts].map(x=>'公告标题风险待核对：'+x.title);
   const cohortEvidence=cohort.bySymbol[item.symbol]||{status:'unknown',
    reason:cohort.reason||'个股所属板块不在本次可比横向研究集合中'};
-  const rationale={...item.rationale,openSourceResearch:research,
+  const rationale={...item.rationale,pointInTimeUniverse,openSourceResearch:research,
    linkedFactorResearch:linked,linkedFactors:linked.factors,
    qualityResearch:quality,qualityFactors:quality.factors,
    sectorCohortRps:cohortEvidence,
@@ -85,6 +93,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
     ...(item.rationale.whyUp?.possibleContributors||[]),...relativeNote]},
    weakMarketPreference:preference,issuerEvidence:issuer,
    risks:[...item.rationale.risks,...issuerRiskNotes,
+    ...(!membership.eligible?['原历史股票池未允许该证券进入当期候选（'+pointInTimeUniverse.reason+'）']:[]),
     ...(studyBlocked?['公开策略研究因交易风险被阻断']:[]),
     ...(preference.researchDeprioritized?[preference.reason]:[])],
    selection:{...item.rationale.selection,rules,ruleCount:rules.length,
@@ -96,7 +105,7 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
    sourceStatus:stocksByCode.has(item.symbol)?'unique':'ambiguous',studyBlocked});
   return {
    symbol:item.symbol,name:item.name,score:item.score,
-   historicalModelPassed:item.tradable===true,
+   historicalModelPassed:item.tradable===true&&membership.eligible,
    historicalOnly:true,dataStatus:source==='imported'?'imported-unverified':'simulated',
    rationale,
    quality:{usable:item.quality.usable,source:item.quality.source,errors:item.quality.errors}
@@ -105,7 +114,8 @@ function historicalExplanations(history,{market={},announcements=[]}={}){
    asOf:date,source:history.source,provider:history.provider||null,
    dataStatus:source==='imported'?'imported-unverified':'simulated',
    verifiedLive:false,canTrade:false,officialCandidates:0,
-   total:scan.total,modelPassedCount:scan.eligible,rejected:scan.rejected,
+   total:scan.total,modelPassedCount:candidates.filter(c=>c.historicalModelPassed).length,rejected:scan.rejected,
+   universeExcluded:candidates.filter(c=>!c.rationale.pointInTimeUniverse.eligible).length,
    candidates,openSourceCatalog,linkedResearchCatalog,qualityResearchCatalog,
    sectorCohortStudy:cohort,
    ...(dailySector?{dailySectorStudy:dailySector}:{}),

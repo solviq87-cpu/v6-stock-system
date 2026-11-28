@@ -1,0 +1,24 @@
+{
+  "base": "baf2f520362f94aa3a81405620d145ab325ae918",
+  "sourceHashes": {
+    "src/core/complete-workbench.js": "b02a9af1a8ba3d5b4d784be672b4490da1736c1b987b261afb9e05f8928b1efd",
+    "src/core/unified-strategy-project.js": "7921502189edeff1beeafb4fd5cd3e75f71c10bcaed819fa3e91737831e19b29",
+    "src/core/strategy-portfolio-lab.js": "64540d526197d321e0b7994ac43a64a6dcb0f53c83a0de271c86821dafc1e109",
+    "public/nova/research.js": "9bf1939b07d24ce3b7be8b4a9906c9101345a74304dfb4b407aa2ecf2f427316",
+    "public/nova/strategy-comparison-view.mjs": "4cfd4f930ce5810abe5529823f93768c0e11a921d539d00688362d692e3d7004",
+    "tests/helpers/v6-studio-fixture.js": "771e53bc235d1af9300ee53fecbfd768c8ac10bd98ccdbd73b360a18efab3117",
+    "tests/strategy-comparison-protocol.test.js": "25d7736943a1ab86e592b48e8e4420dac8747f3d84e5812e317bfa3a9908043a",
+    "tests/strategy-comparison-view.test.js": "5ed317ee7346eb713ad1956969238c122b49843887d589dd720d0faa3b7dbcb7",
+    "tests/studio-fixture-utf8.test.js": "cc3814a2bae6a18c570da8c0ef1a67295020e3f060b4c71c1e9eae64652092dd"
+  },
+  "stats": {
+    "tests": 8147,
+    "pass": 8147,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "rawLogSha256": "ee6df0a290d126caf54395538469a70501ea027db51f37460b533e271e1efdda",
+  "command": "PATH=/tmp/fayo-powershell-7.7.0-runtime:$PATH V6_MODEL_PYTHON=/tmp/fayo-model-bundle/venv/bin/python OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 npm test",
+  "note": "Fresh dirty-source fingerprints match native receipt; final SHA CI and combination separately verified."
+}

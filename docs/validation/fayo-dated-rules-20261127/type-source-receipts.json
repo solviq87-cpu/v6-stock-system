@@ -1,0 +1,61 @@
+{
+  "sources": [
+    {
+      "id": "spdb-2025-summary",
+      "url": "https://news.spdb.com.cn/investor_relation/periodic_report/202603/P020260330690454285467.pdf",
+      "receivedAt": "2026-11-27T22:00:27.756973+00:00",
+      "bytes": 422829,
+      "pdfSha256": "811461c1bc1a050f10af0357c1c790c8137898c6709f35803f4d9d9a6328caab",
+      "pdfFile": "spdb-2025-summary.pdf",
+      "textFile": "spdb-2025-summary.txt",
+      "page": 1,
+      "pageStart": 673,
+      "pageEnd": 971,
+      "bodySha256": "631e603aa85e28398b0df44464915cf661711f0a76638e6ce1e273cfd7281a76",
+      "originalPublicationAt": null,
+      "licenseScopeIndependentlyVerified": false
+    },
+    {
+      "id": "510300-product-summary",
+      "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-24/510300_20261124_2XJH.pdf",
+      "receivedAt": "2026-11-27T22:00:26.154028+00:00",
+      "bytes": 260605,
+      "pdfSha256": "75920ec2b7b297efa88962beec1e8f23ded5a9812c73e5a1fbe1d47c55b88bdf",
+      "pdfFile": "510300-product-summary.pdf",
+      "textFile": "510300-product-summary.txt",
+      "page": 1,
+      "pageStart": 0,
+      "pageEnd": 786,
+      "bodySha256": "f5d9b47292b875de4af941f8837c59b02ca1a3335eeae380809426b1a1f198c8",
+      "originalPublicationAt": null,
+      "licenseScopeIndependentlyVerified": false
+    },
+    {
+      "id": "spdb-preference-dividend",
+      "url": "https://news.spdb.com.cn/investor_relation/company_report/202511/P020251125627943429601.pdf",
+      "receivedAt": "2026-11-27T22:12:16.361667+00:00",
+      "bytes": 130905,
+      "pdfSha256": "2f37bd20aeb20f002a9b837ce4bd97590d3c7acb0338cd00a8bf3a35763dcdd7",
+      "pdfFile": "spdb-preference-dividend.pdf",
+      "textFile": "spdb-preference-dividend.txt",
+      "page": 1,
+      "pageStart": 0,
+      "pageEnd": 156,
+      "bodySha256": "d0f4ee36f2110f765b989dc3368c3f9a6a2404dfcdfc462564007cc194661e88",
+      "originalPublicationAt": null,
+      "licenseScopeIndependentlyVerified": false
+    }
+  ],
+  "failedPublicPdf": {
+    "id": "spdb-multi-instrument-announcement",
+    "url": "https://www.sse.com.cn/disclosure/listedinfo/announcement/c/new/2024-12-20/600000_20241220_DDXQ.pdf",
+    "requestAt": "2026-11-27T22:08:53.739549+00:00",
+    "originalPublicationAt": null,
+    "http": 200,
+    "receivedAt": "2026-11-27T22:08:58.009747+00:00",
+    "contentType": "text/html; charset=utf-8",
+    "status": "unavailable",
+    "error": "not a bounded PDF"
+  },
+  "scope": "Literal first-page excerpts from received public PDFs. No original publication instant, full identity certification or production market data permission."
+}

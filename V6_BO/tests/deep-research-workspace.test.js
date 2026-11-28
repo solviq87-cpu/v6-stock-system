@@ -80,3 +80,13 @@ test('research participation never widens the original service configuration or 
  assert.equal(M.deepPortfolioInput({portfolio:[{constraints:{maxParticipation:.01}}]},{constraints:{},quotes:{}}).constraints.maxParticipation,null);
  assert.equal(fs.existsSync(path.join(root,'account.json')),false,'reading limits does not initialize or mutate an account');
 });
+
+test('F39/F43 declarations use original immutable authorized workspace import; client cannot forge actual receipt',t=>{const root=fixture(t),now=Date.now()-10000;
+ const value={type:'macroEvidence',requestId:'macro_actual_receipt_01',revision:0,records:[{id:'macro-1',revision:1,source:'public-report',kind:'actual',newsRef:'a'.repeat(64),metric:'margin-balance',series:'balance',scope:'CN',periodStart:'2026-01-01',periodEnd:'2026-01-01',methodVersion:'v1',unit:'CNY',value:100}]};
+ const first=M.importDeepEvidence(root,value,{now,authorize:()=>true});const material=M.readDeepEvidence(root,{asOf:now}).materials.macroEvidence[0];
+ assert.equal(material.recordedAt,now);assert.equal(material.archiveHash,first.hash);assert.equal(material.independentlyVerified,false);assert.equal(M.readDeepEvidence(root,{asOf:now-1}).materials.macroEvidence.length,0);
+ assert.equal(M.importDeepEvidence(root,value,{now:now+1,authorize:()=>true}).hash,first.hash);
+ assert.throws(()=>M.importDeepEvidence(root,value,{now:now+2,authorize:()=>false}),/授权/);
+ assert.throws(()=>M.importDeepEvidence(root,{...value,revision:1,requestId:'invalid_macro_receipt_02',records:[{...value.records[0],recordedAt:1}]},{now:now+3,authorize:()=>true}));
+ assert.equal(Store.readEvents(root).length,1);
+});

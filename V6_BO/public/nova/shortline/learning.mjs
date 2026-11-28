@@ -352,6 +352,46 @@ export function learningSnapshot(state,options={}){
     strategyByTrend:groupedPerformance(rows,strategyList,'strategy',policy),alerts:decayAlerts(rows,performanceFactors,asOf,t=>policyAt(state,t)),
     attribution:attributionCloud(rows)};
 }
+// A view of the original five-stage/manual approval chain, not a new
+// approval or rollback route. Historic reads must not see a later decision.
+export function learningGovernanceReview(state,asOf=Date.now()){
+  const cut=instant(asOf),validTime=t=>Number.isFinite(instant(t))&&instant(t)>0&&instant(t)<=cut;
+  if(!Number.isFinite(cut)||cut<=0||cut>Date.now())throw Error('学习治理查询截点无效');
+  const visible=(Array.isArray(state?.candidates)?state.candidates:[]).filter(c=>validTime(c?.createdAt)&&(state.scope==='demo'||c.sampleScope!=='demo'));
+  const versions=(Array.isArray(state?.versions)?state.versions:[]).filter(v=>validTime(v?.approvedAt)&&v.weights&&(state.scope==='demo'||v.sampleScope!=='demo'));
+  const active=versions.at(-1)||null,activeReview=approvedModelEvidenceReview(state,active,cut);
+  const identity=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
+  const rows=visible.slice(-20).reverse().map(c=>{
+    const steps=stages.map((name,i)=>({name,status:c.steps?.[i]?.name===name&&['通过','未通过','未运行'].includes(c.steps[i].status)?c.steps[i].status:'未知'}));
+    const allPassed=Array.isArray(c.steps)&&c.steps.length===5&&steps.every(x=>x.status==='通过');
+    let fingerprintStatus='legacy-unverified';
+    if(c.validationFingerprint!=null||c.numericModel)try{
+      fingerprintStatus=identity(c.validationFingerprint)&&c.validationFingerprint===fingerprint(validationState(c))?'matched-original-validation':'invalid';
+    }catch{fingerprintStatus='invalid';}
+    const source=candidateEvidenceReview(state,c,cut),decisionAt=validTime(c.decision?.at)?instant(c.decision.at):null;
+    const linked=versions.filter(v=>v.candidateId===c.id);
+    const approvalMatches=decisionAt!==null&&linked.length===1&&instant(linked[0].approvedAt)===decisionAt&&
+      c.decision.reviewer===linked[0].reviewer&&typeof c.decision.reviewer==='string'&&!!c.decision.reviewer.trim()&&
+      c.decision.reason===linked[0].reason&&typeof c.decision.reason==='string'&&!!c.decision.reason.trim()&&
+      Number.isSafeInteger(c.baseVersion)&&linked[0].number===c.baseVersion+1&&
+      stable(scoringState(linked[0]))===stable(scoringState(c))&&
+      (!c.numericModel||linked[0].validationFingerprint===c.validationFingerprint&&linked[0].scoringFingerprint===fingerprint(scoringState(linked[0])));
+    const revoked=source.status==='requires-revalidation';
+    let stage=!allPassed?'five-gates-incomplete':fingerprintStatus==='invalid'?'validation-identity-invalid':revoked?'source-revalidation-required':
+      source.status!=='no-known-revocation'?'source-coverage-unavailable':decisionAt===null?'awaiting-manual-review':
+      approvalMatches?'manual-approval-recorded':linked.length?'approval-identity-unverified':c.status==='人工驳回'?'manual-rejection-recorded':'decision-unverified';
+    return {candidateId:c.id,createdAt:c.createdAt,baseVersion:c.baseVersion??null,steps,allFivePassed:allPassed,fingerprintStatus,
+      sourceStatus:source.status,affectedSources:source.affectedSources,decisionAt,approvedVersion:approvalMatches?linked[0].number:null,
+      stage,currentApproved:approvalMatches&&active===linked[0],approvalAuthorizedByThisView:false,productionReleaseCertified:false};
+  });
+  return {schemaVersion:1,status:activeReview.status==='requires-revalidation'?'approved-source-revalidation-required':active?'approved-research-version-observed':'original-baseline-only',
+    asOf:cut,scope:state.scope==='demo'?'demo':'live',activeVersion:active?.number??null,activeCandidateId:active?.candidateId??null,
+    approvedAt:active?.approvedAt??null,activeSourceStatus:activeReview.status,activeAffectedSources:activeReview.affectedSources,
+    rollbackReviewRequired:activeReview.status==='requires-revalidation',candidateTotal:visible.length,omittedCandidates:Math.max(0,visible.length-rows.length),rows,
+    approvalPath:'original-five-gates-plus-manual-approval',prospectiveReviewRequiredForNumericUpgrade:true,automaticRollback:false,automaticPromotion:false,
+    historicalDecisionsChanged:false,canTrade:false,canTrain:false,productionWeightsChanged:false,
+    note:'只复核原已保存候选、五关及人工批准；撤销标签后由原预测入口暂停得分、重新验证，不自动改用旧权重，不回写历史。无已知撤销不是成熟样本或正式放行认证。'};
+}
 function buildCandidate(state,automatic=false,centerProposal=null){
   const clock=centerProposal?.now??Date.now();
   const all=rowsFor(state,clock,true).map(r=>r.snapshotVerified?{...r,strategies:[r.strategy]}:r);
@@ -601,10 +641,11 @@ export function renderLearning(ui,mode='trades'){
     const mainTabs='<div class="learn-tabs">'+[['ledger','交易台账'],['plans','冻结计划'],['study','因子统计'],['performance','绩效预览'],['forecast','同类样本预估']].map(([k,l])=>'<button type="button" class="btn '+(tab===k?'active-tab':'')+'" data-learnaction="tab:'+k+'">'+l+'</button>').join('')+'</div>';
     let html=controls();
     if(mode==='versions'){
-      const ver=versions[0],latest=candidates[0];
+      const ver=versions[0],latest=candidates[0],governance=learningGovernanceReview(s);
       html+=metricsBar([['运行版本',ver?'V'+ver.number:'基础规则'],['候选方案',candidates.length],['待人工审批',candidates.filter(c=>c.status==='待人工审批').length],['已晋级版本',versions.length]]);
       html+=panel('候选参数',button('candidate','生成并验证候选',true),table(['生成日期','训练 / 时间外 / 样本外','评分模型','权重数量','状态','验证记录'],candidates.map(c=>[E(asDate(c.createdAt)),E(c.counts?.join(' / ')),c.numericModel?'正交数值':'原标签',Object.keys(c.weights||{}).length,E(c.status),link('candidate:'+c.id,'查看验证')]),'尚无可验证候选。需累积时点可核验的已成熟样本。'));
       html+=panel('验证与审批顺序','',stages.map((l,i)=>'<div class="learn-stage"><b>'+E(l)+'</b><span class="tag">'+E(latest?.steps?.[i]?.status||'等待样本')+'</span><p>'+E(latest?.steps?.[i]?.evidence||['仅从训练段学习因子权重，冻结选样阈值和训练参数。','验证较晚时段的收益，清除跨越分界的未平仓样本。','在独立留出时段检验已冻结的候选参数。','逐笔增加双边成本与滑点，检验净收益。','检查单笔尾部损失、曲线回撤和标的集中度。'][i])+'</p></div>').join('')+'<p class="learn-hint">五项通过后进入人工审批。审批将保存操作人、意见和版本生效时间。</p>');
+      html+=panel('分阶段与撤销复核','', '<p class="learn-hint">'+E(governance.note)+'</p><p>'+E(governance.rollbackReviewRequired?'原获批版本来源已撤销或待复核：暂停原模型得分，不自动回退。':'原获批版本状态：'+governance.activeSourceStatus)+'</p>'+table(['候选','五关状态','来源核对','审批阶段','原批准版本'],governance.rows.map(r=>[E(r.candidateId),E(r.allFivePassed?'五关记录均通过':'未齐'),E(r.sourceStatus),E(({ 'five-gates-incomplete':'五关未齐','validation-identity-invalid':'验证指纹冲突','source-revalidation-required':'标签撤销或待复验','source-coverage-unavailable':'来源覆盖未知','awaiting-manual-review':'待人工审批','manual-approval-recorded':'原人工批准已记录','approval-identity-unverified':'批准身份待核对','manual-rejection-recorded':'人工驳回','decision-unverified':'决定待核对'})[r.stage]||'未知'),E(r.approvedVersion??'—')]),'尚无原候选'));
       html+=renderLearningSnapshot(perf());
       html+=panel('版本记录','',table(['版本','生效时间','审批人','审批意见'],versions.map(v=>['V'+E(v.number),E(localTime(Date.parse(v.approvedAt)).replace('T',' ')),E(v.reviewer),E(v.reason)]),'当前使用基础规则'));
     }else{

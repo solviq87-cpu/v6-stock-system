@@ -1,0 +1,122 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "membership-allowed.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "membership-excluded.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "membership-late.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "membership-gap.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "membership-legacy.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "membership-allowed.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "membership-excluded.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "membership-late.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "membership-gap.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "membership-legacy.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  }
+]

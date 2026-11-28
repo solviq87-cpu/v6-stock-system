@@ -1,0 +1,45 @@
+[
+  {
+    "schemaVersion": 1,
+    "source": "public-sse-index",
+    "eventId": "sse-index-adjustment-2026",
+    "sourceRevisionId": "excerpt-de892208fe1fe0c1333493d5ca0dd00b8de7877c61ed73ec204f9a2591f66ad5",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20261127_10839235.shtml",
+    "title": "上证系列指数调样材料（2026，上证50表节选）",
+    "body": "公告日期：2026年11月27日\n指数样本调整将于2026年12月11日收市后生效。\n上证 50 指数样本调整名单：\n           调出名单                  调入名单\n   证券代码         证券名称   证券代码             证券名称\n    600050      中国联通    600176          中国巨石\n    600760      中航沈飞    600989          宝丰能源\n    600809      山西汾酒    601869          长飞光纤\n    600930      华电新能    688072          拓荆科技\n    601658      邮储银行    688498          源杰科技",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "600050",
+      "600176",
+      "600760",
+      "600989",
+      "600809",
+      "601869",
+      "600930",
+      "688072",
+      "601658",
+      "688498"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795825038976,
+    "revisedAt": null
+  },
+  {
+    "schemaVersion": 1,
+    "source": "public-sse-index",
+    "eventId": "sse-index-adjustment-2025",
+    "sourceRevisionId": "excerpt-53278faeafe05da73798dc610abb046229da66799aea62549df6efff3e7c91d3",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20251128_10800153.shtml",
+    "title": "上证系列指数调样材料（2025，日期节选）",
+    "body": "公告日期：2025年11月28日\n指数样本调整于2025年12月12日收市后生效。",
+    "bodyScope": "provider-summary",
+    "securities": [],
+    "publishedAt": null,
+    "receivedAt": 1795825458451,
+    "revisedAt": null
+  }
+]

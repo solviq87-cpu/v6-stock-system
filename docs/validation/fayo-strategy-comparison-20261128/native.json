@@ -1,0 +1,2910 @@
+{
+  "head": "baf2f520362f94aa3a81405620d145ab325ae918",
+  "sourceHashes": {
+    "src/core/complete-workbench.js": "b02a9af1a8ba3d5b4d784be672b4490da1736c1b987b261afb9e05f8928b1efd",
+    "src/core/unified-strategy-project.js": "7921502189edeff1beeafb4fd5cd3e75f71c10bcaed819fa3e91737831e19b29",
+    "src/core/strategy-portfolio-lab.js": "64540d526197d321e0b7994ac43a64a6dcb0f53c83a0de271c86821dafc1e109",
+    "public/nova/research.js": "9bf1939b07d24ce3b7be8b4a9906c9101345a74304dfb4b407aa2ecf2f427316",
+    "public/nova/strategy-comparison-view.mjs": "4cfd4f930ce5810abe5529823f93768c0e11a921d539d00688362d692e3d7004",
+    "tests/helpers/v6-studio-fixture.js": "771e53bc235d1af9300ee53fecbfd768c8ac10bd98ccdbd73b360a18efab3117"
+  },
+  "actualHistoricalSource": "sina",
+  "newSupplierRequests": 0,
+  "inputRawHash": "897cc0471978459dca8f1f2d0f191fd9c77ad7a4d76f0b30e0f2ab6b645b1bf3",
+  "controls": {
+    "withoutComparison": 200,
+    "comparison": 200,
+    "viewer": {
+      "http": 200,
+      "denied": true,
+      "readOnly": true
+    },
+    "malformedFlag": {
+      "http": 200,
+      "rejected": true
+    },
+    "invalidConfigUnavailable": 200,
+    "originalOutputsUnchanged": true
+  },
+  "workerRoundTripMs": 226.09192099999996,
+  "comparison": {
+    "schemaVersion": 1,
+    "mode": "native-strategy-protocol-comparison",
+    "status": "insufficient-common-evaluated-signals",
+    "scope": "existing-four-native-systems-only",
+    "datasetFingerprint": "cfe4f13b46563e26f58df0360f8aa0b146ed8944eb0270c1e65b228441c2fef3",
+    "signalsFingerprint": "ffef1bd225a105119687bebdf7e53f4226f9e5acd9a305cd69a3c82fa880def0",
+    "protocolFingerprint": "2ea462ccb2734f386a79784b041198e10cb2ac2aff8a6ae0d47e9b793b3a11f9",
+    "source": "sina",
+    "provider": "sina",
+    "asOf": "2026-11-27",
+    "retrievedAt": 1795794481090,
+    "dataset": {
+      "stocks": 1,
+      "barsPerStock": 120,
+      "firstDate": "2026-06-04",
+      "lastDate": "2026-11-27",
+      "source": "sina",
+      "asOf": "2026-11-27",
+      "historicalCoverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "verifiedExternal": false
+    },
+    "protocol": {
+      "initialCash": 100000,
+      "maxPositions": 3,
+      "allocationPct": 0.25,
+      "feeBps": 8,
+      "slippageBps": 10,
+      "sellTaxBps": 5,
+      "lotSize": 100,
+      "minCommission": 5,
+      "stopLossPct": 0.08,
+      "maxDrawdownPct": 20,
+      "startDay": 31,
+      "signalStart": "2026-07-17",
+      "signalEnd": "2026-11-26",
+      "entryStart": "2026-07-20",
+      "valuationThrough": "2026-11-27",
+      "exitPolicy": "next-eligible-session-open-after-entry; T+1/limit/suspension constraints retained"
+    },
+    "commonEvaluatedSignals": 0,
+    "totalCandidateSignals": 89,
+    "systems": [
+      {
+        "id": "fourteen",
+        "status": "not-evaluated",
+        "coverage": {
+          "total": 89,
+          "evaluated": 0,
+          "unknown": 89,
+          "missing": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "evaluatorVersions": [],
+        "paperReturnPct": null,
+        "paperDrawdownPct": null,
+        "accountMetrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "openPositions": 0,
+          "sharpeEstimate": null,
+          "halted": false,
+          "passSignalsConsidered": 0
+        },
+        "buyFills": 0,
+        "orderCount": 0,
+        "blockedOrders": 0,
+        "openPositions": 0,
+        "versionAttribution": {
+          "scope": "entry-signal-version-within-system-account",
+          "separateCapitalByVersion": false,
+          "status": "not-evaluated",
+          "unattributedFills": 0,
+          "versions": []
+        },
+        "accountEvidenceFingerprint": "353786abe9c0aab472d9d56e3a84451904420a9d5e595e758ca767d11432c7e4"
+      },
+      {
+        "id": "bazi",
+        "status": "not-evaluated",
+        "coverage": {
+          "total": 89,
+          "evaluated": 0,
+          "unknown": 89,
+          "missing": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "evaluatorVersions": [],
+        "paperReturnPct": null,
+        "paperDrawdownPct": null,
+        "accountMetrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "openPositions": 0,
+          "sharpeEstimate": null,
+          "halted": false,
+          "passSignalsConsidered": 0
+        },
+        "buyFills": 0,
+        "orderCount": 0,
+        "blockedOrders": 0,
+        "openPositions": 0,
+        "versionAttribution": {
+          "scope": "entry-signal-version-within-system-account",
+          "separateCapitalByVersion": false,
+          "status": "not-evaluated",
+          "unattributedFills": 0,
+          "versions": []
+        },
+        "accountEvidenceFingerprint": "353786abe9c0aab472d9d56e3a84451904420a9d5e595e758ca767d11432c7e4"
+      },
+      {
+        "id": "gpt",
+        "status": "not-evaluated",
+        "coverage": {
+          "total": 89,
+          "evaluated": 0,
+          "unknown": 89,
+          "missing": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "evaluatorVersions": [],
+        "paperReturnPct": null,
+        "paperDrawdownPct": null,
+        "accountMetrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "openPositions": 0,
+          "sharpeEstimate": null,
+          "halted": false,
+          "passSignalsConsidered": 0
+        },
+        "buyFills": 0,
+        "orderCount": 0,
+        "blockedOrders": 0,
+        "openPositions": 0,
+        "versionAttribution": {
+          "scope": "entry-signal-version-within-system-account",
+          "separateCapitalByVersion": false,
+          "status": "not-evaluated",
+          "unattributedFills": 0,
+          "versions": []
+        },
+        "accountEvidenceFingerprint": "353786abe9c0aab472d9d56e3a84451904420a9d5e595e758ca767d11432c7e4"
+      },
+      {
+        "id": "python",
+        "status": "not-evaluated",
+        "coverage": {
+          "total": 89,
+          "evaluated": 0,
+          "unknown": 89,
+          "missing": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "evaluatorVersions": [],
+        "paperReturnPct": null,
+        "paperDrawdownPct": null,
+        "accountMetrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "openPositions": 0,
+          "sharpeEstimate": null,
+          "halted": false,
+          "passSignalsConsidered": 0
+        },
+        "buyFills": 0,
+        "orderCount": 0,
+        "blockedOrders": 0,
+        "openPositions": 0,
+        "versionAttribution": {
+          "scope": "entry-signal-version-within-system-account",
+          "separateCapitalByVersion": false,
+          "status": "not-evaluated",
+          "unattributedFills": 0,
+          "versions": []
+        },
+        "accountEvidenceFingerprint": "353786abe9c0aab472d9d56e3a84451904420a9d5e595e758ca767d11432c7e4"
+      }
+    ],
+    "limitations": [
+      "只有 pass 信号触发次日开盘纸面委托；unknown/fail 不伪造交易",
+      "独立模拟盘不合并四套策略的评分或资金",
+      "不含盘口排队、真实成交、除权除息到账及交易所完整交易日历",
+      "一字板、T+1、买入整手、最低佣金、停牌、ST和成本为保守近似，不构成真实可成交证明",
+      "当前取得的历史版本不等于逐日当时已知的完整股票池、因子与证券状态",
+      "共同已评估信号不是独立成熟收益样本；没有选出赢家",
+      "无评估或无买入成交时，现金未动不显示为策略零收益胜出"
+    ],
+    "canTrade": false,
+    "canTrain": false,
+    "canNotify": false,
+    "verifiedLive": false,
+    "eligibleForPromotion": false,
+    "weightsChanged": false,
+    "pointInTimeCertified": false,
+    "executionEvidence": {
+      "schemaVersion": 1,
+      "mode": "four-independent-native-evidence-paper-portfolios",
+      "canTrade": false,
+      "verifiedLive": false,
+      "config": {
+        "initialCash": 100000,
+        "maxPositions": 3,
+        "allocationPct": 0.25,
+        "feeBps": 8,
+        "slippageBps": 10,
+        "sellTaxBps": 5,
+        "lotSize": 100,
+        "minCommission": 5,
+        "stopLossPct": 0.08,
+        "maxDrawdownPct": 20,
+        "startDay": 31
+      },
+      "source": "sina",
+      "asOf": "2026-11-27",
+      "systems": {
+        "fourteen": {
+          "versionAttribution": {
+            "scope": "entry-signal-version-within-system-account",
+            "separateCapitalByVersion": false,
+            "status": "not-evaluated",
+            "unattributedFills": 0,
+            "versions": []
+          },
+          "status": "no-passing-signals",
+          "canTrade": false,
+          "verifiedLive": false,
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "realizedPnl": 0,
+            "blockedOrders": 0,
+            "openPositions": 0,
+            "sharpeEstimate": null,
+            "halted": false,
+            "passSignalsConsidered": 0
+          },
+          "equity": [
+            {
+              "date": "2026-07-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-01",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            }
+          ],
+          "orders": [],
+          "positions": [],
+          "fills": []
+        },
+        "bazi": {
+          "versionAttribution": {
+            "scope": "entry-signal-version-within-system-account",
+            "separateCapitalByVersion": false,
+            "status": "not-evaluated",
+            "unattributedFills": 0,
+            "versions": []
+          },
+          "status": "no-passing-signals",
+          "canTrade": false,
+          "verifiedLive": false,
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "realizedPnl": 0,
+            "blockedOrders": 0,
+            "openPositions": 0,
+            "sharpeEstimate": null,
+            "halted": false,
+            "passSignalsConsidered": 0
+          },
+          "equity": [
+            {
+              "date": "2026-07-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-01",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            }
+          ],
+          "orders": [],
+          "positions": [],
+          "fills": []
+        },
+        "gpt": {
+          "versionAttribution": {
+            "scope": "entry-signal-version-within-system-account",
+            "separateCapitalByVersion": false,
+            "status": "not-evaluated",
+            "unattributedFills": 0,
+            "versions": []
+          },
+          "status": "no-passing-signals",
+          "canTrade": false,
+          "verifiedLive": false,
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "realizedPnl": 0,
+            "blockedOrders": 0,
+            "openPositions": 0,
+            "sharpeEstimate": null,
+            "halted": false,
+            "passSignalsConsidered": 0
+          },
+          "equity": [
+            {
+              "date": "2026-07-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-01",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            }
+          ],
+          "orders": [],
+          "positions": [],
+          "fills": []
+        },
+        "python": {
+          "versionAttribution": {
+            "scope": "entry-signal-version-within-system-account",
+            "separateCapitalByVersion": false,
+            "status": "not-evaluated",
+            "unattributedFills": 0,
+            "versions": []
+          },
+          "status": "no-passing-signals",
+          "canTrade": false,
+          "verifiedLive": false,
+          "metrics": {
+            "initialCash": 100000,
+            "finalEquity": 100000,
+            "returnPct": 0,
+            "maxDrawdownPct": 0,
+            "closedTrades": 0,
+            "winRatePct": null,
+            "realizedPnl": 0,
+            "blockedOrders": 0,
+            "openPositions": 0,
+            "sharpeEstimate": null,
+            "halted": false,
+            "passSignalsConsidered": 0
+          },
+          "equity": [
+            {
+              "date": "2026-07-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-07-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-08-31",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-01",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-07",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-09-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-08",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-14",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-15",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-21",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-22",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-28",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-29",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-10-30",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-02",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-03",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-04",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-05",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-06",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-09",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-10",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-11",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-12",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-13",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-16",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-17",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-18",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-19",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-20",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-23",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-24",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-25",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-26",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            },
+            {
+              "date": "2026-11-27",
+              "cash": 100000,
+              "equity": 100000,
+              "positions": 0,
+              "drawdownPct": 0
+            }
+          ],
+          "orders": [],
+          "positions": [],
+          "fills": []
+        }
+      },
+      "limitations": [
+        "只有 pass 信号触发次日开盘纸面委托；unknown/fail 不伪造交易",
+        "独立模拟盘不合并四套策略的评分或资金",
+        "不含盘口排队、真实成交、除权除息到账及交易所完整交易日历",
+        "一字板、T+1、买入整手、最低佣金、停牌、ST和成本为保守近似，不构成真实可成交证明"
+      ]
+    }
+  },
+  "noActualPortfolio": true,
+  "clockIsControlled": true
+}

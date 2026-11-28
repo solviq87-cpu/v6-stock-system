@@ -1,0 +1,29 @@
+{
+  "base": "dc713d00ba543748c9e62fcb0237bc9774fc5b77",
+  "files": {
+    "V6_BO/src/core/historical-validation.js": {
+      "sha256": "b7f57ad10b2f69122bb55f0851a88a5253f31e6a3795723059e4f0365970051a",
+      "unchanged": true
+    },
+    "V6_BO/src/strategy/research-v2-position-ledger-backtest.js": {
+      "sha256": "62f80e5fe3d7c8b95675275d23e5ba3f4cec5a30f3625558b0bcdf140c1fc65d",
+      "unchanged": true
+    },
+    "V6_BO/src/strategy/position-ledger-backtest.js": {
+      "sha256": "de6c1885b3e1d2c82e006c0d07e052c36eb696d5542ef9ed53986b5672f92fad",
+      "unchanged": true
+    },
+    "V6_BO/src/core/trading-fees.js": {
+      "sha256": "91cc612b395c198b8a1c1ae160abf005eb50d258fd78313a1024dd6941220482",
+      "unchanged": true
+    },
+    "V6_BO/src/core/common-entry-risk.js": {
+      "sha256": "a253e77ecf96ea2fb1fafa3548630108741040fb9d617fea8e323c2a85094036",
+      "unchanged": true
+    },
+    "V6_BO/src/core/strategy-portfolio-lab.js": {
+      "sha256": "64540d526197d321e0b7994ac43a64a6dcb0f53c83a0de271c86821dafc1e109",
+      "unchanged": true
+    }
+  }
+}

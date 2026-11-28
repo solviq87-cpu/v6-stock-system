@@ -4,7 +4,14 @@ set -euo pipefail
 umask 077
 unset NODE_OPTIONS NODE_PATH
 export PATH="$HOME/.local/bin:${PATH:-/usr/local/bin:/usr/bin:/bin}"
-for tool in curl tar sha256sum mktemp uname python3; do
+node_offline_dir=''
+case $# in
+  0) ;;
+  2) [[ "$1" == --offline-dir && -n "$2" ]] || { echo '{"code":"invalid-offline-directory-argument"}'; exit 2; }
+     node_offline_dir="$2" ;;
+  *) echo '{"code":"invalid-installer-arguments"}'; exit 2 ;;
+esac
+for tool in tar sha256sum mktemp uname python3; do
   command -v "$tool" >/dev/null || { echo '{"code":"node-prerequisite-missing"}'; exit 2; }
 done
 if command -v node >/dev/null && node -e 'const [m,n]=process.versions.node.split(".").map(Number);process.exit(m>22||m===22&&n>=6?0:1)' >/dev/null 2>&1; then
@@ -27,9 +34,28 @@ if [ -e "$node_release" ] || [ -L "$node_release" ] || [ -e "$node_link" ] || [ 
 fi
 node_stage="$(mktemp -d)"
 trap 'rm -rf -- "$node_stage"' EXIT
-node_url="https://nodejs.org/dist/v${node_version}"
-curl --disable --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 10 --max-time 180 --max-filesize 67108864 "$node_url/$node_archive" -o "$node_stage/$node_archive"
-curl --disable --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 10 --max-time 30 --max-filesize 65536 "$node_url/SHASUMS256.txt" -o "$node_stage/SHASUMS256.txt"
+if [[ -n "$node_offline_dir" ]]; then
+  python3 - "$node_offline_dir" "$node_stage" "$node_archive" <<'OFFLINE'
+from pathlib import Path
+import os, stat, sys
+
+source, stage = map(Path, sys.argv[1:3])
+for name, limit in ((sys.argv[3], 64 * 1024 * 1024), ('SHASUMS256.txt', 65536)):
+    with os.fdopen(os.open(source / name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), 'rb') as src:
+        entry = os.fstat(src.fileno())
+        if not stat.S_ISREG(entry.st_mode) or not 0 < entry.st_size <= limit:
+            raise SystemExit('node-offline-file-invalid')
+        data = src.read(limit + 1)
+        if len(data) != entry.st_size:
+            raise SystemExit('node-offline-file-changed')
+        (stage / name).write_bytes(data)
+OFFLINE
+else
+  command -v curl >/dev/null || { echo '{"code":"node-prerequisite-missing"}'; exit 2; }
+  node_url="https://nodejs.org/dist/v${node_version}"
+  curl --disable --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 10 --max-time 180 --max-filesize 67108864 "$node_url/$node_archive" -o "$node_stage/$node_archive"
+  curl --disable --fail --silent --show-error --proto '=https' --max-redirs 0 --connect-timeout 10 --max-time 30 --max-filesize 65536 "$node_url/SHASUMS256.txt" -o "$node_stage/SHASUMS256.txt"
+fi
 python3 - "$node_stage" "$node_archive" "$node_name" "$node_expected" <<'PY'
 from pathlib import Path, PurePosixPath
 import hashlib, re, sys, tarfile

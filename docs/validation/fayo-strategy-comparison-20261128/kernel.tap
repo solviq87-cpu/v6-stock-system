@@ -1,0 +1,206 @@
+TAP version 13
+# Subtest: native daily evaluates each date with prefix only, no fabricated Python or GPT results
+ok 1 - native daily evaluates each date with prefix only, no fabricated Python or GPT results
+  ---
+  duration_ms: 20.097066
+  type: 'test'
+  ...
+# Subtest: native daily has reproducible provenance and no forward leakage from later bars
+ok 2 - native daily has reproducible provenance and no forward leakage from later bars
+  ---
+  duration_ms: 17.344302
+  type: 'test'
+  ...
+# Subtest: rejects snapshot observed after signal date or for another stock
+ok 3 - rejects snapshot observed after signal date or for another stock
+  ---
+  duration_ms: 5.269942
+  type: 'test'
+  ...
+# Subtest: missing GPT factor fields never become zero or fake research pass
+ok 4 - missing GPT factor fields never become zero or fake research pass
+  ---
+  duration_ms: 13.375744
+  type: 'test'
+  ...
+# Subtest: native runner rejects orphan, future and non-session evidence keys
+ok 5 - native runner rejects orphan, future and non-session evidence keys
+  ---
+  duration_ms: 1.661387
+  type: 'test'
+  ...
+# Subtest: comparison is opt-in and leaves original backtest, paper and native results unchanged
+ok 6 - comparison is opt-in and leaves original backtest, paper and native results unchanged
+  ---
+  duration_ms: 131.953517
+  type: 'test'
+  ...
+# Subtest: unknown inputs and zero transactions are not treated as zero-return winners
+ok 7 - unknown inputs and zero transactions are not treated as zero-return winners
+  ---
+  duration_ms: 0.799897
+  type: 'test'
+  ...
+# Subtest: same capital, costs and next-session execution are shared without changing original ledger math
+ok 8 - same capital, costs and next-session execution are shared without changing original ledger math
+  ---
+  duration_ms: 1.965787
+  type: 'test'
+  ...
+# Subtest: own coverage and common evaluated coverage remain separate
+ok 9 - own coverage and common evaluated coverage remain separate
+  ---
+  duration_ms: 0.783392
+  type: 'test'
+  ...
+# Subtest: known signals that cannot buy retain failures rather than fabricated performance
+ok 10 - known signals that cannot buy retain failures rather than fabricated performance
+  ---
+  duration_ms: 0.994321
+  type: 'test'
+  ...
+# Subtest: duplicates, future knowledge and mismatched accounts cannot certify a comparison
+ok 11 - duplicates, future knowledge and mismatched accounts cannot certify a comparison
+  ---
+  duration_ms: 1.41793
+  type: 'test'
+  ...
+# Subtest: malformed options fail closed without changing original completed research
+ok 12 - malformed options fail closed without changing original completed research
+  ---
+  duration_ms: 165.815384
+  type: 'test'
+  ...
+# Subtest: existing unified CLI reuses its already-computed portfolios and binds all fingerprints
+ok 13 - existing unified CLI reuses its already-computed portfolios and binds all fingerprints
+  ---
+  duration_ms: 30.877124
+  type: 'test'
+  ...
+# Subtest: interactive evidence is retained completely or the comparison is unavailable, never truncated
+ok 14 - interactive evidence is retained completely or the comparison is unavailable, never truncated
+  ---
+  duration_ms: 49.467035
+  type: 'test'
+  ...
+# (node:1573986) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: zero trades and unknown evidence remain unassessed on both the status and performance columns
+ok 15 - zero trades and unknown evidence remain unassessed on both the status and performance columns
+  ---
+  duration_ms: 18.065821
+  type: 'test'
+  ...
+# Subtest: actual paper estimates display only existing values and retain the research disclaimer
+ok 16 - actual paper estimates display only existing values and retain the research disclaimer
+  ---
+  duration_ms: 0.643331
+  type: 'test'
+  ...
+# Subtest: wrong versions, duplicated systems and permission-claiming outputs cannot become comparison cards
+ok 17 - wrong versions, duplicated systems and permission-claiming outputs cannot become comparison cards
+  ---
+  duration_ms: 0.390389
+  type: 'test'
+  ...
+# Subtest: 四套策略信号独立计账，t 日收盘信号只能在 t+1 开盘成交，并执行 T+1
+ok 18 - 四套策略信号独立计账，t 日收盘信号只能在 t+1 开盘成交，并执行 T+1
+  ---
+  duration_ms: 6.193365
+  type: 'test'
+  ...
+# Subtest: 停牌、零成交、一字涨停、ST 全部阻止新仓且保留可审核拒绝记录
+ok 19 - 停牌、零成交、一字涨停、ST 全部阻止新仓且保留可审核拒绝记录
+  ---
+  duration_ms: 3.382294
+  type: 'test'
+  ...
+# Subtest: 无法卖出的停牌股票保留持仓，现金与持仓账本不造假
+ok 20 - 无法卖出的停牌股票保留持仓，现金与持仓账本不造假
+  ---
+  duration_ms: 1.012167
+  type: 'test'
+  ...
+# Subtest: 重复、未来观察、未知策略、非法成本及越界配置全部拒绝
+ok 21 - 重复、未来观察、未知策略、非法成本及越界配置全部拒绝
+  ---
+  duration_ms: 2.11442
+  type: 'test'
+  ...
+# Subtest: 真实行情审核不把模拟行情或没有复权来源的历史标记成外部已验证
+ok 22 - 真实行情审核不把模拟行情或没有复权来源的历史标记成外部已验证
+  ---
+  duration_ms: 2.243125
+  type: 'test'
+  ...
+# Subtest: 行情质量报告指出零成交和潜在公司行为大跳空，不自动修改历史价格
+ok 23 - 行情质量报告指出零成交和潜在公司行为大跳空，不自动修改历史价格
+  ---
+  duration_ms: 0.704033
+  type: 'test'
+  ...
+# Subtest: 统一工程使用原生真实信号证据驱动四个隔离账户，而非伪造 pass
+ok 24 - 统一工程使用原生真实信号证据驱动四个隔离账户，而非伪造 pass
+  ---
+  duration_ms: 69.717313
+  type: 'test'
+  ...
+# Subtest: 修改未来K线不能改变更早交易日生成的原生策略信号
+ok 25 - 修改未来K线不能改变更早交易日生成的原生策略信号
+  ---
+  duration_ms: 44.898591
+  type: 'test'
+  ...
+# Subtest: 最低佣金计入可买数量，独立账户不产生负现金或无效订单
+ok 26 - 最低佣金计入可买数量，独立账户不产生负现金或无效订单
+  ---
+  duration_ms: 0.906799
+  type: 'test'
+  ...
+# Subtest: unified audit is reproducible and remains explicitly unverified
+ok 27 - unified audit is reproducible and remains explicitly unverified
+  ---
+  duration_ms: 61.086174
+  type: 'test'
+  ...
+# Subtest: audit identifies changed snapshots even without new trade signals
+ok 28 - audit identifies changed snapshots even without new trade signals
+  ---
+  duration_ms: 30.960319
+  type: 'test'
+  ...
+# Subtest: audit binds supplied Python script fingerprint
+ok 29 - audit binds supplied Python script fingerprint
+  ---
+  duration_ms: 28.638234
+  type: 'test'
+  ...
+# Subtest: CLI parses flags in either order and refuses mixed evidence
+ok 30 - CLI parses flags in either order and refuses mixed evidence
+  ---
+  duration_ms: 0.709831
+  type: 'test'
+  ...
+# Subtest: one project produces native evidence, research ranking, ledger and risk gate
+ok 31 - one project produces native evidence, research ranking, ledger and risk gate
+  ---
+  duration_ms: 45.560791
+  type: 'test'
+  ...
+# Subtest: unified project rejects future-dated snapshot evidence
+ok 32 - unified project rejects future-dated snapshot evidence
+  ---
+  duration_ms: 2.384698
+  type: 'test'
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 32
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 516.924617

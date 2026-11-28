@@ -273,10 +273,12 @@ jobs:
           python-version: '3.11'
       - name: Validate workflow syntax and Actions context availability
         run: bash ../scripts/check-github-workflows.sh
-      - name: Block OpenAI and ChatGPT runtime API dependencies
+      - name: Audit cloud model dependencies and shipped page resources
         id: noopenai
         working-directory: .
-        run: python scripts/audit-no-openai-runtime.py
+        run: |
+          python -m unittest discover -s tests -p test_runtime_network_dependencies.py -v
+          python scripts/audit-no-openai-runtime.py
       - name: Verify archived source intake guards (offline fixtures only)
         id: archivecheck
         working-directory: .
@@ -325,6 +327,12 @@ jobs:
       - name: Isolated full-server HTTP startup smoke
         id: smokecheck
         run: node tests/full-server-isolated-smoke.js
+      - name: Normal initialization and offline research with kernel-enforced egress denial
+        id: offlineboot
+        run: |
+          node tests/full-server-isolated-smoke.js --offline-normal-boot
+          python3 tests/helpers/deny-network-connect.py node --test \
+            tests/offline-research-closure.test.js tests/historical-validation-integration.test.js tests/research-risk-gate.test.js
       - name: Record backend CI evidence in workflow summary
         if: always()
         env:
@@ -335,6 +343,7 @@ jobs:
           YELLOW_RESULT: ${{ steps.yellowfourcheck.outcome }}
           FEED_RESULT: ${{ steps.feedcheck.outcome }}
           RELEASE_RESULT: ${{ steps.releasecheck.outcome }}
+          OFFLINE_RESULT: ${{ steps.offlineboot.outcome }}
           SMOKE_RESULT: ${{ steps.smokecheck.outcome }}
         run: |
           {
@@ -342,7 +351,7 @@ jobs:
             echo ""
             echo "| 门禁 | 结果 |"
             echo "| --- | --- |"
-            echo "| OpenAI/ChatGPT 生产 API 依赖禁入 | $NO_OPENAI_RESULT |"
+            echo "| 云模型依赖与页面外部资源检查 | $NO_OPENAI_RESULT |"
             echo "| 历史完整包接收工具及拒绝边界 | $ARCHIVE_RESULT |"
             echo "| 语法与完整回归 | $SOURCE_RESULT |"
             echo "| 八项一体化证据、风控与网页显示回归 | $EIGHT_RESULT |"
@@ -350,6 +359,7 @@ jobs:
             echo "| 14 数据源离线登记核验 | $FEED_RESULT |"
             echo "| 11 主线发布结构预检 | $RELEASE_RESULT |"
             echo "| 独立服务HTTP启动冒烟 | $SMOKE_RESULT |"
+            echo "| 正常初始化与禁止出站的历史研究、风险保护 | $OFFLINE_RESULT |"
             echo ""
             echo "提交：${GITHUB_SHA}"
             echo ""

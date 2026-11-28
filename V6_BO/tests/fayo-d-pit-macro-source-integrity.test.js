@@ -103,3 +103,6 @@ test('PIT fee and security-master invalid calendar clocks cannot backfill histor
  const r=membership();r.securityMaster.availableAt='2026-02-30T00:00:00Z';
  assert.throws(()=>U.validateUniverseHistory([r]),/证券主数据/);
 });
+
+test('F42 opening cutoff hides future master contents rather than returning blocked future metadata',()=>{const row=membership();row.securityMaster.availableAt='2026-04-02T02:00:00Z';const old=U.universeObservation([row],CODE,bar.date,{at:'open'});assert.equal(old.eligible,false);assert.equal(old.reason,'SECURITY_MASTER_NOT_AVAILABLE');assert.equal(Object.hasOwn(old,'securityMaster'),false);assert.equal(Object.hasOwn(old,'securityLifecycle'),false);const later=U.universeObservation([row],CODE,bar.date);assert.equal(later.eligible,true);assert.equal(later.securityLifecycle.dataVersion,row.securityMaster.dataVersion);assert.ok(Number.isInteger(later.securityLifecycle.listingAgeCalendarDays));});
+test('F42 direct lookup fails closed for overlapping intervals regardless of order',()=>{const a=membership(),b=membership({eligible:false});for(const rows of [[a,b],[b,a]]){const r=U.universeObservation(rows,CODE,bar.date);assert.equal(r.eligible,false);assert.equal(r.reason,'AMBIGUOUS_POINT_IN_TIME_MEMBERSHIP');assert.equal(Object.hasOwn(r,'securityMaster'),false);}});

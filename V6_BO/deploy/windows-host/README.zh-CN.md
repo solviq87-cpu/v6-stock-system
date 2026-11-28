@@ -35,6 +35,12 @@ bash install-node.sh
 
 这个可选脚本从 [Node.js 官方下载](https://nodejs.org/en/download) 获取固定 Linux 版本，核对官方 SHA256 后安装到当前用户的 `.local`，不使用 sudo、不覆盖已有 Node、不修改全局 PATH 或 shell 配置。初始化不会静默执行下载。`node`、`python3`、`curl`、`flock` 必须能在 WSL 的非交互 PATH 中找到。
 
+离线安装使用相同的固定版本和仓库内的架构专属 SHA256。将目标架构对应的 `node-v22.23.5-linux-x64.tar.xz` 或 `node-v22.23.5-linux-arm64.tar.xz` 与同版本官方 `SHASUMS256.txt` 一起放到 Windows 的 `%LOCALAPPDATA%\TianShuV6\offline-runtime`。首次安装向导会优先读取该目录。在已备好 Ubuntu 基础工具的 WSL 中，也可以直接运行下列命令。离线材料不完整或校验失败时会退出。运行包从 [Node.js 官方版本目录](https://nodejs.org/dist/v22.23.5/) 取得。
+
+```sh
+bash install-node.sh --offline-dir "/path/to/offline-runtime"
+```
+
 机器学习环境另外使用独立 venv 按 `payload/tools/requirements-models.txt` 安装，并在后续模型配置中指定。此包的启动成功不代表 ML 训练已验证。
 
 ## 2. 初始化和本机验证

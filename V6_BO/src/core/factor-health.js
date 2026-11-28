@@ -4,6 +4,7 @@
 const crypto = require('node:crypto');
 const pack = require('../../strategies/extended-factor-pack.json');
 const { assessMarketShock } = require('./market-shock-learning-gate');
+const {pairedDrift}=require('./fayo-model-evidence-audit');
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const finite = value => typeof value === 'number' && Number.isFinite(value);
 const text = value => typeof value === 'string' && value.trim().length > 0 && value.length <= 200;
@@ -122,6 +123,7 @@ function evaluateFactorHealth(frozen, input, { now = Date.now(), marketContext }
     if (s.validFraction < baseline.policy.minValidFraction) reasons.push('low-coverage');
     if (sufficient && Math.abs(meanShift) > baseline.policy.maxMeanShift) reasons.push('mean-shift');
     return { ...s, baselineMeanScore: b.meanScore, meanShift,
+      matchedInputDrift:pairedDrift(baseline.baseline,current,baseline.factors[i].field,b,s),
       status: !sufficient ? 'insufficient-data' : reasons.length ? 'watch' : 'within-thresholds', reasons };
   });
   const report = {

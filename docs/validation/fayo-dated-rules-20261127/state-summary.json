@@ -1,0 +1,214 @@
+{
+  "scope": "Synthetic bounded revision/pagination/association/retraction cases through original append, authenticated query and native evidence UI. Three actual public PDF excerpts are compatibility cases only. No production operations or qualification.",
+  "baseline": "a578e2e4aad8e5fa57aa4c24b8aef3f88b3eb5da",
+  "sourceFiles": {
+    "public/nova/event-research.mjs": "2d6939ab04df03d335607b119f1c6a9392e9ee614c44402dd4315ef3e712db5f",
+    "public/nova/research.js": "39a7c390cdf1846674c6d28fb3c35aebae06e90b0106997d4a2f98937ad8381f",
+    "src/core/news-evidence-journal.js": "35c9f4eb40e13c12af131639b3089850dc3ba14b5c4b730d57180bd872974c70"
+  },
+  "viewerDenied": true,
+  "actualPublicPdfTypes": {
+    "spdb-preference-dividend": {
+      "360003": "preferred-share",
+      "360008": "preferred-share",
+      "600000": null
+    },
+    "510300-product-summary": {
+      "510300": "etf"
+    },
+    "spdb-2025-summary": {
+      "360003": null,
+      "360008": null,
+      "600000": "ordinary-a-share"
+    }
+  },
+  "cases": [
+    {
+      "case": "incomplete",
+      "http": 200,
+      "asOf": 1795819669100,
+      "chainComplete": false,
+      "revisionStatus": "已修订",
+      "selectedEventHash": "aae13f673a44f39c712c092d9d29d3ea0095d2dca34a9c31c7c97540e4511680",
+      "inactiveReasons": [
+        {
+          "code": "incomplete-chain",
+          "label": "本页修订链不完整，待核对"
+        }
+      ],
+      "identityRows": [
+        {
+          "symbol": "600101",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "inactive",
+          "quotes": [
+            "优先股代码：600101"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "d7170b708c629a017aedb8e1e9b3a1d80f5c39a3a78f03787ae882439a543e20"
+    },
+    {
+      "case": "superseded",
+      "http": 200,
+      "asOf": 1795819669117,
+      "chainComplete": true,
+      "revisionStatus": "已被后续版本替代",
+      "selectedEventHash": "4122e98cff842335dbbcdfe6b8f1f9d024b10c8b2a8d063357ed4b5da63b1150",
+      "inactiveReasons": [
+        {
+          "code": "superseded",
+          "label": "该截点已被后续版本替代"
+        }
+      ],
+      "identityRows": [
+        {
+          "symbol": "600101",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "inactive",
+          "quotes": [
+            "优先股代码：600101"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "06cbc95c4399df0c3941ffa8a76adbbcec86adb92a4d188f45034cf5f2f88e2f"
+    },
+    {
+      "case": "retracted",
+      "http": 200,
+      "asOf": 1795819669127,
+      "chainComplete": true,
+      "revisionStatus": "已撤稿",
+      "selectedEventHash": "c06984780429832a133527c2d241f356f8aec3265bead1edeb361b3d40812c85",
+      "inactiveReasons": [
+        {
+          "code": "retracted",
+          "label": "来源已撤稿"
+        }
+      ],
+      "identityRows": [
+        {
+          "symbol": "600108",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "inactive",
+          "quotes": [
+            "优先股代码：600108"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "57bf789670d4f8122edf8e1374b83f2de9450926a128d1dfe871c372d6935984"
+    },
+    {
+      "case": "association",
+      "http": 200,
+      "asOf": 1795819669134,
+      "chainComplete": true,
+      "revisionStatus": "证券关联已移除",
+      "selectedEventHash": "1a6da27892ad5685b9f1e7174ab0c67e1b8cd504faa892e84589508e71561a12",
+      "inactiveReasons": [
+        {
+          "code": "association-removed",
+          "label": "本次查询的证券关联已移除"
+        }
+      ],
+      "identityRows": [
+        {
+          "symbol": "600204",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "inactive",
+          "quotes": [
+            "优先股代码：600204"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "9ca6501b92697a5a4aef39facdabc38e915b3024d0a63907da29c3a78814e242"
+    },
+    {
+      "case": "complete",
+      "http": 200,
+      "asOf": 1795819669140,
+      "chainComplete": true,
+      "revisionStatus": "已修订",
+      "selectedEventHash": "076681471031bbe97b9bd1017d5b1af5a59b2e8d0d971e31ceb4b5bbe9618592",
+      "inactiveReasons": [],
+      "identityRows": [
+        {
+          "symbol": "600105",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "source-claim",
+          "quotes": [
+            "优先股代码：600105"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "fb8555696caa7cc420c00b1da4513b1e88876fafd9a1e79bbf10520a058c0f00"
+    },
+    {
+      "case": "conflict",
+      "http": 200,
+      "asOf": 1795819669147,
+      "chainComplete": true,
+      "revisionStatus": "已撤稿",
+      "selectedEventHash": "2576839235781be30ed0227d33707d8106ca1061318343ad97a3b0daafe7eb2a",
+      "inactiveReasons": [
+        {
+          "code": "retracted",
+          "label": "来源已撤稿"
+        }
+      ],
+      "identityRows": [
+        {
+          "symbol": "600106",
+          "type": null,
+          "typeConflict": true,
+          "label": "类型冲突，待核对",
+          "status": "inactive",
+          "quotes": [
+            "普通股 A股    隔离样本    600106    -",
+            "优先股代码：600106"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "63f50dd57eb7321eafb8fbf316aad362881ffc71ee2596c07f611e8f19f64cc4"
+    },
+    {
+      "case": "historical",
+      "http": 200,
+      "asOf": 1795819668965,
+      "chainComplete": true,
+      "revisionStatus": "原始记录",
+      "selectedEventHash": "b41c438089469ba3e91983e71f2adbde259e3196168901f5e137fee717b2bbdf",
+      "inactiveReasons": [],
+      "identityRows": [
+        {
+          "symbol": "600108",
+          "type": "preferred-share",
+          "typeConflict": false,
+          "label": "优先股",
+          "status": "source-claim",
+          "quotes": [
+            "优先股代码：600108"
+          ]
+        }
+      ],
+      "canQualify": false,
+      "caseSha256": "7fef8445d9b0dc24b985fbc568b1020aaaefbcd9f40cffac25c63821d9bc45cc"
+    }
+  ]
+}

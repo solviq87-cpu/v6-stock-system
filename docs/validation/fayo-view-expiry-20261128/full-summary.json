@@ -1,0 +1,18 @@
+{
+  "base": "6ba43926503fe8e61d4d56bad6e07da53e9e9496",
+  "dirtySourceHashes": {
+    "V6_BO/public/nova/ui.js": "eff93ea81677f89b326b6bf6e3efe5841e1b6da970e06f6312e6275ed7d585dd",
+    "V6_BO/public/nova/market.js": "dd0e5600425b3da0835167ef02868cd45edf0c6db3ca2cda9d3cef6d512ab935",
+    "V6_BO/tests/fayo-view-expiry.test.js": "eae766820bf19f46dc8934c22cd85be89010a48231670aad8a9d7a8d1952986d"
+  },
+  "command": "PATH=/tmp/fayo-powershell-7.7.0-runtime:$PATH V6_MODEL_PYTHON=/tmp/fayo-model-bundle/venv/bin/python OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 npm test",
+  "stats": {
+    "tests": 8134,
+    "pass": 8134,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "rawLogSha256": "e38ef2d598a37425042359c4225ef3123b29c8d11d12528902db5f8c99e16403",
+  "note": "Source code hashes match browser receipt. Final commit and isolated combination verified separately."
+}

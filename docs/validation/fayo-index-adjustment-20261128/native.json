@@ -1,0 +1,612 @@
+{
+  "scope": "Two actual public SSE article excerpts (one linked first table). Original CLI -> private journal -> authenticated API -> existing PC/mobile evidence page. Separate synthetic withdrawal control. No live quotes, actual membership, flow, transaction or publication-time attestation.",
+  "baseline": "a3c189692f932915b13f29bf60fadf09a63fd27c",
+  "sourceFiles": {
+    "public/nova/event-research.mjs": "87080662c4cf1c2749c7571467f7a5024be4c77427e95e1243feea3a526d3f6c",
+    "public/nova/research.js": "9a6e795eda372cd16e8838fa51377bd23680e85910fe1a2a8e73ae76f223236e",
+    "src/core/news-evidence-journal.js": "35c9f4eb40e13c12af131639b3089850dc3ba14b5c4b730d57180bd872974c70",
+    "src/core/corporate-actions.js": "5ece4fbe46052e7fc1f6070013e20691541090a391e068e2d5445aa8791f12da"
+  },
+  "inputSha256": "64810aa43a519dbc744d74d3d23c9fdde50c5adab2368cd9d5fc48957a9f18ec",
+  "imported": {
+    "schemaVersion": 1,
+    "mode": "local-news-evidence-import",
+    "results": [
+      {
+        "eventHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+        "sequence": 1,
+        "reused": false
+      },
+      {
+        "eventHash": "f5db9e2d38fa43ce7b3b3aefc4990cea742ab7bb4405a0ae7fc0e025f1b2041f",
+        "sequence": 2,
+        "reused": false
+      }
+    ],
+    "canTrade": false,
+    "canTrain": false,
+    "canNotify": false,
+    "independentlyVerified": false,
+    "externallyTimestampCertified": false
+  },
+  "reused": {
+    "schemaVersion": 1,
+    "mode": "local-news-evidence-import",
+    "results": [
+      {
+        "eventHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+        "sequence": 1,
+        "reused": true
+      },
+      {
+        "eventHash": "f5db9e2d38fa43ce7b3b3aefc4990cea742ab7bb4405a0ae7fc0e025f1b2041f",
+        "sequence": 2,
+        "reused": true
+      }
+    ],
+    "canTrade": false,
+    "canTrain": false,
+    "canNotify": false,
+    "independentlyVerified": false,
+    "externallyTimestampCertified": false
+  },
+  "http": 200,
+  "asOf": 1795825946086,
+  "beforeArchiveRows": 0,
+  "viewerDenied": true,
+  "symbolRows": 1,
+  "records": [
+    {
+      "schemaVersion": 1,
+      "sequence": 2,
+      "previousHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+      "recordedAt": 1795825946032,
+      "evidence": {
+        "schemaVersion": 1,
+        "source": "public-sse-index",
+        "eventId": "sse-index-adjustment-2025",
+        "sourceRevisionId": "excerpt-53278faeafe05da73798dc610abb046229da66799aea62549df6efff3e7c91d3",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20251128_10800153.shtml",
+        "title": "上证系列指数调样材料（2025，日期节选）",
+        "body": "公告日期：2025年11月28日\n指数样本调整于2025年12月12日收市后生效。",
+        "bodyScope": "provider-summary",
+        "bodyHash": "4880eb9a1bb8ce63054010ceb12c796e964464416dfaf89d6e0ba2693df31ac7",
+        "securities": [],
+        "publishedAt": null,
+        "receivedAt": 1795825458451,
+        "revisedAt": null,
+        "uncertainty": [
+          "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+          "LOCAL_CLOCK_NOT_ATTESTED",
+          "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+          "SUMMARY_ONLY"
+        ]
+      },
+      "canTrade": false,
+      "canTrain": false,
+      "canNotify": false,
+      "independentlyVerified": false,
+      "externallyTimestampCertified": false,
+      "eventHash": "f5db9e2d38fa43ce7b3b3aefc4990cea742ab7bb4405a0ae7fc0e025f1b2041f",
+      "current": true,
+      "associated": true,
+      "eligibleForResearchSupport": false,
+      "usableAsResearchSupport": false,
+      "supportStatus": "unknown"
+    },
+    {
+      "schemaVersion": 1,
+      "sequence": 1,
+      "previousHash": null,
+      "recordedAt": 1795825946032,
+      "evidence": {
+        "schemaVersion": 1,
+        "source": "public-sse-index",
+        "eventId": "sse-index-adjustment-2026",
+        "sourceRevisionId": "excerpt-de892208fe1fe0c1333493d5ca0dd00b8de7877c61ed73ec204f9a2591f66ad5",
+        "kind": "original",
+        "supersedes": null,
+        "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20261127_10839235.shtml",
+        "title": "上证系列指数调样材料（2026，上证50表节选）",
+        "body": "公告日期：2026年11月27日\n指数样本调整将于2026年12月11日收市后生效。\n上证 50 指数样本调整名单：\n           调出名单                  调入名单\n   证券代码         证券名称   证券代码             证券名称\n    600050      中国联通    600176          中国巨石\n    600760      中航沈飞    600989          宝丰能源\n    600809      山西汾酒    601869          长飞光纤\n    600930      华电新能    688072          拓荆科技\n    601658      邮储银行    688498          源杰科技",
+        "bodyScope": "provider-summary",
+        "bodyHash": "7417e4aeaffb0c57e250b02d95dec1ffd2a531f15914021b2dc69a252758b38f",
+        "securities": [
+          "600050",
+          "600176",
+          "600760",
+          "600809",
+          "600930",
+          "600989",
+          "601658",
+          "601869",
+          "688072",
+          "688498"
+        ],
+        "publishedAt": null,
+        "receivedAt": 1795825038976,
+        "revisedAt": null,
+        "uncertainty": [
+          "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+          "LOCAL_CLOCK_NOT_ATTESTED",
+          "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+          "SUMMARY_ONLY"
+        ]
+      },
+      "canTrade": false,
+      "canTrain": false,
+      "canNotify": false,
+      "independentlyVerified": false,
+      "externallyTimestampCertified": false,
+      "eventHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+      "current": true,
+      "associated": true,
+      "eligibleForResearchSupport": false,
+      "usableAsResearchSupport": false,
+      "supportStatus": "unknown"
+    }
+  ],
+  "projection": {
+    "status": "bounded-evidence",
+    "rows": [
+      {
+        "row": {
+          "schemaVersion": 1,
+          "sequence": 2,
+          "previousHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+          "recordedAt": 1795825946032,
+          "evidence": {
+            "schemaVersion": 1,
+            "source": "public-sse-index",
+            "eventId": "sse-index-adjustment-2025",
+            "sourceRevisionId": "excerpt-53278faeafe05da73798dc610abb046229da66799aea62549df6efff3e7c91d3",
+            "kind": "original",
+            "supersedes": null,
+            "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20251128_10800153.shtml",
+            "title": "上证系列指数调样材料（2025，日期节选）",
+            "body": "公告日期：2025年11月28日\n指数样本调整于2025年12月12日收市后生效。",
+            "bodyScope": "provider-summary",
+            "bodyHash": "4880eb9a1bb8ce63054010ceb12c796e964464416dfaf89d6e0ba2693df31ac7",
+            "securities": [],
+            "publishedAt": null,
+            "receivedAt": 1795825458451,
+            "revisedAt": null,
+            "uncertainty": [
+              "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+              "LOCAL_CLOCK_NOT_ATTESTED",
+              "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+              "SUMMARY_ONLY"
+            ]
+          },
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false,
+          "independentlyVerified": false,
+          "externallyTimestampCertified": false,
+          "eventHash": "f5db9e2d38fa43ce7b3b3aefc4990cea742ab7bb4405a0ae7fc0e025f1b2041f",
+          "current": true,
+          "associated": true,
+          "eligibleForResearchSupport": false,
+          "usableAsResearchSupport": false,
+          "supportStatus": "unknown"
+        },
+        "versions": [
+          {
+            "schemaVersion": 1,
+            "sequence": 2,
+            "previousHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+            "recordedAt": 1795825946032,
+            "evidence": {
+              "schemaVersion": 1,
+              "source": "public-sse-index",
+              "eventId": "sse-index-adjustment-2025",
+              "sourceRevisionId": "excerpt-53278faeafe05da73798dc610abb046229da66799aea62549df6efff3e7c91d3",
+              "kind": "original",
+              "supersedes": null,
+              "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20251128_10800153.shtml",
+              "title": "上证系列指数调样材料（2025，日期节选）",
+              "body": "公告日期：2025年11月28日\n指数样本调整于2025年12月12日收市后生效。",
+              "bodyScope": "provider-summary",
+              "bodyHash": "4880eb9a1bb8ce63054010ceb12c796e964464416dfaf89d6e0ba2693df31ac7",
+              "securities": [],
+              "publishedAt": null,
+              "receivedAt": 1795825458451,
+              "revisedAt": null,
+              "uncertainty": [
+                "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+                "LOCAL_CLOCK_NOT_ATTESTED",
+                "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+                "SUMMARY_ONLY"
+              ]
+            },
+            "canTrade": false,
+            "canTrain": false,
+            "canNotify": false,
+            "independentlyVerified": false,
+            "externallyTimestampCertified": false,
+            "eventHash": "f5db9e2d38fa43ce7b3b3aefc4990cea742ab7bb4405a0ae7fc0e025f1b2041f",
+            "current": true,
+            "associated": true,
+            "eligibleForResearchSupport": false,
+            "usableAsResearchSupport": false,
+            "supportStatus": "unknown"
+          }
+        ],
+        "knownAt": 1795825946032,
+        "subjects": [],
+        "clues": [
+          {
+            "label": "披露字样（未核实）",
+            "quote": "公告"
+          }
+        ],
+        "amounts": [],
+        "securityIdentity": {
+          "status": "unknown",
+          "rows": [],
+          "inactiveReasons": [],
+          "note": "仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "indexAdjustment": {
+          "status": "date-passed-unverified",
+          "announcementDate": "2025-11-28",
+          "plannedDate": "2025-12-12",
+          "phase": "after-close",
+          "quote": "于2025年12月12日收市后生效",
+          "effectiveAt": null,
+          "tables": [],
+          "inactiveReasons": [],
+          "implementationConfirmed": false,
+          "actualFlow": null,
+          "weights": null,
+          "trackingAssets": null,
+          "note": "仅本页已归档材料中的调样计划与名单节选；日期到达不代表实施完成。权重、跟踪规模、实际配置和成交未知。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "effectiveAt": null,
+        "effectiveDate": null,
+        "effectiveQuote": null,
+        "formalDisclosure": "未独立核实",
+        "chainComplete": true,
+        "missing": [
+          "独立正式披露核验、主体名称及行业归属待核对",
+          "金额与有效时间必须由原文语境核验，不能由关键词认定",
+          "持仓、冻结计划及交易状态未接入本新闻投影",
+          "原始发布时间未知",
+          "完整原文待核对"
+        ],
+        "revisionStatus": "原始记录",
+        "researchOnly": true,
+        "canTrade": false,
+        "canNotify": false
+      },
+      {
+        "row": {
+          "schemaVersion": 1,
+          "sequence": 1,
+          "previousHash": null,
+          "recordedAt": 1795825946032,
+          "evidence": {
+            "schemaVersion": 1,
+            "source": "public-sse-index",
+            "eventId": "sse-index-adjustment-2026",
+            "sourceRevisionId": "excerpt-de892208fe1fe0c1333493d5ca0dd00b8de7877c61ed73ec204f9a2591f66ad5",
+            "kind": "original",
+            "supersedes": null,
+            "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20261127_10839235.shtml",
+            "title": "上证系列指数调样材料（2026，上证50表节选）",
+            "body": "公告日期：2026年11月27日\n指数样本调整将于2026年12月11日收市后生效。\n上证 50 指数样本调整名单：\n           调出名单                  调入名单\n   证券代码         证券名称   证券代码             证券名称\n    600050      中国联通    600176          中国巨石\n    600760      中航沈飞    600989          宝丰能源\n    600809      山西汾酒    601869          长飞光纤\n    600930      华电新能    688072          拓荆科技\n    601658      邮储银行    688498          源杰科技",
+            "bodyScope": "provider-summary",
+            "bodyHash": "7417e4aeaffb0c57e250b02d95dec1ffd2a531f15914021b2dc69a252758b38f",
+            "securities": [
+              "600050",
+              "600176",
+              "600760",
+              "600809",
+              "600930",
+              "600989",
+              "601658",
+              "601869",
+              "688072",
+              "688498"
+            ],
+            "publishedAt": null,
+            "receivedAt": 1795825038976,
+            "revisedAt": null,
+            "uncertainty": [
+              "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+              "LOCAL_CLOCK_NOT_ATTESTED",
+              "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+              "SUMMARY_ONLY"
+            ]
+          },
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false,
+          "independentlyVerified": false,
+          "externallyTimestampCertified": false,
+          "eventHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+          "current": true,
+          "associated": true,
+          "eligibleForResearchSupport": false,
+          "usableAsResearchSupport": false,
+          "supportStatus": "unknown"
+        },
+        "versions": [
+          {
+            "schemaVersion": 1,
+            "sequence": 1,
+            "previousHash": null,
+            "recordedAt": 1795825946032,
+            "evidence": {
+              "schemaVersion": 1,
+              "source": "public-sse-index",
+              "eventId": "sse-index-adjustment-2026",
+              "sourceRevisionId": "excerpt-de892208fe1fe0c1333493d5ca0dd00b8de7877c61ed73ec204f9a2591f66ad5",
+              "kind": "original",
+              "supersedes": null,
+              "url": "https://www.sse.com.cn/market/sseindex/diclosure/c/c_20261127_10839235.shtml",
+              "title": "上证系列指数调样材料（2026，上证50表节选）",
+              "body": "公告日期：2026年11月27日\n指数样本调整将于2026年12月11日收市后生效。\n上证 50 指数样本调整名单：\n           调出名单                  调入名单\n   证券代码         证券名称   证券代码             证券名称\n    600050      中国联通    600176          中国巨石\n    600760      中航沈飞    600989          宝丰能源\n    600809      山西汾酒    601869          长飞光纤\n    600930      华电新能    688072          拓荆科技\n    601658      邮储银行    688498          源杰科技",
+              "bodyScope": "provider-summary",
+              "bodyHash": "7417e4aeaffb0c57e250b02d95dec1ffd2a531f15914021b2dc69a252758b38f",
+              "securities": [
+                "600050",
+                "600176",
+                "600760",
+                "600809",
+                "600930",
+                "600989",
+                "601658",
+                "601869",
+                "688072",
+                "688498"
+              ],
+              "publishedAt": null,
+              "receivedAt": 1795825038976,
+              "revisedAt": null,
+              "uncertainty": [
+                "SOURCE_NOT_INDEPENDENTLY_VERIFIED",
+                "LOCAL_CLOCK_NOT_ATTESTED",
+                "UNKNOWN_ORIGINAL_PUBLICATION_TIME",
+                "SUMMARY_ONLY"
+              ]
+            },
+            "canTrade": false,
+            "canTrain": false,
+            "canNotify": false,
+            "independentlyVerified": false,
+            "externallyTimestampCertified": false,
+            "eventHash": "639f7bd282ee84f6b52a8c479ba1289906fb95d67531224961c635cc8b49b386",
+            "current": true,
+            "associated": true,
+            "eligibleForResearchSupport": false,
+            "usableAsResearchSupport": false,
+            "supportStatus": "unknown"
+          }
+        ],
+        "knownAt": 1795825946032,
+        "subjects": [
+          "600050",
+          "600176",
+          "600760",
+          "600809",
+          "600930",
+          "600989",
+          "601658",
+          "601869",
+          "688072",
+          "688498"
+        ],
+        "clues": [
+          {
+            "label": "披露字样（未核实）",
+            "quote": "公告"
+          }
+        ],
+        "amounts": [],
+        "securityIdentity": {
+          "status": "unknown",
+          "rows": [
+            {
+              "symbol": "600050",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600176",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600760",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600809",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600930",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "600989",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "601658",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "601869",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "688072",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            },
+            {
+              "symbol": "688498",
+              "type": null,
+              "typeConflict": false,
+              "label": "未从该文档绑定类型",
+              "status": "unknown",
+              "quotes": []
+            }
+          ],
+          "inactiveReasons": [],
+          "note": "仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "indexAdjustment": {
+          "status": "future-date",
+          "announcementDate": "2026-11-27",
+          "plannedDate": "2026-12-11",
+          "phase": "after-close",
+          "quote": "于2026年12月11日收市后生效",
+          "effectiveAt": null,
+          "tables": [
+            {
+              "indexName": "上证50指数",
+              "status": "source-excerpt",
+              "removals": [
+                {
+                  "symbol": "600050",
+                  "name": "中国联通"
+                },
+                {
+                  "symbol": "600760",
+                  "name": "中航沈飞"
+                },
+                {
+                  "symbol": "600809",
+                  "name": "山西汾酒"
+                },
+                {
+                  "symbol": "600930",
+                  "name": "华电新能"
+                },
+                {
+                  "symbol": "601658",
+                  "name": "邮储银行"
+                }
+              ],
+              "additions": [
+                {
+                  "symbol": "600176",
+                  "name": "中国巨石"
+                },
+                {
+                  "symbol": "600989",
+                  "name": "宝丰能源"
+                },
+                {
+                  "symbol": "601869",
+                  "name": "长飞光纤"
+                },
+                {
+                  "symbol": "688072",
+                  "name": "拓荆科技"
+                },
+                {
+                  "symbol": "688498",
+                  "name": "源杰科技"
+                }
+              ],
+              "fullListVerified": false
+            }
+          ],
+          "inactiveReasons": [],
+          "implementationConfirmed": false,
+          "actualFlow": null,
+          "weights": null,
+          "trackingAssets": null,
+          "note": "仅本页已归档材料中的调样计划与名单节选；日期到达不代表实施完成。权重、跟踪规模、实际配置和成交未知。",
+          "sourceVerified": false,
+          "canQualify": false,
+          "canTrade": false,
+          "canTrain": false,
+          "canNotify": false
+        },
+        "effectiveAt": null,
+        "effectiveDate": null,
+        "effectiveQuote": null,
+        "formalDisclosure": "未独立核实",
+        "chainComplete": true,
+        "missing": [
+          "独立正式披露核验、主体名称及行业归属待核对",
+          "金额与有效时间必须由原文语境核验，不能由关键词认定",
+          "持仓、冻结计划及交易状态未接入本新闻投影",
+          "原始发布时间未知",
+          "完整原文待核对"
+        ],
+        "revisionStatus": "原始记录",
+        "researchOnly": true,
+        "canTrade": false,
+        "canNotify": false
+      }
+    ],
+    "excluded": 0,
+    "missing": [
+      "仅使用本次返回的档案版本；不代表全部新闻或完整历史"
+    ],
+    "canTrade": false
+  },
+  "syntheticControl": {
+    "historicalAsOf": 1795825946142,
+    "withdrawnAsOf": 1795825946192,
+    "source": "isolated-index-control",
+    "historicalStatus": "future-date",
+    "currentStatus": "inactive"
+  }
+}

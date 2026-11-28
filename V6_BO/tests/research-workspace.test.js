@@ -31,11 +31,17 @@ test('historical replay is immutable, hides later preferences/runs and never bor
  S.appendEvent(options.workspaceRoot,'preferences',S.preferenceInput({objective:'未来的约束'}),{requestId:'historic_pref_001',now:at(71)});
  const later=D.buildWorkspaceDecision(fixture({index:71}));S.appendEvent(options.workspaceRoot,'analysis',later,{requestId:'historic_run_002',now:at(71)});
  const files=fs.readdirSync(options.workspaceRoot),v=W.workspaceView(options.workspaceRoot,{symbol:'600000',asOf:at(70)},{accounts:{private:{positions:{'600000':{shares:100}}}}});
- assert.equal(v.runs.total,1);assert.equal(v.preferences.revision,0);assert.equal(v.defense.rows.length,0);assert.equal(v.selectedRun.tradeDate,first.tradeDate);assert.deepEqual(fs.readdirSync(options.workspaceRoot),files);
+ assert.equal(v.runs.total,1);assert.equal(v.preferences.revision,0);assert.equal(v.preferences.configured,false);assert.equal(v.preferences.researchScope,'general-research');assert.equal(v.preferences.riskBudgetConfigured,false);assert.equal(v.defense.rows.length,0);assert.equal(v.selectedRun.tradeDate,first.tradeDate);assert.deepEqual(fs.readdirSync(options.workspaceRoot),files);
  const exported=W.exportResearch(v);assert.equal(exported.mode,'research-reproducible-export');assert.ok(!JSON.stringify(exported).includes('"positions"'));assert.equal(exported.canTrade,false);
 });
 test('timeline and run catalogs have real totals and deterministic pagination',t=>{
  const {workspaceRoot:root}=setup(t);for(let i=0;i<26;i++){const f=D.buildWorkspaceDecision(fixture());f.asOf+=i;S.appendEvent(root,'analysis',f,{requestId:'paged_history_'+String(i).padStart(3,'0'),now:at(70)+i});}
  const v=W.workspaceView(root,{symbol:'600000',offset:20,limit:20});assert.equal(v.timelineTotal,26);assert.equal(v.timeline.length,6);assert.equal(v.runs.total,26);assert.equal(v.runs.rows.length,6);
  for(const q of [{limit:101},{offset:-1},{symbol:'../etc'},{asOf:Date.now()+1000},{runId:'bad'},{compareId:'a'.repeat(64)},{screenId:'a'.repeat(64)}])assert.throws(()=>W.workspaceView(root,q));
+});
+
+test('F49.1 distinguishes saved research settings from defaults and exports the scope',t=>{
+ const {workspaceRoot:root}=setup(t);const before=W.workspaceView(root);assert.equal(before.preferences.configured,false);assert.equal(before.preferences.riskBudgetConfigured,false);
+ W.saveSettings(root,{action:'preferences',requestId:'f49_preference_001',expectedRevision:0,value:{objective:'研究目标',horizonDays:20,maxPositionPct:12}});
+ const after=W.workspaceView(root);assert.equal(after.preferences.configured,true);assert.equal(after.preferences.riskBudgetConfigured,true);assert.equal(after.preferences.researchScope,'configured-research');assert.equal(after.preferences.value.horizonDays,20);assert.equal(W.exportResearch(after).preferencesConfiguration.riskBudgetConfigured,true);assert.equal(W.exportResearch(after).canTrade,false);
 });

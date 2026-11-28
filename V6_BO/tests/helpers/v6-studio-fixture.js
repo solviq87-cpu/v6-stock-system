@@ -8,7 +8,7 @@ function request(port,url,method='GET',body=null,token=''){
   const data=body===null?'':JSON.stringify(body);
   const req=http.request({hostname:'127.0.0.1',port,path:url,method,timeout:5000,
    headers:{...(data?{'Content-Type':'application/json','Content-Length':Buffer.byteLength(data)}:{}),...(token?{Authorization:'Bearer '+token}:{})}},res=>{
-   let raw='';res.on('data',b=>raw+=b);res.on('end',()=>{let body;try{body=JSON.parse(raw);}catch{}resolve({status:res.statusCode,body,raw,headers:res.headers});});
+   const chunks=[];res.on('data',b=>chunks.push(Buffer.from(b)));res.on('end',()=>{const raw=Buffer.concat(chunks).toString('utf8');let body;try{body=JSON.parse(raw);}catch{}resolve({status:res.statusCode,body,raw,headers:res.headers});});
   });req.once('error',reject);req.once('timeout',()=>req.destroy(Error('studio fixture timeout')));req.end(data);
  });
 }
