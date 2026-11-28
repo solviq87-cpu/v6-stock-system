@@ -229,13 +229,13 @@ function styleShock(h,p,partition,assumptions){
   const held=jointStress({value:hv,equity:hv,cash:0,locked:null},null,assumptions),
    pending=jointStress({value:pv,equity:pv,cash:0,locked:null},null,assumptions);
   const hl=cents(held.heldMarkLoss),pl=cents(pending.heldMarkLoss),loss=sum([hl,pl,p.fees]);
-  if(loss===null||loss>h.eq)return {...out,reason:'F45_SHOCK_ASSUMPTION_INVALID'};
+  if(loss===null||loss>h.eq)return {...out,scenarios:[],reason:'F45_SHOCK_ASSUMPTION_INVALID'};
   out.scenarios.push({group:id,heldExposure:money(hv),remainingPendingExposure:money(pv),combinedDeclinePct:held.combinedDeclinePct,
    heldMarkLoss:money(hl),additionalPendingMarkLoss:money(pl),originalEstimatedFees:money(p.fees),allPendingFillLoss:money(loss),
    allPendingFillEquityAfter:money(h.eq-loss),actualLoss:null,realizedLoss:null,...FLAGS});
  }
  return {...out,status:'conditional-style-scenarios',reason:null,signalDay:partition.signalDay,source:partition.source,datasetId:partition.datasetId,
-  assumptionVersion:assumptions.version??null,otherGroupUnchanged:true,includesFilledHoldingsOnce:true,
+  assumptionVersion:assumptions.version??null,accountObservationDay:partition.accountObservationDay??null,referenceKind:partition.referenceKind??null,currentClassificationCertified:false,otherGroupUnchanged:true,includesFilledHoldingsOnce:true,
   note:'按原冻结候选截面相对规模分组；复用F45复合冲击。每行独立假设全部未成买单成交，原冻结估计费用计一次；不同情景不能相加，不代表实际亏损、概率或批准交易。'};
 }
 function buildPortfolioDefense(input={}){

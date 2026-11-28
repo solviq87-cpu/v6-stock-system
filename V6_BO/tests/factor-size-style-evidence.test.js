@@ -46,3 +46,12 @@ test('F29 repeated exact stock evidence counts once; conflicting repeated signal
  const bad={...input[0],signalId:'other-rule',sizeEvidence:{...input[0].sizeEvidence,valueYuan:2e9}};
  assert.equal(buildSizePartition([...input,bad],options).status,'unknown');
 });
+
+test('F29 adjacent prior frozen reference uses only original nonconflicting known calendar edges',()=>{
+ const {sizeReferenceDays}=require('../src/core/factor-size-style-evidence'),prior='2026-11-24',c={days:[prior,day],nextEvidenceByDay:{[prior]:{nextTradingDay:day,source:'archive',knownAt:at-1}},conflictingDays:[]};
+ assert.deepEqual(sizeReferenceDays(c,at),[day,prior]);
+ assert.deepEqual(sizeReferenceDays(null,at),[day]);
+ assert.deepEqual(sizeReferenceDays({...c,conflictingDays:[prior]},at),[day]);
+ assert.deepEqual(sizeReferenceDays({...c,nextEvidenceByDay:{[prior]:{...c.nextEvidenceByDay[prior],knownAt:at+1}}},at),[day]);
+ assert.deepEqual(sizeReferenceDays({...c,days:[day,prior]},at),[day]);
+});

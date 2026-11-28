@@ -69,4 +69,20 @@ function compareSizeVersions(days,ids,versions,score){
   pairedDays:out.rows.length,independentHoldoutCertified:false,
   note:'复用F12原三版本同一成熟H5窗口和IC评分器；分组在结果前固定；组间毛价格差不是净收益或因果归因。'};
 }
-module.exports={normalizeSizeEvidence,buildSizePartition,compareSizeVersions};
+// Prior size is a historical reference, never a current classification.
+// Only an explicit, already known, nonconflicting original calendar edge
+// permits the adjacent prior trading session; never subtract weekdays.
+function sizeReferenceDays(calendar,asOf){
+ if(!stamp(asOf))return [];
+ const current=day(asOf),out=[current];
+ if(!Array.isArray(calendar?.days)||calendar.days.length>10000)return out;
+ const dates=calendar.days;
+ if(dates.some((d,i)=>typeof d!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(d)||
+  !Number.isFinite(Date.parse(d+'T00:00:00Z'))||new Date(d+'T00:00:00Z').toISOString().slice(0,10)!==d||i&&dates[i-1]>=d))return out;
+ const index=dates.indexOf(current),prior=index>0?dates[index-1]:null;
+ const edge=prior&&calendar.nextEvidenceByDay?.[prior];
+ if(prior&&edge?.nextTradingDay===current&&label(edge.source)&&stamp(edge.knownAt)&&edge.knownAt<=asOf&&
+  Array.isArray(calendar.conflictingDays)&&!calendar.conflictingDays.includes(prior)&&!calendar.conflictingDays.includes(current))out.push(prior);
+ return out;
+}
+module.exports={normalizeSizeEvidence,buildSizePartition,compareSizeVersions,sizeReferenceDays};

@@ -265,7 +265,11 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  let stylePartition=null;
  if(context.styleFeatureEpisode)try{
   const e=require('./factor-shadow-evolution').verifyEpisode(context.styleFeatureEpisode,now);
-  if(e.signalDay===day)stylePartition=require('./factor-size-style-evidence').buildSizePartition(e.features,{provider:e.feed.provider,datasetId:e.feed.datasetId,signalDay:e.signalDay});
+  const size=require('./factor-size-style-evidence');
+  if(size.sizeReferenceDays(context.history?.marketCalendars?.CN,now).includes(e.signalDay)){
+   stylePartition={...size.buildSizePartition(e.features,{provider:e.feed.provider,datasetId:e.feed.datasetId,signalDay:e.signalDay}),
+    accountObservationDay:day,referenceKind:e.signalDay===day?'same-session-frozen':'adjacent-prior-session-frozen',currentClassificationCertified:false};
+  }
  }catch{/* unknown until original archived evidence is supplied */}
  const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,quotes,previews,exits,tail,observations:heldObservations,
   stylePartition,styleAssumptions:require('./portfolio-stress-evidence').DEFAULT_ASSUMPTIONS});

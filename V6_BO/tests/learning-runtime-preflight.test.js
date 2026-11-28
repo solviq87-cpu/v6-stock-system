@@ -118,3 +118,36 @@ test('CLI uses exit codes for ready, waiting and blocked',t=>{
  fs.unlinkSync(f.cycle.historyFile);result=run();assert.equal(result.code,2);assert.equal(result.report.overall,'needs-data');
  fs.chmodSync(f.file,0o644);result=run();assert.equal(result.code,1);assert.equal(result.report.overall,'blocked');
 });
+
+test('F29 portfolio reads only original private dated capture and never falls back on corruption',t=>{
+ const {readPortfolioSizeCapture}=require('../src/core/learning-runtime-preflight');
+ const {freezeCohort}=require('../src/core/forward-signal-observer');
+ const {freezeFeatureEpisode}=require('../src/core/factor-shadow-evolution');
+ const crypto=require('node:crypto'),digest=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+ const {cycle,file,env}=fixture(t),day='2026-09-21',signalAt=now-60000;
+ const provider='declared-provider',datasetId='capture-v1',feed={source:'imported',provider,datasetId,priceBasis:'unadjusted'};
+ const signals=Array.from({length:6},(_,i)=>({signalId:'signal-'+i,symbol:String(600000+i),system:'manual',cohort:'scope',provenance:'isolated fixture',signalDate:day,signalAt,baselineClose:10}));
+ const cohort=freezeCohort({schemaVersion:1,feed,signals},{now});
+ const rows=signals.map((s,i)=>({...s,values:{sector_heat:20+i,leader_strength:80-i},
+  evidence:{sector_heat:{source:provider,observedAt:signalAt},leader_strength:{source:provider,observedAt:signalAt}},
+  sizeEvidence:{symbol:s.symbol,tradeDate:day,source:provider,datasetId,evidenceId:'size-'+i,basis:'total-market-cap',unit:'CNY',valueYuan:(i+1)*1e9,observedAt:signalAt-1000,knownAt:signalAt}}));
+ const features=freezeFeatureEpisode({cohort,factorIds:['sector_heat','leader_strength'],rows,feed},{now});
+ const receipt={schemaVersion:1,mode:'causal-factor-eod-capture-receipt',signalDay:day,createdAt:now,inputFingerprint:'a'.repeat(64),
+  cohortFingerprint:cohort.fingerprint,featureFingerprint:features.fingerprint,canTrade:false};
+ fs.mkdirSync(cycle.captureDir,{recursive:true,mode:0o700});
+ const write=(name,v)=>fs.writeFileSync(path.join(cycle.captureDir,name+'-'+day+'.json'),JSON.stringify(v),{mode:0o600});
+ write('cohort',cohort);write('features',features);
+ assert.equal(readPortfolioSizeCapture({env,now}),null);
+ write('receipt',{...receipt,integrity:digest(receipt)});
+ assert.deepEqual(readPortfolioSizeCapture({env,now}),features);
+ const next=now+86400000,calendar={days:[day,'2026-09-22'],nextEvidenceByDay:{[day]:{nextTradingDay:'2026-09-22',knownAt:now,source:'original-calendar'}},conflictingDays:[]};
+ assert.deepEqual(readPortfolioSizeCapture({env,now:next,calendar}),features);
+ assert.equal(readPortfolioSizeCapture({env,now:next}),null);
+ assert.equal(readPortfolioSizeCapture({env,now:next,calendar:{...calendar,conflictingDays:[day]}}),null);
+ assert.equal(readPortfolioSizeCapture({env:{...env,V6_FACTOR_AGENT_DIR:'/tmp/not-configured'},now}),null);
+ fs.chmodSync(file,0o644);assert.equal(readPortfolioSizeCapture({env,now}),null);fs.chmodSync(file,0o600);
+ const forged=structuredClone(features);forged.features[0].signalId='different';
+ const {fingerprint,...body}=forged;forged.fingerprint=digest(body);
+ write('features',forged);const changed={...receipt,featureFingerprint:forged.fingerprint};write('receipt',{...changed,integrity:digest(changed)});
+ assert.equal(readPortfolioSizeCapture({env,now}),null);
+});
