@@ -322,3 +322,5 @@ test('large quote outages retain full equity gaps without overflowing the origin
   assert.equal(observed.groups.filter(row=>row.rootCauseId.startsWith('quote/')).length,45);
   assert.equal(fs.readFileSync(path.join(f.root,'authority.json'),'utf8'),before);
 });
+
+test('F45.4 original linked risk workbench keeps held exposure after fresh reobservation',t=>{const f=linked(t),r=buildRiskWorkbench(f.inputs());assert.equal(r.recoveryReview.accountEpoch,r.accountEpoch);assert.equal(r.recoveryReview.accountRevision,r.accountRevision);assert.equal(r.recoveryReview.remainingHoldings[0].quantity,200);assert.equal(r.recoveryReview.riskCleared,false);assert.equal(r.recoveryReview.unfilledRiskRetained,true);});

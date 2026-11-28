@@ -10,6 +10,7 @@ const {executionCapacity} = require('./execution-risk');
 const {corporateAction, entitlement} = require('./corporate-actions');
 const {validateUniverseHistory, universeObservation} = require('./historical-universe');
 const {replayExecutionCoverage}=require('./fayo-joint-outcomes');
+const {historicalStress,pendingStress}=require('./fayo-risk-replay-review');
 const {assertUnadjustedExecutionPriceBasis} = require('./historical-execution-price-basis');
 const {validateEntryPolicy, evaluateEntryRisk} = require('./common-entry-risk');
 const FLAGS = Object.freeze({researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false});
@@ -642,7 +643,7 @@ function evaluateDecisionAlternatives(frozen,{evaluateAlternative,asOf=Date.now(
  * risk and corporate-action functions. It never calls an account writer. */
 function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
   atTime(asOf);
-  const pending=reason=>({...reviewDecisionAlternatives(frozen,[],{asOf}),missing:[reason],replayDetails:[]});
+  const pending=reason=>({...reviewDecisionAlternatives(frozen,[],{asOf}),missing:[reason],replayDetails:[],historicalStress:pendingStress()});
   const snap=frozen?.sourceSnapshot;
   if(!snap||frozen.sourceSnapshotHash!==S.digest(snap))return pending('缺少完整、指纹一致的冻结账户与规则快照');
   const {account,quotes,constraints:c,costs}=snap;
@@ -742,7 +743,7 @@ function replayDecisionAlternatives(frozen,history={}, {asOf=Date.now()}={}) {
     replayDetails.push({alternativeId:alternative.id,orders,equity,maxDrawdown:round(maxDrawdown),finalHoldings,executionCoverage:replayExecutionCoverage(orders,finalHoldings),actualExecutionClaim:false,...FLAGS});
   }
   const review=reviewDecisionAlternatives(frozen,outcomes,{asOf});
-  return {...review,outcomes,replayDetails,jointOutcomeEvidence:{status:review.status==='compared'?'single-window-hypothetical':'pending',horizonDays:frozen.horizonDays,expectedUtility:null,profitProbability:null,rows:review.rows.map(row=>({alternativeId:row.id,markedNetPnl:row.netPnl,totalCosts:row.totalCosts,executionCoverage:replayDetails.find(d=>d.alternativeId===row.id)?.executionCoverage??null,realizedNetPnl:null})),actualExecutionClaim:false,canTrade:false},
+  return {...review,outcomes,replayDetails,historicalStress:historicalStress(frozen,history,dates.slice(start,end+1),replayDetails,review),jointOutcomeEvidence:{status:review.status==='compared'?'single-window-hypothetical':'pending',horizonDays:frozen.horizonDays,expectedUtility:null,profitProbability:null,rows:review.rows.map(row=>({alternativeId:row.id,markedNetPnl:row.netPnl,totalCosts:row.totalCosts,executionCoverage:replayDetails.find(d=>d.alternativeId===row.id)?.executionCoverage??null,realizedNetPnl:null})),actualExecutionClaim:false,canTrade:false},
     limitations:['仅在冻结当日之后的首个交易日开盘（加事前延迟）调仓一次；受阻部分继续持有，不事后选择更有利的时点重试','收盘估值包含未实现盈亏，未假定期末必能清仓','只有历史约束下的纸面对照；没有真实订单队列或成交保证']};
 }
 function buildDeepDecisionResearch(input={},options={}) {
