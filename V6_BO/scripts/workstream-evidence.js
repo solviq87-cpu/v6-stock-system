@@ -28,7 +28,10 @@ function sha256(data){return crypto.createHash('sha256').update(data).digest('he
 function inspectEvidence(manifest,options={}){
  const base=path.resolve(options.evidenceDir||path.join(ROOT,'acceptance-evidence'));
  const errors=[];
- const entries=manifest&&Array.isArray(manifest.entries)?manifest.entries:[];
+ const now=Date.now();
+ const validManifest=manifest!==null&&typeof manifest==='object'&&!Array.isArray(manifest)&&Array.isArray(manifest.entries);
+ if(!validManifest)errors.push('invalid evidence manifest');
+ const entries=validManifest?manifest.entries:[];
  const used=new Set();
  const checked=[];
  for(const entry of entries){
@@ -41,7 +44,7 @@ function inspectEvidence(manifest,options={}){
    errors.push(`unknown evidence requirement: ${key}`);continue;
   }
   if(verdict!=='pass'){errors.push(`nonpassing evidence: ${key}`);continue}
-  if(typeof verifiedAt!=='string'||!/^\d{4}-\d\d-\d\dT/.test(verifiedAt)||!Number.isFinite(Date.parse(verifiedAt))){errors.push(`invalid verifiedAt: ${key}`);continue}
+  if(typeof verifiedAt!=='string'||!/^\d{4}-\d\d-\d\dT/.test(verifiedAt)||(!Number.isFinite(Date.parse(verifiedAt))||Date.parse(verifiedAt)>now)){errors.push(`invalid verifiedAt: ${key}`);continue}
   if(typeof file!=='string'||!file||path.isAbsolute(file)||file.split(/[\\/]/).some(x=>x==='..'||x==='.')||file.includes('\0')){errors.push(`unsafe evidence path: ${key}`);continue}
   const target=path.resolve(base,file);
   if(!target.startsWith(base+path.sep)){errors.push(`unsafe evidence path: ${key}`);continue}
@@ -56,9 +59,14 @@ function inspectEvidence(manifest,options={}){
  const verified=new Set(checked);
  const workstreams=STREAMS.map(([id,name])=>{
   const requirements=REQUIRED[id].map(requirement=>({requirement,verified:verified.has(`${id}:${requirement}`)}));
-  return {id,name,requirements,accepted:requirements.every(r=>r.verified)};
+  return {id,name,requirements,accepted:requirements.every(r=>r.verified),productionAccepted:false};
  });
- return {schema:1,workstreams,acceptedWorkstreams:workstreams.filter(s=>s.accepted).length,requiredEvidenceCount:Object.values(REQUIRED).flat().length,verifiedEvidenceCount:checked.length,errors,releaseReady:errors.length===0&&workstreams.every(s=>s.accepted)};
+ // Compatibility: accepted/verified counters describe file/manifest checks only.
+ // Operator-declared verdicts plus matching bytes do not authenticate the signer,
+ // the tested revision, or real-world conditions. Final signoff belongs elsewhere.
+ return {schema:1,workstreams,acceptedWorkstreams:workstreams.filter(s=>s.accepted).length,requiredEvidenceCount:Object.values(REQUIRED).flat().length,verifiedEvidenceCount:checked.length,errors,
+  evidenceScope:'operator-declared-manifest-integrity-only',manifestComplete:errors.length===0&&workstreams.every(s=>s.accepted),
+  independentAcceptanceVerified:false,releaseReady:false};
 }
 function loadAndInspect(manifestPath,options={}){
  if(!manifestPath)return inspectEvidence({entries:[]},options);
