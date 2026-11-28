@@ -7,7 +7,7 @@ const {validatePlan,planFill}=require('./paper-decision-plan');
 const {buildPortfolioDefense}=require('./portfolio-defense-evidence');
 const {tradingFees,paperBuyLotSize:lotOf}=require('./trading-fees');
 const {quoteUseEligibility}=require('./quote-observation-view');
-const {capacityScenarios,exitRisk,previewPosition,previewPlanBatch,tailRisk,cashFlowPerformance,compareOpportunity}=require('./advanced-portfolio-evidence');
+const {capacityScenarios,exitRisk,previewPosition,previewPlanBatch,tailRisk,cashFlowPerformance,compareOpportunity,compareAvailableCash}=require('./advanced-portfolio-evidence');
 const flags={canTrade:false,writesAccount:false,automaticSwitch:false};
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const positive=x=>finite(x)&&x>0;
@@ -214,6 +214,25 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
   return {planId:plan.id,symbol:plan.code,...value,quantity:receipt.quantity,price:quote.price,estimatedFee:receipt.fee,accountRevision:book.revision,accountEvidenceRef:sourceRef,gateEvidenceRef:receipt.evidenceRef,quoteAt:quote.quoteAt};
  });
  const batchPreview=previewPlanBatch({snapshot,plans:previews,policy:book.riskPolicy??null,accountRevision:book.revision});
+ // Compare each admitted original plan independently against the same cash.
+ // Do not aggregate individual scenarios into a jointly authorized investment.
+ const checkedById=new Map(checkedPlans.map(x=>[x.plan.id,x]));
+ const cashComparisons=previews.map(preview=>{
+  const base={planId:preview.planId,symbol:preview.symbol,accountRevision:book.revision,accountEvidenceRef:sourceRef};
+  const checked=checkedById.get(preview.planId);
+  if(!checked||!snapshot||!policy||!diagnostic.continuous||book.legacy?.enabled===false)return {...base,...unknown('ORIGINAL_CASH_COMPARISON_UNAVAILABLE')};
+  const {plan,receipt}=checked,entry=cost('buy',receipt.quantity,plan.code),exit=cost('sell',receipt.quantity,plan.code);
+  if(!entry||!exit||entry.capacityShares<receipt.quantity||exit.capacityShares<receipt.quantity)return {...base,...unknown('ORIGINAL_QUOTE_OR_PRIOR_LIQUIDITY_UNAVAILABLE')};
+  // Use the actual admitted plan's original fee, not a cheaper replacement.
+  const entryCost=receipt.fee+entry.impact,exitCost=exit.fee+exit.impact;
+  return {...base,...compareAvailableCash({snapshot,candidate:{symbol:plan.code,notional:entry.notional,entryCost,exitCost,evidenceRef:receipt.evidenceRef},
+   observations:history.observations([plan.code]),asOf:now,horizon:policy.horizonSessions,confidence:policy.confidence,returnBasis:'adjusted-price'}),
+   quantity:receipt.quantity,quoteAt:entry.quoteAt,scenarioVersion:policy.version};
+ });
+ const cashBaseline=sourceRef&&finite(diagnostic.cash)&&finite(diagnostic.availableCash)&&diagnostic.availableCash>=0&&diagnostic.availableCash<=diagnostic.cash?
+  {status:'observed-unverified',accountEvidenceRef:sourceRef,accountRevision:book.revision,availableCash:diagnostic.availableCash,
+   reservedCash:round(diagnostic.cash-diagnostic.availableCash),assumedInterest:0,actualYieldVerified:false,...flags}:
+  unknown('ORIGINAL_AVAILABLE_CASH_UNAVAILABLE');
  const assets=snapshot?.positions.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/snapshot.equity,industry:p.industry,theme:p.theme}));
  const heldObservations=history.observations(heldCodes);
  const tail=assets?.length?tailRisk({assets,observations:heldObservations,asOf:now,confidence:policy?.confidence||.95,returnBasis:'adjusted-price'}):unknown(heldCodes.length?'CURRENT_PORTFOLIO_VALUATION_UNAVAILABLE':'NO_OPEN_POSITION_RISK');
@@ -237,6 +256,6 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  const equity=own(context.equityEvidence,account)||context.equityEvidence;
  const performance=performanceEvidence(equity,{book,diagnostic,account,now});
  if(performance.status==='unknown')missing.push(performance.reason);
- return {mode:'original-account-portfolio-evidence',status:'observed-unverified',account,accountRevision:book.revision,accountEvidenceRef:sourceRef,checkedAt:now,day,capacity,previews,batchPreview,exits,defense,opportunityComparisons,performance,tail,coverage:{...history.coverage,contextStatus:portfolioContextStatus||'not-provided',planCount:plans.length,verifiedPlanReceipts,reportedSymbols:codes.slice(0,20),omittedSymbols:Math.max(0,codes.length-20),comparisonLimit:50,missing:[...new Set(missing)]},scenarioPolicy:policy,assumptions:['沿用原账户和原计划观察回执；本报告没有委托、冻结、调仓或审批功能','后复权场景不冒充账户净值或经认证总收益；供应商发布时间及修订时钟未知','历史容量、当前费率和冲击压力不保证未来成交'],...flags};
+ return {mode:'original-account-portfolio-evidence',status:'observed-unverified',account,accountRevision:book.revision,accountEvidenceRef:sourceRef,checkedAt:now,day,capacity,previews,batchPreview,exits,defense,opportunityComparisons,cashBaseline,cashComparisons,performance,tail,coverage:{...history.coverage,contextStatus:portfolioContextStatus||'not-provided',planCount:plans.length,verifiedPlanReceipts,reportedSymbols:codes.slice(0,20),omittedSymbols:Math.max(0,codes.length-20),comparisonLimit:50,missing:[...new Set(missing)]},scenarioPolicy:policy,assumptions:['沿用原账户和原计划观察回执；本报告没有委托、冻结、调仓或审批功能','后复权场景不冒充账户净值或经认证总收益；供应商发布时间及修订时钟未知','历史容量、当前费率和冲击压力不保证未来成交'],...flags};
 }
 module.exports={buildAdvancedPortfolioReport,portfolioHistory};
