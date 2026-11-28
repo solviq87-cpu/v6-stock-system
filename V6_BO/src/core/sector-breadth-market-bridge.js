@@ -109,4 +109,16 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
   rankingModified:false,
   note:'仅重用已取得的全市场快照和冻结板块成员，逐票f124原时点门禁；未认证实时或分类许可；不更改任何正式选股/账户路径'};
 }
-module.exports={bridgeExistingMarketSector};
+
+// Legacy dated archives predate the per-sector set hash. The old independent
+// memberIdentity receipt is still checked by the capture consumer. Only an
+// entirely old projection, reconstructed from the current raw inputs, may
+// match this form; a mixed or tampered new projection must never be accepted.
+function legacySectorProjection(projection){
+ const rows=projection?.study?.sectors;
+ if(projection?.status!=='imported-unverified'||!Array.isArray(rows)||!rows.length||
+    rows.some(s=>!s||typeof s.memberSetHash!=='string'||!/^[a-f0-9]{64}$/.test(s.memberSetHash)))return null;
+ return {...projection,study:{...projection.study,sectors:rows.map(({memberSetHash,...row})=>row)}};
+}
+
+module.exports={bridgeExistingMarketSector,legacySectorProjection};

@@ -213,3 +213,36 @@ test('oversized, unknown and excessive local archive files fail before producing
     assert.throws(() => read(conf), /512/);
   } finally { fs.rmSync(conf.dir, { recursive: true, force: true }); }
 });
+
+test('H04 old complete frozen capture remains exactly replayable after the additive member-set hash upgrade', () => {
+  const f=fixture(3), before=clone(f);
+  for(const e of f.entries)for(const row of e.archive.data.study.sectors)delete row.memberSetHash;
+  const legacy=clone(f), r=build(f.entries,f);
+  assert.equal(r.status,'descriptive-unverified');assert.equal(r.sectorHistory.length,2);
+  assert.ok(r.provenance.dailyEvidence.every(x=>x.projectionCompatibility==='legacy-without-member-set-hash'));
+  assert.deepEqual(clone(f),legacy);
+  assert.equal(build(before.entries,before).provenance.dailyEvidence[0].projectionCompatibility,'exact-current');
+});
+test('H04 partial new or forged member-set hash, other changed fields and altered original proof do not become legacy evidence', () => {
+  for(const mutate of [
+    e=>{delete e.archive.data.study.sectors[0].memberSetHash;},
+    e=>{e.archive.data.study.sectors[0].memberSetHash='f'.repeat(64);},
+    e=>{for(const s of e.archive.data.study.sectors)delete s.memberSetHash;e.archive.data.study.sectors[0].score++;},
+    e=>{for(const s of e.archive.data.study.sectors)delete s.memberSetHash;e.archive.memberIdentity.sectors[0].memberSha256='f'.repeat(64);}
+  ]){
+    const f=fixture(3);mutate(f.entries.at(-1));assert.equal(build(f.entries,f).sectorCurrent,null);
+  }
+});
+test('H04 old source projection file survives an identical replay without changing bytes or replacing tampered content',t=>{
+  const f=fixture(3),e=f.entries[0],dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-h04-legacy-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const snapshotFile=path.join(dir,'snapshot.json'),membershipFile=path.join(dir,'members.json'),output=path.join(dir,'result.json');
+  fs.writeFileSync(snapshotFile,JSON.stringify(e.snapshot));fs.writeFileSync(membershipFile,JSON.stringify(e.membership));
+  for(const row of e.archive.data.study.sectors)delete row.memberSetHash;
+  const old=JSON.stringify(e.archive)+'\n';fs.writeFileSync(output,old);
+  const run=require('../scripts/sector-strength-research').runOnce;
+  const conf={mode:'once',snapshotFile,membershipFile,output};
+  assert.equal(run(conf,{now:f.asOf}).changed,false);assert.equal(fs.readFileSync(output,'utf8'),old);
+  e.archive.data.study.sectors[0].score++;const corrupt=JSON.stringify(e.archive)+'\n';fs.writeFileSync(output,corrupt);
+  assert.throws(()=>run(conf,{now:f.asOf}),/拒绝覆盖/);assert.equal(fs.readFileSync(output,'utf8'),corrupt);
+});

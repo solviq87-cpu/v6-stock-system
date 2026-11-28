@@ -3,7 +3,7 @@
 // User-initiated, private, read-only conversion of an existing market snapshot.
 // "watch" rereads local files only. It never fetches additional quotes or orders.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const {bridgeExistingMarketSector}=require('../src/core/sector-breadth-market-bridge');
+const {bridgeExistingMarketSector,legacySectorProjection}=require('../src/core/sector-breadth-market-bridge');
 const {freezeSectorMemberIdentity}=require('../src/core/sector-member-identity-proof');
 const MAX_BYTES=32*1024*1024;
 function parse(argv){
@@ -28,7 +28,7 @@ function read(file){
   throw Error('输入必须为已存在、非软链接且不超过32MiB的普通JSON文件');
  return JSON.parse(fs.readFileSync(file,'utf8'));
 }
-function newAtomic(file,body){
+function newAtomic(file,body,legacyBody=null){
  const dir=path.dirname(file);
  fs.mkdirSync(dir,{recursive:true,mode:0o700});
  if(!fs.lstatSync(dir).isDirectory())throw Error('输出目录无效');
@@ -41,8 +41,10 @@ function newAtomic(file,body){
   catch(e){
    if(e.code!=='EEXIST')throw e;
    const stat=fs.lstatSync(file);
-   if(!stat.isFile()||stat.size>MAX_BYTES||
-     fs.readFileSync(file,'utf8')!==body)
+   if(!stat.isFile()||stat.size>MAX_BYTES)
+    throw Error('同一输出身份下研究内容冲突，拒绝覆盖');
+   const existing=fs.readFileSync(file,'utf8');
+   if(existing!==body&&(legacyBody===null||existing!==legacyBody))
     throw Error('同一输出身份下研究内容冲突，拒绝覆盖');
    return false;
   }
@@ -78,7 +80,9 @@ function runOnce(conf,{now=Date.now()}={}){
    /^\d{4}-\d{2}-\d{2}$/.test(market.date||'')?market.date:'unknown',
    Number.isSafeInteger(end)?String(end)+'.json':'unknown.json'):
   conf.output;
- const changed=newAtomic(output,body);
+ const legacyData=legacySectorProjection(result);
+ const legacyBody=legacyData===null?null:JSON.stringify({...record,data:legacyData})+'\n';
+ const changed=newAtomic(output,body,legacyBody);
  return {status:result.status,reason:result.reason||null,changed,
   tradeDate:record.tradeDate,rankedSectorCount:result.study?.rankedSectorCount||0,
   evaluatedSectorCount:result.study?.evaluatedSectorCount||0,

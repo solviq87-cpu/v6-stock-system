@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
-const { bridgeExistingMarketSector } = require('./sector-breadth-market-bridge');
+const { bridgeExistingMarketSector, legacySectorProjection } = require('./sector-breadth-market-bridge');
 const { freezeSectorMemberIdentity } = require('./sector-member-identity-proof');
 const { createTradingCalendar } = require('./trading-calendar');
 const { readDaily } = require('../../scripts/sector-rotation-history');
@@ -95,8 +95,11 @@ function buildCaptureInput(entries, { asOf, sectorIds }, { dates, metadata }) {
     const replay = bridgeExistingMarketSector(snapshot, membership, { asOf: end });
     if (replay.status !== 'imported-unverified') { reject(date, 'capture-replay-' + replay.reason); continue; }
     const proof = freezeSectorMemberIdentity(membership);
+    const exactProjection = sameJSON(replay, archive.data);
+    const legacyProjection = exactProjection ? null : legacySectorProjection(replay);
+    const compatibleProjection = exactProjection || (legacyProjection !== null && sameJSON(legacyProjection, archive.data));
     if (proof.status !== 'identity-frozen-unverified' || !sameJSON(proof, archive.memberIdentity) ||
-      !sameJSON(replay, archive.data)) {
+      !compatibleProjection) {
       reject(date, 'capture-derived-or-member-identity-mismatch'); continue;
     }
     const available = new Map(membership.sectors.map(s => [id(s), s]));
@@ -119,6 +122,7 @@ function buildCaptureInput(entries, { asOf, sectorIds }, { dates, metadata }) {
     evidence.push({ tradeDate: date, observedAt: end, quoteProvider: replay.quoteProvider,
       membershipProvider: replay.membershipProvider, classificationVersion: replay.classificationVersion,
       membershipObservedAt: membership.observedAt,
+      projectionCompatibility: exactProjection ? 'exact-current' : 'legacy-without-member-set-hash',
       classificationDate: membership.provenance?.classificationDate ?? null,
       marketQuoteCoveragePct: replay.marketQuoteCoveragePct, universeSize: replay.universeSize,
       freshQuotes: replay.freshQuotes, selectedSectorIds: sectors.map(id),

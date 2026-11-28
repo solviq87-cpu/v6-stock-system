@@ -141,9 +141,12 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
   const complete=(rows)=>rows.every(s=>acceptable.has(s.status)&&finite(s.score)&&s.score>=0&&s.score<=100&&
    finite(s.upPct)&&s.upPct>=0&&s.upPct<=100&&finite(s.changePct)&&s.changePct>=-100&&s.changePct<=100&&
    Number.isSafeInteger(s.memberCount)&&s.memberCount>=5&&s.memberCount<=10000&&s.observedStocks===s.memberCount&&
-   s.coveragePct===100&&validMemberHash(s.memberSetHash)&&Number.isSafeInteger(s.rank)&&s.rank>=1&&
+   s.coveragePct===100&&validMemberHash(s.memberSetHash)&&
+   (s.status==='partial-evidence'?s.limitUpCount===null:Number.isSafeInteger(s.limitUpCount)&&s.limitUpCount>=0&&s.limitUpCount<=s.memberCount)&&
+   Number.isSafeInteger(s.rank)&&s.rank>=1&&
    s.rank<=rows.length&&s.rankDenominator===rows.length)&&new Set(rows.map(s=>s.rank)).size===rows.length;
   if(!complete(ar)||!complete(br))return reject('full-population-or-membership-identity-unavailable');
+  if([...ar,...br].some(s=>s.status!==ar[0].status))return reject('score-component-coverage-changed');
   const lookup=new Map(br.map(s=>[s.code,s]));
   if(ar.some(s=>{const t=lookup.get(s.code);return !t||s.name!==t.name||s.memberCount!==t.memberCount||s.memberSetHash!==t.memberSetHash;}))
    return reject('frozen-sector-population-changed');

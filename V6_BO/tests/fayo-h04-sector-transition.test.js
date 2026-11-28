@@ -68,3 +68,11 @@ test('H04.5 replay at an earlier cut cannot know the later leader and explicitly
  assert.ok(earlier.leadingSectorReplay.every(x=>x.to<=dates[2]));
  assert.equal(evaluate(data,{tradeDates:dates,asOf:at}).status,'unknown');
 });
+
+test('H04.5 changed optional limit-up scoring input cannot manufacture a leading-sector switch',()=>{
+ const data=series();
+ for(const s of data[3].data.study.sectors){s.status='imported-unverified';s.limitUpCount=0;}
+ assert.equal(pair(report(data),3).reason,'score-component-coverage-changed');
+ const mixed=series();mixed[3].data.study.sectors[0].status='imported-unverified';mixed[3].data.study.sectors[0].limitUpCount=0;
+ assert.equal(pair(report(mixed),3).reason,'score-component-coverage-changed');
+});
