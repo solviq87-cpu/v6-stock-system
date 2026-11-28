@@ -30,6 +30,16 @@ export function renderHoldingPeriodComparison(data){
     return h('li',{},row.holdDays+'日：可用路径 '+value(d.usableRecords)+'/'+value(d.totalSettledRecords)+
      '；平均最大有利 '+pct(d.meanMfePct)+'；平均最大不利 '+pct(d.meanMaePct));
    })),
+   h('h3',{},'候选信号与联合纸面成交'),
+   h('p',{class:'fy-note'},'全信号分母为原扫描器每个已扫描日去重后的候选，含持仓、资格或仓位限制；条件分母为实际纸面买入批次。部分买入按开盘可负担整手股数和流动性上限区分，部分退出、仍持有和公司行为未知单列。不是全市场信号或真实成交概率。'),
+   h('ul',{},data.periods.map(row=>{
+    const d=row.report?.signalExecution;
+    if(d?.status!=='descriptive-only')return h('li',{},row.holdDays+'日：原信号统计不可核对');
+    const pct=x=>finite(x)?format(x)+'%':'未知';
+    return h('li',{},row.holdDays+'日：候选 '+value(d.rankedSignals)+'；进入 '+value(d.enteredCohorts)+'（部分 '+value(d.partialEntryCohorts)+
+     '）；曾部分退出 '+value(d.ordinaryPartialExitCohorts)+'；完整退出 '+value(d.fullyExitedCohorts)+'；仍持有 / 退出未知 '+value(d.openEntryCohorts)+' / '+value(d.unknownExitCohorts)+
+     '；全候选联合完成 '+pct(d.allRankedEntryAndFullExitPct)+'；已入场条件完成 '+pct(d.enteredFullExitPct));
+   })),
    h('ul',{},(data.limitations||[]).map(text=>h('li',{},text))),
    h('p',{class:'fy-muted'},'数据指纹 '+String(data.datasetFingerprint||'未知')),
    h('p',{class:'fy-muted'},'协议指纹 '+String(data.protocolFingerprint||'未知'))));
