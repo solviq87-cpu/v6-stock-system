@@ -2,6 +2,7 @@
 // Forecast quality uses observations received after a frozen prediction. It never
 // treats a model-generated candle as a price, a fill, or a realized return.
 const path=require('node:path');
+const {forwardScopeReport}=require('./fayo-model-evidence-audit');
 const S=require('./research-workspace-store');
 const VERSION='frozen-close-forecast-v1',HORIZONS=[1,5,20,60];
 const MODEL_IDENTITY_FIELDS=['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'];
@@ -217,11 +218,15 @@ function feedbackReview(group,windows,restricted){
 const corporateActionState=row=>row?.bar.corporateAction===false?'declared-no-action':row?.bar.corporateAction===true?'action-observed':'unknown';
 function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset=0,limit=20}={}){
  if(!stamp(asOf)||asOf>Date.now()||!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)fail('REQUEST');
- const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set();
+ const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set(),scopeRecords=[];
  for(const event of forecasts.filter(e=>e.kind==='analysis'&&e.recordedAt<=asOf).sort((a,b)=>a.recordedAt-b.recordedAt||a.sequence-b.sequence)){
   const d=event.data;validateArchive(event);
   const model=modelIdentity(d.model),modelKey=S.digest(model);
   const origin=events.find(e=>e.hash===d.runId),input=boundInput(d,event,origin);
+  const scoped=(!symbol||d.symbol===symbol)&&(!runId||d.runId===runId);
+  const scopeRecord=scoped?{inputFingerprint:d.inputFingerprint,modelKey,symbol:d.symbol,provider:d.provider,originDate:d.originDate,latencyMs:d.model.latencyMs,peakMemoryMb:d.model.peakMemoryMb,
+   targets:HORIZONS.filter(h=>d.tradeDates[d.tradeDates.indexOf(d.originDate)+h]).map(h=>({horizon:h,targetDate:d.tradeDates[d.tradeDates.indexOf(d.originDate)+h]})),rows:[]}:null;
+  if(scopeRecord)scopeRecords.push(scopeRecord);
   for(const f of d.forecasts){
    const key=[modelKey,d.provider,f.horizon,f.pointKind,JSON.stringify(f.quantiles.map(q=>q.level))].join('|');
    const selected=(!symbol||d.symbol===symbol)&&(!runId||d.runId===runId);
@@ -230,6 +235,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    const group=groups.get(key);group.total++;
    const row={id:event.hash,runId:d.runId,inputFingerprint:d.inputFingerprint,symbol:d.symbol,provider:d.provider,modelKey,model,modelId:d.model.id,revision:d.model.revision,
     horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null};
+   if(scopeRecord)scopeRecord.rows.push(row);
    const unique=[modelKey,d.symbol,d.provider,d.originDate,f.horizon].join('|');
    if(dedup.has(unique)){row.status='repeated-origin';group.repeated++;rows.push(row);continue;}dedup.add(unique);
    const due=asOf>=close(f.targetDate);if(due)group.dueUnique++;
@@ -269,6 +275,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
  const selected=rows.filter(r=>(!symbol||r.symbol===symbol)&&(!runId||r.runId===runId));
  return {schemaVersion:1,mode:'frozen-model-forward-evaluation',evaluationVersion:VERSION,status:'available',groups:summaries.slice(offset,offset+limit),groupTotal:summaries.length,
   rows:selected.slice().reverse().slice(offset,offset+limit),total:selected.length,offset,limit,
+  forwardScope:forwardScopeReport(scopeRecords,asOf),
   scope:{symbol:symbol||null,runId:runId||null},pairs:pairedComparisons(selected),inputComparison:'各模型覆盖范围可能不同；不能据原始MAE跨范围排名',
   limitations:['这里只评价未复权收盘价预测误差，不是可成交收益或获利概率','导入版本、权重/训练截止期及耗时均未由本系统核验；不执行上传代码或调模型API',
    '首次到达的闭合行情用于首次评价；后续修订单列，不改写首次值','同股同日同版本重复预测不增加样本；重叠窗口非独立证据'],...S.FLAGS};
