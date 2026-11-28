@@ -11,7 +11,8 @@ const {scorecards} = require('./research-workspace-analytics');
 const {validatePlan} = require('./paper-decision-plan');
 const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
-const {preEventComparison} = require('./event-prewindow-research');
+const {preEventComparison,eventRegimeOverlay} = require('./event-prewindow-research');
+const {projectEventReview} = require('./event-path-review');
 
 const LIMIT = 10000;
 const FLAGS = Object.freeze({researchOnly:true, canTrade:false, canNotify:false,
@@ -217,6 +218,8 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         corporateAction:b.corporateAction,corporateActionKnownAt:b.corporateActionKnownAt??b.knownAt}));
       const preEventStudy=preEventComparison({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,
         readStock:d=>prices.get(['stock',e.symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
+      const regimeOverlay=h===1?eventRegimeOverlay({event:e,dates,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,
+        readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))}):null;
       const id=hash({event:[e.source,e.id,e.revision],source,h,priceEvidence,benchmark,calendarHash});
       eventOutcomes.push({id:'archive-'+id,revision:1,source:'v6-private-archive-event-study',evidenceId:id,
         // This is a newly produced read projection. Original source receipts
@@ -224,7 +227,7 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         publishedAt:asOf,firstKnownAt:asOf,recordedAt:asOf,inputOrigin:'read-only-archive-projection',
         eventId:e.id,eventSource:e.source,eventRevision:e.revision,symbol:e.symbol,horizonSessions:h,startAt,endAt,
         stock:{source,startPrice:first.open,endPrice:last.close,currency:'CNY',priceBasis:'unadjusted',corporateAction:false},
-        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy});
+        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy,regimeOverlay});
       if(!benchmark)fail(e,h,'股票端点已成熟，但缺少同区间实际接收的全A指数，超额收益保持未知',source);
     }
   }
@@ -246,6 +249,8 @@ function buildEventImpactStudy(input={}, options={}) {
     if (!e || e.retracted || !computed || o.startAt<e.recordedAt) {
       rejected.push({id:o.id,reason:!e?'event-version-unavailable':e.retracted?'event-retracted':!computed?'invalid-or-immature-outcome':'entry-before-event-known'}); continue;
     }
+    const derived=options.derivedOutcomes instanceof Map?options.derivedOutcomes.get(o.id):null;
+    const bound=derived===o?derived:null;
     if (computed.benchmarkReturnPct===null) missing.push('同区间、币种和价格口径的市场基准缺失，超额收益保持未知');
     rows.push({id:o.id,eventId:e.id,eventRevision:e.revision,symbol:o.symbol,eventType:e.eventType,
       horizonSessions:o.horizonSessions,startAt:o.startAt,endAt:o.endAt,regime:text(o.regime,80)?o.regime:'unknown',
@@ -253,7 +258,7 @@ function buildEventImpactStudy(input={}, options={}) {
       priceSource:text(o.stock.source,160)?o.stock.source:o.source,
       evidence:[e,computed.proof],priceEvidence:o.inputOrigin==='read-only-archive-projection'?o.priceEvidence:null,
       calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,
-      preEventStudy:o.inputOrigin==='read-only-archive-projection'&&o.source==='v6-private-archive-event-study'?o.preEventStudy??null:null,drawdownPct:null});
+      preEventStudy:bound?.preEventStudy??null,regimeOverlay:bound?.regimeOverlay??null,drawdownPct:null});
   }
   rows.sort((a,b)=>a.startAt-b.startAt||a.eventId.localeCompare(b.eventId)||a.horizonSessions-b.horizonSessions||
     a.priceSource.localeCompare(b.priceSource)||a.id.localeCompare(b.id));
@@ -710,10 +715,13 @@ function buildDeepResearchEvidence(input={}, options={}) {
   if (input.newsJournalRows!==undefined) effective.events=[...array(input.events,'事件'),...extractNewsJournalEvents(input.newsJournalRows,{asOf})];
   const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar},{asOf});
   effective.eventOutcomes=[...array(input.eventOutcomes,'事件结果'),...derived.eventOutcomes];
-  const modules={67:buildEventImpactStudy(effective,{asOf}),68:buildExpectationStudy(effective,{asOf}),
+  const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf}),
     69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
     71:buildSessionEffectiveness(effective,{asOf,costs:options.costs}),72:buildThemeCrowding(effective,{asOf})};
   modules[67].archiveDerivation={...derived,eventOutcomes:derived.eventOutcomes.map(o=>({id:o.id,eventId:o.eventId,horizonSessions:o.horizonSessions}))};
+  // Existing version reader and original account projection remain authoritative.
+  modules[67].eventReview=projectEventReview({events:versions(effective.events,asOf,'事件').rows,relations:versions(effective.relations,asOf,'关系证据',2000).rows,
+    journalRows:input.newsJournalRows??[],account:modules[69].account,asOf});
   modules[67].missing=[...new Set([...modules[67].missing,...derived.pending.map(r=>r.reason)])];
   return {schemaVersion:1,asOf,modules,riskObservations:Object.values(modules).flatMap(m=>m.riskObservations),
     missing:Object.values(modules).flatMap(m=>m.missing.map(reason=>({task:m.task,reason}))),...FLAGS};
