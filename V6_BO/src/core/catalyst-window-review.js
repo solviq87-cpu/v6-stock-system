@@ -50,7 +50,7 @@ function eventWindowLifecycle(args={}){
  })};
 }
 function frozenIndustryReaction(args={}){
- const {event,dates,horizon,stockSource,indexSource,readStock,readIndex,workspaceEvents=[],calendarHash,calendarKnownAt,asOf}=args;
+ const {event,dates,horizon,stockSource,indexSource,readStock,readIndex,workspaceEvents=[],calendarHash,calendarKnownAt,asOf,workBudget}=args;
  const base={mode:'frozen-industry-peer-event-window-v1',status:'unknown',reason:null,horizonSessions:horizon??null,industry:null,pre:null,post:null,pricedInObservation:null,weaknessObservation:null,beneficialEventVerified:false,pricedInConfirmed:false,invalidationConfirmed:false,causalInferenceVerified:false,netAbnormalReturnPct:null,canTrade:false,canNotify:false};
  const bad=(reason,extra={})=>({...base,...extra,reason});
  if(!calendarOK(args)||!HORIZONS.includes(horizon)||calendarKnownAt>=event.publishedAt||!text(stockSource,160)||!text(indexSource,160)||typeof readStock!=='function'||typeof readIndex!=='function'||!Array.isArray(workspaceEvents)||workspaceEvents.length>2000)return bad('event-window-or-source-unavailable');
@@ -68,6 +68,11 @@ function frozenIndustryReaction(args={}){
  const board=boards[0],peers=board.members.filter(s=>s!==event.symbol).sort();
  if(peers.length<5||peers.length>100)return bad('peer-roster-outside-bounded-coverage');
  const industry={code:board.code,name:board.name,classificationVersion:evidence.classification.version,provider:evidence.provider,members:peers,archiveHash:selected.hash,recordedAt:selected.recordedAt,cohortHash:digest([selected.hash,peers]),basis:'fixed-declared-industry-peers-excluding-target',independentlyVerified:false};
+ const workUnits=2*horizon*(peers.length+2);
+ if(workBudget!==undefined){
+  if(!workBudget||!Number.isSafeInteger(workBudget.remaining)||workBudget.remaining<workUnits)return bad('peer-comparison-work-budget',{industry});
+  workBudget.remaining-=workUnits;
+ }
  const priceOK=x=>x&&finite(x.open)&&x.open>0&&finite(x.close)&&x.close>0;
  function calculate(ds,cutoff,strict){
   const seen=t=>time(t)&&(strict?t<cutoff:t<=cutoff),rows=[];
