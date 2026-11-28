@@ -72,3 +72,23 @@ test('H01 repeated diagnostics are read-only, preserve existing timings and do n
  const old=structuredClone(a);delete old.diagnosticIssues;
  assert.equal(buildSystemReadiness({now:f.now,trace:old}).runtimeTrace.diagnosticIssues.status,'not-observed');
 });
+
+test('H01 failed or unknown outcomes with unrelated business code are retained, intentional blocks stay distinct',()=>{
+ const f=fixture();f.tick('strategy.evaluate','failed','BUSINESS_REJECTED');f.tick('research.stage','unknown','BUSINESS_REJECTED');
+ f.tick('risk.entry','blocked','RISK_REJECTED');f.tick('market.snapshot','blocked','STAGE_FAILED');
+ const r=f.report();assert.equal(r.groups.length,3);
+ assert.ok(r.groups.some(x=>x.reasonCode==='UNCLASSIFIED_FAILURE'));
+ assert.ok(r.groups.some(x=>x.reasonCode==='UNCLASSIFIED_OUTCOME'));
+ assert.ok(r.groups.some(x=>x.reasonCode==='STAGE_FAILED'));assert.equal(r.rootCauseCertified,false);
+});
+test('H01 missing failure group, malformed raw hooks, coercible code or false time interval fail closed',()=>{
+ const f=fixture();f.tick('market.snapshot','failed','SOURCE_UNAVAILABLE');
+ const summary=f.trace.summary(),run=t=>buildSystemReadiness({now:f.now,trace:t}).runtimeTrace.diagnosticIssues.status;
+ for(const corrupt of [
+  s=>{s.diagnosticIssues.groups=[];},s=>{s.hooks.pop();},s=>{s.hooks.push(s.hooks[0]);},
+  s=>{s.hooks.find(r=>r.stage==='market.history').samples=-1;},
+  s=>{s.diagnosticIssues.groups[0].reasonCode=['SOURCE_UNAVAILABLE'];},
+  s=>{s.diagnosticIssues.groups[0].firstObservedAt-=1;}
+ ]){const copy=structuredClone(summary);corrupt(copy);assert.equal(run(copy),'invalid-evidence');}
+ assert.equal(run(summary),'observed');
+});

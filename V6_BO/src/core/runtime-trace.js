@@ -26,7 +26,7 @@ const OUTCOMES=new Set(['completed','blocked','failed','unknown','skipped']);
 // is NOT root-cause correlation, liveness proof or authorization to recover.
 const ISSUE_RULES=Object.freeze({
  SOURCE_UNAVAILABLE:{outcomes:['blocked','failed','unknown'],severity:'warning',nextAction:'核查原供应商和采集回执；原因未证实时保持未知'},
- STAGE_FAILED:{outcomes:['failed'],severity:'error',nextAction:'核查原任务的授权诊断及失败回执'},
+ STAGE_FAILED:{outcomes:['failed','blocked'],severity:'error',nextAction:'核查原任务的授权诊断及失败回执'},
  QUEUE_FULL:{outcomes:['blocked','failed','skipped'],severity:'warning',nextAction:'核查原队列容量与排队时间，不重复提交'},
  ALREADY_RUNNING:{outcomes:['skipped'],severity:'info',nextAction:'原并发保护已触发；核对运行任务，不强制重启'},
  AUTOMATIC_QUOTE_NOT_CURRENT:{outcomes:['blocked','skipped'],severity:'warning',nextAction:'等待通过原报价时点及来源门禁的证据'},
@@ -38,13 +38,15 @@ const ISSUE_RULES=Object.freeze({
 });
 const validIssueTime=value=>Number.isSafeInteger(value)&&value>0&&value<=8e15;
 function issueRule(stage,status,code){
- if(!STAGES.has(stage)||!Object.hasOwn(ISSUE_RULES,code))return null;
+ if(typeof code!=='string'||!STAGES.has(stage)||!Object.hasOwn(ISSUE_RULES,code))return null;
  const rule=ISSUE_RULES[code];
  return rule.outcomes.includes(status)?rule:null;
 }
 function addIssue(groups,row){
- const code=row.reasonCode===null?(row.status==='failed'?'UNCLASSIFIED_FAILURE':
-  row.status==='unknown'?'UNCLASSIFIED_OUTCOME':null):row.reasonCode;
+ let code=row.reasonCode;
+ // Unknown or failed observations must not disappear because of an unrelated code.
+ if(!issueRule(row.stage,row.status,code))code=row.status==='failed'?'UNCLASSIFIED_FAILURE':
+  row.status==='unknown'?'UNCLASSIFIED_OUTCOME':null;
  if(!issueRule(row.stage,row.status,code))return;
  const key=JSON.stringify([row.stage,row.status,code]);
  let group=groups.get(key);
@@ -68,10 +70,23 @@ function projectRuntimeIssues(trace,now,hooks){
     !Number.isSafeInteger(trace.observedSpanCount)||trace.observedSpanCount<0||trace.observedSpanCount>1024)
   return result('invalid-evidence');
  const counts=new Map(),seen=new Set(),groups=[];
- let samples=0;
- for(const hook of hooks){if(!STAGES.has(hook.stage)||counts.has(hook.stage)||
-  !Number.isSafeInteger(hook.samples)||hook.samples<0||hook.samples>1024)return result('invalid-evidence');
-  counts.set(hook.stage,hook);samples+=hook.samples;}
+ const validCount=n=>Number.isSafeInteger(n)&&n>=0&&n<=1024;
+ const fields=['samples','completed','failed','blocked','unknown','skipped'];
+ // Verify original hooks as well as the public projection; sanitized zeroes
+ // cannot stand in for missing or malformed original observations.
+ if(!Array.isArray(trace.hooks)||trace.hooks.length!==STAGES.size||hooks.length!==STAGES.size)return result('invalid-evidence');
+ for(const hook of trace.hooks){
+  if(!STAGES.has(hook?.stage)||counts.has(hook.stage)||!fields.every(k=>validCount(hook[k]))||
+     fields.slice(1).reduce((sum,k)=>sum+hook[k],0)!==hook.samples||
+     hook.status!==(hook.samples?'observed':'not-observed'))return result('invalid-evidence');
+  counts.set(hook.stage,hook);
+ }
+ let samples=0;const projected=new Set();
+ for(const hook of hooks){
+  const source=counts.get(hook?.stage);
+  if(!source||projected.has(hook.stage)||!fields.every(k=>source[k]===hook[k]))return result('invalid-evidence');
+  projected.add(hook.stage);samples+=hook.samples;
+ }
  if(samples!==trace.observedSpanCount)return result('invalid-evidence');
  const used=new Map();
  for(const row of raw.groups){
@@ -82,13 +97,16 @@ function projectRuntimeIssues(trace,now,hooks){
   if(seen.has(key)||!Number.isSafeInteger(n)||n<1||!Number.isSafeInteger(unknown)||unknown<0||unknown>n||
      !Number.isSafeInteger(available)||available<0||(used.get(bucket)||0)+n>available)return result('invalid-evidence');
   const first=row.firstObservedAt,last=row.lastObservedAt;
-  if(unknown===n?(first!==null||last!==null):(!validIssueTime(first)||!validIssueTime(last)||first>last||last>now))
+  if(unknown===n?(first!==null||last!==null):(!validIssueTime(first)||!validIssueTime(last)||first>last||last>now||n-unknown===1&&first!==last))
    return result('invalid-evidence');
   seen.add(key);used.set(bucket,(used.get(bucket)||0)+n);
   groups.push({stage:row.stage,outcome:row.outcome,reasonCode:row.reasonCode,observations:n,
    firstObservedAt:first,lastObservedAt:last,unknownTimeCount:unknown,severity:rule.severity,
    affectedStage:row.stage,nextAction:rule.nextAction,rootCauseStatus:'unverified'});
  }
+ // Every failed or unknown original outcome is classified or explicitly unknown.
+ for(const [stage,hook] of counts)for(const outcome of ['failed','unknown'])
+  if((used.get(JSON.stringify([stage,outcome]))||0)!==hook[outcome])return result('invalid-evidence');
  return result(groups.length?'observed':samples?'no-classified-issues-in-retained-window':'not-observed',groups);
 }
 const HASH=/^[a-f0-9]{64}$/;
