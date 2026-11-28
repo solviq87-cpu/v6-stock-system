@@ -122,3 +122,14 @@ test('large model catalogs paginate complete totals and bound quadratic pair com
  const root=setup(t),e=origin();for(let i=0;i<25;i++){const p=prediction(e);p.model.id='custom'+i;save(root,e,p,'many_forecasts_'+String(i).padStart(3,'0'),e.recordedAt+2000+i);}
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),v=F.evaluationView(root,[e,later],{asOf:at(71),offset:20,limit:20});assert.equal(v.groupTotal,25);assert.equal(v.groups.length,5);assert.equal(v.total,25);assert.equal(v.rows.length,5);assert.equal(v.pairs.rows.length,0);assert.equal(v.pairs.limitedGroups,1);
 });
+
+test('F49.2 original frozen forecast view keeps independent target horizons and input fingerprint',t=>{
+ const root=setup(t),e=origin(),input=F.prepareInput(e),close=input.bars.at(-1).close,p=prediction(e);
+ const first=input.targets.find(x=>x.horizon===1),later=input.targets.find(x=>x.horizon===5);
+ assert.ok(first&&later);
+ p.forecasts=[{...first,point:close*.9},{...later,point:close*1.1}];
+ const saved=save(root,e,p),v=F.evaluationView(root,[e],{asOf:e.recordedAt+2000,limit:1});
+ assert.equal(v.rows.length,1);assert.equal(v.horizonContexts.total,1);const c=v.horizonContexts.rows[0];
+ assert.equal(c.forecastId,saved.forecastId);assert.equal(c.mixedDirections,true);
+ assert.deepEqual(c.horizons.map(h=>h.horizon),[1,5]);assert.ok(c.horizons.every(h=>h.inputFingerprint===input.inputFingerprint&&h.directionMatched===null));
+});

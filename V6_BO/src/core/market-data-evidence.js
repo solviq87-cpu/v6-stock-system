@@ -397,7 +397,8 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){
     checked++;
     return {...row,status:'verified-latest-receipt',scope:backgroundScope(provider,d.scope),byteBasis:d.byteBasis,
      sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
-     records:values,recordCount:records.length,missingValues};
+     records:values,recordCount:records.length,missingValues,
+     ...(provider==='worldbank'?{annualComparison:require('./worldbank-indicators').annualBackgroundComparison(projected),observationAgeMs:asOf-d.observedAt,usage:'low-frequency-local-research-only'}:{})};
    }catch{return row;}
   });
   const totalScopes=series.size;

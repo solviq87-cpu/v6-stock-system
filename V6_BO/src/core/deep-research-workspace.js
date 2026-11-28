@@ -212,7 +212,8 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
   const symbols=[...new Set([...(record.sourceSnapshot?.account?.positions||[]).filter(p=>p.quantity>0).map(p=>p.symbol),
    ...record.alternatives.flatMap(a=>a.weights.filter(w=>w.weight>0).map(w=>w.symbol))])];
   const history=D.deriveDecisionReplayHistory(archive||{},stored.events,{asOf:now,informationCutoff:record.informationCutoff,symbols});
-  return {...D.replayDecisionAlternatives(record,history,{asOf:now}),historyEvidence:{status:history.status,counts:history.counts,
+  const result=D.replayDecisionAlternatives(record,history,{asOf:now});
+  return {...result,riskBudget:require('./fayo-risk-replay-review').riskBudget(record,result,stored.events),historyEvidence:{status:history.status,counts:history.counts,
    sourceRefs:history.sourceRefs,missing:history.missing},readOnly:true};
  });
  const decisionRisks=[];

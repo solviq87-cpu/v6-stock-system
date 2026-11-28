@@ -4,6 +4,8 @@
  * scorecard. All three versions see IDENTICAL matured cross-sections.
  * It is not a return forecast, portfolio P&L or authorization to trade.
  */
+const {researchScorecard}=require('./fayo-model-evidence-audit');
+const {routeDiagnostic}=require('./fayo-final-model-review');
 const MIN_DAYS=5,MAX_WINDOW=20;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=(n,d=6)=>n===null?null:+n.toFixed(d);
@@ -104,8 +106,10 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   rawOriginalDeltas.filter(x=>x>0).length/rawOriginalDeltas.length*100>=60&&
   mean(rawOriginalDeltas.slice(0,split))>=-.001&&
   mean(rawOriginalDeltas.slice(split))>=-.001;
+ const evidenceBreakdown=researchScorecard(window,rows.map((r,i)=>({...r,originalIC:rawICs[0][i],acceptedIC:rawICs[1][i],proposedIC:rawICs[2][i]})),ids,[originalWeights,acceptedWeights,proposedWeights]);
  return {...base,status:'paired-scorecard-unverified',
   assessedDays:rows.length,perDay:rows,...Object.fromEntries(summaries),
+  evidenceBreakdown,routeDiagnostic:routeDiagnostic(evidenceBreakdown),
   proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility(rawOriginalDeltas)},
   proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility(rawAcceptedDeltas)},
   originalGatePassed};

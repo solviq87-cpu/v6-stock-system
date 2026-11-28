@@ -328,6 +328,14 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
    verifyEpisode(frozen,now);
    return frozen;
   });
+  // The explicit automatic-registration entry uses the SAME global trial
+  // budget as watch evaluation, before any model proposal or outcome access.
+  if(auto){
+   const budget=globalTrialBudget(conf.outputDir,features.map(x=>x.signalDay));
+   if(budget.remainingTrials===0)return {ok:true,status:'skipped-global-trial-budget-exhausted',
+    usedTrials:budget.usedTrials,maxTrials:budget.maxTrials,windowStartDay:budget.windowStartDay,
+    canTrade:false,productionWeightsChanged:false};
+  }
   features=registrationFeatures(manifest,features,conf.captureDir,now);
   const accepted=latestAccepted(conf.outputDir);
   const previousTrial=latestTrial(conf.outputDir,accepted);
@@ -383,17 +391,22 @@ function readEpisodeReport(file){
  * inspect the prior worker and its immutable trial archives.
  */
 const HEARTBEAT_NAME='.shadow-worker-heartbeat.json';
+const {runtimeAttempt,validAttempt}=require('../src/core/fayo-final-model-review');
 function writeWatchHeartbeat(dir,{now=Date.now(),intervalMs=60000,
- outcome='tick-success',lastStatus='unknown'}={}){
+ outcome='tick-success',lastStatus='unknown',attempt=null}={}){
  if(!Number.isSafeInteger(now)||now<=0||
     !Number.isSafeInteger(intervalMs)||intervalMs<30000||intervalMs>3600000||
     !['tick-success','tick-error'].includes(outcome)||
     typeof lastStatus!=='string'||lastStatus.length>90||
     !/^[a-z0-9-]+$/.test(lastStatus))
   throw Error('研究心跳参数无效');
+ if(attempt!==null&&(!validAttempt(attempt,now)||attempt.startedAt!==now||attempt.outcome!==outcome||attempt.lastStatus!==lastStatus))throw Error('运行回执与原心跳不一致');
+ const former=attempt?readWatchHeartbeat(dir):null;
+ const lastFailure=attempt?.outcome==='tick-error'?attempt:former?.lastFailure??null;
+ if(lastFailure!==null&&(!validAttempt(lastFailure,now)||lastFailure.outcome!=='tick-error'))throw Error('原运行失败回执无效');
  const payload={schemaVersion:1,mode:'v6-shadow-watch-heartbeat-v1',
   observedAt:now,intervalMs,outcome,lastStatus,
-  pid:process.pid,canTrade:false,productionWeightsChanged:false};
+  pid:process.pid,canTrade:false,productionWeightsChanged:false,...(attempt?{attempt,lastFailure}: {})};
  const full={...payload,integrity:hash(payload)};
  const file=path.join(dir,HEARTBEAT_NAME),
   temp=path.join(dir,'.shadow-heartbeat-'+crypto.randomBytes(12).toString('hex')+'.tmp');
@@ -451,7 +464,7 @@ function runHealth({manifestFile,outputDir,now=Date.now()}={}){
   budget=globalTrialBudget(conf.outputDir,days),
   pulse=readWatchHeartbeat(conf.outputDir);
  return assessShadowRuntimeHealth({now,signalDays:days,reportFilesPresent,
-  accepted,trial,cooldown,registration,budget,pulse});
+  accepted,trial,cooldown,registration,budget,pulse,manifestFingerprint:manifest.integrity});
 }
 function withResearchLock(dir,work){
  const lock=safeNew(path.join(dir,'.shadow-worker.lock'));
@@ -512,12 +525,15 @@ function runOnce({manifestFile,outputDir,now=Date.now(),
   throw Error('运维自动学习命令仅接受冻结回执与首份成熟H5绑定的正式研究清单，拒绝旧版简化测试清单');
  validateManifest(manifest);
  return withResearchLock(conf.outputDir,()=>{
-  const heartbeat=(outcome,lastStatus)=>{if(watchPulse)writeWatchHeartbeat(conf.outputDir,
-   {now,intervalMs:watchIntervalMs,outcome,lastStatus});};
+  const started=process.hrtime.bigint();
+  const heartbeat=(outcome,lastStatus,result)=>{if(watchPulse){
+   const attempt=runtimeAttempt({manifestFingerprint:manifest.integrity,canonical:manifest.mode==='v6-forward-training-manifest',operatorMode,startedAt:now,elapsedMs:Number(process.hrtime.bigint()-started)/1e6,outcome,lastStatus,reportFingerprint:result?.fingerprint});
+   writeWatchHeartbeat(conf.outputDir,{now,intervalMs:watchIntervalMs,outcome,lastStatus,attempt});
+  }};
   try{
    const result=evaluateOnce({...conf,requirePreRegistration,autoRegisterCandidate,captureDir},now,manifest);
-   if(result&&typeof result.then==='function')return result.then(value=>{heartbeat('tick-success',value.status);return value;},e=>{heartbeat('tick-error','worker-evaluation-error');throw e;});
-   heartbeat('tick-success',result.status);return result;
+   if(result&&typeof result.then==='function')return result.then(value=>{heartbeat('tick-success',value.status,value);return value;},e=>{heartbeat('tick-error','worker-evaluation-error');throw e;});
+   heartbeat('tick-success',result.status,result);return result;
   }catch(e){heartbeat('tick-error','worker-evaluation-error');throw e;}
  });
 }
