@@ -270,3 +270,61 @@ test('both evidence inputs score the original lot once and sparse intent trigger
   const gap=paperExecutionScore({...inputs,observations:samples.filter((_,i)=>i!==10)});
   assert.equal(gap.score,null);assert.equal(gap.rows[0].coverage.complete,false);
 });
+
+test('F23.3 read-only notice revalidates the exact original quote at publication, including the 15s boundary',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const {accountEpochOf}=require('../src/core/account-equity-evidence');
+  const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const plan=frozen(),state=book(false);
+  Object.assign(state,{schemaVersion:1,initialCash:10000,paperOnly:true,brokerConnected:false});
+  state.account.fingerprint=digest({cash:state.account.cash,positions:state.account.positions,events:state.account.events});
+  state.fingerprint=digest(state);
+  const at=stamp(entryDay,'10:00:00'),origin=observed({state,plan,day:entryDay,now:at});
+  const record=origin.records[0],alert=origin.alerts[0],qAt=at+1000,q=quote(entryDay,qAt,10);
+  const ref={accountEpoch:accountEpochOf(state,'pool'),quoteAt:record.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:record.fingerprint,deliveryId:'b'.repeat(64)};
+  const session=at=>({day:entryDay,continuous:sessions(entryDay).some(([a,b])=>at>=a&&at<b)});
+  const before=JSON.stringify(state);
+  async function run(done,availability=()=>true){
+    let calls=0,reads=0;
+    const clocks=[qAt,qAt,qAt,done];
+    const result=await reviewPlanNotice(ref,{clock:()=>clocks[Math.min(calls++,clocks.length-1)],
+      canRead:()=>true,available:availability,session,store:{read:async()=>origin},
+      readArchive:async()=>({ok:true,state:{plans:[plan]}}),
+      readContext:async(plans,options)=>{
+        reads++;assert.deepEqual(options,{publishReceipts:false});assert.equal(plans[0].id,plan.id);
+        return {now:qAt,book:state,quotes:{[plan.code]:q},calendar,
+          entryEligibilityByPlan:{[plan.id]:{allowed:true,reason:'原预检通过',checkedAt:qAt,quoteAt:qAt}}};
+      }});
+    assert.equal(reads,1);assert.equal(JSON.stringify(state),before);
+    assert.equal(result.canTrade,false);assert.equal(result.accountMutated,false);
+    assert.equal(result.original.price,record.price);assert.equal(result.original.quoteAt,record.quoteAt);
+    return result;
+  }
+  const edge=await run(qAt+15000);assert.equal(edge.status,'observed');assert.equal(edge.current.quoteAt,qAt);
+  const stale=await run(qAt+15001);assert.equal(stale.status,'historical');assert.equal(stale.current,null);
+  const rollback=await run(qAt-1);assert.equal(rollback.status,'unknown');assert.equal(rollback.current,null);
+  let availabilityCalls=0;
+  const revoked=await run(qAt+1,()=>++availabilityCalls<4);
+  assert.equal(revoked.status,'unavailable');assert.equal(revoked.current,null);
+});
+test('F23.3 read begun before lunch cannot revive an old review in the afternoon even with a new valid quote',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const {accountEpochOf}=require('../src/core/account-equity-evidence');
+  const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const plan=frozen(),state=book(false);
+  Object.assign(state,{schemaVersion:1,initialCash:10000,paperOnly:true,brokerConnected:false});
+  state.account.fingerprint=digest({cash:state.account.cash,positions:state.account.positions,events:state.account.events});
+  state.fingerprint=digest(state);
+  const opened=stamp(entryDay,'11:29:59'),afterLunch=stamp(entryDay,'13:00:01');
+  const origin=observed({state,plan,day:entryDay,now:opened}),record=origin.records[0],alert=origin.alerts[0];
+  const ref={accountEpoch:accountEpochOf(state,'pool'),quoteAt:record.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:record.fingerprint,deliveryId:'b'.repeat(64)};
+  let at=opened,reads=0;
+  const result=await reviewPlanNotice(ref,{clock:()=>at,canRead:()=>true,available:()=>true,
+    session:at=>({day:entryDay,continuous:sessions(entryDay).some(([a,b])=>at>=a&&at<b)}),
+    store:{read:async()=>origin},readArchive:async()=>({ok:true,state:{plans:[plan]}}),
+    readContext:async()=>{reads++;at=afterLunch;return {now:at,book:state,calendar,quotes:{[plan.code]:quote(entryDay,at)}};}});
+  assert.equal(reads,1);assert.equal(result.status,'historical');assert.equal(result.current,null);
+  assert.equal(result.original.quoteAt,opened);assert.equal(result.canTrade,false);
+});
