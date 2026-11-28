@@ -1,0 +1,34 @@
+{
+  "status": "source-claims",
+  "action": "buyback",
+  "issuerSymbol": "003025",
+  "reportedThrough": null,
+  "sourceCompletion": "unknown",
+  "rows": [
+    {
+      "role": "period",
+      "quote": "本月开展逆回购500亿元",
+      "quantities": [
+        {
+          "text": "500",
+          "unit": "亿元",
+          "measure": "money",
+          "bound": null,
+          "currency": null
+        }
+      ],
+      "feeBasis": "unknown"
+    }
+  ],
+  "inactiveReasons": [],
+  "truncated": false,
+  "actorVerified": false,
+  "periodIncrement": null,
+  "actualMarketFlow": null,
+  "note": "仅本页材料声明；计划、累计、本期及已披露执行分开。金额保留原单位与币种，不加总、不自动差分；不是当日市场净流量或账户成交。",
+  "independentlyVerified": false,
+  "canQualify": false,
+  "canTrade": false,
+  "canTrain": false,
+  "canNotify": false
+}

@@ -97,6 +97,60 @@ function projectIndexAdjustment(e,asOf,inactiveReasons){
     sourceVerified:false,canQualify:false,canTrade:false,canTrain:false,canNotify:false};
 }
 
+// Keep financial statements in their declared basis. Never sum cumulative disclosures,
+// infer an execution from a plan, or write issuer disclosures into an account ledger.
+function projectCapitalActivity(e,asOf,inactiveReasons){
+  if(typeof e.body!=='string'||e.body.length>50000||typeof e.title!=='string'||e.title.length>1000)return null;
+  const text=e.title+'\n'+e.body;
+  const moneyMarket=/逆回购|正回购|债券回购|质押式回购|回购利率/.test(text);
+  const shareBuyback=/股份回购|股票回购|回购(?:公司|本公司)?(?:股份|股票|A股|B股)/.test(text);
+  const actions=[['buyback',/回购/],['increase',/增持/],['disposal',/减持/],['unlock',/解禁/]]
+    .filter(([action,re])=>re.test(text)&&(action!=='buyback'||!moneyMarket||shareBuyback));
+  if(!actions.length)return null;
+  const flags={independentlyVerified:false,canQualify:false,canTrade:false,canTrain:false,canNotify:false};
+  const symbols=Array.isArray(e.securities)?e.securities:[];
+  const codes=[...new Set([...e.body.matchAll(/证券代码[：:][ \t]*(\d{6})(?!\d)/g)].map(m=>m[1]))];
+  const bound=symbols.length===1&&/^\d{6}$/.test(symbols[0])&&codes.length===1&&codes[0]===symbols[0]&&actions.length===1;
+  const declaredDates=[...e.body.matchAll(/截至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>{
+    const date=m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+    return Number.isFinite(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date?date:null;
+  });
+  const today=new Date(asOf+8*3600000).toISOString().slice(0,10);
+  const badDates=declaredDates.some(d=>!d||d>today)||new Set(declaredDates).size>1;
+  const reportedThrough=declaredDates.length&&!badDates?declaredDates[0]:null;
+  const noun={buyback:'回购',increase:'增持',disposal:'减持',unlock:'解禁'}[actions[0][0]];
+  const completed=bound&&new RegExp(noun+'(?:股份)?(?:计划|方案)?(?:已实施完毕|已完成)|已完成本次'+noun).test(text);
+  const unfinished=bound&&new RegExp(noun+'(?:股份)?(?:计划|方案)?(?:尚未|未)实施完毕').test(text);
+  const sourceCompletion=completed&&unfinished?'conflict':unfinished?'in-progress':completed?'completed':'unknown';
+  const review=badDates||sourceCompletion==='conflict'||/澄清|否认|不属实/.test(text)||/取消|终止|撤销/.test(e.title);
+  const status=inactiveReasons.length?'inactive':!bound?'ambiguous-subject':review?'manual-review':'source-claims';
+  const allLines=[...new Set(e.body.split(/[。\n]+/).map(s=>s.trim()).filter(Boolean))],lines=allLines.slice(0,100),rows=[];
+  let truncated=allLines.length>100;
+  for(const [lineIndex,quote] of bound?lines.entries():[]){
+    if(quote.length>1600){truncated=true;continue;}
+    if(/逆回购|正回购|质押式回购|回购利率|国债|债券|基金份额|再贷款/.test(quote))continue;
+    const quantities=[];
+    for(const m of quote.matchAll(/(?<![\d.,+\-])((?:\d{1,3}(?:,\d{3})+|0|[1-9]\d*)(?:\.\d+)?)(?![\d.,])\s*(万港元|亿港元|港元\/股|元\/股|亿元|万元|港元|元|亿股|万股|股|%|％|个月)/g)){
+      if(m[1].length>24)continue;
+      const unit=m[2],money=/元/.test(unit),measure=unit.endsWith('/股')?'price':money?'money':unit.endsWith('股')?'shares':unit==='个月'?'duration':'ratio';
+      const prefix=quote.slice(Math.max(0,m.index-12),m.index).replace(/\s/g,'');
+      const bound=/(?:不低于|不少于|下限)[：:]?(?:为)?(?:人民币)?$/.test(prefix)?'lower':/(?:不超过|不高于|至多|上限)[：:]?(?:为)?(?:人民币)?$/.test(prefix)?'upper':null;
+      quantities.push({text:m[1],unit,measure,bound,currency:/港元/.test(unit)?'HKD':money&&/人民币$/.test(prefix)?'CNY':null});
+      if(quantities.length>8){truncated=true;break;}
+    }
+    if(!quantities.length)continue;
+    const plan=/计划|拟|上限|下限|不少于|不低于|不超过|额度|意向/.test(quote),cumulative=/累计/.test(quote),period=/本月|本期|当期|报告期内/.test(quote);
+    const negative=/(?:尚未|暂未|未)(?:实施|进行|发生|回购|增持|减持|解禁)(?!完毕)/.test(quote);
+    const reported=/已通过|已回购|已增持|已减持|已解禁/.test(quote);
+    const role=quantities.length>8?'mixed-or-unknown':negative?'not-executed':Number(plan)+Number(cumulative)+Number(period)>1?'mixed-or-unknown':plan?'plan':cumulative?'cumulative':period?'period':reported?'reported':'mixed-or-unknown';
+    rows.push({role,quote,quantities:role==='mixed-or-unknown'?[]:quantities,feeBasis:/不含[^。]{0,30}费用/.test(quote)?'excludes-fees':'unknown'});
+    if(rows.length===12){truncated=truncated||lineIndex<lines.length-1;break;}
+  }
+  return {status,action:actions.length===1?actions[0][0]:null,issuerSymbol:bound?symbols[0]:null,reportedThrough,sourceCompletion,rows,
+    inactiveReasons:[...inactiveReasons],truncated,actorVerified:false,periodIncrement:null,actualMarketFlow:null,
+    note:'仅本页材料声明；计划、累计、本期及已披露执行分开。金额保留原单位与币种，不加总、不自动差分；不是当日市场净流量或账户成交。',...flags};
+}
+
 // Read-only, point-in-time view of existing news journal receipts. No trade or notification API.
 export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={}){
   const validTime=(v)=>Number.isSafeInteger(v)&&v>0&&v<=now;
@@ -154,6 +208,7 @@ export function projectNewsEvents(rows,asOf,now=Date.now(),{currentView=false}={
     projected.push({row,versions:chain,knownAt:row.recordedAt,subjects:[...e.securities],clues,amounts,
       securityIdentity:projectSecurityIdentity(e,{active:inactiveReasons.length===0,inactiveReasons}),
       indexAdjustment:projectIndexAdjustment(e,asOf,inactiveReasons),
+      capitalActivity:projectCapitalActivity(e,asOf,inactiveReasons),
       effectiveAt:null,effectiveDate:effective?.date??null,effectiveQuote:effective?.quote??null,formalDisclosure:disclosure,chainComplete,missing,
       revisionStatus:row.current===false?'已被后续版本替代':row.associated===false?'证券关联已移除':e.kind==='retracted'?'已撤稿':e.kind==='revised'?'已修订':'原始记录',
       researchOnly:true,canTrade:false,canNotify:false});

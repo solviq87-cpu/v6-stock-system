@@ -25,7 +25,7 @@ fs.mkdirSync(out,{recursive:true});
  const t=Date.now(),original={...JSON.parse(fs.readFileSync(input))[0],source:'isolated-index-control',eventId:'synthetic-withdrawal',sourceRevisionId:'original',title:'隔离合成：指数样本调整计划',securities:['600000'],body:'指数样本调整于2026年12月11日收市后生效。',receivedAt:t};
  const synthetic=path.join(f.tmp,'index-control.json');fs.writeFileSync(synthetic,JSON.stringify(original));const a=cli(synthetic).results[0];
  const historical=(await f.request(route+'?symbol=600000&asOf='+Date.now())).body.result;
- fs.writeFileSync(synthetic,JSON.stringify({...original,kind:'retracted',sourceRevisionId:'retracted',supersedes:a.eventHash,receivedAt:Date.now(),revisedAt:Date.now(),title:'隔离合成：指数样本调整撤稿'}));cli(synthetic);
+ const revisedAt=Date.now();fs.writeFileSync(synthetic,JSON.stringify({...original,kind:'retracted',sourceRevisionId:'retracted',supersedes:a.eventHash,receivedAt:revisedAt,revisedAt,title:'隔离合成：指数样本调整撤稿'}));cli(synthetic);
  const withdrawn=(await f.request(route+'?symbol=600000&asOf='+Date.now())).body.result;
  assert.equal(projectNewsEvents(withdrawn.rows,withdrawn.asOf,Date.now()).rows[0].indexAdjustment.status,'inactive');
  const past=await f.request(route+'?symbol=600000&asOf='+historical.asOf);assert.equal(projectNewsEvents(past.body.result.rows,historical.asOf,Date.now()).rows[0].indexAdjustment.status,'future-date');
