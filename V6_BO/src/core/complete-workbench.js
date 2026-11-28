@@ -10,6 +10,7 @@ const {evaluatePublicRuleForwardAudit}=require('../strategy/public-rule-forward-
 const {buildEightPointEvidence}=require('./eight-point-research-pipeline');
 function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
+  if(payload.includeStrategyComparison!==undefined&&typeof payload.includeStrategyComparison!=='boolean')throw Error('同条件回放开关必须是布尔值');
   const history=payload.history,ds=validateDataset(history);
   if(ds.stocks*ds.barsPerStock>20000||ds.barsPerStock>1000)throw Error('交互研究限制总K线20000条、每只1000条；更大任务使用离线CLI');
   if(history.asOf>aShareCalendarDate())throw Error('研究数据截至日期位于未来');
@@ -43,6 +44,19 @@ function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
         reason:String(e?.message||'无法完成样本外评估').slice(0,180)};
     }
   }
+  let strategyComparison;
+  if(payload.includeStrategyComparison===true){
+    try{
+      const {replayStrategyPortfolios,comparisonConfig,describeStrategyComparison}=require('./strategy-portfolio-lab');
+      const portfolios=replayStrategyPortfolios(history,native.signals,{config:comparisonConfig(payload.strategyComparisonConfig)});
+      // Preserve complete order/fill/valuation evidence, never a favorable
+      // truncation. Larger reports belong in the original offline CLI.
+      const evidenceRows=Object.values(portfolios.systems).reduce((n,s)=>n+s.orders.length+s.fills.length+s.equity.length+s.positions.length,0);
+      if(evidenceRows>40000)throw Error('同条件完整证据超过交互预算，请使用原离线统一策略CLI；未截断结果');
+      strategyComparison=describeStrategyComparison(history,native,portfolios);
+      strategyComparison.executionEvidence=portfolios;
+    }catch(e){strategyComparison={schemaVersion:1,mode:'native-strategy-protocol-comparison',status:'unavailable',reason:String(e?.message||'同条件回放未完成').slice(0,180),canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,eligibleForPromotion:false,weightsChanged:false};}
+  }
   const reconciliation={backtest:reconcileAccount(backtest),paper:reconcileAccount(session.report)};
   const strategies={coverage:native.coverage,details:native.details,replay:native.replay};
   const eightPointFlow=buildEightPointEvidence({history,selectionEvidence,
@@ -51,6 +65,7 @@ function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   return {schemaVersion:1,mode:'integrated-research',canTrade:false,verifiedLive:false,dataset:ds,calendar,
     backtest,paper:session.report,reconciliation,
     strategies,selectionEvidence,eightPointFlow,
+    ...(payload.includeStrategyComparison===true?{strategyComparison}:{}),
     ...(payload.validatePublicRules===true?{publicRuleForwardAudit}:{}),
     externalAcceptance:['供应商行情授权及对账','真实短信送达','生产HTTPS和跨机恢复','电脑手机真机验收']};
 }

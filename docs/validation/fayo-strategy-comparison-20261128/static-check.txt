@@ -1,0 +1,45 @@
+
+> stock-dashboard@1.0.0 check
+> node --check server.js && node --check src/server/bootstrap.js && node --check src/core/strategy-engine.js && node --check public/assets/app.js && node scripts/check-fayo.js && node scripts/audit-fayo-integration-gates.js
+
+FAYO: syntax verified for 80 independent native frontend modules.
+{
+  "ok": true,
+  "scope": "checked-in-configuration-only",
+  "remoteEnforcement": "not-assessed",
+  "requiredChecks": [
+    "a-share-session-data-quality",
+    "cloud-ledger-failclosed",
+    "cloud-records-backup-preflight",
+    "cloud-records-cas",
+    "cloud-records-cas-client",
+    "cloud-records-http-auth",
+    "cloud-records-ledger-anchor-audit",
+    "cloud-records-real-login",
+    "commit-status-coverage",
+    "multi-source-data-lineage",
+    "verify",
+    "verify-web",
+    "visual-geometry",
+    "workbuddy-readonly-audit"
+  ],
+  "browserScripts": [
+    "fayo-advanced-safety-browser-check.js",
+    "fayo-browser-check.js",
+    "fayo-close-freeze-browser-check.js",
+    "fayo-command-evidence-browser-check.js",
+    "fayo-decision-browser-check.js",
+    "fayo-deep-research-browser-check.js",
+    "fayo-evolution-browser-check.js",
+    "fayo-execution-browser-check.js",
+    "fayo-intelligence-browser-check.js",
+    "fayo-kline-learning-browser-check.js",
+    "fayo-manual-loop-browser-check.js",
+    "fayo-operations-browser-check.js",
+    "fayo-replay-boundaries-browser-check.js",
+    "fayo-research-discipline-browser-check.js",
+    "fayo-risk-browser-check.js",
+    "fayo-source-review-browser-check.js"
+  ],
+  "failures": []
+}

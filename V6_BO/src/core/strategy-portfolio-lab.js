@@ -140,4 +140,53 @@ function replayStrategyPortfolios(history,signals,{config={}}={}){
   config:cfg,source:history.source,asOf:history.asOf,systems:reports,
   limitations:['只有 pass 信号触发次日开盘纸面委托；unknown/fail 不伪造交易','独立模拟盘不合并四套策略的评分或资金','不含盘口排队、真实成交、除权除息到账及交易所完整交易日历','一字板、T+1、买入整手、最低佣金、停牌、ST和成本为保守近似，不构成真实可成交证明']};
 }
-module.exports={replayStrategyPortfolios,checkConfig,executionBlock};
+// The interactive comparison accepts only the existing numeric research
+// settings. It never accepts a second set of per-system capital or risk rules.
+function comparisonConfig(value={}){
+ const keys=['initialCash','maxPositions','allocationPct','feeBps','slippageBps','sellTaxBps','lotSize','minCommission','stopLossPct','maxDrawdownPct','startDay'];
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!keys.includes(k)))throw Error('同条件回放配置只接受原研究资金、成本与退出参数');
+ return checkConfig(value);
+}
+// Summarize an ALREADY computed independent replay. No new signals, scoring,
+// account ledger, return arithmetic, ranking or promotion logic is created.
+function describeStrategyComparison(history,native,portfolios){
+ const dataset=validateDataset(history),dates=history.stocks[0].bars.map(b=>b.date),cfg=portfolios?.config;
+ if(portfolios?.mode!=='four-independent-native-evidence-paper-portfolios'||portfolios.source!==history.source||portfolios.asOf!==history.asOf||!cfg||!Number.isSafeInteger(cfg.startDay)||cfg.startDay<1||cfg.startDay>=dates.length||!Array.isArray(native?.signals))throw Error('同条件回放缺少原生信号或独立账本');
+ const symbols=history.stocks.map(s=>String(s.symbol||s.code)),allDates=new Set(dates),windowDates=dates.slice(cfg.startDay-1,-1),windowSet=new Set(windowDates),symbolsSet=new Set(symbols);
+ const seen=new Set(),bySystem=Object.fromEntries(SYSTEMS.map(id=>[id,new Map()]));
+ for(const signal of native.signals){
+  if(!signal||!SYSTEMS.includes(signal.system)||!symbolsSet.has(signal.symbol)||!allDates.has(signal.date)||!['pass','fail','unknown'].includes(signal.verdict))throw Error('同条件信号的体系、证券、日期或状态无效');
+  const key=JSON.stringify([signal.symbol,signal.date]),identity=JSON.stringify([signal.system,signal.symbol,signal.date]);
+  if(seen.has(identity))throw Error('同条件回放不接受重复信号');seen.add(identity);
+  if(signal.observedThrough!==signal.date)throw Error('同条件信号含无效或未来观察时点，须保持原同日信号合同');
+  if(typeof signal.provenance!=='string'||!signal.provenance.trim()||!validVersion(signal.evaluatorVersion))throw Error('同条件信号缺少原来源或评估版本');
+  if(windowSet.has(signal.date))bySystem[signal.system].set(key,signal);
+ }
+ const evaluated=s=>s&&['pass','fail'].includes(s.verdict)&&typeof s.observedThrough==='string'&&s.observedThrough<=s.date&&typeof s.evaluatorVersion==='string'&&!!s.evaluatorVersion.trim();
+ const total=dataset.stocks*windowDates.length;
+ let commonEvaluatedSignals=0;
+ for(const date of windowDates)for(const symbol of symbols){const key=JSON.stringify([symbol,date]);if(SYSTEMS.every(id=>evaluated(bySystem[id].get(key))))commonEvaluatedSignals++;}
+ const digest=x=>require('node:crypto').createHash('sha256').update(JSON.stringify(x)).digest('hex');
+ const systems=SYSTEMS.map(id=>{
+  const rows=[...bySystem[id].values()],known=rows.filter(evaluated),account=portfolios.systems?.[id];
+  if(!account?.metrics||!Array.isArray(account.fills)||!Array.isArray(account.orders)||!Array.isArray(account.equity)||account.metrics.initialCash!==cfg.initialCash)throw Error('独立组合资金或账本不完整');
+  const bought=account.fills.filter(f=>f.side==='buy').length,assessed=known.length>0;
+  return {id,status:!assessed?'not-evaluated':!bought?'no-buy-fills':'paper-estimate',
+   coverage:{total,evaluated:known.length,unknown:total-known.length,missing:total-rows.length,passed:known.filter(s=>s.verdict==='pass').length,failed:known.filter(s=>s.verdict==='fail').length},
+   evaluatorVersions:[...new Set(known.map(s=>s.evaluatorVersion))].sort(),
+   paperReturnPct:assessed&&bought?account.metrics.returnPct:null,
+   paperDrawdownPct:assessed&&bought?account.metrics.maxDrawdownPct:null,
+   accountMetrics:{...account.metrics},buyFills:bought,orderCount:account.orders.length,
+   blockedOrders:account.metrics.blockedOrders,openPositions:account.metrics.openPositions,
+   versionAttribution:account.versionAttribution,accountEvidenceFingerprint:digest(account)};
+ });
+ return {schemaVersion:1,mode:'native-strategy-protocol-comparison',status:commonEvaluatedSignals?'shared-protocol-descriptive-only':'insufficient-common-evaluated-signals',
+  scope:'existing-four-native-systems-only',datasetFingerprint:digest(history),signalsFingerprint:digest(native.signals),protocolFingerprint:digest({config:cfg,dates,symbols}),
+  source:history.source,provider:history.provider||null,asOf:history.asOf,retrievedAt:history.retrievedAt??null,
+  dataset,protocol:{...cfg,signalStart:windowDates[0],signalEnd:windowDates.at(-1),entryStart:dates[cfg.startDay],valuationThrough:dates.at(-1),
+   exitPolicy:'next-eligible-session-open-after-entry; T+1/limit/suspension constraints retained'},
+  commonEvaluatedSignals,totalCandidateSignals:total,systems,
+  limitations:[...portfolios.limitations,'当前取得的历史版本不等于逐日当时已知的完整股票池、因子与证券状态','共同已评估信号不是独立成熟收益样本；没有选出赢家','无评估或无买入成交时，现金未动不显示为策略零收益胜出'],
+  canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,eligibleForPromotion:false,weightsChanged:false,pointInTimeCertified:false};
+}
+module.exports={replayStrategyPortfolios,checkConfig,executionBlock,comparisonConfig,describeStrategyComparison};

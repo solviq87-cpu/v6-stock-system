@@ -7,7 +7,7 @@ const {runNativeDaily}=require('./native-strategy-daily-runner');
 const {runOfflineResearchClosure}=require('./offline-research-closure');
 const {buildRunAudit}=require('./unified-run-audit');
 const {auditMarketData}=require('./market-data-quality');
-const {replayStrategyPortfolios}=require('./strategy-portfolio-lab');
+const {replayStrategyPortfolios,describeStrategyComparison}=require('./strategy-portfolio-lab');
 const {strategyHealth}=require('./strategy-health-monitor');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 function runUnifiedStrategyProject(history,options={}){
@@ -25,6 +25,7 @@ function runUnifiedStrategyProject(history,options={}){
  return {schemaVersion:1,mode:'unified-offline-strategy-project',canTrade:false,verifiedLive:false,
   datasetFingerprint:hash(history),validation,asOf:research.asOf,coverage,
   audit:buildRunAudit(history,options,native,options.pythonExecution),marketQuality,independentPortfolios,strategyDiagnostics,
+  strategyComparison:describeStrategyComparison(history,native,independentPortfolios),
   native:{signals:native.signals,details:native.details,replay:native.replay},ranking:research.ranking,
   paper:research.paper,backtest:research.backtest,gate:{eligible:false,blockers},
   warnings:['研究排行榜不是交易指令','历史回测和纸面撮合不能证明真实成交或未来收益']};
