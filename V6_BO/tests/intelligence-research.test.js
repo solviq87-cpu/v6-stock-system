@@ -439,3 +439,14 @@ test('F17.4 common-asset review remains unconfigured and never grants trade perm
  const r=buildIntelligenceResearch({day,now,archive:null});
  assert.equal(r.crossMarket.commonAssetShock.status,'not-configured');assert.equal(r.crossMarket.commonAssetShock.shock,null);assert.equal(r.crossMarket.commonAssetShock.canTrade,false);
 });
+
+test('F10.2/F10.3 original walk-forward report consumes orthogonal and redundancy results without promoting a baseline',()=>{
+ const {samples,clock,alignment}=sampledHistory(),config=shortConfig();
+ const first=buildWalkForward(samples,alignment,{config,now:clock}).folds[0],r=first.rankBaselines;
+ assert.equal(r.status,'descriptive-fold-comparison');assert.equal(r.retainedFactors.length,1);
+ assert.equal(r.training.coverage.evaluatedDays,15);assert.equal(r.test.coverage.evaluatedDays,5);
+ assert.equal(r.netReturnPct,null);assert.equal(r.tree.status,'not-run');assert.equal(r.canApprove,false);assert.equal(r.productionWeightsChanged,false);
+ const changed=clone(samples);for(const row of changed)if(row.day>=first.ranges.test.start)row.returnPct*=-1;
+ const second=buildWalkForward(changed,alignment,{config,now:clock}).folds[0].rankBaselines;
+ assert.deepEqual(second.weights,r.weights);assert.notDeepEqual(second.test,r.test);
+});
