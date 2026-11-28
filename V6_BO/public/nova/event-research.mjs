@@ -67,7 +67,8 @@ function projectIndexAdjustment(e,asOf,inactiveReasons){
   const declared=dates.length&&dates.every(x=>x.date)&&unique.size===1?dates[0]:null;
   const announced=[...e.body.matchAll(/公告日期[：:]\s*(\d{4})年(\d{1,2})月(\d{1,2})日/g)].map(m=>date(m[1],m[2],m[3]));
   const announcementDate=announced.length&&announced.every(Boolean)&&new Set(announced).size===1?announced[0]:null;
-  const review=/澄清|否认|不属实|取消|延期|暂停|撤销|撤回/.test(text);
+  // A retained date can be superseded by postponement without a replacement date.
+  const review=/澄清|否认|不属实|取消|延期|暂停|撤销|撤回|推迟|延后|顺延|暂缓|择期(?:实施|生效|调整)|另行通知|不再(?:实施|生效|执行|调整)|暂不(?:实施|生效|执行|调整)/.test(text);
   const day=new Date(asOf+8*3600000).toISOString().slice(0,10);
   const status=inactiveReasons.length?'inactive':review?'manual-review':!declared?'unknown-date':
     declared.date>day?'future-date':declared.date===day?'date-reached-unverified':'date-passed-unverified';
