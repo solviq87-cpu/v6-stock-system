@@ -25,3 +25,8 @@ test('invalid candidate input rejected before fetching network',async()=>{
  await assert.rejects(buildDecisionResearch({candidates:Array(51).fill({code:'000001'}),fetchSnapshot:async()=>{called=true;return snapshot;}}));
  assert.equal(called,false);
 });
+
+test('F13 original pipeline preserves a high-score risk denial and independent opportunity uncertainty',async()=>{
+ const result=await buildDecisionResearch({fetchSnapshot:async()=>snapshot,now:Date.UTC(2026,10,5),candidates:[{code:'000002',finalScore:99,isST:true}]});
+ const r=result.ranked[0];assert.equal(r.originalScore,99);assert.equal(r.opportunityReview.originalScore,99);assert.equal(r.opportunityReview.executionStatus,'blocked-by-original-risk');assert.equal(r.opportunityReview.priceOpportunity,null);assert.equal(r.opportunityReview.netValue,null);assert.equal(r.opportunityReview.canTrade,false);
+});

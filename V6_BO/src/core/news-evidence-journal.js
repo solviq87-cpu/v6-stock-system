@@ -136,21 +136,9 @@ function appendBatch(root=ROOT,inputs,{now=Date.now()}={}){
 }
 function query(root=ROOT,{symbol=null,limit=50,now=Date.now()}={}){
  if(symbol!==null&&(typeof symbol!=='string'||!/^\d{6}$/.test(symbol))||!Number.isSafeInteger(limit)||limit<1||limit>200)throw Error('INVALID_NEWS_QUERY');
- const all=readJournal(root,{now}),latest=new Map(all.map(e=>[key(e.evidence),e.eventHash]));
- const rows=all.filter(e=>symbol===null||e.evidence.securities.includes(symbol)).map(e=>{
-  const current=latest.get(key(e.evidence))===e.eventHash,x=e.evidence;
-  const unknown=x.uncertainty.some(s=>s.startsWith('UNKNOWN_')||s.startsWith('MISSING_')||s==='SUMMARY_ONLY');
-  return {...e,current,eligibleForResearchSupport:current&&x.kind!=='retracted'&&!unknown,
-   usableAsResearchSupport:current&&x.kind!=='retracted'&&!unknown,
-   supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':unknown?'unknown':'source-declared-unverified'};
- });
- const current=rows.filter(e=>e.current);
- return {schemaVersion:1,mode:'news-evidence-readonly',total:rows.length,rows:rows.slice(-limit).reverse(),
-  summary:{totalRevisions:rows.length,currentEvents:current.length,
-   retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
-   eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,
-   unknownEvents:current.filter(e=>e.supportStatus==='unknown').length},
-  headHash:all.at(-1)?.eventHash||null,readonly:true,...FLAGS};
+ // Keep current and historical reads on the same verified event-chain projection.
+ const {asOf,offset,limit:pageLimit,nextOffset,...result}=queryAt(root,{symbol,limit,asOf:now,now});
+ return result;
 }
 // Eastmoney wall-clock strings have China timezone, never host-local timezone.
 function sourceTime(v){
@@ -236,10 +224,26 @@ function queryAt(root=ROOT,{symbol=null,limit=50,offset=0,asOf=Date.now(),now=Da
   const unknown=x.uncertainty.some(s=>s.startsWith('UNKNOWN_')||s.startsWith('MISSING_')||s==='SUMMARY_ONLY');
   const usable=current&&associated&&x.kind!=='retracted'&&!unknown;
   return {...e,current,associated,eligibleForResearchSupport:usable,usableAsResearchSupport:usable,
-   supportStatus:!current?'superseded':!associated?'security-removed':x.kind==='retracted'?'retracted':unknown?'unknown':'source-declared-unverified'};
+   supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':!associated?'security-removed':unknown?'unknown':'source-declared-unverified'};
  });
  const current=rows.filter(e=>e.current);
- return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,
+ // Count exact complete texts separately from source statements. This is a
+ // conservative display-only grouping, not publisher authentication, a vote,
+ // or a claim that differently worded stories are independent.
+ const groups=new Map();
+ for(const row of current){
+  if(!row.eligibleForResearchSupport)continue;
+  const id=hash([row.evidence.title,row.evidence.bodyHash]);
+  groups.set(id,(groups.get(id)||0)+1);
+ }
+ for(const row of rows){
+  const id=row.eligibleForResearchSupport?hash([row.evidence.title,row.evidence.bodyHash]):null;
+  row.contentGroup=id?{id,statementCount:groups.get(id),independentSourcesVerified:false}:null;
+ }
+ const eligibleStatements=current.filter(e=>e.eligibleForResearchSupport).length;
+ const contentCoverage={eligibleStatements,distinctExactTexts:groups.size,
+  duplicateStatements:eligibleStatements-groups.size,independentSourcesVerified:false};
+ return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,contentCoverage,
    nextOffset:offset+limit<rows.length?offset+limit:null,rows:rows.slice().reverse().slice(offset,offset+limit),
    summary:{totalRevisions:rows.length,currentEvents:current.length,retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
    eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,unknownEvents:current.filter(e=>e.supportStatus==='unknown').length},

@@ -141,10 +141,11 @@ const server=http.createServer((req,res)=>{
    const market=await require('../src/core/live-market-research').researchLiveMarket({
     now:Date.parse('2026-11-05T10:00:00+08:00'),
     fetchSnapshot:async()=>({source:'browser-fixture',date:'2026-11-05',universeSize:3,
-      retrievedAt:'2026-11-05T10:00:00+08:00',stocks:[-2,-1,5].map((pctChange,i)=>({
+      retrievedAt:new Date('2026-11-05T10:00:00+08:00').toISOString(),startedAt:new Date('2026-11-05T09:59:58+08:00').toISOString(),stocks:[-2,-1,5].map((pctChange,i)=>({
        code:String(i+1).padStart(6,'0'),pctChange,amount:i+1,vendorQuoteAt:Date.parse('2026-11-05T09:59:59+08:00')
       }))})
    });
+   assert.equal(market.recentStructure.status,'observed-unverified');assert.equal(market.recentStructure.observed,3);assert.equal(market.recentStructure.medianReturnPct,-1);assert.equal(market.recentStructure.canTrade,false);
    await page.evaluate(async market=>{
      const {renderResearch}=await import('/nova/research.js');
      const ctx={role:'edit',state:{},api:async path=>path.endsWith('decision-pipeline')?{market,ranked:[]}:market};

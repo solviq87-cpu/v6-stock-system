@@ -119,21 +119,42 @@ function atomicPublish(dir,name,record,max){
  finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temp);}catch(e){if(e.code!=='ENOENT')throw e;}}
  const d=fs.openSync(dir,'r');try{fs.fsyncSync(d);}finally{fs.closeSync(d);}return true;
 }
+// Only stable IDs from the existing producers qualify for cross-push reuse.
+// Unclassified references remain visible as unknown, not guessed from message text.
+const marketTypes=new Set(['涨停','后排涨停概率','大单快速流入','趋势票','🔁 持续大单流入']);
+function refKind(ref,symbol){
+ if(ref.code!==symbol||!hex.test(ref.id||'')||!validTime(ref.ts))return 'unknown';
+ return ref.type==='news-evidence-revision'?'news':marketTypes.has(ref.type)?'market':/^risk-|^plan-/.test(ref.type)?'risk':'unknown';
+}
+function stableTriggerKey(intent){
+ const refs=intent.signalRefs;
+ if(!refs.length||refs.some(r=>!['news','market'].includes(refKind(r,intent.symbol))))return null;
+ return hash([intent.symbol,refs]);
+}
+function triggerEvidence(intent){
+ const counts={news:0,market:0,risk:0,unknown:0};
+ for(const r of intent.signalRefs)counts[refKind(r,intent.symbol)]++;
+ const kinds=Object.keys(counts).filter(k=>counts[k]>0);
+ return {kind:kinds.length===1?kinds[0]:kinds.length?'mixed':'unknown',references:counts,stableTriggerKey:stableTriggerKey(intent),sourceCertification:'producer-reference-only'};
+}
 function summaryEntry({event,attempts}){
  const last=attempts.at(-1),status=last?.status==='captured'?'completed':attempts.length===3?'failed':'pending';
- return {id:event.id,symbol:event.intent.symbol,decisionAt:event.intent.decisionAt,queuedAt:event.queuedAt,trigger:'push-attempt',triggerStatus:'unverified',status,attempts:attempts.length,nextAttemptAt:status==='pending'?(last?.nextAttemptAt||event.queuedAt):null,...(last?{completedAt:last.completedAt,...(last.error?{error:last.error}:{}),...(last.result?{result:last.result}:{})}:{})};
+ return {id:event.id,symbol:event.intent.symbol,decisionAt:event.intent.decisionAt,queuedAt:event.queuedAt,trigger:'push-attempt',triggerStatus:'unverified',triggerEvidence:triggerEvidence(event.intent),status,attempts:attempts.length,nextAttemptAt:status==='pending'?(last?.nextAttemptAt||event.queuedAt):null,...(last?{completedAt:last.completedAt,...(last.error?{error:last.error}:{}),...(last.result?{result:last.result}:{})}:{})};
 }
-function summarize(state,now){
- const rows=state.entries.map(summaryEntry),pending=rows.filter(r=>r.status==='pending'),completed=rows.filter(r=>r.status==='completed'),failed=rows.filter(r=>r.status==='failed');
- const all=state.entries.flatMap(({event,attempts})=>attempts.map(a=>({id:event.id,symbol:event.intent.symbol,attempt:a.attempt,completedAt:a.completedAt,status:a.status,...(a.error?{error:a.error}:{}),...(a.result?{result:a.result}:{})}))).sort((a,b)=>a.completedAt-b.completedAt||a.id.localeCompare(b.id)||a.attempt-b.attempt);
- return {pending,completed,failed,lastSuccess:all.filter(a=>a.status==='captured').at(-1)||null,lastFailure:all.filter(a=>a.status==='unavailable').at(-1)||null,counts:{total:rows.length,pending:pending.length,completed:completed.length,failed:failed.length,due:pending.filter(r=>r.nextAttemptAt<=now).length,attempts:all.length},bytes:state.bytes,...flags};
+function summarize(state,now,currentStorage=false){
+ // Verify the complete chain first, but disclose only records visible at the
+ // requested cutoff. A later capture must not rewrite a past pending state.
+ const visible=state.entries.filter(e=>e.event.queuedAt<=now).map(e=>({...e,attempts:e.attempts.filter(a=>a.completedAt<=now)}));
+ const rows=visible.map(summaryEntry),pending=rows.filter(r=>r.status==='pending'),completed=rows.filter(r=>r.status==='completed'),failed=rows.filter(r=>r.status==='failed');
+ const all=visible.flatMap(({event,attempts})=>attempts.map(a=>({id:event.id,symbol:event.intent.symbol,attempt:a.attempt,completedAt:a.completedAt,status:a.status,...(a.error?{error:a.error}:{}),...(a.result?{result:a.result}:{})}))).sort((a,b)=>a.completedAt-b.completedAt||a.id.localeCompare(b.id)||a.attempt-b.attempt);
+ return {pending,completed,failed,lastSuccess:all.filter(a=>a.status==='captured').at(-1)||null,lastFailure:all.filter(a=>a.status==='unavailable').at(-1)||null,counts:{total:rows.length,pending:pending.length,completed:completed.length,failed:failed.length,due:pending.filter(r=>r.nextAttemptAt<=now).length,attempts:all.length},bytes:currentStorage?state.bytes:visible.reduce((n,e)=>n+Buffer.byteLength(encode(e.event))+e.attempts.reduce((sum,a)=>sum+Buffer.byteLength(encode(a)),0),0),byteScope:currentStorage?'current-storage-including-temporary-at-read':'committed-records-visible-at-cutoff',asOf:now,...flags};
 }
 function enqueueStockObservation(root,input){
  try{
-  const intent=cleanIntent(input),queuedAt=Date.now();if(intent.decisionAt>queuedAt)throw Error('future decision');const id=hash(intent),blocked=reason=>({queued:false,reused:false,blocked:true,reason,id,...flags});
+  const intent=cleanIntent(input),queuedAt=Date.now();if(intent.decisionAt>queuedAt)throw Error('future decision');const id=hash(intent),triggerKey=stableTriggerKey(intent),blocked=reason=>({queued:false,reused:false,blocked:true,reason,id,...flags});
   const base=privateDir(root,true);privateDir(path.join(base,'intents'),true);privateDir(path.join(base,'attempts'),true);
   for(let retry=0;retry<5;retry++){
-   const state=readState(root),same=state.entries.find(e=>e.event.id===id);if(same)return {queued:true,id,reused:true,blocked:false,...flags};
+   const state=readState(root),same=state.entries.find(e=>e.event.id===id)||(triggerKey!==null?state.entries.find(e=>stableTriggerKey(e.event.intent)===triggerKey):null);if(same)return {queued:true,id:same.event.id,reused:true,reuseBasis:same.event.id===id?'exact-intent':'stable-producer-references',blocked:false,...flags};
    if(state.entries.length>=MAX_INTENTS)return blocked('QUEUE_CAPACITY');
    const payload={schemaVersion:1,...flags,id,queueRevision:state.entries.length+1,previousHash:state.entries.at(-1)?.event.recordHash||null,queuedAt,intent},event={...payload,recordHash:hash(payload)},size=Buffer.byteLength(encode(event));
    if(size>MAX_INTENT_BYTES)return blocked('INTENT_TOO_LARGE');if(state.bytes+size>MAX_TOTAL_BYTES)return blocked('QUEUE_BYTES_CAPACITY');
@@ -142,8 +163,15 @@ function enqueueStockObservation(root,input){
   return blocked('QUEUE_PUBLICATION_CONFLICT');
  }catch{throw Error('采集队列参数、私有存储或完整性校验失败');}
 }
-function readStockObservationQueue(root,{now=Date.now()}={}){
- try{return summarize(readState(root),clock(now));}catch{throw Error('采集队列私有存储或完整性校验失败');}
+function readStockObservationQueue(root,{now}={}){
+ try{
+  const currentStorage=now===undefined,cutoff=currentStorage?null:clock(now);
+  const state=readState(root);
+  // A default live read may refresh an appended parent/child during traversal.
+  // Its cutoff is the completed read, whereas an explicit historical cutoff
+  // must never move. Only live storage accounting includes temporary bytes.
+  return summarize(state,currentStorage?clock(Date.now()):cutoff,currentStorage);
+ }catch{throw Error('采集队列私有存储或完整性校验失败');}
 }
 async function processStockObservationQueue(root,{capture,now=Date.now,maxJobs=1}={}){
  let key;try{key=privateDir(root);if(typeof capture!=='function'||!Number.isSafeInteger(maxJobs)||maxJobs<1||maxJobs>20)throw Error('invalid processor');clock(now);}catch{throw Error('采集队列处理参数或私有存储无效');}

@@ -3,7 +3,7 @@
 // writer, notification sender or alternative execution path lives here.
 const Store=require('./research-workspace-store');
 const {positionAvailability,boundQuoteValuationMark}=require('./account-equity-evidence');
-const TYPES=['events','eventOutcomes','expectations','actuals','relations','depth','themes','portfolio'];
+const TYPES=['events','eventOutcomes','expectations','actuals','relations','depth','themes','portfolio','assetObservations'];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const SUBTYPE='deep-research-evidence-v1';
 const cleanText=value=>typeof value==='string'&&value.length<=2000&&!/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value);
@@ -199,9 +199,13 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
  if(['missing-archive','unavailable','partial'].includes(background.status))missing.push('官方背景档案未全部取得或校验，保留未知');
  const {input:portfolio,...archiveEvidence}=D.derivePortfolioArchiveEvidence(archive||{},stored.events,
   deepPortfolioInput(materials,snapshot),{asOf:now});
+ const eventCalendar=require('./research-calendar-source').readResearchCalendar({asOf:now});
  const research=E.buildDeepResearchEvidence({...materials,archive,newsJournalRows:news,workspaceEvents:stored.events,
-  eventCalendar:require('./research-calendar-source').readResearchCalendar({asOf:now}),
+  eventCalendar,
   account:snapshot.account,positions:snapshot.account?.positions||[],depth:[...materials.depth,...(snapshot.depth||[])],themes:[...materials.themes,...(snapshot.themes||[])]},{asOf:now});
+ // Reuse the private journal and its actual server receipts; this extension
+ // cannot fetch or confer any new execution or publication permission.
+ research.modules[69].assetTransmission=require('./asset-transmission-review').reviewAssetTransmission(materials.assetObservations,{asOf:now,calendar:eventCalendar,background,forecastEvaluation:()=>require('./model-forward-evaluation').evaluationView(root,stored.events,{asOf:now,offset:0,limit:100})});
  // A research declaration cannot assert that the original compulsory risk
  // process has fired. That process remains independently authoritative.
  const {forcedRisk:ignoredForcedRisk,...rebalance}=portfolio.rebalance||{};

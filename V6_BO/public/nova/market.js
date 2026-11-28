@@ -1,5 +1,5 @@
 import {createResearchReplay} from './evidence-workbench.mjs';
-import {indexContinuityRows,indexHistoryDisclosure} from './index-continuity-view.mjs';
+import {indexContinuityRows,indexHistoryDisclosure,indexHypothesisDisclosure} from './index-continuity-view.mjs';
 import {minutePoint,archivePoints,priceLine} from './stock-timeline.js';
 import {conclusionBar,linkedDecisionPanel} from './decision-view.mjs';
 import {createRiskSummary} from './risk-workbench-view.mjs';
@@ -153,7 +153,7 @@ export function recoveryDisclosure(state){
     ' · 明确提及板块 '+((event.investigation.explicitSectors||[]).slice(0,5).join('、')||'未知')+' · 仅关联线索，原因待核':
     event.investigation?.status==='cached-window-checked'?' · 有界缓存中暂无可核关联':' · 消息证据不可用')+
    (event.investigation?.initialEvidenceCount>(event.investigation.evidenceHashes||[]).length?' · 原关联未全部通过当前复核':'')+
-   (event.investigation?.truncated?' · 缓存检查有截断':''))),
+   (event.investigation?.truncated?' · 缓存检查有截断':'')+indexHypothesisDisclosure(event.investigation))),
   indexContinuityRows(state.indexWindowResearch?.continuity,Date.now()).map(e=>h('p',{},
    e.code+' · '+e.windowMinutes+'分钟 · '+e.label+' · 原异动方向 '+e.direction+' · 研究版本 '+e.revision+
    ' · 当前变动 '+format(e.returnPct)+'% · '+indexProvider(e.source)+' '+dateTime(e.quoteAt)+' · '+e.note)),
