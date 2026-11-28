@@ -1,4 +1,5 @@
 import {createResearchReplay,replayTime} from './evidence-workbench.mjs';
+import {renderStrategyComparison} from './strategy-comparison-view.mjs';
 import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
@@ -110,7 +111,8 @@ function renderReport(result,ctx){
   if(r.evaluations)for(const row of r.evaluations)el.append(box(row.name||row.id,val(row.status),metrics([['条件分',row.score??'未知'],['支持',arr(row.support).length],['反对',arr(row.opposition).length],['缺失',arr(row.missing).length]]),facts([['失效条件',row.invalidation]]),detail('逐项证据',evidenceTree({support:row.support,opposition:row.opposition,missing:row.missing}))));
   if(r.releaseGate)el.append(box('研究门禁',arr(r.releaseGate.blockers).join('；')||'研究检查结果不等于交易授权。',evidenceTree(r.releaseGate)));
   if(r.patternPools)el.append(box('形态研究分池','同一只股票可命中多项研究条件。',...Object.entries(r.patternPools).map(([name,list])=>detail(name+' · '+arr(list).length+'只',stockRows(list,ctx)))));
-  const used=new Set(['ranked','items','stocks','stock','systems','evaluations','releaseGate','patternPools','metrics']);
+  if(r.strategyComparison)el.append(renderStrategyComparison(r.strategyComparison));
+  const used=new Set(['ranked','items','stocks','stock','systems','evaluations','releaseGate','patternPools','metrics','strategyComparison']);
   const summary=Object.fromEntries(Object.entries(r).filter(([key])=>!used.has(key)));
   el.append(detail('完整证据与检验链',evidenceTree(summary)),toolbar(btn('导出本次证据',()=>download('fayo-research-evidence.json',r))));
   return el;
@@ -127,6 +129,7 @@ function workbench(ctx,title,description,inputs=[]){
   function action(label,handler,options={}){
     let fingerprint='';
     const button=btn(label,async()=>{
+      if(options.freezeAuto===true)edited=true;
       const turn=++revision;button.disabled=true;if(!output.firstChild)status.textContent='研究数据加载中…';
       try{const data=await handler({current:()=>current(turn)});if(!current(turn))return;const next=JSON.stringify(data);
         if(displayedAction!==button||!options.auto||next!==fingerprint||!output.firstChild){output.replaceChildren(options.render?options.render(data):renderReport(data,ctx));fingerprint=next;displayedAction=button;}
@@ -230,6 +233,7 @@ function backtest(ctx){
   w.action('仅扫描形态与条件',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/scan',(i.history||i));});
   w.action('仅重建研究账本',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/ledger',(i.history||i));});
   w.action('原策略历史对照',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/reference-strategy-research',(i.history?i:{history:i}));});
+  w.action('原策略同条件回放',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/complete-run',{...(i.history?i:{history:i}),includeStrategyComparison:true});},{freezeAuto:true});
   root.append(w.body);
   const cache=workbench(ctx,'服务端历史库','读取已有日K或明确更新历史。每个来源的缺失、陈旧与拒绝原因分别保留。',[field('股票代码（逗号分隔）',codes)]);
   const codesValue=()=>codes.value.split(/[\s,，]+/).map(x=>x.trim()).filter(Boolean);
