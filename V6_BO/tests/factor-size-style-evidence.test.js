@@ -55,3 +55,16 @@ test('F29 adjacent prior frozen reference uses only original nonconflicting know
  assert.deepEqual(sizeReferenceDays({...c,nextEvidenceByDay:{[prior]:{...c.nextEvidenceByDay[prior],knownAt:at+1}}},at),[day]);
  assert.deepEqual(sizeReferenceDays({...c,days:[day,prior]},at),[day]);
 });
+
+test('F29.3 overlapping frozen groups cannot conceal a missing member or inflate the same-sample IC',()=>{
+ const input=rows(),p=buildSizePartition(input,options),calls=[];
+ const score=(ds,ids,w)=>{calls.push(ds[0].rows.length);return {days:1,meanIC:.5};};
+ const run=partition=>compareSizeVersions([{day,targetDate:'2026-12-02',rows:input,sizePartition:partition}],['a','b'],weights,score);
+ const overlap={...p,groups:[p.groups[0],{...p.groups[1],members:[p.groups[0].members[0],...p.groups[1].members.slice(1)]}]};
+ assert.equal(run(overlap).status,'unknown');assert.equal(calls.length,0);
+ for(const bad of [{...p,signalDay:'2026-11-24'},{...p,expected:11},{...p,observed:9},{...p,groups:p.groups.slice().reverse()},
+  {...p,groups:[p.groups[0],{...p.groups[1],members:[null,...p.groups[1].members.slice(1)]}]}]){
+  assert.equal(run(bad).status,'unknown');assert.equal(calls.length,0);
+ }
+ assert.equal(run(p).pairedDays,1);assert.equal(calls.length,9);
+});

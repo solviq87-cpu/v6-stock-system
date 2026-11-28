@@ -49,8 +49,16 @@ function compareSizeVersions(days,ids,versions,score){
  for(const d of days.slice(-20)){
   const p=d?.sizePartition,observed=d?.rows;
   if(p?.status!=='declared-point-in-time-partition'||!Array.isArray(observed)||
-     observed.some(r=>!finite(r.returnPct))||new Set(observed.map(r=>r.symbol)).size!==observed.length)continue;
-  if(!Array.isArray(p.groups)||p.groups.length!==2||p.groups.some(g=>!Array.isArray(g.members)))continue;
+     observed.some(r=>!code(r?.symbol)||!finite(r.returnPct))||new Set(observed.map(r=>r.symbol)).size!==observed.length)continue;
+  // The two fixed groups must form one disjoint original cohort. A
+  // duplicate member can otherwise hide an omitted member in the summed
+  // matched denominators; it would contaminate both group IC and spread.
+  if(p.signalDay!==d.day||!Array.isArray(p.groups)||p.groups.length!==2||
+     p.groups[0]?.id!=='relatively-smaller'||p.groups[1]?.id!=='relatively-larger'||
+     p.groups.some(g=>!Array.isArray(g.members)||!g.members.length||g.members.some(m=>!code(m?.symbol))))continue;
+  const members=p.groups.flatMap(g=>g.members.map(m=>m.symbol));
+  if(members.length<6||new Set(members).size!==members.length||p.expected!==members.length||p.observed!==members.length||
+     p.groups[0].members.length!==Math.floor(members.length/2))continue;
   const groups=p.groups.map(g=>{const members=new Set(g.members.map(m=>m.symbol)),matched=observed.filter(r=>members.has(r.symbol));
    return {id:g.id,expected:members.size,observed:matched.length,meanGrossPriceReturnPct:round(mean(matched.map(r=>r.returnPct))),matched};});
   if(groups.length!==2||groups.reduce((n,g)=>n+g.observed,0)!==observed.length||groups.some(g=>g.observed<5))continue;
