@@ -65,3 +65,11 @@ test('F05.4 existing relative strength and observed turnover roles remain indepe
  C.render(f.host,v);assert.match(f.host.textContent,/600000 · 当期相对后排/);assert.match(f.host.textContent,/成交角色：成交核心观察/);
  f.click(f.all('button').find(b=>b.dataset.linkageSymbol==='600001'));assert.match(f.host.textContent,/600001 · 当期相对前排/);assert.match(f.host.textContent,/成交角色：成交证据不足/);assert.doesNotMatch(f.host.textContent,/涨停概率/);
 });
+
+test('F15.3 original card shows paired lag and contemporaneous control without claiming a leading signal',()=>{
+ const f=fixture(),a=archive();for(let i=0;i<a.events.length;i++){const e=a.events[i].data.context.marketLinkageEvidence,dir=i%2?-1:1;e.stocks.forEach(s=>s.return=dir*.02);e.benchmark.return=dir*.01;}
+ const v=a.project();C.render(f.host,v);assert.match(f.host.textContent,/有效配对 4 \/ 4/);assert.match(f.host.textContent,/滞后 0 \/ 4；同期 4 \/ 4/);assert.match(f.host.textContent,/同期冲击不等于领先/);
+ for(const mutate of [lag=>lag.leadingConfirmed=true,lag=>lag.lagMatches=99,lag=>lag.pairs[0].signalRecordedAt=Date.parse('2026-11-10T12:00:00+08:00'),lag=>lag.pairs[1].lagMatch=true]){
+  const bad=structuredClone(v);mutate(bad.boards[0].trend.structure.leadLag);C.render(f.host,bad);assert.doesNotMatch(f.host.textContent,/配对方向一致次数/);assert.match(f.host.textContent,/配对证据不足或未知/);
+ }
+});
