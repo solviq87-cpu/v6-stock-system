@@ -434,3 +434,8 @@ test('F08/F10/F11 optional lead review and attempt coverage retain missing evide
  assert.equal(report.crossMarket.leadReview.status,'not-configured');
  assert.equal(report.crossMarket.leadReview.canTrade,false);
 });
+
+test('F17.4 common-asset review remains unconfigured and never grants trade permission by default',()=>{
+ const r=buildIntelligenceResearch({day,now,archive:null});
+ assert.equal(r.crossMarket.commonAssetShock.status,'not-configured');assert.equal(r.crossMarket.commonAssetShock.shock,null);assert.equal(r.crossMarket.commonAssetShock.canTrade,false);
+});
