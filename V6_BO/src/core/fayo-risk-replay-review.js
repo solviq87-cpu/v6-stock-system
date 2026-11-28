@@ -9,6 +9,8 @@ const qty=x=>Number.isSafeInteger(x)&&x>=0;
 const time=x=>Number.isSafeInteger(x)&&x>0;
 const hash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const pct=x=>finite(x)&&x>0&&x<=100;
+const fraction=x=>finite(x)&&x>=0&&x<=1;
+const label=x=>typeof x==='string'&&!!x.trim();
 const flags={researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false,actualExecutionClaim:false};
 const pendingStress=()=>({...flags,status:'unknown',securityCoverage:'unknown',rows:[],reason:'原历史回放尚未形成同窗证据'});
 function riskBudget(frozen,replay,events){
@@ -32,14 +34,44 @@ function riskBudget(frozen,replay,events){
    const marks=new Map(list(frozen.sourceSnapshot.quotes).map(q=>[q.symbol,q.price]));
    weights=list(a.positions).filter(v=>v.quantity>0).map(v=>({symbol:v.symbol,weight:finite(marks.get(v.symbol))&&marks.get(v.symbol)>0?v.quantity*marks.get(v.symbol)/a.equity:null}));
   }
-  const valid=Array.isArray(x.weights)&&weights.every(w=>finite(w.weight)&&w.weight>=0&&w.weight<=1);
+  const valid=Array.isArray(x.weights)&&weights.every(w=>typeof w.symbol==='string'&&/^\d{6}$/.test(w.symbol)&&fraction(w.weight))&&
+   new Set(weights.map(w=>w.symbol)).size===weights.length&&weights.reduce((s,w)=>s+w.weight,0)<=1+1e-9;
   const gross=valid?weights.reduce((s,w)=>s+w.weight,0)*100:null,single=valid?Math.max(0,...weights.map(w=>w.weight*100)):null;
-  const targetViolations=valid?[...(pct(policy.maxPositionPct)&&single>policy.maxPositionPct+1e-7?['original-single-position']:[]),
-   ...(pct(policy.maxGrossExposurePct)&&gross>policy.maxGrossExposurePct+1e-7?['original-gross-exposure']:[]),
-   ...(Number.isSafeInteger(c.maxPositions)&&c.maxPositions>0&&weights.filter(w=>w.weight>0).length>c.maxPositions?['original-position-count']:[])]:null;
+  const quoteBySymbol=new Map(list(frozen.sourceSnapshot.quotes).map(q=>[q.symbol,q]));
+  const positions=new Map(list(a.positions).map(v=>[v.symbol,v]));
+  const largestGroup=key=>{
+   if(!valid)return null;
+   const groups=new Map();
+   for(const w of weights.filter(w=>w.weight>0)){
+    const id=key==='strategyId'&&x.action==='hold'?positions.get(w.symbol)?.strategyId:quoteBySymbol.get(w.symbol)?.[key];
+    if(!label(id))return null;
+    groups.set(id,(groups.get(id)||0)+w.weight*100);
+   }
+   return Math.max(0,...groups.values());
+  };
+  const sector=largestGroup('sector'),strategy=largestGroup('strategyId'),checks=[];
+  function check(name,source,limit,used,minimum=false){
+   if(limit===undefined||limit===null)return;
+   const threshold=source.startsWith('constraints.')&&source.endsWith('Weight')?(fraction(limit)?limit*100:null):
+    source==='constraints.maxPositions'?(Number.isSafeInteger(limit)&&limit>0?limit:null):(pct(limit)?limit:null);
+   const status=threshold===null||used===null?'unknown':minimum?used+1e-7<threshold?'violated':'within-declared-target':used>threshold+1e-7?'violated':'within-declared-target';
+   checks.push({id:name,source,limit:threshold,used,status,staticTargetOnly:true});
+  }
+  check('original-single-position','constraints.maxSingleWeight',c.maxSingleWeight,single);
+  check('original-single-position','riskPolicy.maxPositionPct',policy.maxPositionPct,single);
+  check('original-gross-exposure','constraints.maxGrossWeight',c.maxGrossWeight,gross);
+  check('original-gross-exposure','riskPolicy.maxGrossExposurePct',policy.maxGrossExposurePct,gross);
+  check('original-sector-concentration','constraints.maxSectorWeight',c.maxSectorWeight,sector);
+  check('original-sector-concentration','riskPolicy.maxSectorPct',policy.maxSectorPct,sector);
+  check('original-strategy-concentration','riskPolicy.maxStrategyPct',policy.maxStrategyPct,strategy);
+  check('original-minimum-cash','constraints.minimumCashWeight',c.minimumCashWeight,gross===null?null:Math.max(0,100-gross),true);
+  check('original-position-count','constraints.maxPositions',c.maxPositions,valid?weights.filter(w=>w.weight>0).length:null);
+  const targetViolations=valid?[...new Set(checks.filter(z=>z.status==='violated').map(z=>z.id))]:null;
   const pnl=value(x.id);
   return {alternativeId:x.id,action:x.action,intendedMaxPositionPct:single,intendedGrossPct:gross,
    preferenceWithinBudget:valid?single<=p.data.maxPositionPct+1e-7:null,originalTargetViolations:targetViolations,
+   originalStaticTargetChecks:checks,staticTargetCoverage:!valid||!checks.length||checks.some(z=>z.status==='unknown')?'incomplete':'declared-targets-compared',
+   originalExecutionGateVerified:false,
    markedNetPnl:pnl,vsHoldMarkedNet:pnl!==null&&holdNet!==null?pnl-holdNet:null,vsCashMarkedNet:pnl!==null&&cashNet!==null?pnl-cashNet:null,
    actualCashRealized:null,expectedUtility:null,executionAuthorized:false};
  });
@@ -73,7 +105,8 @@ function historicalStress(frozen,history,dates,details,review){
 }
 function recoveryReview({equity,rules,actions,rows,now}={}){
  const base={...flags,status:'unknown',riskCleared:false,accountReconciled:null,quoteCoverage:'unknown',activeOrderSymbolCount:null,
-  unresolvedRiskCount:null,observedOpenExitOrderCount:null,observedOpenExitRemainingQuantity:null,heldPositions:null,unfilledRiskRetained:null};
+  unresolvedRiskCount:null,observedOpenExitOrderCount:null,observedOpenExitRemainingQuantity:null,expectedOpenExitOrderCount:null,expectedOpenExitRemainingQuantity:null,
+  exitOrderCoverage:'unknown',heldPositions:null,unfilledRiskRetained:null};
  if(!time(now)||!equity||equity.observedAt!==now||!hash(equity.accountEpoch)||!hash(equity.source?.snapshotFingerprint)||!Array.isArray(equity.positions))return base;
  const bound=r=>r&&r.generatedAt===now&&r.accountId===equity.accountId&&r.accountEpoch===equity.accountEpoch&&r.accountRevision===equity.source.accountRevision&&r.authoritySnapshotFingerprint===equity.source.snapshotFingerprint;
  const positions=equity.positions,day=aShareCalendarDate(now);
@@ -83,21 +116,30 @@ function recoveryReview({equity,rules,actions,rows,now}={}){
  const reconciled=equity.status==='complete'&&equity.cashMovements?.status==='reconciled';
  const orderSymbols=bound(rules)&&Array.isArray(rules.occupancy?.activeOrderSymbols)?[...new Set(rules.occupancy.activeOrderSymbols)]:null;
  const actionOK=bound(actions)&&actions.authorityStatus==='verified'&&Array.isArray(actions.items);
+ const originalCount=bound(rules)&&qty(rules.occupancy?.activeSellOrderCount)?rules.occupancy.activeSellOrderCount:null;
+ const originalShares=bound(rules)&&qty(rules.occupancy?.activeSellRemainingQuantity)?rules.occupancy.activeSellRemainingQuantity:null;
  const orders=new Map();let orderUnknown=false;
  if(actionOK)for(const a of actions.items)for(const o of list(a.orders)){
   if(o.side!=='sell'||!['pending','partial'].includes(o.status))continue;
-  if(typeof o.orderId!=='string'||!o.orderId||o.evidenceStatus!=='available'||!qty(o.remainingQuantity)){orderUnknown=true;continue;}
-  const old=orders.get(o.orderId);
-  if(old!==undefined&&old!==o.remainingQuantity)orderUnknown=true;
-  orders.set(o.orderId,o.remainingQuantity);
+  if(typeof o.orderId!=='string'||!o.orderId||o.evidenceStatus!=='available'||!qty(o.remainingQuantity)||o.remainingQuantity===0||
+     typeof a.code!=='string'||!/^\d{6}$/.test(a.code)){orderUnknown=true;continue;}
+  const old=orders.get(o.orderId),entry={symbol:a.code,remaining:o.remainingQuantity};
+  if(old&&(old.symbol!==entry.symbol||old.remaining!==entry.remaining))orderUnknown=true;
+  orders.set(o.orderId,entry);
  }
  const roots=Array.isArray(rows)?rows.filter(r=>r.status!=='resolved').length:null;
- const remaining=actionOK&&!orderUnknown&&Number.isSafeInteger([...orders.values()].reduce((a,b)=>a+b,0))?[...orders.values()].reduce((a,b)=>a+b,0):null;
- return {...base,status:reconciled&&coverage!=='incomplete'&&orderSymbols!==null&&actionOK&&!orderUnknown?(coverage==='not-applicable-no-holdings'?'account-reobserved-no-holdings':'account-and-quote-reobserved'):'incomplete',
+ const seenShares=[...orders.values()].reduce((n,o)=>n+o.remaining,0);
+ const completeExit=actionOK&&!orderUnknown&&originalCount!==null&&originalShares!==null&&qty(seenShares)&&
+  (originalCount===0)===(originalShares===0)&&originalShares>=originalCount&&orders.size===originalCount&&seenShares===originalShares&&
+  orderSymbols!==null&&[...orders.values()].every(o=>orderSymbols.includes(o.symbol));
+ const exitCoverage=completeExit?'matches-original-aggregate':originalCount===null||originalShares===null||!actionOK?'unknown':'incomplete-or-conflicting';
+ const remaining=completeExit?seenShares:null;
+ return {...base,status:reconciled&&coverage!=='incomplete'&&orderSymbols!==null&&completeExit?(coverage==='not-applicable-no-holdings'?'account-reobserved-no-holdings':'account-and-quote-reobserved'):'incomplete',
   accountId:equity.accountId,accountEpoch:equity.accountEpoch,accountRevision:equity.source.accountRevision,authoritySnapshotFingerprint:equity.source.snapshotFingerprint,
   observedAt:now,accountReconciled:reconciled,quoteCoverage:coverage,activeOrderSymbolCount:orderSymbols?.length??null,unresolvedRiskCount:roots,
-  observedOpenExitOrderCount:actionOK&&!orderUnknown?orders.size:null,observedOpenExitRemainingQuantity:remaining,heldPositions:positions.length,
-  unfilledRiskRetained:positions.length||orders.size||roots>0||orderSymbols?.length?true:orderSymbols===null||!actionOK||orderUnknown||roots===null?null:false,
+  expectedOpenExitOrderCount:originalCount,expectedOpenExitRemainingQuantity:originalShares,exitOrderCoverage:exitCoverage,
+  observedOpenExitOrderCount:completeExit?orders.size:null,observedOpenExitRemainingQuantity:remaining,heldPositions:positions.length,
+  unfilledRiskRetained:positions.length||orders.size||originalCount>0||originalShares>0||roots>0||orderSymbols?.length?true:orderSymbols===null||!completeExit||roots===null?null:false,
   note:'仅本次复核，不代表风险解除。未成交委托与持仓继续由原状态机处理；无持仓不能证明报价链恢复。'};
 }
 module.exports={riskBudget,historicalStress,pendingStress,recoveryReview};
