@@ -68,3 +68,20 @@ test('文本中的交易指令、权重及金额不产生资金估算或权限',
  assert.equal(p.actualFlow,null);assert.equal(p.trackingAssets,null);assert.equal(p.weights,null);assert.equal(p.implementationConfirmed,false);
  assert.equal(p.canTrade,false);assert.equal(p.canNotify,false);assert.equal(p.canTrain,false);
 });
+
+
+test('F27.4 延后或另行通知的原计划保留原文日期但必须人工复核，不进入校准',()=>{
+ for(const note of ['上述计划暂缓实施。','上述计划推迟。','上述计划延后。','上述计划顺延。','择期实施。','生效时间另行通知。','不再实施上述调整。','暂不生效。']){
+  const p=plan(make(body+'\n'+note));
+  assert.equal(p.status,'manual-review',note);
+  assert.equal(p.plannedDate,'2026-12-11');assert.equal(p.effectiveAt,null);assert.equal(p.implementationConfirmed,false);
+  assert.equal(p.actualFlow,null);assert.equal(p.canQualify,false);assert.equal(p.canTrade,false);assert.equal(p.canNotify,false);
+ }
+});
+test('F27.4 已知调样计划到原实施日仍不等于同窗突发或真实成交',()=>{
+ const before=plan(),asOf=Date.parse('2026-12-11T14:55:00+08:00'),atWindow=plan(make(),asOf);
+ assert.equal(before.status,'future-date');assert.equal(atWindow.status,'date-reached-unverified');
+ assert.equal(atWindow.phase,'after-close');assert.equal(atWindow.effectiveAt,null);assert.equal(atWindow.actualFlow,null);
+ assert.equal(atWindow.implementationConfirmed,false);assert.equal(atWindow.canQualify,false);assert.equal(atWindow.canTrade,false);
+ assert.equal(projectNewsEvents([make()],asOf,asOf).rows[0].knownAt,t);
+});
