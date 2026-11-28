@@ -1,0 +1,31 @@
+{
+  "scope": "isolated temporary real Git fixture",
+  "parent": "f616dd961a126727667f2533599740b68e4d6550",
+  "reusedSource": "14ec08aa50d31660b0f4f46c29a95cc11ac1bc6f",
+  "python": "3.13.5",
+  "git": "2.47.3",
+  "commands": [
+    "python -m py_compile scripts/audit-no-openai-runtime.py tests/test_runtime_network_dependencies.py",
+    "python -m unittest discover -s tests -p test_runtime_network_dependencies.py -v"
+  ],
+  "before": {
+    "methods": 10,
+    "passed": 4,
+    "failedMethods": 6,
+    "failureEvents": 10,
+    "seconds": 7.355
+  },
+  "after": {
+    "methods": 10,
+    "passed": 10,
+    "failedMethods": 0,
+    "seconds": 8.136
+  },
+  "testedBlobs": {
+    "scripts/audit-no-openai-runtime.py": "18c829ee1a17f7c5b432a067a226d8df6ddc7f08",
+    "tests/test_runtime_network_dependencies.py": "61febebb02c8c792fd9efbace88d3af8df1ccc5f"
+  },
+  "fullSuite": "not run in local container",
+  "network": "no external calls in fixtures",
+  "production": "not tested or changed"
+}
