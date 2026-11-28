@@ -12,18 +12,25 @@ const CASES=Object.freeze([
  {id:'cash-debit-corrupted',file:'src/core/paper-account-ledger.js',from:'account.cash = money(account.cash - debit);',to:'account.cash = money(account.cash - debit + 1);',test:'tests/paper-account-ledger.test.js',invariant:'买入后的现金必须与价格数量费用精确一致'}
 ]);
 function classify(run,{baseline=false}={}){
- const output=String(run.stdout||'')+'\n'+String(run.stderr||'');
+ const output=String(run.stdout||'').replace(/\r\n/g,'\n'),stderr=String(run.stderr||'');
+ // The test reporter owns stdout. Never complete an interrupted receipt with stderr.
  const counts=Object.fromEntries(['tests','pass','fail','cancelled','skipped','todo'].map(key=>{const matches=[...output.matchAll(new RegExp('^# '+key+' (\\d+)$','gm'))];return [key,matches.length===1?Number(matches[0][1]):null];}));
  const plans=[...output.matchAll(/^1\.\.(\d+)$/gm)],results=[...output.matchAll(/^(not )?ok (\d+) - (.*)$/gm)];
+ const planAt=plans.length===1?plans[0].index:-1;
+ const summaryRows=[...output.matchAll(/^# (?:tests|pass|fail|cancelled|skipped|todo|duration_ms) .+$/gm)];
+ const terminal=planAt>=0&&results.every(r=>r.index<planAt)&&summaryRows.every(r=>r.index>planAt)&&
+  summaryRows.filter(r=>r[0].startsWith('# duration_ms ')).length===1&&!/^Bail out!/im.test(output+'\n'+stderr)&&
+  !/^(?:TAP version |(?:not )?ok \d+ |1\.\.\d+|# (?:tests|pass|fail|cancelled|skipped|todo|duration_ms) )/m.test(stderr);
  const failed=results.filter(r=>r[1]).length,skipped=results.filter(r=>!r[1]&&/# SKIP(?:\s|$)/i.test(r[3])).length;
  // This bounded suite is flat. A nested or inconsistent report is deliberately
  // inconclusive until its structure is explicitly supported and verified.
- const complete=output.startsWith('TAP version 13\n')&&plans.length===1&&Number(plans[0][1])>0&&Number(plans[0][1])===results.length&&results.every((r,i)=>Number(r[2])===i+1)&&Object.values(counts).every(x=>Number.isSafeInteger(x)&&x>=0)&&counts.tests===results.length&&counts.fail===failed&&counts.skipped===skipped&&counts.pass===results.length-failed-skipped&&counts.tests>0&&counts.pass+counts.fail>0&&counts.cancelled===0&&counts.todo===0&&counts.tests===counts.pass+counts.fail+counts.skipped&&/^# duration_ms [0-9.]+$/m.test(output);
+ const complete=terminal&&output.startsWith('TAP version 13\n')&&plans.length===1&&Number(plans[0][1])>0&&Number(plans[0][1])===results.length&&results.every((r,i)=>Number(r[2])===i+1)&&Object.values(counts).every(x=>Number.isSafeInteger(x)&&x>=0)&&counts.tests===results.length&&counts.fail===failed&&counts.skipped===skipped&&counts.pass===results.length-failed-skipped&&counts.tests>0&&counts.pass+counts.fail>0&&counts.cancelled===0&&counts.todo===0&&counts.tests===counts.pass+counts.fail+counts.skipped&&/^# duration_ms [0-9.]+$/m.test(output);
  if(run.error||run.signal||!complete)return {status:'inconclusive',reason:'超时、进程异常、报告不完整或没有实际执行的测试'};
  if(run.status===0&&counts.fail!==0||run.status!==0&&counts.fail===0)return {status:'inconclusive',reason:'退出状态与测试报告不一致'};
  if(run.status===0)return {status:baseline?'baseline-pass':'survived',reason:baseline?'原隔离测试通过':'错误变更未被当前测试阻断；需人工检查是否等价并补业务断言'};
- const assertionFailure=output.split(/(?=^(?:not )?ok \d+ - |^1\.\.\d+$)/m).some(block=>block.startsWith('not ok ')&&/\n  ---\n[\s\S]*?\n  code: ['"]ERR_ASSERTION['"]\n[\s\S]*?\n  \.\.\./.test(block));
- if(!baseline&&run.status===1&&assertionFailure&&!/(?:SyntaxError|ReferenceError|MODULE_NOT_FOUND)/.test(output))return {status:'killed',reason:'既有业务断言捕获错误变更'};
+ const failedBlocks=output.split(/(?=^(?:not )?ok \d+ - |^1\.\.\d+$)/m).filter(block=>block.startsWith('not ok '));
+ const assertionFailure=failedBlocks.length===failed&&failed>0&&failedBlocks.every(block=>/\n  ---\n[\s\S]*?\n  code: ['"]ERR_ASSERTION['"]\n[\s\S]*?\n  \.\.\./.test(block));
+ if(!baseline&&run.status===1&&assertionFailure&&!/(?:SyntaxError|ReferenceError|MODULE_NOT_FOUND)/.test(output+'\n'+stderr))return {status:'killed',reason:'既有业务断言捕获错误变更'};
  return {status:'inconclusive',reason:baseline?'原测试未通过，不能评价变异':'非明确断言失败，不能算捕获业务错误'};
 }
 function runCriticalMutations(){
