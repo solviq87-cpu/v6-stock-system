@@ -1,0 +1,74 @@
+[
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "history.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "unknown.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      1366,
+      900
+    ],
+    "input": "unlimited.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "history.json",
+    "http": 200,
+    "matched": true,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "unknown.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ],
+    "input": "unlimited.json",
+    "http": 200,
+    "matched": false,
+    "canTrade": false,
+    "coverage": "unknown",
+    "errors": []
+  }
+]

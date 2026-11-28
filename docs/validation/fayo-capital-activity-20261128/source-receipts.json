@@ -1,0 +1,34 @@
+{
+  "scope": "Two bounded actual public CNINFO PDF receipts; factual paraphrases manually checked against rendered pages. No full PDF redistribution, continuous-feed license, independent trade or timestamp attestation.",
+  "receipts": [
+    {
+      "url": "https://static.cninfo.com.cn/finalpage/2026-11-11/1225664838.PDF",
+      "requestedAt": 1795827112613,
+      "scope": "one bounded public-file request using original shared research transport",
+      "dispatchedAt": 1795827112621,
+      "receivedAt": 1795827117191,
+      "http": 200,
+      "contentType": "application/pdf",
+      "bytes": 140330,
+      "sha256": "9632e97bf4d7fe5c14ea5df8a21e934361cebd9ca77f41313f53ca39cc9bf533",
+      "pdfMagic": true
+    },
+    {
+      "url": "https://static.cninfo.com.cn/finalpage/2025-11-13/1224802231.PDF",
+      "requestedAt": 1795827117193,
+      "scope": "one bounded public-file request using original shared research transport",
+      "dispatchedAt": 1795827117193,
+      "receivedAt": 1795827123251,
+      "http": 200,
+      "contentType": "application/pdf",
+      "bytes": 102710,
+      "sha256": "15f8820632825ec55e8b3dfdae87857c4b98a10c5446717449c1c314f670633b",
+      "pdfMagic": true
+    }
+  ],
+  "publicationInstant": null,
+  "disposalDocumentFooterDate": "2025-11-12",
+  "disposalURLPathDate": "2025-11-13",
+  "pathDateUsedAsPublicationInstant": false,
+  "buybackDate": "2026-11-11"
+}

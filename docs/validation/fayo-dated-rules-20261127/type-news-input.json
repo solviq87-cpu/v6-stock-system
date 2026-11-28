@@ -1,0 +1,60 @@
+[
+  {
+    "schemaVersion": 1,
+    "source": "spdb-2025-summary",
+    "eventId": "security-type-page1",
+    "sourceRevisionId": "pdf-811461c1bc1a050f10af0357c1c790c8137898c6709f35803f4d9d9a6328caab",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://news.spdb.com.cn/investor_relation/periodic_report/202603/P020260330690454285467.pdf",
+    "title": "上海浦东发展银行股份有限公司2025年年度报告摘要：证券资料节选",
+    "body": "股票种类         股票上市交易所               股票简称         股票代码            变更前股票简称\n普通股 A 股                            浦发银行           600000           -\n             上海证券交易所               浦发优 1          360003           -\n优先股\n                                   浦发优 2          360008           -",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "600000",
+      "360003",
+      "360008"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795816827756,
+    "revisedAt": null
+  },
+  {
+    "schemaVersion": 1,
+    "source": "510300-product-summary",
+    "eventId": "security-type-page1",
+    "sourceRevisionId": "pdf-75920ec2b7b297efa88962beec1e8f23ded5a9812c73e5a1fbe1d47c55b88bdf",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-24/510300_20261124_2XJH.pdf",
+    "title": "华泰柏瑞沪深300交易型开放式指数证券投资基金 基金产品资料概要更新",
+    "body": "          华泰柏瑞沪深 300 交易型开放式指数证券投资基金\n\n                           基金产品资料概要更新\n                                               编制日期：2026 年 11 月 24 日\n                       送出日期：2026 年 11 月 24 日\n          本概要提供本基金的重要信息，是招募说明书的一部分。\n          作出投资决定前，请阅读完整的招募说明书等销售文件。\n\n一、产品概况\n基金简称      华泰柏瑞沪深 300ETF        基金代码              510300\n基金管理人     华泰柏瑞基金管理有限公司         基金托管人             中国工商银行股份有限公司\n                                                 上海证券交        2012 年 05\n基金合同生效日   2012 年 5 月 4 日       上市交易所及上市日期\n                                                 易所           月 28 日\n基金类型      股票型                  交易币种              人民币\n运作方式      普通开放式                开放频率              每个开放日\n                               开始担任本基金基金经\n                                                 2012 年 05 月 04 日",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "510300"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795816826154,
+    "revisedAt": null
+  },
+  {
+    "schemaVersion": 1,
+    "source": "spdb-preference-dividend",
+    "eventId": "security-type-page1",
+    "sourceRevisionId": "pdf-2f37bd20aeb20f002a9b837ce4bd97590d3c7acb0338cd00a8bf3a35763dcdd7",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://news.spdb.com.cn/investor_relation/company_report/202511/P020251125627943429601.pdf",
+    "title": "上海浦东发展银行股份有限公司 优先股一期股息发放实施公告",
+    "body": "公告编号：临2025-073\n证券代码：600000               证券简称：浦发银行\n优先股代码：360003 360008       优先股简称：浦发优1 浦发优2\n\n\n\n\n           上海浦东发展银行股份有限公司\n\n              优先股一期股息发放实施公告",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "600000",
+      "360003",
+      "360008"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795817536361,
+    "revisedAt": null
+  }
+]

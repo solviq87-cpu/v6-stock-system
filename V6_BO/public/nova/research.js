@@ -69,7 +69,7 @@ function renderReport(result,ctx){
   if(!r||typeof r!=='object')return empty('尚无完整研究结果','本次服务未返回可核验的结果。');
   const overview=['status','tradeDate','date','source','provider','asOf','totalScanned','accepted','selected','note','reason','warning'].filter(key=>r[key]!==undefined&&r[key]!==null&&typeof r[key]!=='object').map(key=>[labels[key]||key,key==='asOf'?clock(r[key]):r[key]]);
   if(overview.length)el.append(facts(overview));
-  if(r.publicReview?.day===r.tradeDate){
+  if(r.tradeDate && r.publicReview?.day===r.tradeDate && r.publicReview.facts){
     const proof=r.publicReview,f=proof.facts,items=[f.tier,f.status,f.performance,f.history,...(f.patterns||[]),...(f.risks||[]),...(f.themes||[])].filter(Boolean);
     if(items.length)el.append(box('同日复盘依据',proof.day+' · '+proof.source+' · 取得 '+clock(proof.knownAt),n('p',[...new Set(items)].join(' · '))));
   }
@@ -311,12 +311,48 @@ function evidence(ctx){
     if(!Number.isSafeInteger(asOf)||asOf>now||asOf!==requestedAsOf||r.offset!==offset||anchor!==null&&anchor!==asOf)return empty('新闻回执未通过截点核验');anchor=asOf;
     const projection=projectNewsEvents(arr(r.rows),asOf,now,{currentView:!cutoff.value});
     if(cutoff.value)root.append(n('p','历史研究截点 '+clock(asOf)+'；仅显示当时已归档的返回范围内版本。不是完整历史，不能用于下单。','fy-note'));
-    else root.append(metrics([['当前事件',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
+    else root.append(metrics([['最新归档版本',s.currentEvents??'未知'],['已撤稿',s.retractedEvents??'未知'],['来源完整（未独立核实）',s.eligibleForResearchSupport??'未知'],['未知证据',s.unknownEvents??'未知']]));
     root.append(n('p',projection.missing.join('；'),'fy-muted'));
     if(projection.status==='unknown')return root;
     for(const event of projection.rows){
       const row=event.row;
-      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'供应商摘要':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知'],['原文金额字样（非核定金额）',event.amounts.join('、')||'未知'],['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const e=row.evidence||{},card=box(e.title||'无标题',val(e.source)+' · '+event.revisionStatus,facts([['正文范围',e.bodyScope==='provider-summary'?'摘要或节选':'导入原文，未独立核实'],['发布',clock(e.publishedAt)],['接收',clock(e.receivedAt)],['归档可知时间',clock(event.knownAt)],['修订/撤稿',clock(e.revisedAt)],['证券主体',event.subjects.join('、')],['正式披露',event.formalDisclosure],...(!event.indexAdjustment?[['生效日期（原文声明，非核验时点）',event.effectiveDate?event.effectiveDate+' · '+event.effectiveQuote:'未知']]:[]),...(!event.capitalActivity?[['原文金额字样（非核定金额）',event.amounts.join('、')||'未知']]:[]),['修订链',event.chainComplete?'返回范围内连续':'不完整']]));
+      const adjustment=event.indexAdjustment;
+      if(adjustment){
+        const states={'future-date':'计划日期未到','date-reached-unverified':'已到计划日期，实施未核实','date-passed-unverified':'已过计划日期，实施未核实','unknown-date':'计划日期不明确','manual-review':'存在澄清或计划变更，待复核',inactive:'该截点不作为有效计划'};
+        const panel=box('指数调样计划',states[adjustment.status]||'未知',facts([
+          ['公告日期（材料声明）',adjustment.announcementDate||'未知；不补发布时间'],
+          ['计划生效',adjustment.plannedDate?adjustment.plannedDate+' · '+(adjustment.phase==='after-close'?'收市后，未提供具体时分':'仅日期，时分未知'):'未知或冲突'],
+          ['本页研究截点',clock(asOf)],['实际实施与成交','未核实'],['权重、跟踪规模与配置金额','未知']]),n('p',adjustment.note,'fy-note'));
+        if(adjustment.status==='inactive')panel.append(n('p',arr(event.securityIdentity?.inactiveReasons).map(x=>x.label).join('；'),'fy-note'));
+        for(const table of adjustment.tables)panel.append(box(table.indexName+' · 名单节选',table.status==='source-excerpt'?'材料列头方向，未核实完整名单':'列头、行或关联不完整，方向未知',
+          facts([['计划调出',table.removals.map(x=>x.symbol+' '+x.name).join('、')||'未知'],['计划调入',table.additions.map(x=>x.symbol+' '+x.name).join('、')||'未知']])));
+        card.append(panel);
+      }
+      const capital=event.capitalActivity;
+      if(capital){
+        const actions={buyback:'回购',increase:'增持',disposal:'减持',unlock:'解禁'};
+        const states={'source-claims':'材料声明，未独立核实','ambiguous-subject':'证券或事项主体不明确','manual-review':'日期、状态或材料存在冲突，待复核',inactive:'该截点已停用，仅供历史核对'};
+        const roles={plan:'计划条件',cumulative:'累计执行声明',period:'本期执行声明',reported:'已披露执行（本期口径未确认）','not-executed':'未实施声明（不计作执行）','mixed-or-unknown':'同段混合或口径未知'};
+        const measures={money:'资金字样',price:'每股价格',shares:'股份数量',ratio:'比例',duration:'期限字样'};
+        const completion={completed:'材料称已实施完毕','in-progress':'材料称尚未实施完毕',conflict:'材料状态冲突',unknown:'未知'};
+        const panel=box('股份与资金事项',val(actions[capital.action])+' · '+(states[capital.status]||'未知'),facts([
+          ['材料证券',capital.issuerSymbol||'未绑定'],['材料落款日（非发布时刻）',capital.documentDate||(capital.documentDateStatus==='conflict'?'日期冲突，待核对':'未知')],
+          ['已披露执行区间（仅日期）',capital.executionPeriod?capital.executionPeriod.start+' 至 '+capital.executionPeriod.end:capital.executionPeriodStatus==='conflict'?'区间冲突，待核对':'未知，未由其他日期补全'],
+          ['报告截止日（材料声明）',capital.reportedThrough||'未知或冲突'],
+          ['方案状态（未独立核实）',completion[capital.sourceCompletion]||'未知'],['本期增量推算','未计算，不能对累计值直接相加或差分'],['当日市场净流量','未知']]),n('p',capital.note,'fy-note'));
+        if(capital.status==='inactive')panel.append(n('p',arr(event.securityIdentity?.inactiveReasons).map(x=>x.label).join('；'),'fy-note'));
+        if(capital.timeWarnings?.length)panel.append(n('p',capital.timeWarnings.join('；'),'fy-note'));
+        if(capital.truncated)panel.append(n('p','本次展示范围受限，请核对正文；未提取部分不视为零。','fy-note'));
+        for(const row of capital.rows)panel.append(box(roles[row.role]||'口径未知',row.feeBasis==='excludes-fees'?'材料金额不含费用':'费用口径未知',
+          facts(row.quantities.map(x=>[(x.bound==='lower'?'下限 · ':x.bound==='upper'?'上限 · ':'')+(measures[x.measure]||'数量字样'),x.text+' '+x.unit+(x.measure==='money'||x.measure==='price'?' · '+({CNY:'人民币',HKD:'港币'}[x.currency]||'币种未核实'):'')])),detail('查看材料口径片段',n('p',row.quote))));
+        card.append(panel);
+      }
+      const identity=event.securityIdentity;
+      const inactiveLabel=arr(identity?.inactiveReasons).map(x=>x.label).filter(x=>typeof x==='string'&&x).join('；')||'使用条件未确认，待核对';
+      if(identity?.rows.some(x=>x.type||x.typeConflict||x.status==='conflict'))card.append(box('证券类型线索','原文声明，正式证券身份未核实',
+        facts(identity.rows.map(x=>[x.symbol,x.label+' · '+(x.status==='inactive'?inactiveLabel:({conflict:'冲突待核对','manual-review':'需人工复核','source-claim':'原文字样',unknown:'未知'}[x.status]||'未知'))])),
+        n('p',identity.note,'fy-note'),detail('查看类型原文片段',...identity.rows.filter(x=>x.quotes.length).map(x=>n('p',x.symbol+' · '+x.quotes.join('；'))))));
       card.append(detail('分析线索与待核实事项',facts(event.clues.map(x=>[x.label,x.quote])),n('p',event.missing.join('；'),'fy-muted'),n('p','关键词仅供核对，不代表利好、利空或执行资格。','fy-note')));
       if(e.url)card.append(linked('查看原始来源',e.url));
       card.append(detail('正文与版本链',n('p',e.body||'正文缺失'),facts([['版本',row.sequence],['原文指纹',e.bodyHash],['前版',e.supersedes],['不确定性',arr(e.uncertainty).join('；')]]),
