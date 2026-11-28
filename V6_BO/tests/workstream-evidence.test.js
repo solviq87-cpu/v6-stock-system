@@ -40,3 +40,19 @@ test('malformed manifest cannot be treated as an ordinary empty evidence invento
   const r=inspectEvidence(manifest);assert.equal(r.releaseReady,false);assert.match(r.errors.join(' '),/invalid evidence manifest/);
  }
 });
+
+test('evidence time must carry an explicit UTC offset',()=>{
+ const f=fixture();try{const r=inspectEvidence({entries:[entry(f.dir,{verifiedAt:'2026-11-05T00:00:00'})]},{evidenceDir:f.dir});assert.equal(r.verifiedEvidenceCount,0);assert.match(r.errors.join(' '),/invalid verifiedAt/)}finally{f.close()}
+});
+test('impossible civil dates are not normalized into valid evidence',()=>{
+ const f=fixture();try{for(const verifiedAt of ['2026-02-30T00:00:00Z','2026-04-31T00:00:00Z','2025-02-29T08:00:00+08:00']){const r=inspectEvidence({entries:[entry(f.dir,{verifiedAt})]},{evidenceDir:f.dir});assert.equal(r.verifiedEvidenceCount,0,verifiedAt);assert.match(r.errors.join(' '),/invalid verifiedAt/)}}finally{f.close()}
+});
+test('typed workstream identity cannot be supplied as an array',()=>{
+ const f=fixture();try{const r=inspectEvidence({entries:[entry(f.dir,{workstream:['MARKET']})]},{evidenceDir:f.dir});assert.equal(r.verifiedEvidenceCount,0);assert.match(r.errors.join(' '),/invalid evidence identity/)}finally{f.close()}
+});
+test('malformed object identity produces an explicit diagnostic rather than throwing',()=>{
+ const f=fixture();try{const r=inspectEvidence({entries:[entry(f.dir,{workstream:{toString:null,valueOf:null}})]},{evidenceDir:f.dir});assert.equal(r.verifiedEvidenceCount,0);assert.match(r.errors.join(' '),/invalid evidence identity/)}finally{f.close()}
+});
+test('real leap dates and explicit signed offsets remain compatible',()=>{
+ const f=fixture();try{for(const verifiedAt of ['2024-02-29T00:00:00Z','2026-11-05T08:00:00+08:00','2026-11-04T19:00:00.123-05:00','2026-11-05T00:00Z']){const r=inspectEvidence({entries:[entry(f.dir,{verifiedAt})]},{evidenceDir:f.dir});assert.equal(r.verifiedEvidenceCount,1,verifiedAt);assert.equal(r.errors.length,0)}}finally{f.close()}
+});
