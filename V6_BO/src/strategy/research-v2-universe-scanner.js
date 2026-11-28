@@ -44,7 +44,7 @@ function scanUniverse({stocks=[],market={},now=Date.now(),maxAgeMs=900000,requir
   items.push({patterns,patternDate:Array.isArray(stock.bars)?stock.bars.at(-1)?.date:null,blockedBySafety,issuerEvidence,issuerLinkage,linkageResearch,symbol,name:stock.name||'',quality,tradable,researchFeatures:quality.usable?featuresAt(stock.bars,stock.bars.length-1):null,score:evaluated?evaluated.finalScore:null,
    strategy:evaluated?{pass:evaluated.pass,regime:evaluated.regime,legacyScore:evaluated.legacyScore,topDrivers:evaluated.topDrivers,
     extendedFactors:evaluated.extendedFactors,playbookAnalysis:evaluated.playbookAnalysis,riskFilter:evaluated.riskFilter}:null,
-   ladder:ladder?{stage:ladder.stage,next:ladder.next,streak:ladder.streak,score:ladder.score,warnings:ladder.warnings}:null});
+   ladder:ladder?{eligible:ladder.eligible,reason:ladder.reason,stage:ladder.stage,next:ladder.next,streak:ladder.streak,score:ladder.score,warnings:ladder.warnings}:null});
  }
  attachRps(stocks,items);
  const patternPools=buildPatternPools(items);
