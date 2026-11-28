@@ -73,3 +73,11 @@ test('F15.3 original card shows paired lag and contemporaneous control without c
   const bad=structuredClone(v);mutate(bad.boards[0].trend.structure.leadLag);C.render(f.host,bad);assert.doesNotMatch(f.host.textContent,/配对方向一致次数/);assert.match(f.host.textContent,/配对证据不足或未知/);
  }
 });
+
+test('F18.1 original card reports bounded first observation and excludes forged confirmation',()=>{
+ const f=fixture(),a=archive();const first=a.events[0].data.context.marketLinkageEvidence;first.boards[0].return=-.01;first.stocks.slice(0,5).forEach(s=>s.return=-.01);
+ const v=a.project();C.render(f.host,v);assert.match(f.host.textContent,/五日内首次符合观察：2026-11-10/);assert.match(f.host.textContent,/相邻交易日确认：2026-11-11/);assert.match(f.host.textContent,/未认证真实催化与前向收益/);
+ for(const mutate of [e=>e.canTrade=true,e=>e.confirmedDate=e.firstDate,e=>e.firstObservedAt=Date.parse('2026-11-10T10:00:00+08:00'),e=>e.confirmationDelayMs=1]){
+  const bad=structuredClone(v);mutate(bad.boards[0].trend.structure.earlyObservation);C.render(f.host,bad);assert.doesNotMatch(f.host.textContent,/相邻交易日确认：/);assert.match(f.host.textContent,/五日首次观察证据不足/);
+ }
+});
