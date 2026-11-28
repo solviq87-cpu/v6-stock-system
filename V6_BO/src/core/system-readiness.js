@@ -2,6 +2,7 @@
 // Only project already-observed runtime receipts. Never authorize an order,
 // start a supplier request, persist a journal, or expose private error strings.
 const {quoteObservationView,quoteSourceAllowsUse}=require('./quote-observation-view');
+const {projectRuntimeIssues}=require('./runtime-trace');
 const PROTOCOL='fayo-system-readiness-v1';
 const TASKS={ztpre:'涨停前形态扫描',trendScan:'全市场趋势扫描',steadyUp:'连续收涨',bigmoney:'大单流入',similar:'相似走势跟随',pre:'启动前埋伏',learnall:'学习库入库',ztpreIngest:'涨停前入库',kbf:'K线回填'};
 const cap=10000;
@@ -24,6 +25,7 @@ function component(id,label,status,affects,now,{attempt=null,success=null,reason
 function quotes(rows,session,now){
  const list=Array.isArray(rows)?rows:[],observed=Math.min(cap,list.length);
  const stats={receivedRows:list.length,inspectedRows:observed,recentOriginal:0,observationOnly:0,datedHistorical:0,invalidOrUnknown:0,conflictingRows:0,duplicateRows:0,scope:'original-in-memory-stock-rows',universeCoverage:null};
+ const reasonCounts=Object.fromEntries(['conflicting-quote-evidence','duplicate-security','invalid-price','missing-source','missing-original-time','future-original-time','invalid-reception-time','stale-original-time','missing-received-time','different-trade-date','observation-only-source','unknown'].map(key=>[key,0]));
  let latestQuoteAt=null,latestReceiptAt=null;
  // Explicit security identities must be unique even when a duplicate has
  // an invalid price or a different provider. Legacy identity-free receipts
@@ -34,24 +36,25 @@ function quotes(rows,session,now){
  for(let i=0;i<observed;i++){const code=codeOf(list[i]);if(code)counts.set(code,(counts.get(code)||0)+1);}
  for(let i=0;i<observed;i++){
   const row=list[i],code=codeOf(row);let view;
-  if(code&&counts.get(code)>1){stats.duplicateRows++;stats.conflictingRows++;stats.invalidOrUnknown++;continue;}
+  if(code&&counts.get(code)>1){stats.duplicateRows++;stats.conflictingRows++;stats.invalidOrUnknown++;reasonCounts['duplicate-security']++;continue;}
   if(row?.code!=null&&row?.symbol!=null&&row.code!==row.symbol){
-   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
+   stats.conflictingRows++;stats.invalidOrUnknown++;reasonCounts['conflicting-quote-evidence']++;continue;
   }
-  try{view=quoteObservationView(row,now);}catch{stats.invalidOrUnknown++;continue;}
+  try{view=quoteObservationView(row,now);}catch{stats.invalidOrUnknown++;reasonCounts.unknown++;continue;}
   // Classify the shared conflict reason before generic invalid/unknown coverage.
   if(view.missingReason==='conflicting-quote-evidence'){
-   stats.conflictingRows++;stats.invalidOrUnknown++;continue;
+   stats.conflictingRows++;stats.invalidOrUnknown++;reasonCounts['conflicting-quote-evidence']++;continue;
   }
   const valid=view.quoteAt!==null&&view.receivedAt!==null&&view.quoteSource&&view.quoteAt<=view.receivedAt&&view.receivedAt<=now&&
    ['recent-unverified','stale'].includes(view.quoteStatus);
-  if(!valid){stats.invalidOrUnknown++;continue;}
+  if(!valid){stats.invalidOrUnknown++;const reason=view.receivedAt===null&&view.missingReason==='stale-original-time'?'missing-received-time':view.missingReason;
+   reasonCounts[Object.hasOwn(reasonCounts,reason)?reason:'unknown']++;continue;}
   // Read-only observations can be dated evidence but must never count as a fresh
   // execution-ready source. Source permissions and cross-feed independence are separate.
-  if(!quoteSourceAllowsUse(row)){stats.observationOnly++;continue;}
+  if(!quoteSourceAllowsUse(row)){stats.observationOnly++;reasonCounts['observation-only-source']++;continue;}
   latestQuoteAt=maxTime([latestQuoteAt,view.quoteAt],now);latestReceiptAt=maxTime([latestReceiptAt,view.receivedAt],now);
   if(view.quoteStatus==='recent-unverified'&&view.tradeDate===day(now))stats.recentOriginal++;
-  else stats.datedHistorical++;
+  else {stats.datedHistorical++;reasonCounts[view.quoteStatus==='stale'?'stale-original-time':'different-trade-date']++;}
  }
  const all=observed>0&&observed===list.length&&stats.recentOriginal===observed;
  const status=session?.trading===true?(all?'normal':observed?'missing-data':'unverified'):
@@ -59,7 +62,7 @@ function quotes(rows,session,now){
  return component('quotes','原始行情时点',status,['盘面','策略输入','风控报价'],now,{success:latestReceiptAt,
   reason:stats.conflictingRows?'QUOTE_SOURCE_CONFLICT':status==='normal'?'ORIGINAL_TIME_OBSERVED':status==='historical-snapshot'?'ORIGINAL_DATED_SNAPSHOT':'QUOTE_COVERAGE_OR_TIME_GAP',
   ...(stats.conflictingRows?{missing:['原报价证据存在明确来源冲突；冲突行不计入当前或历史有效观察'],nextAction:'核对原来源与原始时间，等待无冲突的新证据'}:{}),
-  extra:{coverage:stats,latestOriginalQuoteAt:latestQuoteAt,lastSuccessAtKind:'observed-receipt',tradePermissionCertified:false}});
+  extra:{coverage:stats,diagnosticReasonCounts:reasonCounts,diagnosticScope:'inspected-original-rows-only',latestOriginalQuoteAt:latestQuoteAt,lastSuccessAtKind:'observed-receipt',tradePermissionCertified:false}});
 }
 // A bounded, read-only overview of the original component receipts. These
 // groups are not a second health collector or a certificate of production.
@@ -184,7 +187,7 @@ function buildSystemReadiness({now=Date.now(),version=null,replica=false,session
   const p50Ms=valid&&timedSamples?duration(r.p50Ms):null,p95Ms=valid&&timedSamples?duration(r.p95Ms):null;
   return {stage,status:valid&&samples?'observed':'not-observed',samples:valid?samples:0,completed:valid?completed:0,failed:valid?failed:0,blocked:valid?blocked:0,unknown:valid?unknown:0,skipped:valid?skipped:0,timedSamples:valid?timedSamples:0,p50Ms:p50Ms!==null&&p95Ms!==null&&p50Ms<=p95Ms?p50Ms:null,p95Ms:p50Ms!==null&&p95Ms!==null&&p50Ms<=p95Ms?p95Ms:null};
  });
- const runtimeTrace={scope:'this-process-observed-stages',hooks,active:count(trace?.active,128),dropped:count(trace?.dropped,Number.MAX_SAFE_INTEGER),evicted:count(trace?.evicted,Number.MAX_SAFE_INTEGER),endToEndCertified:false,receiverDeliveryCertified:false};
+ const runtimeTrace={scope:'this-process-observed-stages',hooks,diagnosticIssues:projectRuntimeIssues(trace,now,hooks),active:count(trace?.active,128),dropped:count(trace?.dropped,Number.MAX_SAFE_INTEGER),evicted:count(trace?.evicted,Number.MAX_SAFE_INTEGER),endToEndCertified:false,receiverDeliveryCertified:false};
  const dependencies=[
   {id:'authorized-live-data-and-full-coverage',ready:false,missing:['尚需实际线路、独立上游、用途授权及全市场覆盖回执']},
   {id:'original-account-external-reconciliation',ready:false,missing:['原账户内部证据不能代替外部权威账本与真实对账']},
