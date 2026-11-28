@@ -35,6 +35,32 @@ function frontMigration(samples,dates,archiveClocks) {
   priorFrontCount:priorFront.length,currentFrontCount:currentFront.size,retainedFront:retained,enteredFront:currentFront.size-retained,leftFront:priorFront.length-retained,
   priorFrontCurrentMeanReturn:mean(current.rows.filter(s=>priorIds.has(s.symbol))),otherCurrentMeanReturn:mean(current.rows.filter(s=>!priorIds.has(s.symbol))),canTrade:false};
 }
+// Fixed one-session lead/lag diagnostic on the prior day's observed cohort.
+// A same-session comparison is a control, never a forecast. Four pairs are
+// insufficient for inference; absent or late evidence is counted, not replaced.
+function leadLagDiagnostic(daily,samples,dates,clocks){
+ const pairs=[];
+ for(let i=1;i<daily.length;i++){
+  const a=samples[i-1],b=samples[i],clock=clocks[i-1],target=clocks[i],open=Date.parse(dates[i]+'T09:30:00+08:00');
+  const row={signalDate:dates[i-1],targetDate:dates[i],signalRecordedAt:clock.recordedAt,targetRecordedAt:target.recordedAt,
+   status:'unknown',reason:null,priorBreadth:null,concurrentBreadth:null,targetIndexDirection:null,lagMatch:null,concurrentMatch:null,cohortHash:null};
+  if(clock.recordedAt<clock.asOf||clock.recordedAt>open||clock.asOf<close(dates[i-1])||target.recordedAt<target.asOf){row.reason='clock-not-point-in-time';pairs.push(row);continue;}
+  if(!a.eligible||!b.eligible||a.rows.length!==b.rows.length||a.rows.some(s=>!finite(b.bySymbol.get(s.symbol)?.return))){row.reason='same-cohort-unavailable';pairs.push(row);continue;}
+  const breadth=rows=>Math.sign(rows.reduce((n,s)=>n+Math.sign(s.return),0));
+  const prior=breadth(a.rows),same=breadth(b.rows),direction=Math.sign(daily[i].e.benchmark.return);
+  Object.assign(row,{status:'observed-unverified',priorBreadth:prior,concurrentBreadth:same,targetIndexDirection:direction,cohortHash:digest(a.rows.map(s=>s.symbol).sort())});
+  if(prior&&same&&direction){row.lagMatch=prior===direction;row.concurrentMatch=same===direction;}
+  else row.reason='neutral-direction-abstention';
+  pairs.push(row);
+ }
+ const evaluated=pairs.filter(p=>p.lagMatch!==null&&p.concurrentMatch!==null);
+ return {method:'fixed-one-session-breadth-vs-index-v1',lagSessions:1,status:'descriptive-insufficient-sample',pairs,
+  attempted:pairs.length,pairedEvaluated:evaluated.length,unknown:pairs.filter(p=>p.status==='unknown').length,
+  abstained:pairs.filter(p=>p.status!=='unknown'&&p.lagMatch===null).length,
+  lagMatches:evaluated.length?evaluated.filter(p=>p.lagMatch).length:null,
+  concurrentMatches:evaluated.length?evaluated.filter(p=>p.concurrentMatch).length:null,
+  outOfSampleVerified:false,leadingConfirmed:false,canTrade:false,canNotify:false};
+}
 // Five-day retrospective structure uses a common observed cohort at this cutoff.
 // It is not a reconstruction of a signal known before the final session.
 function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveClocks){
@@ -42,7 +68,7 @@ function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveC
  const coverage=roster.length?common.length/roster.length:null;
  const base={status:'unknown',role:'unknown',method:'five-session-common-cohort-v1',cohortBasis:'retrospective-common-coverage',
   memberCount:roster.length,commonObserved:common.length,coverage:round(coverage),cohortHash:digest(common),
-  broadUpSessions:null,broadDownSessions:null,outperformSessions:null,underperformSessions:null,daily:[],migration:null,canTrade:false,canNotify:false};
+  broadUpSessions:null,broadDownSessions:null,outperformSessions:null,underperformSessions:null,daily:[],migration:null,leadLag:null,canTrade:false,canNotify:false};
  if(common.length<5||coverage<.8||!finite(boardReturn)||!finite(benchmarkReturn))return base;
  const values=daily.map(({e,board},i)=>{
   const rows=common.map(symbol=>samples[i].bySymbol.get(symbol));
@@ -54,7 +80,7 @@ function boardStructure(daily,samples,dates,boardReturn,benchmarkReturn,archiveC
  const excess=boardReturn-benchmarkReturn;
  const role=boardReturn>0&&excess>0&&broadUpSessions>=3&&outperformSessions>=3?'broad-relative-strength':
   boardReturn<0&&excess<0&&broadDownSessions>=3&&underperformSessions>=3?'broad-relative-weakness':'mixed';
- return {...base,status:'observed-unverified',role,broadUpSessions,broadDownSessions,outperformSessions,underperformSessions,daily:values,migration:frontMigration(samples,dates,archiveClocks)};
+ return {...base,status:'observed-unverified',role,broadUpSessions,broadDownSessions,outperformSessions,underperformSessions,daily:values,migration:frontMigration(samples,dates,archiveClocks),leadLag:leadLagDiagnostic(daily,samples,dates,archiveClocks)};
 }
 function compareIndustries(boards,dates=[]){
  const industries=boards.filter(b=>b.category==='industry');
