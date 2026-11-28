@@ -93,6 +93,19 @@
     [m.priorFrontCount,m.currentFrontCount,m.retainedFront,m.enteredFront,m.leftFront].every(x=>count(x)&&x<=s.memberCount)&&m.priorFrontCount>0&&m.currentFrontCount>0&&m.priorFrontCount===m.retainedFront+m.leftFront&&m.currentFrontCount===m.retainedFront+m.enteredFront;
    if(migrationValid){line(proof,'前排迁移','保留 '+m.retainedFront+' · 新进入 '+m.enteredFront+' · 离开 '+m.leftFront);line(proof,'上日前排当日均值',pct(m.priorFrontCurrentMeanReturn)+' / 其他成员 '+pct(m.otherCurrentMeanReturn));line(proof,'上日封存时点',time(m.priorRecordedAt));}
    else node('p','前排迁移证据不足，未冻结的旧群体不回填。',proof,'ml-muted');
+   const lag=s.leadLag;
+   const lagRows=list(lag?.pairs);
+   const directions=new Set([-1,0,1]);
+   const lagValid=lag?.method==='fixed-one-session-breadth-vs-index-v1'&&lag.lagSessions===1&&lag.status==='descriptive-insufficient-sample'&&lag.outOfSampleVerified===false&&lag.leadingConfirmed===false&&lag.canTrade===false&&lag.canNotify===false&&lag.attempted===4&&lagRows.length===4&&
+    lagRows.every((r,i)=>r&&r.signalDate===rows[i].date&&r.targetDate===rows[i+1].date&&((r.status==='unknown'&&r.lagMatch===null&&r.concurrentMatch===null)||
+      (r.status==='observed-unverified'&&[r.priorBreadth,r.concurrentBreadth,r.targetIndexDirection].every(x=>directions.has(x))&&Number.isSafeInteger(r.signalRecordedAt)&&r.signalRecordedAt>=Date.parse(r.signalDate+'T15:00:00+08:00')&&r.signalRecordedAt<=Date.parse(r.targetDate+'T09:30:00+08:00')&&Number.isSafeInteger(r.targetRecordedAt)&&r.targetRecordedAt>=Date.parse(r.targetDate+'T15:00:00+08:00')&&
+       (r.priorBreadth&&r.concurrentBreadth&&r.targetIndexDirection?r.lagMatch===(r.priorBreadth===r.targetIndexDirection)&&r.concurrentMatch===(r.concurrentBreadth===r.targetIndexDirection):r.lagMatch===null&&r.concurrentMatch===null))));
+   const paired=lagRows.filter(r=>r&&typeof r.lagMatch==='boolean'&&typeof r.concurrentMatch==='boolean');
+   if(lagValid&&lag.pairedEvaluated===paired.length&&lag.unknown===lagRows.filter(r=>r.status==='unknown').length&&lag.abstained===4-paired.length-lag.unknown&&lag.lagMatches===(paired.length?paired.filter(r=>r.lagMatch).length:null)&&lag.concurrentMatches===(paired.length?paired.filter(r=>r.concurrentMatch).length:null)){
+    line(proof,'领先滞后研究','固定滞后1个交易日；有效配对 '+paired.length+' / 4；未知 '+lag.unknown+'；弃权 '+lag.abstained);
+    if(paired.length)line(proof,'配对方向一致次数','滞后 '+lag.lagMatches+' / '+paired.length+'；同期 '+lag.concurrentMatches+' / '+paired.length);
+   }else node('p','领先滞后研究：配对证据不足或未知。',proof,'ml-muted');
+   node('p','同期冲击不等于领先；未验证样本外效果，不形成预测信号。',proof,'ml-muted');
    node('p','共同样本为事后覆盖对照；群体迁移仅为描述性研究，非事前信号，不构成买卖建议。',proof,'ml-muted');
   }
   const detail=node('div',undefined,sector,'ml-sector-detail');
