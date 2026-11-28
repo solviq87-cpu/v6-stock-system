@@ -1,6 +1,7 @@
 'use strict';
 /** One-shot auditable decision research. Never places orders or promotes research to production. */
 const {researchLiveMarket}=require('./live-market-research');
+const {candidateOpportunityReview}=require('./research-opportunity-review');
 const {compareRuleSystems}=require('../strategy/rule-comparison');
 const {walkForward}=require('../strategy/walk-forward-backtest');
 const {holdoutBacktest}=require('../strategy/holdout-backtest');
@@ -21,7 +22,7 @@ async function buildDecisionResearch({fetchSnapshot,now=Date.now(),candidates=[]
   return {code,name:String(c?.name||code).slice(0,64),originalRank:i+1,
    originalScore:Number.isFinite(c?.finalScore)?c.finalScore:null,
    riskStatus:risk?.riskStatus||'unknown',evidenceReady:risk?.evidenceReady||false,
-   reason:risk?.reason||'缺少行情或候选证据',canTrade:false};
+   reason:risk?.reason||'缺少行情或候选证据',opportunityReview:candidateOpportunityReview(c,risk,market.candidateIntersection,now),canTrade:false};
  });
  const systems=compareRuleSystems(ruleInputs);
  return {schemaVersion:1,mode:'research-only',verifiedLive:false,productionRankingModified:false,
