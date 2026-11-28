@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const {runHoldingPeriodStudy}=require('../src/core/holding-period-comparison');
+const {runHoldingPeriodStudy,summarizeSettledNetReturns}=require('../src/core/holding-period-comparison');
 const {runValidatedBacktest}=require('../src/core/historical-validation');
 const {runCompleteWorkbench}=require('../src/core/complete-workbench');
 const fixture=()=>({source:'fixture',asOf:'2026-03-01',stocks:[{symbol:'600000',market:'main',bars:Array.from({length:60},(_,i)=>({date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),open:10+i*.04,high:10.1+i*.04,low:9.9+i*.04,close:10+i*.04,volume:1000000}))}]});
@@ -67,4 +67,31 @@ test('original holdout is retained separately by period without certifying untou
  assert.ok(v.periods.every(p=>p.report.holdout.status==='evaluated'));
  for(const p of v.periods)assert.deepEqual(p.report.holdout,runValidatedBacktest({...h,holdDays:p.holdDays}).holdout);
  assert.equal(v.independentHoldoutCertified,false);assert.equal(v.workUnits,900);
+});
+
+test('F20.2 original settled portions retain negative, zero and positive net return and disclose exclusions',()=>{
+ const trade=(symbol,pnl,extra={})=>({symbol,buyDay:1,sellDay:2,shares:100,costBasis:1000,netPnl:pnl,...extra});
+ const report={trades:[trade('600000',-100),trade('600000',0),trade('600000',200),trade('000001',1000),trade('600001',10,{costBasis:0})],
+  metrics:{closedTrades:5},orders:[{symbol:'000001',status:'corporate-action'}],cashFlows:[]};
+ const before=JSON.stringify(report),d=summarizeSettledNetReturns(report);
+ assert.equal(d.status,'descriptive-only');assert.equal(d.totalSettledRecords,5);assert.equal(d.usableRecords,3);assert.equal(d.excludedRecords,2);
+ assert.equal(d.coveragePct,60);assert.deepEqual([d.p10Pct,d.p50Pct,d.p90Pct,d.empiricalWidthPct],[-10,0,20,30]);
+ assert.equal(d.predictiveCoverage,null);assert.equal(d.independentSamplesCertified,false);assert.equal(d.canTrade,false);
+ assert.equal(JSON.stringify(report),before);
+});
+test('F20.2 missing, no settlement, and malformed ledger never produce a zero return distribution',()=>{
+ const base={trades:[],metrics:{closedTrades:0},orders:[],cashFlows:[]};
+ const empty=summarizeSettledNetReturns(base);assert.equal(empty.status,'no-usable-settled-records');assert.equal(empty.coveragePct,null);assert.equal(empty.p50Pct,null);
+ assert.equal(summarizeSettledNetReturns({...base,metrics:{closedTrades:1}}).status,'unavailable');
+ assert.equal(summarizeSettledNetReturns({...base,cashFlows:[{kind:'unclassified'}]}).status,'unavailable');
+ const v=runHoldingPeriodStudy(fixture()).comparison;
+ assert.ok(v.periods.every(p=>p.settledNetDistribution.usableRecords===0&&p.settledNetDistribution.p50Pct===null));
+});
+test('F20.2 multi-period output consumes the original ledger distribution without modifying original trade rows',()=>{
+ const r=child(`const scanner=require.resolve('./src/strategy/research-v2-universe-scanner');
+ require(scanner).scanUniverse=({stocks})=>({items:stocks.map(s=>({symbol:s.symbol,tradable:true}))});
+ const {runHoldingPeriodStudy}=require('./src/core/holding-period-comparison');const h=${JSON.stringify(fixture())};h.end=48;
+ console.log(JSON.stringify(runHoldingPeriodStudy(h).comparison));`);
+ assert.ok(r.periods.some(p=>p.settledNetDistribution.usableRecords>0));
+ for(const p of r.periods)assert.deepEqual(p.settledNetDistribution,summarizeSettledNetReturns(p.report));
 });

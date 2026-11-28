@@ -6,6 +6,40 @@ const {runValidatedBacktest}=require('./historical-validation');
 const HORIZONS=Object.freeze([1,3,5,10,20]);
 const FLAGS=Object.freeze({canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,eligibleForPromotion:false,weightsChanged:false});
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
+// F20.2: descriptive net return of original settled portions, not a signal
+// forecast, whole-position return, or independent calibration sample.
+function summarizeSettledNetReturns(report){
+ const total=Array.isArray(report?.trades)?report.trades.length:null;
+ const unknown={status:'unavailable',totalSettledRecords:total,usableRecords:0,excludedRecords:total,
+  coveragePct:null,p10Pct:null,p50Pct:null,p90Pct:null,empiricalWidthPct:null,predictiveCoverage:null,
+  independentSamplesCertified:false,canTrain:false,canTrade:false};
+ if(total===null||report.metrics?.closedTrades!==total||!Array.isArray(report.orders)||!Array.isArray(report.cashFlows))return unknown;
+ // A company action can change cost basis or realize a nonordinary exit.
+ // Exclude the entire affected symbol conservatively rather than guess its
+ // economics. The original report still includes every cash flow and trade.
+ const affected=new Set();
+ for(const o of report.orders)if(['corporate-action','corporate-settlement'].includes(o?.status)){
+  if(typeof o.symbol!=='string'||!o.symbol)return unknown;affected.add(o.symbol);
+ }
+ for(const f of report.cashFlows)if(!['initial','buy','sell'].includes(f?.kind)){
+  if(typeof f?.symbol!=='string'||!f.symbol)return unknown;affected.add(f.symbol);
+ }
+ const finite=x=>typeof x==='number'&&Number.isFinite(x);
+ const values=[];
+ for(const t of report.trades){
+  if(!t||typeof t.symbol!=='string'||!t.symbol||affected.has(t.symbol)||!Number.isSafeInteger(t.buyDay)||
+   !Number.isSafeInteger(t.sellDay)||t.sellDay<=t.buyDay||!Number.isSafeInteger(t.shares)||t.shares<=0||
+   !finite(t.costBasis)||t.costBasis<=0||!finite(t.netPnl))continue;
+  const pct=100*t.netPnl/t.costBasis;if(finite(pct))values.push(pct);
+ }
+ values.sort((a,b)=>a-b);
+ const n=values.length,round=x=>Number.isFinite(x)?Number(x.toFixed(6)):null;
+ const q=p=>n?values[Math.max(0,Math.ceil(p*n)-1)]:null;
+ return {...unknown,status:n?'descriptive-only':'no-usable-settled-records',usableRecords:n,excludedRecords:total-n,
+  coveragePct:total?round(100*n/total):null,p10Pct:round(q(.1)),p50Pct:round(q(.5)),p90Pct:round(q(.9)),
+  empiricalWidthPct:n?round(q(.9)-q(.1)):null,
+  basis:'original allocated cost basis and net PnL; nearest-rank empirical quantiles; settled portions may share entry; excludes corporate-action symbols'};
+}
 function runHoldingPeriodStudy(history){
  // Take the protocol snapshot before any outcome computation. This local
  // snapshot does not certify preregistration, an untouched holdout or trial budget.
@@ -40,6 +74,7 @@ function runHoldingPeriodStudy(history){
    markedAccountReturnPct:buys?report.metrics.returnPct:null,
    closedAccountReturnPct:buys&&closed&&!open?report.metrics.returnPct:null,
    drawdownPct:buys?report.metrics.maxDrawdownPct:null,
+   settledNetDistribution:summarizeSettledNetReturns(report),
    evidenceFingerprint:hash(report),report});
  }
  return {baseline,comparison:{schemaVersion:1,mode:'holding-period-research-comparison',status:'descriptive-only',
@@ -53,4 +88,4 @@ function runHoldingPeriodStudy(history){
    '本次协议指纹不是独立预注册、试验额度或留出集认证；即使有splitDay也不自动认证样本外',
    '历史证券、因子、公司行为、股票池及数据用途许可仍按原输入证据核验，不能倒填点时信息']}};
 }
-module.exports={HORIZONS,runHoldingPeriodStudy};
+module.exports={HORIZONS,runHoldingPeriodStudy,summarizeSettledNetReturns};
