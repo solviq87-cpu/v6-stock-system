@@ -2,7 +2,7 @@
 /** Derive observed A-share breadth from an explicitly sourced, dated universe.
  * Never substitute neutral/synthetic values when coverage is insufficient. */
 const {aShareCalendarDate}=require('./a-share-calendar');
-const {classifyQuoteTime}=require('./market-snapshot-quote-time');
+const {classifyQuoteTime,snapshotCaptureWindow}=require('./market-snapshot-quote-time');
 const CODE=/^\d{6}$/;
 const validDate=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(Date.parse(s)).toISOString().slice(0,10)===s;
 // Keep the original display counters, but qualify decision coverage separately.
@@ -69,7 +69,7 @@ function comparableReturn(stock) {
 // Current cross-section for the research terminal. Keep it separate from the
 // existing request-date breadth, which can describe an older market snapshot.
 function summarizeRecentStructure(snapshot, minCoverage = 0.8) {
- const asOf = Date.parse(snapshot?.retrievedAt);
+ const {originalRetrievedAt:asOf,invalidStart} = snapshotCaptureWindow(snapshot);
  const stocks = Array.isArray(snapshot?.stocks) ? snapshot.stocks : [];
  const {date, source, universeSize} = snapshot || {};
  const counts = new Map();
@@ -79,13 +79,18 @@ function summarizeRecentStructure(snapshot, minCoverage = 0.8) {
  }
  const rows = [];
  const usableHeader = Number.isSafeInteger(asOf) && asOf > 0 && validDate(date) &&
+   !invalidStart && !artificial(snapshot) && !conflict(snapshot) &&
+   Number.isFinite(minCoverage) && minCoverage > 0 && minCoverage <= 1 &&
    date === aShareCalendarDate(asOf) && typeof source === 'string' && source.trim() &&
    Number.isSafeInteger(universeSize) && universeSize > 0 && counts.size <= universeSize;
  if (usableHeader) {
    for (const stock of stocks) {
      const code = stock?.code ?? stock?.symbol;
      if (typeof code !== 'string' || !CODE.test(code) || counts.get(code) !== 1 || !comparableReturn(stock)) continue;
-     const time = classifyQuoteTime(stock, {requestDate: date, retrievedAt: asOf});
+     if (artificial(stock) || conflict(stock) ||
+         stock.code!=null && stock.symbol!=null && stock.code!==stock.symbol ||
+         stock.source!=null && stock.source!==source || stock.limitUp===true && stock.limitDown===true) continue;
+     const time = classifyQuoteTime(stock, {requestDate: date, retrievedAt: asOf, invalidStart});
      if (time.quoteTimeStatus === 'recent-source-unverified') rows.push(stock);
    }
  }

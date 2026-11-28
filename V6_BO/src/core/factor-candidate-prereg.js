@@ -207,6 +207,21 @@ function verifySeedCandidate(reg,{sorted,ids,packFingerprint,oldWeights,
   registeredAt:reg.registeredAt,recordedAt:reg.recordedAt,frozenPrefixDays:prefix.length,holdoutFirstDay:first.day,
   candidateOrigin:reg.candidateOrigin,canTrade:false,productionWeightsChanged:false};
 }
+// Generate only a bounded, falsifiable reweighting hypothesis from the
+// original frozen prefix. No generated code, invented training evidence or
+// authority to approve a model. The exact object is sealed by preregistration.
+function registrationHypothesis(reg){
+ const canonical=reg.packFingerprint===hash(factorPack);
+ const changes=reg.factorIds.filter(id=>reg.candidateWeights[id]!==reg.acceptedWeights[id]).map(id=>{
+  const f=canonical?factorPack.factors.find(x=>x.id===id):null;
+  return {factorId:id,field:f?.field??null,group:f?.group??null,oldWeight:reg.acceptedWeights[id],proposedWeight:reg.candidateWeights[id]};
+ });
+ return {mode:'bounded-frozen-reweight-hypothesis-v1',status:changes.length?'falsifiable-research-only':'no-weight-change',operator:'bounded-reweight-only',changes,
+  economicRationale:'Relative factor contribution may change with market participation; redundant signals may overcount the same information. This is a hypothesis, not a causal finding.',
+  sourceFingerprint:reg.autoSourceFingerprint??null,frozenPrefixFingerprint:hash(reg.frozenPrefixFingerprints),frozenPrefixDays:reg.frozenPrefixFingerprints.length,availableThrough:reg.lastFrozenCapturedAt,registeredAt:reg.registeredAt,
+  testMetric:'original paired daily rank IC versus immutable baseline',counterexamples:['mean uplift <= 0.002','positive paired uplift on fewer than 60% of days','either half mean uplift < -0.001','missing, overlapping or insufficient mature held-out evidence'],
+  generatedCodeAllowed:false,independentDataCertified:false,canTrade:false,canApprove:false};
+}
 function preregisterCandidate({features,candidateWeights,acceptedWeights,
  registeredAt,parentAcceptedFingerprint=null,parentTrialFingerprint=null,
  packFingerprint,autoSourceFingerprint=null,modelProvenance}={}){
@@ -252,6 +267,7 @@ function preregisterCandidate({features,candidateWeights,acceptedWeights,
   sealedBeforeFutureSignals:true,
   canTrade:false,productionWeightsChanged:false};
  if(modelProvenance!==undefined)verifyModelCandidateProvenance(payload);
+ if(autoSourceFingerprint!==null)payload.hypothesis=registrationHypothesis(payload);
  return structuredClone({...payload,fingerprint:hash(payload)});
 }
 function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
@@ -294,6 +310,8 @@ function verifyRegistrationWindow(reg,{sorted,ids,packFingerprint,
    throw Error('候选预注册与实际冻结因子定义不一致');
  }
  if(Object.hasOwn(reg,'modelProvenance'))verifyModelCandidateProvenance(reg);
+ if(reg.autoSourceFingerprint!==undefined&&(!record(reg.hypothesis)||hash(reg.hypothesis)!==hash(registrationHypothesis(reg)))||reg.autoSourceFingerprint===undefined&&Object.hasOwn(reg,'hypothesis'))
+  throw Error('候选预注册假设与原冻结前缀或权重不一致');
  if(pending)return {status:'candidate-waiting-verified',registrationFingerprint:reg.fingerprint,
   registeredAt:reg.registeredAt,frozenPrefixDays:prefix.length,canTrade:false,productionWeightsChanged:false};
  return {status:'candidate-committed-before-new-signal',

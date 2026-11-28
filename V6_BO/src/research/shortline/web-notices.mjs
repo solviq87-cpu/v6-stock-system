@@ -75,7 +75,14 @@ export function noticeDeviceAction({root,dir,book,action,payload={},replica}){
 export function noticeView({dir,state,book}){
   if(book==='demo')return {notices:[],devices:0};
   const data=load(workspace.privateRoot(dir)),muted=settingsAt(state).mutedAlertTypes||[];
-  return {devices:data.devices.length,deviceIds:data.devices.map(d=>d.id),notices:data.notices.filter(n=>n.createdAt>=(state?.ledgerStartAt||0)).slice(-50).reverse().map(n=>({...n,muted:muted.includes(n.type)}))};
+  const deliveryEvidence=data.devices.map(d=>{
+    const r=d.lastGatewayReceipt,valid=r&&typeof r.day==='string'&&Number.isSafeInteger(r.attemptedAt)&&Number.isSafeInteger(r.recordedAt)&&r.attemptedAt<=r.recordedAt&&r.recordedAt<=Date.now()&&r.recordedAt>=d.enabledAt&&r.recordedAt>=(state?.ledgerStartAt||0);
+    const code=valid&&Number.isInteger(r.status)&&r.status>=100&&r.status<=599?r.status:null;
+    return {deviceId:d.id,day:valid?r.day:null,attemptedAt:valid?r.attemptedAt:null,recordedAt:valid?r.recordedAt:null,
+      gatewayStatus:code===null?'unknown':code>=200&&code<300?'accepted':code>=400&&code<500&&code!==408?'rejected':'unknown',
+      gatewayStatusCode:code,receiverConfirmed:false,readConfirmed:false};
+  });
+  return {devices:data.devices.length,deviceIds:data.devices.map(d=>d.id),deliveryEvidence,notices:data.notices.filter(n=>n.createdAt>=(state?.ledgerStartAt||0)).slice(-50).reverse().map(n=>({...n,muted:muted.includes(n.type)}))};
 }
 export function syncNoticeSchedule({dir,state,book}){
   if(book==='demo')return;
@@ -91,7 +98,7 @@ export function resetNoticeArchive({dir}){
   if(!fs.existsSync(ledger(safe)))return;
   return guarded(safe,()=>{
     const data=load(safe);data.notices=[];data.checkedDay='';
-    for(const d of data.devices)delete d.pending;
+    for(const d of data.devices){delete d.pending;delete d.lastGatewayReceipt;}
     write(ledger(safe),data);
     const prev=read(schedule(safe),null);
     if(prev)write(schedule(safe),{time:prev.time,checkedDay:'',retryAt:0});
@@ -147,7 +154,7 @@ export async function tickWebNotices({root,dir,book,state,day,tradingDay,primary
     const data=load(safe),epoch=state.ledgerStartAt||0;
     if(epoch>(data.epoch||0)){
       data.epoch=epoch;data.notices=data.notices.filter(n=>n.createdAt>=epoch);data.checkedDay='';
-      for(const d of data.devices)delete d.pending;
+      for(const d of data.devices){delete d.pending;delete d.lastGatewayReceipt;}
     }
     const fresh=data.checkedDay===day?[]:makeNotices(state,day,now).filter(n=>!data.notices.some(p=>p.id===n.id));
     data.checkedDay=day;data.notices.push(...fresh);
@@ -172,12 +179,15 @@ export async function tickWebNotices({root,dir,book,state,day,tradingDay,primary
       // Recheck role and subscription immediately before dispatch.
       if(!isPrimary()||!isCurrent()||!load(safe).devices.some(d=>d.id===task.id&&d.pending?.token===task.token))return;
       const res=await sendPush(task.endpoint,keyFor(root,false),hash(book+'/'+day),now);
-      status=typeof res==='number'?res:res?.status;retryAt=Number.isFinite(res?.retryAt)?res.retryAt:0;
+      status=typeof res==='number'?res:res?.status;if(!Number.isInteger(status)||status<100||status>599)status=0;retryAt=Number.isFinite(res?.retryAt)?res.retryAt:0;
     }catch{status=0;}
     guarded(safe,()=>{
-      if(!isCurrent())return;
+      if(!isPrimary()||!isCurrent())return;
       const data=load(safe),device=data.devices.find(d=>d.id===task.id);
       if(device?.pending?.token!==task.token)return;
+      // This is the gateway's response to an empty push, not evidence of a
+      // device receipt or a user's reading. Never resurrect revoked devices.
+      device.lastGatewayReceipt={day,attemptedAt:now,recordedAt:Date.now(),status:Number.isInteger(status)&&status>=100&&status<=599?status:null};
       if(status>=200&&status<300){delete device.pending;sent++;}
       else if([404,410].includes(status))data.devices=data.devices.filter(d=>d.id!==task.id);
       else{

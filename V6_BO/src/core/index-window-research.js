@@ -228,7 +228,9 @@ function createIndexWindowResearch({ investigate, reviewInvestigation, historyRo
 // Only count original receipts already in the bounded application news cache.
 // Co-occurrence does not identify a buyer or establish a cause.
 function investigateKnownNews(event, news) {
-  if (!news || news.evidenceIntake?.status === 'unknown') return {status:'unavailable'};
+  if (!event || ![event.baseAt,event.quoteAt,event.detectedAt].every(validTime) ||
+      event.baseAt > event.quoteAt || event.quoteAt > event.detectedAt ||
+      !news || news.evidenceIntake?.status === 'unknown') return {status:'unavailable'};
   const refs = new Set();
   let inspected = 0;
   for (const rows of [news.goodAll, news.badAll, news.neutralAll]) {
@@ -237,13 +239,13 @@ function investigateKnownNews(event, news) {
       inspected++;
       const proof = row?.newsEvidence;
       if (!/^[a-f0-9]{64}$/.test(proof?.eventHash || '') ||
-          ![row.publishedAt, row.receivedAt, proof.recordedAt].every(Number.isSafeInteger) ||
+          ![row.publishedAt, row.receivedAt, proof.recordedAt].every(validTime) ||
           row.publishedAt < event.baseAt || row.publishedAt > event.quoteAt ||
           row.publishedAt > row.receivedAt || row.receivedAt > event.detectedAt ||
-          proof.recordedAt < row.publishedAt || proof.recordedAt > event.detectedAt) continue;
+          proof.recordedAt < row.receivedAt || proof.recordedAt > event.detectedAt) continue;
       refs.add(proof.eventHash);
     }
   }
   return {status:inspected ? 'cached-window-checked' : 'unavailable', inspected, evidenceHashes:[...refs]};
 }
-module.exports = {createIndexWindowResearch, investigateKnownNews};
+module.exports = {createIndexWindowResearch, investigateKnownNews, sameMinuteResearchPolicy:Object.freeze({sessionMinute,PRIOR_DAYS})};

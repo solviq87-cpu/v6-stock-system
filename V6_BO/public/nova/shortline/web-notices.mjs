@@ -25,15 +25,19 @@ export async function enableDevice(ui,ctx,book=activeBook()){
   }
   const registration=await regForPage().catch(()=>null);
   const sub=registration?.pushManager?await registration.pushManager.getSubscription():null;
-  const on=sub&&(list.deviceIds||[]).includes(await deviceId(sub.endpoint));
-  if(!active(ctx))return;
+  const currentDeviceId=sub?await deviceId(sub.endpoint):null;
+  const on=currentDeviceId&&(list.deviceIds||[]).includes(currentDeviceId);
+  if(!active(ctx)||activeBook()!==book)return;
+  const receipt=on&&(list.deliveryEvidence||[]).find(r=>r.deviceId===currentDeviceId);
+  const deliveryText=receipt?.gatewayStatus==='accepted'?'最近网关已受理；终端接收及已读未确认。':receipt?.gatewayStatus==='rejected'?'最近网关拒绝；终端状态未知。':'尚无可核验的网关受理记录；终端接收及已读未知。';
   const fg=foreground.has(book);
   const body='<p>'+ (on?'本机已启用浏览器后台提醒。':fg?'本页已启用前台提醒。':'启用后浏览器会请求通知权限。系统通知只显示通用提醒，具体内容在登录后查看。')+'</p>'+
+    '<p>'+escape(deliveryText)+'</p>'+
     '<label><span>设备通知</span><select name="device"><option value="keep">保持当前设置</option>'+
     (on||fg?'<option value="off">关闭本账户的本机提醒</option>':'<option value="on">在此设备启用</option>')+'</select></label><h3>站内收盘通知</h3>'+noticeList(list.notices);
   ui.modal('本机网页通知',body,async form=>{
     const choice=form.get('device');if(choice==='keep')return;
-    if(!active(ctx))throw Error('设备会话已结束');
+    if(!active(ctx)||activeBook()!==book)throw Error('设备会话已结束');
     if(choice==='off'){
       if(on)await ui.save('notice:unsubscribe',{endpoint:sub.endpoint});
       foreground.delete(book);
@@ -43,7 +47,7 @@ export async function enableDevice(ui,ctx,book=activeBook()){
     if(!globalThis.Notification||!globalThis.isSecureContext)throw Error('请在支持系统通知的 HTTPS 浏览器中打开；站内通知仍可在此处查阅');
     const permission=await Notification.requestPermission();
     if(permission!=='granted')throw Error('浏览器未授权通知；站内通知仍可在此处查阅');
-    if(!active(ctx))return;
+    if(!active(ctx)||activeBook()!==book)return;
     if(registration?.pushManager){
       let subscription;
       try{
@@ -52,7 +56,7 @@ export async function enableDevice(ui,ctx,book=activeBook()){
         if(current?.options?.applicationServerKey&&encoded(current.options.applicationServerKey)!==publicKey)
           throw Error('设备当前订阅使用不同密钥');
         subscription=current||await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes(publicKey)});
-        if(!active(ctx))return;
+        if(!active(ctx)||activeBook()!==book)return;
         await ui.save('notice:subscribe',{endpoint:subscription.endpoint});
         foreground.delete(book);ui.toast('本机已启用后台网页通知');return;
       }catch(error){
@@ -85,7 +89,7 @@ export function startNoticePolling(ctx){
       if(foreground.has(book)&&globalThis.Notification?.permission==='granted'){
         const title='绯曜研究提醒',options={body:'登录研究台查看最新复盘与提醒。',tag:'fayo-shortline-research',data:{researchNotice:true}};
         const reg=await regForPage();
-        if(!active(ctx)||stopped)return;
+        if(!active(ctx)||stopped||activeBook()!==book||!foreground.has(book)||globalThis.Notification?.permission!=='granted')return;
         if(reg)await reg.showNotification(title,options);else new Notification(title,options);
       }
     }catch(error){if(error.status===401||error.status===403)stop();}

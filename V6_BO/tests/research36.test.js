@@ -114,3 +114,21 @@ test('bounded evidence keeps endpoints and signed financial values without unive
   for(const value of values){const check=by(analyze({[field]:proof(value,rule.unit)}),strategy.id).checks.find(c=>c.field===field);assert.equal(check.missing,null,field);assert.equal(check.value,value);}
  }
 });
+
+test('F09 compare invokes original ledger for stock trend, sector and native reversal under both cost scenarios',()=>{
+ const bars=dailyBars(62),stocks=[{symbol:code,market:'main',bars}],evidenceByDate={};
+ for(const b of bars)evidenceByDate[b.date]={[code]:{
+  ma5Over10:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt}),
+  ma10Over20:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt}),
+  closeOver20:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt})}};
+ const r=engine.compareResearch36({strategyIds:['ma_trend','sector_resonance','quality:rsv14_reversal_confirmation'],stocks,evidenceByDate,options:{start:45,end:56,topN:1,holdDays:1,tradingDates:bars.map(b=>b.date)}});
+ assert.equal(r.status,'descriptive-only');assert.equal(r.rows.length,6);assert.equal(r.canTrade,false);assert.equal(r.rows.find(x=>x.strategyId==='sector_resonance').summary.markedReturnPct,null);
+ const original=r.rows.find(x=>x.strategyId==='ma_trend'&&x.scenario==='original-cost');
+ assert.ok(original.report.trades.length>0);assert.ok(original.report.trades.every(t=>t.sellDay>t.buyDay));
+ const native=r.rows.find(x=>x.strategyId==='quality:rsv14_reversal_confirmation');assert.equal(native.report.research36.nativeRule,'quality-volume-reversal-research/rsv14_reversal_confirmation');assert.ok(native.report.research36.signals.some(s=>s.nativeEvidence?.id==='rsv14_reversal_confirmation'));
+});
+test('F09 original fixed-window experiment rejects role inversion even if date gaps satisfy the purge',()=>{
+ const bars=dailyBars(70),input={strategyId:'price_volume',stocks:[{symbol:code,market:'main',bars}],evidenceByDate:{},
+  windows:[{label:'test-first',role:'test',start:27,end:35},{label:'train-late',role:'train',start:39,end:48},{label:'validation-late',role:'validation',start:52,end:62}]};
+ assert.throws(()=>engine.experimentResearch36(input),/角色顺序/);
+});

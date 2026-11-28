@@ -5,6 +5,7 @@ const checks=require('./research-workspace-diagnostics');
 const modelForecast=require('./model-forward-evaluation');
 const marketLinkage=require('./market-sector-stock-linkage');
 const {enrichMarketLinkageHistory}=require('./market-linkage-history');
+const {selectedRunReview,terminalOverview}=require('./research-review-metrics');
 const array=x=>Array.isArray(x)?x:[];
 const rootOf=options=>options.workspaceRoot||path.join(path.dirname(options.observationRoot),'research-workspace');
 function codeVersion(){
@@ -105,6 +106,9 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
  const offset=query.offset??0,limit=query.limit??20;
  const history=symbol?analytics.timeline(events,symbol,asOf):[];
  const scorecard=analytics.scorecards(events,{asOf}),outcomes=scorecard.observations.filter(o=>!query.symbol||o.symbol===query.symbol);
+ const linkageView=enrichMarketLinkageHistory(marketLinkage.buildMarketSectorStockLinkage(events,{selectedEvent:latest,asOf}),events,{selectedEvent:latest,asOf});
+ const dailyReview=selectedRunReview(latest,scorecard.observations,{asOf});
+ const researchOverview=terminalOverview(linkageView,dailyReview);
  const forecastEvaluation=modelForecast.evaluationView(root,events,{asOf,symbol:query.symbol,runId:query.runId,offset,limit});
  try{forecastEvaluation.input=latest?modelForecast.prepareInput(latest):null;}catch{forecastEvaluation.input=null;forecastEvaluation.inputReason='所选研究缺少可核对的闭合价格、证券身份或交易日历';}
  forecastEvaluation.outputTemplate=forecastEvaluation.input?modelForecast.outputTemplate(forecastEvaluation.input):null;
@@ -118,7 +122,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
     funnel:screen?.data.funnel||null,lookupStatus:!screen?'no-screen-run':!evaluated?'not-evaluated-in-this-run':!screenRows.length?'filtered-out':'available',provenance:screen?.data.provenance||null},
   scorecard:{...scorecard,observations:outcomes.slice(offset,offset+limit),observationTotal:outcomes.length,offset,limit,stress:[{feeBps:16,slippageBps:30,sellTaxBps:5},{feeBps:32,slippageBps:50,sellTaxBps:5}].map(cost=>({assumptions:cost,groups:analytics.scorecards(events,{asOf,...cost}).groups}))},quality:analytics.qualityReport(latest?.data),
   inputAudit:checks.inputAudit(latest?.data),pairedComparison:checks.pairedComparison(latest?.data,compared?.data),drift:checks.driftReport(events,asOf),
-  forecastEvaluation,marketLinkage:enrichMarketLinkageHistory(marketLinkage.buildMarketSectorStockLinkage(events,{selectedEvent:latest,asOf}),events,{selectedEvent:latest,asOf}),
+  forecastEvaluation,marketLinkage:linkageView,researchOverview,
   publicModelComparison:new Date(asOf+28800000).toISOString().slice(0,10)>='2026-11-14'?require('../../config/public-model-comparison-20261114.json'):{models:[],reason:'对照目录晚于回放时点，不作为当时已知资料'},
   defense:query.asOf===undefined?analytics.holdingDefense(events,accounts,quotes,asOf,preferences?.data):{rows:[],exposures:[],reason:'历史回放不借用当前持仓；原账本没有该时点快照'},
   preferences:{revision:preferences?.revision||0,value:preferences?.data||store.preferenceInput({}),history:events.filter(e=>e.kind==='preferences').map(e=>({revision:e.revision,recordedAt:e.recordedAt,objective:e.data.objective}))},
@@ -129,7 +133,7 @@ function workspaceView(root,query={}, {accounts={},quotes=new Map(),now=Date.now
 }
 function exportResearch(view){
  return {schemaVersion:1,mode:'research-reproducible-export',...store.FLAGS,asOf:view.asOf,run:view.selectedRun,
-  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,marketLinkage:view.marketLinkage,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
+  timeline:view.timeline,timelineScope:{offset:view.runs.offset,limit:view.runs.limit,total:view.timelineTotal},marketPosition:view.marketPosition,marketLinkage:view.marketLinkage,researchOverview:view.researchOverview,scorecard:view.scorecard,quality:view.quality,preferences:view.preferences.value,
   inputAudit:view.inputAudit,pairedComparison:view.pairedComparison,drift:view.drift,
   forecastEvaluation:view.forecastEvaluation,
   omitted:['实际账户持仓、成本、令牌、Webhook和私有文件路径'],scope:'selected-private-research-evidence-only'};
