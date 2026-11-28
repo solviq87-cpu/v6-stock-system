@@ -7,6 +7,7 @@
 const pack=require('../../strategies/extended-factor-pack.json');
 const {freezeCurrentPicks}=require('./quant-picks-eod-freeze');
 const {freezeFeatureEpisode}=require('./factor-shadow-evolution');
+const {normalizeSizeEvidence}=require('./factor-size-style-evidence');
 
 const DAY=86400000;
 const chinaDay=time=>new Date(time+8*3600000).toISOString().slice(0,10);
@@ -78,6 +79,7 @@ function captureFactorEpisode({candidates,market,factorSnapshot,now=Date.now()}=
  const stocks=validateFactorFeed(factorSnapshot,cohort,now);
  const selected=chooseFactorIds(factorSnapshot,cohort,stocks);
  const selectedDefs=selected.ids.map(id=>pack.factors.find(f=>f.id===id));
+ const sizeStatus=new Map();
  const rows=cohort.signals.map(signal=>{
   const stock=stocks.get(signal.symbol),values={},evidence={};
   for(const f of selectedDefs){
@@ -106,13 +108,21 @@ function captureFactorEpisode({candidates,market,factorSnapshot,now=Date.now()}=
    industry={code:stock.industryCode,source:proof.source,
     observedAt:proof.timestamp,classificationVersion:proof.classificationVersion};
   }
+  // Explicit original imported cap evidence, not a bare marketCap/mktcap.
+  const proof=stock.sizeEvidence;
+  const size=proof&&proof.knownAt<=factorSnapshot.asOf?
+   normalizeSizeEvidence(proof,{symbol:signal.symbol,tradeDate:signal.signalDate,signalAt:signal.signalAt,
+    provider:factorSnapshot.feed.provider,datasetId:factorSnapshot.feed.datasetId}):null;
+  sizeStatus.set(signal.symbol,size?'observed':proof===undefined?'missing':'invalid');
   return {signalId:signal.signalId,symbol:signal.symbol,
-   signalDate:signal.signalDate,values,evidence,...(industry?{industry}:{})};
+   signalDate:signal.signalDate,values,evidence,...(industry?{industry}:{}),...(size?{sizeEvidence:size}:{})};
  });
  const features=freezeFeatureEpisode({cohort,feed:factorSnapshot.feed,
   factorIds:selected.ids,rows,marketContext:factorSnapshot.marketContext},{now});
  if(features.cohortFingerprint!==cohort.fingerprint)
   throw Error('冻结的选股信号与因子指纹不一致');
- return {cohort,features,...selected};
+ const coverage={expected:sizeStatus.size,observed:0,missing:0,invalid:0};
+ for(const status of sizeStatus.values())coverage[status]++;
+ return {cohort,features,...selected,sizeCoverage:coverage};
 }
 module.exports={captureFactorEpisode,validateFactorFeed,chooseFactorIds};

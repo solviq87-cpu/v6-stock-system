@@ -157,3 +157,49 @@ test('the real bounded worker consumes original persisted history and the origin
  assert.equal(p.mode,'original-account-portfolio-evidence');assert.equal(p.coverage.alignedSamples,60);assert.equal(p.tail.sampleCount,60);assert.equal(p.tail.historicalES,null);assert.equal(p.capacity[0].rows.length,3);assert.equal(p.exits[0].conditionalSessions,1);assert.equal(p.canTrade,false);
  assert.deepEqual(bytes(root),before);
 });
+
+test('F24.4 cash scenario uses original available cash, not cash including reservations or hypothetical proceeds',()=>{
+ const h=portfolioHistory(historyFixture(),{codes:['600001'],now,day}),observations=h.observations(['600001']);
+ const snapshot={evidenceRef:'original-book',cash:10000,availableCash:7500};
+ const candidate={symbol:'600001',notional:7000,entryCost:25,exitCost:30,evidenceRef:'original-gate'};
+ const input={snapshot,candidate,observations,asOf:now,horizon:5,returnBasis:'adjusted-price'};
+ const r=api.compareAvailableCash(input);
+ assert.equal(r.status,'estimated-unverified');assert.equal(r.capital,7500);assert.equal(r.uninvestedCash,475);
+ assert.equal(r.sampleCount,44);assert.equal(r.cashBaseline.meanNetReturn,0);assert.equal(r.cashBaseline.actualYieldVerified,false);
+ assert.equal(r.canTrade,false);assert.equal(r.writesAccount,false);assert.equal(r.recommendation,null);
+ for(const change of [{availableCash:null},{availableCash:0},{availableCash:7000},{availableCash:10001}])
+  assert.equal(api.compareAvailableCash({...input,snapshot:{...snapshot,...change}}).status,'unknown');
+ const expensive=api.compareAvailableCash({...input,candidate:{...candidate,exitCost:105}});
+ assert.ok(Math.abs(expensive.meanNetDifference-r.meanNetDifference+.01)<1e-7);
+ assert.equal(api.compareAvailableCash({...input,observations:[...observations.slice(0,-1),{...observations.at(-1),availableAt:now+1}]}).status,'unknown');
+});
+test('F24.4 original account risk consumer supplies independent candidate cash comparisons and leaves authority unchanged',()=>{
+ const f=fixtures(),before=JSON.stringify(f),report=accountExitDiagnostics(f.book,f.input),p=report.portfolioEvidence;
+ assert.equal(p.cashBaseline.availableCash,report.availableCash);assert.equal(p.cashBaseline.availableCash,10000);
+ assert.equal(p.cashBaseline.reservedCash,0);assert.equal(p.cashComparisons.length,1);
+ assert.equal(p.cashComparisons[0].status,'estimated-unverified');assert.equal(p.cashComparisons[0].capital,report.availableCash);
+ assert.equal(p.cashComparisons[0].quantity,900);assert.equal(p.cashComparisons[0].canTrade,false);
+ assert.equal(JSON.stringify(f),before);
+ f.receipt.checkedAt=now-5001;
+ const stale=accountExitDiagnostics(f.book,f.input).portfolioEvidence;
+ assert.equal(stale.cashBaseline.availableCash,10000);assert.equal(stale.cashComparisons[0].status,'unknown');
+ assert.equal(stale.cashComparisons[0].candidate,undefined);
+});
+
+test('F24.1 original held-lot protection is distinct from new candidate and missing imported holding remains unknown',()=>{
+ const {book,input}=fixtures(),d=accountExitDiagnostics(book,input).portfolioEvidence.opportunityComparisons[0];
+ assert.equal(d.originalHoldingProtection.status,'unknown');assert.equal(d.originalHoldingProtection.stop,null);
+ assert.equal(d.candidateDecisionId,input.portfolioContext.plans.pool[0].decisionId);
+ assert.equal(d.reservedCash,0);assert.equal(d.availableCash,10000);assert.equal(d.actualSaleProceeds,null);assert.equal(d.replacementAuthorized,false);
+ const {originalHoldingProtection}=require('../src/core/advanced-portfolio-runtime'),plan=structuredClone(input.portfolioContext.plans.pool[0]);
+ plan.code='600000';plan.intendedDate=priorDay;plan.frozenAt=new Date(close(priorDay)-60000).toISOString();
+ Object.assign(plan.decisionEvidence,{code:plan.code,day:priorDay});
+ const e={eventId:'original-buy',symbol:plan.code,side:'buy',tradeDate:priorDay,timestamp:close(priorDay)-30000,quantity:1000,price:10,
+  reason:'作战台计划['+plan.id+'] 原账户风控'};
+ const position=book.account.positions['600000'];position.lots[0].sourceEventId=e.eventId;book.account.events=[e];
+ const r=originalHoldingProtection(book,position,[plan],now);
+ assert.equal(r.status,'observed-unverified');assert.equal(r.planId,plan.id);assert.equal(r.entryEventId,e.eventId);assert.equal(r.stop,8);
+ assert.equal(r.logicTextVerified,false);assert.equal(r.canTrade,false);
+ assert.equal(originalHoldingProtection(book,position,[plan,plan],now).status,'unknown');
+ const wrong=structuredClone(plan);wrong.stop=7;assert.equal(originalHoldingProtection(book,position,[wrong],now).status,'unknown');
+});

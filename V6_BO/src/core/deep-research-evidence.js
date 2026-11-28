@@ -273,6 +273,36 @@ function buildEventImpactStudy(input={}, options={}) {
     limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益']});
 }
 
+function summarizeGuidanceRevisions(expectations,asOf){
+  const input=array(expectations,'事前预期',2000),current=versions(input,asOf,'事前预期',2000);
+  const revisions=[],unknown=[];
+  const valid=x=>x&&x.expectationKind==='company-guidance'&&symbol(x.symbol)&&text(x.period,80)&&text(x.metric,80)&&text(x.unit,60)&&finite(x.value)&&x.retracted!==true;
+  // Use the consensus visible before each guidance publication; a later revision
+  // must not erase the earlier reference or enter the historical comparison.
+  const snapshots=new Map();
+  for(const row of current.rows){
+    if(!valid(row))continue;
+    const cutoff=row.publishedAt-1;
+    if(!snapshots.has(cutoff))snapshots.set(cutoff,versions(input,cutoff,'事前一致预期',2000).rows.filter(x=>x.expectationKind==='consensus'&&x.retracted!==true&&finite(x.value)&&Number.isSafeInteger(x.sampleSize)&&x.sampleSize>=1));
+    const matchedConsensus=snapshots.get(cutoff).filter(x=>['symbol','period','metric','unit'].every(k=>x[k]===row[k]));
+    const common={id:row.id,source:row.source,symbol:row.symbol,period:row.period,metric:row.metric,unit:row.unit,
+      currentValue:row.value,currentRevision:row.revision,currentEvidence:provenance(row,asOf),
+      consensusStatus:matchedConsensus.length?'same-definition-declared-consensus-present':'no-matching-consensus-in-visible-input',
+      consensusRefs:matchedConsensus.map(x=>provenance(x,cutoff)),expectedConsensus:null,
+      independentConsensusVerified:false,canTrade:false};
+    const earlier=versions(input,row.recordedAt-1,'事前指引',2000).rows.find(x=>x.source===row.source&&x.id===row.id);
+    if(!valid(earlier)||earlier.revision!==row.revision-1||earlier.recordedAt>=row.recordedAt||
+       ['symbol','period','metric','unit','expectationKind'].some(k=>earlier[k]!==row[k])){
+      unknown.push({...common,status:'unknown',reason:'NO_CONTIGUOUS_SAME_DEFINITION_PRIOR_GUIDANCE',priorValue:null,change:null,changePct:null});continue;
+    }
+    const delta=row.value-earlier.value;
+    if(!finite(delta)){unknown.push({...common,status:'unknown',reason:'NONFINITE_GUIDANCE_CHANGE',priorValue:null,change:null,changePct:null});continue;}
+    revisions.push({...common,status:'observed-unverified',priorValue:earlier.value,priorRevision:earlier.revision,
+      priorEvidence:provenance(earlier,asOf),change:round(delta),changePct:earlier.value!==0?round(100*delta/Math.abs(earlier.value)):null});
+  }
+  return {status:revisions.length?'observed-unverified':'unknown',revisions,unknown,sourceRejections:current.rejected,
+    canTrade:false,note:'同一公司指引、来源、期间、指标及单位的连续归档版本；未取得的指引或一致预期保持未知，不用实际业绩替代预期。'};
+}
 function buildExpectationStudy(input={}, options={}) {
   const asOf=clock(options), actuals=versions(input.actuals,asOf,'业绩实际值',500), rows=[], missing=[], rejected=[...actuals.rejected];
   const rawActuals=array(input.actuals,'业绩实际值',500);
@@ -314,7 +344,7 @@ function buildExpectationStudy(input={}, options={}) {
   }
   if (!rows.length) missing.push('缺少具备来源、原始公告时点和数值口径的实际业绩');
   if (rows.some(x=>x.expected===null)) missing.push('部分实际业绩没有可信事前预期，保持未知');
-  return result(68,rows,missing,{rejected,limitations:['不同来源预期分别展示，不自动拼接为市场共识','价格反应与预期差的组合是研究分类，不证明利好兑现或利空出尽的因果关系']});
+  return result(68,rows,missing,{guidanceRevisions:summarizeGuidanceRevisions(input.expectations,asOf),rejected,limitations:['不同来源预期分别展示，不自动拼接为市场共识','价格反应与预期差的组合是研究分类，不证明利好兑现或利空出尽的因果关系']});
 }
 
 function accountProjection(account, asOf) {
@@ -342,6 +372,47 @@ function exposure(symbols, account) {
   return {accountId:account.accountId,symbols:held.map(p=>p.symbol),marketValue:round(value),
     weightOfHoldingsPct:known&&account.totalMarketValue>0?round(value/account.totalMarketValue*100):null,
     weightOfAccountPct:known&&account.equity>0?round(value/account.equity*100):null};
+}
+function directedEventHoldingExposure(input,asOf,account){
+  const events=versions(input.events,asOf,'事件').rows.filter(e=>e.retracted!==true);
+  const empty={status:'unknown',rows:[],eventCount:events.length,currentAccountAt:account.sourceAt??null,causalPropagationEstablished:false,canTrade:false};
+  if(events.length>100)return {...empty,reason:'DIRECTED_EVENT_RESEARCH_BUDGET'};
+  const held=new Set(account.positions.map(p=>p.symbol)),cache=new Map(),output=[];
+  let work=0;
+  for(const event of events){
+    const cutoff=event.recordedAt;
+    if(!cache.has(cutoff)){
+      const edges=versions(input.relations,cutoff,'关系证据',2000).rows.filter(r=>r.retracted!==true&&r.relationClass==='business'&&r.bodyScope==='declared-body'&&
+        text(r.from)&&text(r.to)&&r.from!==r.to&&text(r.relation,80)&&time(r.validFrom)&&r.validFrom<=cutoff&&
+        (r.validUntil==null||time(r.validUntil)&&r.validUntil>cutoff&&r.validUntil>r.validFrom));
+      const adjacency=new Map();for(const r of edges){if(!adjacency.has(r.from))adjacency.set(r.from,[]);adjacency.get(r.from).push(r);}
+      cache.set(cutoff,adjacency);
+    }
+    const adjacency=cache.get(cutoff),entities=[...new Set(array(event.entityIds,'事件实体',100).filter(x=>text(x)))];
+    for(const entity of entities){
+      const paths=[];
+      const stack=[{at:entity,nodes:[entity],edges:[]}];
+      while(stack.length){
+        const path=stack.pop();
+        if(path.edges.length&&symbol(path.at)&&held.has(path.at))paths.push({symbol:path.at,nodes:path.nodes,edges:path.edges});
+        if(path.edges.length===2)continue;
+        for(const edge of adjacency.get(path.at)||[]){
+          if(++work>20000)return {...empty,reason:'DIRECTED_RELATION_WORK_BUDGET'};
+          if(path.nodes.includes(edge.to))continue;
+          stack.push({at:edge.to,nodes:[...path.nodes,edge.to],edges:[...path.edges,{id:edge.id,from:edge.from,to:edge.to,relation:edge.relation,evidence:provenance(edge,cutoff)}]});
+        }
+      }
+      if(paths.length){
+        const securities=[...new Set(paths.map(p=>p.symbol))].sort();
+        output.push({eventId:event.id,eventEvidence:provenance(event,asOf),entity,eventCutoff:cutoff,paths,
+          currentHoldingExposure:exposure(securities,account),holdingAtEventCertified:false,impactDirection:null,
+          relationDirectionBasis:'declared-from-to-business-links-only',canTrade:false});
+      }
+    }
+  }
+  return {...empty,status:output.length?'observed-unverified':'unknown',rows:output,
+    reason:output.length?null:'NO_DIRECTED_PATH_TO_CURRENT_HOLDINGS',work,
+    note:'只沿原事件时点已知的明确业务关系方向（最多两跳）连接当前原账户持仓；不反推关系、不传播统计关联、不用当前持仓冒充事件当时持仓。价格影响方向及因果仍未知。'};
 }
 function buildRelationshipGraph(input={}, options={}) {
   const asOf=clock(options), selected=versions(input.relations,asOf,'关系证据',2000), rows=[], rejected=[...selected.rejected];
@@ -376,7 +447,7 @@ function buildRelationshipGraph(input={}, options={}) {
     }
   }
   return result(69,rows,rows.length?[]:['缺少带有效期和原始来源的关系；旧概念映射不作为业务关系'],
-    {nodes,commonExposures,eventExposure,account,rejected,
+    {nodes,commonExposures,eventExposure,directedExposure:directedEventHoldingExposure(input,asOf,account),account,rejected,
       limitations:['业务、间接和概念关系分开保留；相同题材不证明真实业务','共同关联只表示潜在共同风险暴露，不推断价格方向','持仓主题交叉，比例不可直接相加']});
 }
 

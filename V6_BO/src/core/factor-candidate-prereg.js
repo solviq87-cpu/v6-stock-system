@@ -80,8 +80,8 @@ function verifyUnchangedModelReview(receipt,{cacheKey,sourceFingerprint,sourceLa
 const policyFiles=[
  'factor-shadow-evolution.js','factor-learning-reliability.js',
  'factor-redundancy.js','factor-marginal-contribution.js',
- 'factor-model-comparison.js','factor-global-trial-budget.js',
- 'factor-candidate-prereg.js','factor-shadow-candidate-proposer.js','local-model-learning-proposer.js',
+ 'factor-model-comparison.js', 'factor-size-style-evidence.js','factor-global-trial-budget.js',
+ 'factor-candidate-prereg.js','factor-evidence-capture.js','factor-shadow-candidate-proposer.js','local-model-learning-proposer.js',
  'factor-maturity-manifest.js','factor-daily-research-cycle.js',
  '../../scripts/factor-shadow-worker.js'
 ];

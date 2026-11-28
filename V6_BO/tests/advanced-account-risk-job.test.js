@@ -44,8 +44,8 @@ test('invalid and oversized quote contexts never start a worker or clone ignored
  assert.equal(Object.hasOwn(input,'unrelated'),false);assert.equal(Object.hasOwn(input.quotes['600000'],'extra'),false);
  assert.ok(Buffer.byteLength(JSON.stringify(input))<2000);
 });
-function workerRead(input,{history,advance=0,historyError=false}={}){
- const calls=[],messages=[],accountOptions=[];let clock=input.requestAt;
+function workerRead(input,{history,advance=0,historyError=false,sizeCapture=null,sizeError=false,configured=false}={}){
+ const calls=[],messages=[],accountOptions=[],sizeReads=[];let clock=input.requestAt;
  const book={account:{positions:{'600000':{quantity:100}}}};
  const module={exports:{}},realRequire=require('node:module').createRequire(filename);
  const fakeRequire=name=>{
@@ -53,12 +53,14 @@ function workerRead(input,{history,advance=0,historyError=false}={}){
   if(name==='node:fs')return {lstatSync:()=>({isFile:()=>true,isSymbolicLink:()=>false,size:100})};
   if(name==='../core/paper-application-service')return {createPaperApplicationService:options=>{accountOptions.push(options);return {read:()=>book};}};
   if(name==='../core/advanced-account-risk')return {unavailable:(account,reason)=>({account,status:'unknown',reason}),accountExitDiagnostics:(snapshot,options)=>({status:'observed-unverified',...options})};
+  if(name==='../core/learning-runtime-preflight')return {readPortfolioSizeCapture:opts=>{sizeReads.push(opts);if(sizeError)throw Error('private-size-path');return sizeCapture;}};
   if(name==='../core/center-history')return {readCenterHistory:options=>{calls.push(options);clock+=advance;if(historyError)throw Error('private history path');return history;}};
   return realRequire(name);
  };
  class Clock extends Date{static now(){return clock;}}
- new Function('module','exports','__filename','require','setTimeout','clearTimeout','Date',source)(module,module.exports,filename,fakeRequire,setTimeout,clearTimeout,Clock);
- return {calls,messages,accountOptions};
+ new Function('module','exports','__filename','require','setTimeout','clearTimeout','Date','process',source)(module,module.exports,filename,fakeRequire,setTimeout,clearTimeout,Clock,
+  {env:configured?{V6_FACTOR_AGENT_CONFIG_FILE:'/tmp/operator-config'}:{}});
+ return {calls,messages,accountOptions,sizeReads};
 }
 test('worker alone reads bounded held/plan history from the server root and rechecks elapsed quote time',()=>{
  const input={...context(),requestAt:Date.parse('2026-11-25T02:00:00Z'),day:'2026-11-25',historyRoot:'/tmp/server-owned-center-history',portfolioContext:{history:{bars:[{source:'caller-forged'}]},plans:{pool:[{code:'600001'},...Array.from({length:30},(_,i)=>({code:String(600002+i)}))],pre:[]}}};
@@ -107,4 +109,16 @@ test('timeouts and worker errors release the single slot without exposing privat
   assert.doesNotMatch(JSON.stringify(result),/private-path|secret|fayo-worker-budget/);
   assert.equal((await x.run(context())).status,result.status);assert.equal(x.terminations.length,2);
  }
+});
+
+test('F29 worker ignores caller size evidence and reads original optional archive once per reference',()=>{
+ const input={...context(),portfolioContext:{styleFeatureEpisode:{forged:'private-forged'},plans:{pool:[],pre:[]}}};
+ const a=workerRead(input);assert.equal(a.sizeReads.length,0);
+ assert.ok(a.messages[0].accounts.every(x=>x.portfolioContext.styleFeatureEpisode===undefined));
+ const episode={mode:'frozen-factor-feature-episode',fingerprint:'a'.repeat(64)};
+ const b=workerRead(input,{configured:true,sizeCapture:episode});assert.equal(b.sizeReads.length,1);
+ assert.ok(b.messages[0].accounts.every(x=>x.portfolioContext.styleFeatureEpisode===episode));
+ const c=workerRead(input,{configured:true,sizeError:true});
+ assert.equal(c.messages[0].status,'observed');assert.ok(c.messages[0].accounts.every(x=>x.portfolioContext.styleFeatureEpisode===undefined));
+ assert.doesNotMatch(JSON.stringify(c.messages),/private-forged|private-size-path/);
 });

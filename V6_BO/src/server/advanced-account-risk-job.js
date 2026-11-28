@@ -84,17 +84,25 @@ function metrics(){
  const sorted=samples.map(x=>x.ms).sort((a,b)=>a-b),pct=p=>sorted.length?sorted[Math.ceil(sorted.length*p)-1]:null;
  return {stage:'advanced-account-risk-read',sampleCount:sorted.length,p50Ms:pct(.5),p95Ms:pct(.95),failures:samples.filter(x=>x.status!=='observed').length,scope:'this-process bounded worker requests only'};
 }
-function portfolioFor(book,input,account,now){
+function portfolioFor(book,input,account,now,sizeCache){
  const context={...(input.portfolioContext||{})};
  // History must come from the existing server-owned archive and its hash/PIT
  // checks. A caller's context cannot replace it, even when that context fits.
  delete context.history;
+ delete context.styleFeatureEpisode;
  const held=Object.entries(book.account.positions).filter(([,row])=>row?.quantity>0).map(([code])=>code);
  const plans=Array.isArray(context.plans?.[account])?context.plans[account]:[];
  const codes=[...new Set([...held,...plans.map(plan=>plan?.code)].filter(code=>typeof code==='string'&&/^\d{6}$/.test(code)))].slice(0,20);
  if(input.historyRoot)try{
   context.history=require('../core/center-history').readCenterHistory({root:input.historyRoot,codes,now});
  }catch{context.history={coverage:{status:'unavailable',reason:'ORIGINAL_HISTORY_READ_UNAVAILABLE'}};}
+ if(process.env.V6_FACTOR_AGENT_CONFIG_FILE)try{
+  const calendar=context.history?.marketCalendars?.CN;
+  const key=JSON.stringify(require('../core/factor-size-style-evidence').sizeReferenceDays(calendar,now));
+  if(!sizeCache.has(key))sizeCache.set(key,require('../core/learning-runtime-preflight').readPortfolioSizeCapture({calendar,now}));
+  const episode=sizeCache.get(key);
+  if(episode)context.styleFeatureEpisode=episode;
+ }catch{/* optional original archive only; no caller fallback */}
  return context;
 }
 // Reuse the existing risk workbench's private equity journal, with no new
@@ -114,14 +122,14 @@ function observedPerformanceFor(book,input,account,now,diagnostic){
 function readBooks(input){
  const now=Date.now(),day=aShareCalendarDate(now);
  if(day!==input.day)return {mode,status:'clock-changed',accounts:[],canTrade:false,writesAccount:false};
- const governance={pool:null,pre:null};
+ const governance={pool:null,pre:null},sizeCache=new Map();
  const accounts=['pool','pre'].map(account=>{
   try{
    const file=path.join(input.root,account+'.json'),st=fs.lstatSync(file);
    if(!st.isFile()||st.isSymbolicLink()||st.size>20*1024*1024)return unavailable(account,'INVALID_EXISTING_ACCOUNT_FILE');
    // Use the exact original service's integrity and cash/order/fill validation.
    const book=require('../core/paper-application-service').createPaperApplicationService({file,readOnly:true}).read();
-   const portfolioContext=portfolioFor(book,input,account,Date.now());
+   const portfolioContext=portfolioFor(book,input,account,Date.now(),sizeCache);
    governance[account]=portfolioContext.history?.coverage?.governance??null;
    const checkedAt=Date.now();
    if(aShareCalendarDate(checkedAt)!==day)return unavailable(account,'CLOCK_CHANGED');

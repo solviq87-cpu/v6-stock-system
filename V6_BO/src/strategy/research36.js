@@ -117,13 +117,17 @@ function evaluateResearch36({stock,asOf,config={}}={}){
   evaluations,families,matched:evaluations.filter(r=>r.status==='research_candidate').length,
   note:'调用方证据尚未独立认证；满足研究条件不代表可交易、已校准概率或样本外有效。'};
 }
-function backtestResearch36(input={}){
- const {strategyId,stocks,evidenceByDate,config={},options={}}=input;
- if(!catalog.strategies.some(s=>s.id===strategyId)||!Array.isArray(stocks)||stocks.length>200||!plain(evidenceByDate)||!plain(options))throw Error('回测研究输入无效');
+function validateResearchBacktest(stocks,evidenceByDate,config,options){
+ if(!Array.isArray(stocks)||stocks.length>200||!plain(evidenceByDate)||!plain(options))throw Error('回测研究输入无效');
  settings(config);
  const allowed=['start','end','initialCash','topN','holdDays','feeBps','slippageBps','sellTaxBps','maxParticipationPct','minPriorTurnover','maxDrawdownPausePct','maxDailyLossPausePct','feeSchedules','riskPolicy','universeHistory','settlements','tradingDates'];
  if(Object.keys(options).some(k=>!allowed.includes(k)))throw Error('不允许覆盖回测选择器或真实性门禁');
  if(stocks.some(s=>!Array.isArray(s.bars)||s.bars.length>3000)||stocks.reduce((n,s)=>n+s.bars.length,0)>50000)throw Error('历史长度超限');
+}
+function backtestResearch36(input={}){
+ const {strategyId,stocks,evidenceByDate,config={},options={}}=input;
+ if(!catalog.strategies.some(s=>s.id===strategyId))throw Error('回测研究输入无效');
+ validateResearchBacktest(stocks,evidenceByDate,config,options);
  const seen=[];
  const result=require('./position-ledger-backtest').ledgerBacktest({...options,stocks,strictHistoricalStatus:true,strictMarks:true,source:'research36-imported',
   selectCandidates:(prefix,day)=>prefix.filter(s=>{
@@ -154,8 +158,7 @@ function researchMetrics(result){
   grossTurnoverRatio:averageEquity>0?turnover/averageEquity:null,
   conventions:'夏普按252期、零无风险利率；换手为区间双边成交额/平均净值；无亏损或零波动保持null。'};
 }
-function experimentResearch36(input={}){
- const {windows,...base}=input;
+function validateExperimentWindows(base,windows){
  if(!Array.isArray(windows)||windows.length<3||windows.length>12)throw Error('需要3至12个明确研究窗口');
  const configHash=hash(settings(base.config||{})),purge=Math.max(1,base.options?.holdDays??1)+1;
  const length=Array.isArray(base.stocks)&&base.stocks.length?Math.min(...base.stocks.map(s=>Array.isArray(s.bars)?s.bars.length:0)):0;
@@ -166,8 +169,151 @@ function experimentResearch36(input={}){
   labels.add(w.label);end=w.end;
  }
  if(!['train','validation','test'].every(role=>windows.some(w=>w.role===role)))throw Error('缺少训练、验证或测试窗口');
+ return {configHash,purge};
+}
+function experimentResearch36(input={}){
+ if(input.compareRoutes!==undefined&&typeof input.compareRoutes!=='boolean')throw Error('路由研究开关必须是布尔值');
+ if(input.compareRoutes===true)return compareResearchRoutes(input);
+ const {windows,...base}=input,{configHash,purge}=validateExperimentWindows(base,windows);
  const result=windows.map(w=>({window:clone(w),result:backtestResearch36({...base,options:{...base.options,start:w.start,end:w.end}})}));
  return {researchOnly:true,canTrade:false,configHash,purgeSessions:purge,windows:result,productionWeightsChanged:false,outOfSampleValidated:false,
   note:'固定配置分窗评估，不执行参数拟合或按测试集选参；窗口标签不证明事前注册或独立样本外认证。'};
 }
-module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36};
+// F21.1/F21.2/F21.4. One bounded opt-in experiment on the ORIGINAL
+// research36 evaluators and original position ledger; no production router.
+const ROUTE_IDS=Object.freeze({trend:'ma_trend',event:'news',reversal:'oversold'});
+const ROUTE_NAMES=Object.keys(ROUTE_IDS);
+const ARMS=Object.freeze([...ROUTE_NAMES,'fixed','dynamic']);
+const MARKET_KEYS=['breadthScore','indexTrendScore','marketVolumeScore','riskScore','volatilityScore','sentimentScore'];
+const MIN_ROUTE_SWITCH_SESSIONS=5;
+const validLabel=s=>typeof s==='string'&&s.trim()===s&&s.length>0&&s.length<=240;
+function routeMarketReceipt(row,date,asOf){
+ // The original classifier's neutral fallback is not admissible route evidence.
+ if(!plain(row)||row.date!==date||!validLabel(row.source)||!validLabel(row.evidenceId)||
+  row.simulated===true||row.synthetic===true||row.retracted===true||row.sourceConflict===true||
+  ![row.observedAt,row.availableAt,row.recordedAt].every(clock)||
+  row.observedAt<Date.parse(date+'T00:00:00+08:00')||row.observedAt>row.availableAt||
+  row.availableAt>row.recordedAt||row.recordedAt>asOf||!plain(row.scores)||
+  !MARKET_KEYS.every(k=>Object.hasOwn(row.scores,k)&&finite(row.scores[k])&&row.scores[k]>=0&&row.scores[k]<=100))return null;
+ const scores=Object.fromEntries(MARKET_KEYS.map(k=>[k,row.scores[k]]));
+ const regime=require('../core/market-regime').classifyMarket(scores).regime;
+ return {date,source:row.source,evidenceId:row.evidenceId,observedAt:row.observedAt,availableAt:row.availableAt,
+  recordedAt:row.recordedAt,scores,regime,verifiedExternal:false};
+}
+function summarizeRouteEconomics(arms){
+ const base=arms?.fixed;
+ const unknown=reason=>({status:'unknown',reason,netMarkedReturnDeltaPct:null,drawdownDeltaPct:null,feeDeltaCny:null,turnoverDelta:null,
+   dailyPairedSamples:0,meanDailyReturnDeltaPct:null,worstDailyReturnDeltaPct:null,actualLatencyMs:null,maintenanceCostCny:null,canTrade:false});
+ function facts(a){
+  const r=a?.report,e=r?.equity,o=r?.orders,m=r?.metrics;
+  if(!Array.isArray(e)||e.length<2||!Array.isArray(o)||!finite(m?.initialCash)||m.initialCash<=0||
+     !finite(m.returnPct)||!finite(m.maxDrawdownPct)||!a.buyFills||e.some((x,i)=>!Number.isSafeInteger(x.day)||i&&x.day!==e[i-1].day+1||!finite(x.value)||x.value<=0||!Array.isArray(x.unpriced)||x.unpriced.length))return null;
+  const fills=o.filter(x=>x.status==='filled');
+  if(fills.some(x=>!finite(x.fees)||x.fees<0||!finite(x.price)||x.price<=0||!Number.isSafeInteger(x.shares)||x.shares<=0))return null;
+  return {rows:e,initialCash:m.initialCash,netMarkedReturnPct:m.returnPct,drawdownPct:m.maxDrawdownPct,
+   fees:fills.reduce((n,x)=>n+x.fees,0),turnover:fills.reduce((n,x)=>n+x.price*x.shares,0),blocked:o.filter(x=>x.status==='blocked').length,
+   openPositions:r.openPositions?.length??null};
+ }
+ const baseline=facts(base),rows={};
+ for(const [name,arm]of Object.entries(arms||{})){
+  if(name==='fixed')continue;
+  const candidate=facts(arm);
+  if(!baseline||!candidate||baseline.initialCash!==candidate.initialCash||baseline.rows.length!==candidate.rows.length||baseline.rows.some((x,i)=>x.day!==candidate.rows[i].day)){rows[name]=unknown('INCOMPLETE_OR_UNMATCHED_ORIGINAL_LEDGER');continue;}
+  const delta=candidate.rows.slice(1).map((x,i)=>100*(x.value/candidate.rows[i].value-baseline.rows[i+1].value/baseline.rows[i].value));
+  if(!delta.every(finite)){rows[name]=unknown('INVALID_PAIRED_RETURN');continue;}
+  const round=x=>Number(x.toFixed(8));
+  rows[name]={...unknown(null),status:'descriptive-only',initialCash:baseline.initialCash,
+   netMarkedReturnDeltaPct:round(candidate.netMarkedReturnPct-baseline.netMarkedReturnPct),drawdownDeltaPct:round(candidate.drawdownPct-baseline.drawdownPct),
+   feeDeltaCny:round(candidate.fees-baseline.fees),turnoverDelta:round(candidate.turnover-baseline.turnover),
+   dailyPairedSamples:delta.length,meanDailyReturnDeltaPct:round(delta.reduce((a,b)=>a+b,0)/delta.length),worstDailyReturnDeltaPct:round(Math.min(...delta)),
+   baseline:{markedReturnPct:baseline.netMarkedReturnPct,drawdownPct:baseline.drawdownPct,feesCny:round(baseline.fees),turnoverCny:round(baseline.turnover),blockedOrders:baseline.blocked,openPositions:baseline.openPositions},
+   candidate:{markedReturnPct:candidate.netMarkedReturnPct,drawdownPct:candidate.drawdownPct,feesCny:round(candidate.fees),turnoverCny:round(candidate.turnover),blockedOrders:candidate.blocked,openPositions:candidate.openPositions}};
+ }
+ return {baseline:'fixed',rows,actualCapacityVerified:false,independentEconomicValueVerified:false,trialBudgetVerified:false,canTrade:false,
+  basis:'原同窗独立账本标记净值、原成交费用及成交额；费用已含于净值，不重复扣除；实际延迟、维护成本和可成交容量未认证'};
+}
+function compareResearchRoutes(input={}){
+ const {stocks,evidenceByDate,config={},options={},windows,marketByDate}=input;
+ validateResearchBacktest(stocks,evidenceByDate,config,options);
+ const {configHash,purge}=validateExperimentWindows(input,windows);
+ if(!stocks.length||!plain(marketByDate)||Object.keys(marketByDate).length>3000)throw Error('路由研究缺少有界市场时点档案');
+ const dates=new Set(stocks[0].bars.map(b=>b.date));
+ if(Object.keys(marketByDate).some(date=>!dates.has(date)))throw Error('路由市场档案含非输入交易日');
+ // Budget BEFORE starting any of the five runs in a window. Count repeated
+ // prefix validation by the original ledger as well as daily strategy evaluation.
+ const workUnits=stocks.length*ARMS.length*windows.reduce((n,w)=>n+w.end+1,0);
+ if(workUnits>60000)throw Error('路由研究超出60000条原账本历史工作单位上限，请缩小原研究样本');
+ const protocol={schemaVersion:1,catalogVersion:catalog.version,configHash,representatives:{...ROUTE_IDS},
+  arms:[...ARMS],weights:{fixed:[1,1,1],focusMultiplier:2},marketMapping:{risk_on:'trend',trend:'trend',mean_reversion:'reversal',neutral:'event',risk_off:'abstain'},
+  minimumSwitchSessions:MIN_ROUTE_SWITCH_SESSIONS,resetBetweenWindows:true,purgeSessions:purge,
+  options:clone(options),windows:clone(windows),coverageBasis:'all three original representatives known plus explicit market receipt; no unknown score substitution'};
+ const evidenceFingerprint=hash({stocks,evidenceByDate,marketByDate,config}),protocolFingerprint=hash({protocol,evidenceFingerprint});
+ const ledger=require('./position-ledger-backtest').ledgerBacktest;
+ let outputRows=0,evaluationCalls=0,cacheReuses=0;
+ const result=[];
+ for(const w of windows){
+  const cache=new Map();let focus=null,lastSwitch=null,switchCount=0;
+  const makeDay=(prefix,dayIndex)=>{
+   if(cache.has(dayIndex)){
+    cacheReuses++;const prev=cache.get(dayIndex);
+    if(prev.symbols.join('/')!==prefix.map(s=>String(s.symbol||s.code)).join('/'))throw Error('原回测各臂股票池不一致');
+    return prev;
+   }
+   const date=stocks[0].bars[dayIndex].date,asOf=Date.parse(date+'T15:00:00+08:00');
+   const market=routeMarketReceipt(Object.hasOwn(marketByDate,date)?marketByDate[date]:null,date,asOf);
+   const wanted=market?protocol.marketMapping[market.regime]:null;
+   let switched=false,skipReason=!market?'MARKET_EVIDENCE_UNKNOWN':wanted==='abstain'?'ORIGINAL_RISK_OFF_ABSTENTION':null;
+   if(!skipReason&&wanted!==focus&&(lastSwitch===null||dayIndex-lastSwitch>=MIN_ROUTE_SWITCH_SESSIONS)){
+    if(focus!==null){switchCount++;switched=true;}
+    focus=wanted;lastSwitch=dayIndex;
+   }
+   const counts=Object.fromEntries(ROUTE_NAMES.map(name=>[name,{evaluated:0,passed:0,unknown:0,disabled:0}]));
+   const rows=prefix.map(s=>{
+    const code=String(s.symbol||s.code);
+    const observed=evaluateResearch36({stock:{code,bars:s.bars,features:evidenceByDate[date]?.[code]||{}},asOf,config});evaluationCalls++;
+    const verdicts=Object.fromEntries(ROUTE_NAMES.map(name=>{
+     const rule=observed.evaluations.find(r=>r.id===ROUTE_IDS[name]),count=counts[name];
+     if(rule.status==='research_candidate'||rule.status==='not_matched'){count.evaluated++;if(rule.status==='research_candidate')count.passed++;}
+     else if(rule.status==='disabled')count.disabled++;else count.unknown++;
+     return [name,{id:rule.id,version:rule.version,status:rule.status,configHash:rule.configHash}];
+    }));
+    return {code,inputHash:observed.inputHash,configHash:observed.configHash,verdicts,
+     common:ROUTE_NAMES.every(name=>['research_candidate','not_matched'].includes(verdicts[name].status))};
+   });
+   const common=rows.filter(r=>r.common),eligible=skipReason?[]:common;
+   const passes=(row,name)=>row.verdicts[name].status==='research_candidate';
+   const rank=arm=>eligible.map(row=>({code:row.code,value:ROUTE_NAMES.reduce((n,name)=>n+(passes(row,name)?
+    (arm==='fixed'?1:arm==='dynamic'?name===focus?2:1:arm===name?1:0):0),0)}))
+    .filter(row=>row.value>0).sort((a,b)=>b.value-a.value||a.code.localeCompare(b.code)).map(row=>row.code);
+   const picks=Object.fromEntries(ARMS.map(arm=>[arm,rank(arm)]));
+   const trace={date,asOf,dayIndex,market,wantedFocus:wanted,activeFocus:focus,switched,
+    switchDeferred:!skipReason&&wanted!==focus,skipReason,expectedSymbols:rows.length,commonEvaluated:common.length,
+    comparableSymbols:eligible.length,counts,rows,pickCounts:Object.fromEntries(ARMS.map(arm=>[arm,picks[arm].length]))};
+   outputRows+=rows.length+1;if(outputRows>40000)throw Error('路由完整证据超过40000行上限，不截取局部结果');
+   const item={symbols:rows.map(row=>row.code),trace,picks};cache.set(dayIndex,item);return item;
+  };
+  const arms=Object.fromEntries(ARMS.map(arm=>{
+   const report=ledger({...options,stocks,start:w.start,end:w.end,strictHistoricalStatus:true,strictMarks:true,source:'research36-imported',
+    selectCandidates:(prefix,dayIndex)=>makeDay(prefix,dayIndex).picks[arm]});
+   outputRows+=report.orders.length+report.trades.length+report.equity.length+report.openPositions.length;
+   if(outputRows>40000)throw Error('路由完整证据超过40000行上限，不截取局部结果');
+   const buyFills=report.orders.filter(o=>o.side==='buy'&&o.status==='filled').length;
+   return [arm,{status:!buyFills?'no-buy-fills':report.openPositions.length?'unsettled-paper-estimate':'closed-paper-estimate',
+    buyFills,markedReturnPct:buyFills?report.metrics.returnPct:null,
+    closedAccountReturnPct:buyFills&&report.metrics.closedTrades&&!report.openPositions.length?report.metrics.returnPct:null,
+    additionalMetrics:researchMetrics(report),report}];
+  }));
+  const trace=[...cache.values()].map(x=>x.trace),sum=key=>trace.reduce((n,row)=>n+row[key],0);
+  result.push({window:clone(w),arms,economicComparison:summarizeRouteEconomics(arms),trace,switchCount,expectedSymbols:sum('expectedSymbols'),commonEvaluated:sum('commonEvaluated'),
+   comparableSymbols:sum('comparableSymbols'),marketUnknownSessions:trace.filter(x=>x.skipReason==='MARKET_EVIDENCE_UNKNOWN').length,
+   riskOffSessions:trace.filter(x=>x.skipReason==='ORIGINAL_RISK_OFF_ABSTENTION').length});
+ }
+ return {schemaVersion:1,mode:'fixed-representative-route-research',status:'descriptive-only',protocol,protocolFingerprint,evidenceFingerprint,
+  windows:result,workUnits,evaluationCalls,cacheReuses,outputRows,researchOnly:true,canTrade:false,canTrain:false,canNotify:false,
+  productionWeightsChanged:false,eligibleForPromotion:false,outOfSampleValidated:false,trialBudgetVerified:false,
+  limitations:['固定三条代表规则不代表完整事件、趋势、反转族或原四体系；反转使用原超跌修复规则，原目录仍属事件族',
+   '固定组合等权、动态组合仅提高当前焦点的候选排序权重；每个独立原账本使用同样资金、期限及费用，不改正式权重',
+   '未知市场或任一代表规则未知时共同弃权；已明确风险关闭的日期共同不新增，原卖出及风险门禁继续运行',
+   '权重映射为固定研究假设，不是批准调度、未来收益预测或真实成交；独立预注册、留出样本及价值另验']};
+}
+module.exports={getCatalog,settings,technicalFeatures,evaluateResearch36,backtestResearch36,researchMetrics,experimentResearch36,compareResearchRoutes,summarizeRouteEconomics};

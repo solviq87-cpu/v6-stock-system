@@ -38,6 +38,22 @@ function capacityScenarios({prior,asOf,price,lotSize,capitalLevels,targetWeight,
  });}catch{return unknown("SCENARIO_FEE_UNAVAILABLE");}
  return report({rows,source:prior.source,dataVersion:prior.dataVersion,observedDate:prior.date,availableAt:prior.availableAt,priceBasis:prior.priceBasis,turnoverBasis:prior.turnoverBasis||"original-turnover",assumptions:["前日原始量额参与率双重上限；估值使用当前原报价，不把复权价当成交价","平方根冲击为压力假设，未经实盘校准","费用和冲击仅为情景估计，未认证真实成交与收益"]});
 }
+// F33.4: compare lower participation assumptions using the same archived
+// prior and quote. Never exceed the original configured maximum.
+function capacityParticipationSensitivity(input={}){
+ const base=capacityScenarios(input);
+ if(base.status!=='estimated-unverified')return {...base,participationSensitivity:[]};
+ const cap=input.maxParticipationPct;
+ const rates=[cap/4,cap/2,cap];
+ const participationSensitivity=rates.map(rate=>{
+  const value=rate===cap?base:capacityScenarios({...input,maxParticipationPct:rate,
+   // Keep the same impact-at-original-limit model, not a retuned curve.
+   impactBpsAtLimit:input.impactBpsAtLimit*Math.sqrt(rate/cap)});
+  return {participationPct:rate,status:value.status,reason:value.reason??null,rows:value.rows??[]};
+ });
+ return {...base,participationSensitivity,actualFillVerified:false};
+}
+
 function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipationPct,assumedExitBps}={}){
  if(!stamp(now)||!position||!symbol(position.symbol)||!Number.isSafeInteger(position.quantity)||position.quantity<0||!Number.isSafeInteger(position.sellable)||position.sellable<0||position.sellable>position.quantity)return unknown("AUTHORITATIVE_POSITION_OR_SELLABLE_UNKNOWN");
  const alerts=[];
@@ -113,6 +129,28 @@ function equityDailyRisk({initialAt,initialEquity,rows,asOf,dailyEvidence}){
  const rf=Math.expm1(Math.log1p(e.riskFreeAnnual)/252),excess=returns.map(r=>r-rf),mu=mean(excess),sd=Math.sqrt(mean(excess.map(r=>(r-mu)**2))*returns.length/(returns.length-1)),downside=Math.sqrt(mean(excess.map(r=>Math.min(0,r)**2)));
  return report({sampleCount:returns.length,source:e.source,dataVersion:e.dataVersion,knownAt:e.knownAt,annualization:252,riskFreeAnnual:e.riskFreeAnnual,riskFreeBasis:e.riskFreeBasis,annualizedVolatility:round(sd*Math.sqrt(252)),sharpe:sd>0?round(mu/sd*Math.sqrt(252)):null,sortino:downside>0?round(mu/downside*Math.sqrt(252)):null,maximumFlowAdjustedDrawdown:round(maxDrawdown),factorVersion:"fayo-equity-daily-risk-v1"});
 }
+// Single-linkage components over already calculated same-window stock
+// correlations. Missing/constant returns do not establish singleton clusters.
+function historicalCorrelationClusters(assets,correlations){
+ const threshold=.7,n=assets.length,empty={status:"unknown",threshold,windowSessions:30,recent:[],previous:[],pairAgreement:null,industryPairAgreement:null,industryComparablePairs:0,causalPropagationEstablished:false,canTrade:false};
+ if(n<2||correlations.length!==n*(n-1)/2||correlations.some(r=>!finite(r.recent30)||!finite(r.previous30)))return {...empty,reason:"INCOMPLETE_TWO_WINDOW_CORRELATIONS"};
+ const groups=field=>{
+  const parent=assets.map((_,i)=>i),index=new Map(assets.map((a,i)=>[a.symbol,i]));
+  const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+  for(const row of correlations)if(row[field]>=threshold){const a=root(index.get(row.symbols[0])),b=root(index.get(row.symbols[1]));if(a!==b)parent[Math.max(a,b)]=Math.min(a,b);}
+  const out=new Map();for(let i=0;i<n;i++){const k=root(i);if(!out.has(k))out.set(k,[]);out.get(k).push(assets[i].symbol);}
+  const clusters=[...out.values()].map(g=>g.sort()).sort((a,b)=>a[0].localeCompare(b[0]));
+  return {clusters,bySymbol:new Map(clusters.flatMap((g,i)=>g.map(s=>[s,i])))};
+ };
+ const recent=groups("recent30"),previous=groups("previous30");
+ let agreement=0,industryPairs=0,industryAgreement=0;
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  const a=assets[i],b=assets[j],nowSame=recent.bySymbol.get(a.symbol)===recent.bySymbol.get(b.symbol),priorSame=previous.bySymbol.get(a.symbol)===previous.bySymbol.get(b.symbol);
+  if(nowSame===priorSame)agreement++;
+  if(label(a.industry)&&label(b.industry)){industryPairs++;if(nowSame===(a.industry===b.industry))industryAgreement++;}
+ }
+ return {...empty,status:"descriptive-unverified",reason:null,recent:recent.clusters,previous:previous.clusters,pairAgreement:round(agreement/correlations.length),industryPairAgreement:industryPairs?round(industryAgreement/industryPairs):null,industryComparablePairs:industryPairs,basis:"fixed positive correlation >=0.7; connected components; last and previous 30 matched observations; classification is not a causal business link"};
+}
 function tailRisk({assets,observations,asOf,confidence=.95,returnBasis="total-return"}={}){
  if(!["total-return","adjusted-price"].includes(returnBasis))return unknown("UNSUPPORTED_RETURN_BASIS");
  if(!stamp(asOf)||!Array.isArray(assets)||!assets.length||assets.length>100||!assets.every(a=>a&&symbol(a.symbol)&&positive(a.weight)&&a.weight<=1)||new Set(assets.map(a=>a.symbol)).size!==assets.length||assets.reduce((s,a)=>s+a.weight,0)>1+1e-9||![.9,.95,.99].includes(confidence)||!Array.isArray(observations)||observations.length<60||observations.length>3000)return unknown("INSUFFICIENT_ALIGNED_EVIDENCE");
@@ -146,7 +184,7 @@ function tailRisk({assets,observations,asOf,confidence=.95,returnBasis="total-re
   const recent=corr(vectors.slice(-30)),previous=corr(vectors.slice(-60,-30));
   correlations.push({symbols:[codes[i],codes[j]],recent30:recent,previous30:previous,change:recent===null||previous===null?null:round(recent-previous)});
  }
- return report({sampleCount:n,start:observations[0].date,end:last,confidence,tailCount:k,returnBasis,factorVersion:"fayo-historical-tail-v2",dailyVolatility:round(sd),dailyDownsideDeviation:round(downside),historicalVaR:tailKnown?round(order[k-1].loss):null,historicalES:tailKnown?round(mean(worst.map(x=>x.loss))):null,tailReason:tailKnown?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS",varAttributionBasis:"kth-worst-loss-boundary-equal-loss-scenarios-averaged",varBoundaryScenarioCount:varBoundary.length,contributions,industryContributions:groups("industry"),themeContributions:groups("theme"),correlations,assumptions:[returnBasis==="total-return"?"同日完整总收益率、当前固定多头权重，现金收益设0":"同日后复权价格变动场景、当前固定多头权重，现金收益设0；并非经认证总收益率","历史等权单日场景；正损失为风险，负贡献可能抵消风险","波动与下行偏差为Euler贡献；VaR按最差ceil(n×尾部比例)的边界场景归因，同损失场景取均值，不冒充连续分布边际VaR","尾部至少10个观测；不保证未来最大损失，不认证上游数据"]});
+ return report({sampleCount:n,start:observations[0].date,end:last,confidence,tailCount:k,returnBasis,factorVersion:"fayo-historical-tail-v2",meanDailyReturn:round(mu),dailyVolatility:round(sd),dailyDownsideDeviation:round(downside),historicalVaR:tailKnown?round(order[k-1].loss):null,historicalES:tailKnown?round(mean(worst.map(x=>x.loss))):null,tailReason:tailKnown?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS",varAttributionBasis:"kth-worst-loss-boundary-equal-loss-scenarios-averaged",varBoundaryScenarioCount:varBoundary.length,contributions,industryContributions:groups("industry"),themeContributions:groups("theme"),correlations,correlationClusters:historicalCorrelationClusters(assets,correlations),assumptions:[returnBasis==="total-return"?"同日完整总收益率、当前固定多头权重，现金收益设0":"同日后复权价格变动场景、当前固定多头权重，现金收益设0；并非经认证总收益率","历史等权单日场景；正损失为风险，负贡献可能抵消风险","波动与下行偏差为Euler贡献；VaR按最差ceil(n×尾部比例)的边界场景归因，同损失场景取均值，不冒充连续分布边际VaR","尾部至少10个观测；不保证未来最大损失，不认证上游数据"]});
 }
 function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,returnBasis="total-return"}={}){
  if(!snapshot||!label(snapshot.evidenceRef)||!positive(snapshot.equity)||!finite(snapshot.cash)||snapshot.cash<0||!finite(snapshot.availableCash)||snapshot.availableCash<0||snapshot.availableCash>snapshot.cash||!Array.isArray(snapshot.positions)||snapshot.positions.length>1000||!snapshot.positions.every(p=>p&&symbol(p.symbol)&&finite(p.marketValue)&&p.marketValue>=0)||new Set(snapshot.positions.map(p=>p.symbol)).size!==snapshot.positions.length)return unknown("ACCOUNT_PROJECTION_UNAVAILABLE");
@@ -171,17 +209,71 @@ function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,retur
   riskBudgetAfter={status:"observed-unverified",policyVersion:checked.policyVersion,evidenceRef:riskContext.evidenceRef,originalEquityBasis:checked.exposure.equity,afterFeeEquity:afterEquity,estimatedConstraintsSatisfied:checked.allowed,reasonCodes:checked.reasonCodes,budgets,canTrade:false,writesAccount:false};
  }catch{riskBudgetAfter=unknown("ORIGINAL_RISK_POLICY_UNAVAILABLE");}
  const assets=(pp,equity)=>pp.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/equity,industry:p.industry,theme:p.theme}));
- let incrementalPortfolioRisk=null;
+ let incrementalPortfolioRisk=null,marginalMarkedReturn=null;
  if(Array.isArray(observations)&&stamp(asOf)){
   const after=tailRisk({assets:assets(positions,afterEquity),observations,asOf,returnBasis});
-  const beforeAssets=assets(snapshot.positions,snapshot.equity),before=beforeAssets.length?tailRisk({assets:beforeAssets,observations,asOf,returnBasis}):{status:"estimated-unverified",dailyVolatility:0,dailyDownsideDeviation:0,historicalVaR:0,historicalES:0};
+  const beforeAssets=assets(snapshot.positions,snapshot.equity),before=beforeAssets.length?tailRisk({assets:beforeAssets,observations,asOf,returnBasis}):{status:"estimated-unverified",meanDailyReturn:0,dailyVolatility:0,dailyDownsideDeviation:0,historicalVaR:0,historicalES:0};
   if(before.status!=="unknown"&&after.status!=="unknown"){
    const metrics={};for(const key of ["dailyVolatility","dailyDownsideDeviation","historicalVaR","historicalES"]){metrics[key]={before:before[key],after:after[key],change:finite(before[key])&&finite(after[key])?round(after[key]-before[key]):null};}
    incrementalPortfolioRisk={status:"estimated-unverified",metrics,sampleCount:after.sampleCount,start:after.start,end:after.end,returnBasis,factorVersion:after.factorVersion,canTrade:false,writesAccount:false};
+   if(gateStatus==="allowed"&&total<=snapshot.availableCash&&(!riskBudgetAfter||riskBudgetAfter.estimatedConstraintsSatisfied===true)){
+    const base=before.meanDailyReturn,afterOriginalBasis=after.meanDailyReturn*afterEquity/snapshot.equity-plan.fee/snapshot.equity;
+    if([base,afterOriginalBasis].every(finite))marginalMarkedReturn=report({sampleCount:after.sampleCount,start:after.start,end:after.end,
+     originalEquity:snapshot.equity,entryFee:plan.fee,baselineMean:round(base),candidateMeanAfterEntryFee:round(afterOriginalBasis),
+     difference:round(afterOriginalBasis-base),returnBasis,exitCost:null,realized:false,forecast:false,
+     basis:"one-day aligned price scenarios; fixed original account, cash yield zero, entry fee once; exit cost unknown"});
+   }
   }else incrementalPortfolioRisk=unknown(after.reason||before.reason||"INCOMPLETE_ALIGNED_POSITION_HISTORY");
  }
  const policyBlocked=riskBudgetAfter!==null&&(riskBudgetAfter.status==="unknown"||riskBudgetAfter.estimatedConstraintsSatisfied!==true);
- return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
+ return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,marginalMarkedReturn,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
+}
+// Reuse the existing non-overlapping calendar windows for both held-stock
+// comparisons and available-cash scenarios. A broken edge restarts the window.
+function opportunityWindows(observations,horizon,build){
+ const periods=[];let buffer=[];
+ for(const o of observations){
+  if(!day(o.previousDate)||o.previousDate>=o.date)return null;
+  if(buffer.length&&o.previousDate!==buffer.at(-1).date)buffer=[];
+  buffer.push(o);
+  if(buffer.length===horizon){
+   const compounded=code=>buffer.reduce((f,x)=>f*(1+x.returns[code]),1)-1;
+   periods.push({start:buffer[0].previousDate,end:o.date,...build(compounded)});
+   buffer=[];
+  }
+ }
+ return periods;
+}
+// F24.4: the available cash alternative is the original account's free cash,
+// not frozen funds or hypothetical proceeds from selling existing holdings.
+function compareAvailableCash({snapshot,candidate,observations,asOf,horizon=5,returnBasis="total-return",confidence=.95}={}){
+ if(!snapshot||!label(snapshot.evidenceRef)||!finite(snapshot.cash)||snapshot.cash<0||
+  !positive(snapshot.availableCash)||snapshot.availableCash>snapshot.cash||snapshot.availableCash>1e12||
+  !candidate||!symbol(candidate.symbol)||!label(candidate.evidenceRef)||!positive(candidate.notional)||
+  ![candidate.entryCost,candidate.exitCost].every(x=>finite(x)&&x>=0)||
+  candidate.notional+candidate.entryCost>snapshot.availableCash||
+  !Number.isSafeInteger(horizon)||horizon<1||horizon>20)return unknown("INCOMPARABLE_AVAILABLE_CASH_OR_COST");
+ const validation=tailRisk({assets:[{symbol:candidate.symbol,weight:1}],observations,asOf,confidence,returnBasis});
+ if(validation.status==="unknown")return validation;
+ const capital=snapshot.availableCash;
+ const periods=opportunityWindows(observations,horizon,compounded=>({
+  net:(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/capital}));
+ if(!periods)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
+ if(periods.length<12||periods.some(p=>!finite(p.net)))return unknown("FEWER_THAN_TWELVE_PAIRED_HORIZONS");
+ const values=periods.map(p=>p.net),mu=mean(values),n=values.length;
+ const losses=values.map(x=>-x).sort((a,b)=>b-a),k=Math.ceil(n*(1-confidence)-1e-9);
+ return report({symbol:candidate.symbol,accountEvidenceRef:snapshot.evidenceRef,gateEvidenceRef:candidate.evidenceRef,
+  capital,uninvestedCash:round(capital-candidate.notional-candidate.entryCost),notional:candidate.notional,
+  entryCost:candidate.entryCost,exitCost:candidate.exitCost,horizonSessions:horizon,sampleCount:n,
+  start:periods[0].start,end:periods.at(-1).end,asOf,returnBasis,confidence,
+  cashBaseline:{meanNetReturn:0,interestAssumption:'explicit-zero-interest',actualYieldVerified:false},
+  candidate:{meanNetReturn:round(mu),volatility:round(Math.sqrt(mean(values.map(x=>(x-mu)**2))*n/(n-1))),
+   downsideDeviation:round(Math.sqrt(mean(values.map(x=>Math.min(0,x)**2)))),
+   historicalVaR:k>=10?round(losses[k-1]):null,historicalES:k>=10?round(mean(losses.slice(0,k))):null},
+  meanNetDifference:round(mu),historicalCandidateAdvantageFraction:values.filter(v=>v>0).length/n,
+  historicalMeanAboveCash:mu>0,recommendation:null,automaticSwitch:false,canTrain:false,
+  assumptions:['同一原账户可用现金、固定候选份额；不释放冻结资金、不假设卖出现有持仓',
+   '零现金利息为比较假设，候选计当前费用与冲击的入场和退出压力；未来收益、真实成交及利息未验证']});
 }
 // Paired, non-overlapping historical scenarios use the same capital, dates,
 // horizon and return basis. They are not forecasts or a switching instruction.
@@ -189,18 +281,12 @@ function compareOpportunity({hold,candidate,observations,asOf,horizon=5,returnBa
  if(!hold||!candidate||!symbol(hold.symbol)||!symbol(candidate.symbol)||hold.symbol===candidate.symbol||!label(hold.evidenceRef)||!label(candidate.evidenceRef)||!positive(hold.notional)||!positive(candidate.notional)||![hold.exitCost,candidate.entryCost,candidate.exitCost,candidate.cashRemainder].every(x=>finite(x)&&x>=0)||Math.abs(candidate.notional+candidate.entryCost+candidate.cashRemainder-hold.notional)>.011||!Number.isSafeInteger(horizon)||horizon<1||horizon>20)return unknown("INCOMPARABLE_CAPITAL_OR_COST_EVIDENCE");
  const validation=tailRisk({assets:[{symbol:hold.symbol,weight:.5},{symbol:candidate.symbol,weight:.5}],observations,asOf,confidence,returnBasis});
  if(validation.status==="unknown")return validation;
- const periods=[];let buffer=[];
- for(const o of observations){
-  if(!day(o.previousDate)||o.previousDate>=o.date)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
-  if(buffer.length&&o.previousDate!==buffer.at(-1).date)buffer=[];
-  buffer.push(o);
-  if(buffer.length===horizon){
-   const compounded=code=>buffer.reduce((f,x)=>f*(1+x.returns[code]),1)-1;
-   const holdNet=(hold.notional*compounded(hold.symbol)-hold.exitCost)/hold.notional;
-   const candidateNet=(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/hold.notional;
-   periods.push({start:buffer[0].previousDate,end:o.date,holdNet,candidateNet,difference:candidateNet-holdNet});buffer=[];
-  }
- }
+ const periods=opportunityWindows(observations,horizon,compounded=>{
+  const holdNet=(hold.notional*compounded(hold.symbol)-hold.exitCost)/hold.notional;
+  const candidateNet=(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/hold.notional;
+  return {holdNet,candidateNet,difference:candidateNet-holdNet};
+ });
+ if(!periods)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
  if(periods.length<12)return unknown("FEWER_THAN_TWELVE_PAIRED_HORIZONS");
  const summary=field=>{const values=periods.map(p=>p[field]),mu=mean(values),losses=values.map(x=>-x).sort((a,b)=>b-a),k=Math.ceil(values.length*(1-confidence)-1e-9);return {meanNetReturn:round(mu),volatility:round(Math.sqrt(values.reduce((s,x)=>s+(x-mu)**2,0)/(values.length-1))),downsideDeviation:round(Math.sqrt(mean(values.map(x=>Math.min(0,x)**2)))),historicalVaR:k>=10?round(losses[k-1]):null,historicalES:k>=10?round(mean(losses.slice(0,k))):null,tailReason:k>=10?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS"};};
  const differences=periods.map(p=>p.difference).sort((a,b)=>a-b),n=differences.length;
@@ -321,6 +407,17 @@ function previewPlanBatch({snapshot,plans,policy=null,accountRevision}={}){
  }
  out.reasonCodes=[...reason].sort();
  out.jointBudgetStatus=out.reasonCodes.some(x=>x.endsWith("_EXCEEDED"))?"conditional-budget-exceeded":out.reasonCodes.length?"unknown":"conditional-cash-and-known-caps-within-limit";
+ // F34.4: only a bounded equal-notional reference among already reconciled
+ // plans. This does not recalculate fees/lots or claim an executable optimizer.
+ const eqRef={status:'unknown',notionalPerPlan:null,unusedAvailableCash:null,rows:[],executionFeasibleCertified:false,covarianceOptimized:false,canTrade:false};
+ if(out.jointBudgetStatus==='conditional-cash-and-known-caps-within-limit'&&rows.length>=2){
+  const equalGross=Math.min(...rows.map(x=>x.gross),Math.floor((free-fees)/rows.length));
+  if(equalGross>0)Object.assign(eqRef,{status:'descriptive-reference',notionalPerPlan:money(equalGross),
+   unusedAvailableCash:money(free-fees-equalGross*rows.length),
+   rows:rows.map(x=>({planId:x.p.planId,symbol:x.p.symbol,originalNotional:money(x.gross),referenceNotional:money(equalGross)})),
+   basis:'equal additional notional bounded by each original plan and existing total fee reserve; not rounded to executable lots'});
+ }
+ out.equalNotionalReference=eqRef;
  return out;
 }
-module.exports={capacityScenarios,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,pointInTimeVersion};
+module.exports={capacityScenarios,capacityParticipationSensitivity,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,compareAvailableCash,pointInTimeVersion};

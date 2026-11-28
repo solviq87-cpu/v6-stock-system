@@ -230,6 +230,19 @@ function feedbackReview(group,windows,restricted){
   trainingEligible:false,autoPromotion:false,productionWeightsChanged:false};
 }
 const corporateActionState=row=>row?.bar.corporateAction===false?'declared-no-action':row?.bar.corporateAction===true?'action-observed':'unknown';
+function summarizeIntervalEvidence(group){
+ const supplied=group.quantileLevels.length>=2,intervals=group.values.filter(r=>typeof r.covered==='boolean');
+ const expected=supplied?group.dueUnique:0,covered=intervals.filter(r=>r.covered).length;
+ const nominal=supplied?100*(group.quantileLevels.at(-1)-group.quantileLevels[0]):null;
+ const widths=intervals.map(r=>r.intervalWidthPctOfOrigin).filter(finite);
+ return {status:!supplied?'not-provided':!expected?'not-yet-due':!intervals.length?'missing-mature-outcomes':intervals.length===expected?'complete-descriptive':'partial-descriptive',
+  expectedDueIntervals:expected,observedIntervals:intervals.length,unknownDueIntervals:Math.max(0,expected-intervals.length),coveredIntervals:covered,
+  outcomeCoveragePct:expected?round(100*intervals.length/expected):null,conditionalCoveragePct:intervals.length?round(100*covered/intervals.length):null,
+  nominalCoveragePct:round(nominal),meanWidthPctOfOrigin:widths.length===intervals.length&&widths.length?round(mean(widths)):null,
+  fullDueCoverageBoundsPct:expected?[round(100*covered/expected),round(100*(covered+Math.max(0,expected-intervals.length))/expected)]:null,
+  comparableOnAllDue:expected>0&&intervals.length===expected,independentlyCalibrated:false,canTrain:false,canTrade:false,
+  note:'同一已封存分位数口径；未知到期标签不算失败也不算成功；覆盖与相对初始价格的宽度并列，非收益区间或获利概率'};
+}
 function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset=0,limit=20}={}){
  if(!stamp(asOf)||asOf>Date.now()||!Number.isSafeInteger(offset)||offset<0||!Number.isSafeInteger(limit)||limit<1||limit>100)fail('REQUEST');
  const observed=observations(events,asOf),rows=[],groups=new Map(),dedup=new Set();
@@ -265,7 +278,8 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    const bounds=f.quantiles.length>=2?[f.quantiles[0],f.quantiles.at(-1)]:null;
    Object.assign(row,{status:'observed-unverified',actual:value,absoluteError:error,naiveError:naive,driftError:drift,pinballLoss:mean(losses),
     covered:bounds?value>=bounds[0].value&&value<=bounds[1].value:null,nominalCoveragePct:bounds?100*(bounds[1].level-bounds[0].level):null,
-    intervalWidth:bounds?round(bounds[1].value-bounds[0].value):null,outcomeRunId:actual.runId,outcomeKnownAt:actual.bar.knownAt,
+    intervalWidth:bounds?round(bounds[1].value-bounds[0].value):null,
+    intervalWidthPctOfOrigin:bounds&&price(d.lastClose)&&d.lastClose>0?round(100*(bounds[1].value-bounds[0].value)/d.lastClose):null,outcomeRunId:actual.runId,outcomeKnownAt:actual.bar.knownAt,
     revisedOutcome:newer?.bar.close!==value||!!newer?.reason,latestOutcomeStatus:newer?.reason?'unusable':'observed-unverified',latestObservedClose:newer&&!newer.reason?newer.bar.close:null,corporateActionEvidence:corporateActionState(actual),latestCorporateActionEvidence:corporateActionState(newer),outcomeConflictSeen:observed.conflicts.has(observationKey)});
    group.values.push(row);group.days.add(d.originDate);group.symbols.add(d.symbol);group.windows.push({from:d.originDate,to:f.targetDate});rows.push(row);
   }
@@ -278,7 +292,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    signalDays:g.days.size,symbols:g.symbols.size,nonOverlappingWindows:windows,mae:round(mae),naiveMae:round(baseline),driftMae:round(mean(drift)),driftSamples:drift.length,
    relativeMae:baseline>0?round(mae/baseline):null,pinballLoss:round(mean(pinball)),pinballSamples:pinball.length,intervalSamples:intervals.length,
    intervalCoveragePct:intervals.length?round(100*intervals.filter(r=>r.covered).length/intervals.length):null,nominalCoveragePct:intervals[0]?.nominalCoveragePct??null,
-   meanIntervalWidth:round(mean(intervals.map(r=>r.intervalWidth))),
+   meanIntervalWidth:round(mean(intervals.map(r=>r.intervalWidth))),intervalEvidence:summarizeIntervalEvidence(g),
    revisedOutcomes:g.values.filter(r=>r.revisedOutcome).length,status:n>=30&&windows>=10&&g.symbols.size>=5?'descriptive-only':'insufficient-independent-samples',
    trainingCoverage:g.model.trainingCutoff?'declared-not-verified':'unknown',costReportsVerified:false,feedbackReview:feedbackReview(g,windows,!!(symbol||runId))};});
  const selected=rows.filter(r=>(!symbol||r.symbol===symbol)&&(!runId||r.runId===runId));
@@ -291,4 +305,4 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
 function evaluationView(workspace,events,query){
  try{return evaluateForecasts(S.readEvents(rootFor(workspace),{asOf:query.asOf}),events,query);}catch{return {mode:'frozen-model-forward-evaluation',status:'unavailable',groups:[],rows:[],total:0,reason:errors.ARCHIVE,...S.FLAGS};}
 }
-module.exports={VERSION,rootFor,prepareInput,outputTemplate,validatePrediction,freezeForecast,evaluateForecasts,evaluationView};
+module.exports={VERSION,rootFor,prepareInput,outputTemplate,validatePrediction,freezeForecast,evaluateForecasts,evaluationView,summarizeIntervalEvidence};

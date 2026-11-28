@@ -116,4 +116,8 @@ async function fetchPublicContext(options,dependencies){
  if(running)throw Error('公共市场研究采集已在运行');running=true;
  try{return await collectPublicContext(options,dependencies);}finally{running=false;}
 }
-module.exports={fetchPublicContext,requestPublicJson,fetchReviewLimitPool};
+// Explicit offline F28/F08.4 study; never invoked by the collector.
+function reviewDerivativeRisk(input,options){
+ return require('./derivative-risk-research').reviewDerivativeRisk(input,options);
+}
+module.exports={fetchPublicContext,requestPublicJson,fetchReviewLimitPool,reviewDerivativeRisk};

@@ -33,14 +33,17 @@ function planVersion(plan) {
     plan.entryMin, plan.entryMax, plan.stop, plan.target, plan.maxPosition]);
 }
 
-function ledgerEvents(book) {
+function ledgerEvents(book, cutoff = Infinity) {
   const result = [], seen = new Set();
   for (const [periodIndex, period] of [...(book?.archives || []), book].filter(Boolean).entries()) {
     if (!Array.isArray(period.account?.events)) throw Error('计划观察缺少原账户成交流水');
     for (const event of period.account.events) {
       if (!textOk(event?.eventId, 200) || seen.has(event.eventId)) throw Error('成交流水缺少唯一事件编号');
       seen.add(event.eventId);
-      result.push({event, period, periodIndex, at: executionTimeOf(event)});
+      const at = executionTimeOf(event);
+      // Reports project a historical cut. An undated event stays in the input
+      // so ambiguous evidence cannot turn into a favourable assessment.
+      if (at === null || at <= cutoff) result.push({event, period, periodIndex, at});
     }
   }
   return result;

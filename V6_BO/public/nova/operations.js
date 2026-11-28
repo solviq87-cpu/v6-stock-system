@@ -394,20 +394,74 @@ function newsFeed(ctx,kind) {
   if(editor(ctx))host.append(el('div',{class:'fy-toolbar'},action('补发新闻摘要',()=>review(ctx,host,'发送新闻摘要','这会向当前配置的通知通道发送一份新闻汇总。',()=>mutation(ctx,'/api/news-digest',{holiday:ctx.state?.trading===false})))));
   ctx.onState?.(render);return host;
 }
+function planNoticeDetails(ctx,row) {
+  const id=row.extra?.planNotice?.deliveryId;
+  if(!/^[a-f0-9]{64}$/.test(id||'')) {
+    const legacy=arr(row.extra?.signalRefs).some(r=>['plan-entry','plan-stop','plan-target'].includes(r?.type));
+    return legacy?el('p',{class:'fy-muted'},'历史通知缺少原计划投递凭据，当前条件待核验。'):null;
+  }
+  const body=el('div',{'aria-live':'polite'});
+  const details=el('details',{class:'fy-details'},el('summary',{},'核对原计划与查看时状态'),body);
+  let version=0,timer;
+  async function refresh() {
+    const attempt=++version,start=performance.now();
+    clearTimeout(timer);
+    if(!details.open || ctx.signal?.aborted || !editor(ctx))return;
+    body.replaceChildren(notice('正在读取原始触发和本次计划复核…'));
+    const active=()=>attempt===version && details.open && details.isConnected && !ctx.signal?.aborted && editor(ctx);
+    try {
+      const {result}=await request(ctx,'/api/push-log?planNotice='+encodeURIComponent(id));
+      if(!active())return;
+      const old=result.original,point=result.current;
+      const status=el('p',{},result.reason);
+      body.replaceChildren(...[
+        old && el('p',{},'原触发 · '+old.code+' · '+old.price+' 元 · '+date(old.quoteAt)+' · '+old.source),
+        old && el('p',{},old.kind==='entry'?'原买入观察区间 '+old.entryMin+' 至 '+old.entryMax+' 元':
+          old.kind==='stop'?'原止损观察价 '+old.stop+' 元':'原目标观察价 '+old.target+' 元'),
+        old && el('p',{},'原预检 · '+old.reason),
+        old && el('small',{},'决策 ID '+old.decisionId),
+        old?.sampledPath&&el('details',{class:'fy-details'},el('summary',{},'原触发前已观察价格路径'),
+          el('p',{},old.sampledPath.reason),
+          old.sampledPath.status==='descriptive-only'&&el('p',{},'采样 '+old.sampledPath.sampleCount+
+            ' 次；首笔 '+old.sampledPath.first.price+' 元；已观察最高 '+old.sampledPath.peak.price+
+            ' 元；已观察最低 '+old.sampledPath.trough.price+' 元；原触发 '+old.sampledPath.last.price+' 元'),
+          old.sampledPath.observedPattern&&el('p',{},({
+            'sampled-rise-then-below-entry-range':'采样冲高后跌破原买入区间，不能视作回踩支撑',
+            'sampled-rise-then-entry-range':'采样冲高后回到原买入区间，仍需重新核对风险',
+            'sampled-retreat-above-entry-range':'采样回落但仍高于原买入区间'
+          })[old.sampledPath.observedPattern]||'路径待核对'),
+          el('small',{},'实际高低开未知；历史采样不是当前报价或成交保证')),
+        status, point && el('p',{},'本次报价 · '+point.price+' 元 · '+date(point.quoteAt)+' · '+point.source),
+        point && el('p',{},'模拟预检 · '+point.reason),
+        el('small',{},'查看时点 '+date(result.checkedAt)+(point?' · 报价有效至 '+date(point.validUntil):'')),
+        action('重新核对',refresh,'text')
+      ].filter(Boolean));
+      if(point){
+        const expire=()=>{if(active())status.textContent='本次报价已到复核时间，重新核对后查看新状态。';};
+        const left=point.validUntil-result.checkedAt-(performance.now()-start);
+        if(left>0)timer=setTimeout(expire,left);else expire();
+      }
+    } catch(error){if(active())failure(body,error,refresh);}
+  }
+  details.addEventListener('toggle',refresh);
+  return details;
+}
 function pushLog(ctx) {
   if(!editor(ctx))return privateView();const host=el('div',{class:'fy-stack'});let only='';
-  const container=el('div');
+  const container=el('div');let generation=0;
   const load=async()=>{
+    const turn=++generation;
     container.replaceChildren(notice('正在读取投递轨迹…'));
     try{
       const data=await request(ctx,'/api/push-log?n=200'+(only?'&only=sent':''));
-      if(ctx.signal?.aborted)return;
+      if(ctx.signal?.aborted || turn!==generation)return;
+      if(!editor(ctx)){container.replaceChildren(privateView());return;}
       const instance=data.replica===true?'副本':data.replica===false?'主实例':'待核验';
       const metrics=el('div',{class:'fy-metrics'},metric('今日外发记录',fmt(data.sentToday,0),'含回执未知'),metric('流水总数',fmt(data.count,0)),metric('本次显示',fmt(data.shown,0)),metric('实例身份',instance));
       const rows=arr(data.log);
-      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.deliveryLabel||row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明'),row.deliveryBasis&&el('small',{},row.deliveryBasis)))):empty('尚无通知流水');
+      const timeline=rows.length?el('div',{class:'fy-timeline'},rows.map(row=>el('article',{class:'fy-news-item'},el('div',{class:'fy-item-head'},el('span',{class:'fy-tag'},row.deliveryLabel||row.status||'状态未知'),el('time',{},date(row.ts||row.time))),el('h3',{},row.title||'通知记录'),row.channel&&el('small',{},row.channel),el('p',{},row.error||row.note||row.text||'服务端未提供更多说明'),row.deliveryBasis&&el('small',{},row.deliveryBasis),planNoticeDetails(ctx,row)))):empty('尚无通知流水');
       container.replaceChildren(el('div',{class:'fy-stack'},data.replica===true?notice('当前是副本，自动飞书推送已停用。'):null,metrics,timeline));
-    }catch(error){if(!ctx.signal?.aborted)failure(container,error,load);}
+    }catch(error){if(!ctx.signal?.aborted && turn===generation)failure(container,error,load);}
   };
   const filter=select('push-delivery',[['','全部状态'],['sent','外发记录（含回执未知）']],'');filter.addEventListener('change',()=>{only=filter.value;load();});host.append(panel('投递追踪','查看通道回执和各道推送门槛的处理结果。',el('div',{class:'fy-toolbar'},filter,action('重新读取',load)),container));queueMicrotask(load);return host;
 }
@@ -481,6 +535,10 @@ function releaseTools(ctx) {
     return el('div',{class:'fy-stack'},panel('发布收件箱','这里显示现有发布流程的请求。只有明确确认后才会提交发布。',el('div',{class:'fy-metrics'},metric('请求数',fmt(requests.length,0)),metric('当前服务版本',text(data.onlineVer)),metric('同步时刻',date(data.syncedAt))),table([['选择',r=>r.check],['请求',r=>text(r.summary||r.title||r.file)],['状态',r=>text(r.status||r.stage)],['来源',r=>text(r.space||r.from)],['文件',r=>text(r.file)]],rows),el('div',{class:'fy-toolbar'},action('重新读取',reload),action('发布所选请求',()=>{if(!picked.size)return ctx.notify('先选择发布请求','info');const files=[...picked];review(ctx,host,'提交 '+files.length+' 个发布请求',files.join('、')+'。服务端将交给受控发布执行者处理；提交请求不等于已经上线。',async()=>{const response=await mutation(ctx,'/api/release/publish',{files,force:false},reload);return{msg:response.queued?'已加入发布队列，尚未确认上线':response.msg||'发布流程已提交，请核对实际回执。'};});},'primary')),el('div',{class:'fy-form-grid'},field('处理阶段',stage),field('处理说明',detail)),action('更新所选处理阶段',()=>{if(!picked.size)return ctx.notify('先选择请求','info');const files=[...picked],nextStage=stage.value,nextDetail=detail.value,nextLabel=stage.selectedOptions[0].textContent;review(ctx,host,'更新处理阶段','将 '+files.length+' 个请求标记为 '+nextLabel+'。标记已发布可能触发原有回执和复核。',async()=>{for(const file of files)await mutation(ctx,'/api/release/update',{file,stage:nextStage,detail:nextDetail});await reload();return{msg:'请求状态已更新'};});})),panel('最近一次发布','真实发布信息以业务服务回执为准。',data.lastRelease?el('dl',{class:'fy-detail-grid'},Object.entries(data.lastRelease).filter(([key,value])=>['version','ver','time','at','status','summary','sha','commit'].includes(key)&&typeof value!=='object').map(([key,value])=>el('div',{},el('dt',{},key),el('dd',{},text(value))))):empty('尚无发布回执')));
   }));return host;
 }
+function accountEventTime(row) {
+  const at=row.timestamp??row.executionAt??row.t??row.fillEvidence?.executionAt;
+  return at==null?text(row.tradeDate):date(at);
+}
 function authority(ctx) {
   if(!editor(ctx))return privateView();
   const host=el('div',{class:'fy-stack'}),account=select('accountId',[['pool','策略跟踪主账户'],['pre','机会预选主账户']],'pool');
@@ -490,7 +548,7 @@ function authority(ctx) {
   const live=p=>!ctx.signal?.aborted&&p.accountId===account.value&&p.generation===generation;
   const ensure=p=>{if(!live(p))throw Error('账户或文件已变更，请重新读取并预检。');};
   const call=async(p,action,extra={})=>{ensure(p);const r=await request(ctx,'/api/research/order-account',{method:'POST',body:{accountId:p.accountId,action,...extra}});ensure(p);return r.result;};
-  const show=data=>{current=data;const root=data.account||{},positions=Object.entries(root.positions||{}).map(([symbol,item])=>({symbol,...item})),orders=Object.values(data.orders||{});output.replaceChildren(el('div',{class:'fy-metrics'},metric('账户现金',yuan(root.cash)),metric('快照版本',fmt(data.revision,0)),metric('持有资产',fmt(positions.filter(p=>number(p.quantity)>0).length,0)),metric('账务事件',fmt(arr(root.events).length,0))),table([['资产',r=>action(r.symbol,()=>ctx.selectStock(r.symbol),'text')],['股数',r=>fmt(r.quantity,0)],['成本',r=>yuan(r.costBasis??r.basis)],['持仓批次',r=>fmt(arr(r.lots).length,0)]],positions),el('h3',{},'委托状态'),table([['订单',r=>text(r.order?.orderId)],['资产',r=>text(r.order?.symbol)],['方向',r=>text(r.order?.side)],['状态',r=>text(r.state?.status||r.state?.phase)],['剩余数量',r=>fmt(r.state?.remainingQuantity,0)]],orders),el('h3',{},'账户事件'),table([['日期',r=>date(r.quoteAt||r.executionAt||r.t||r.tradeDate)],['方向',r=>text(r.side)],['资产',r=>text(r.symbol)],['数量',r=>fmt(r.quantity,0)],['成交价',r=>yuan(r.price)],['手续费',r=>yuan(r.fee)]],arr(root.events)));for(const [key]of fields)policyInputs[key].value=data.riskPolicy?.[key]??'';};
+  const show=data=>{current=data;const root=data.account||{},positions=Object.entries(root.positions||{}).map(([symbol,item])=>({symbol,...item})),orders=Object.values(data.orders||{});output.replaceChildren(el('div',{class:'fy-metrics'},metric('账户现金',yuan(root.cash)),metric('快照版本',fmt(data.revision,0)),metric('持有资产',fmt(positions.filter(p=>number(p.quantity)>0).length,0)),metric('账务事件',fmt(arr(root.events).length,0))),table([['资产',r=>action(r.symbol,()=>ctx.selectStock(r.symbol),'text')],['股数',r=>fmt(r.quantity,0)],['成本',r=>yuan(r.costBasis??r.basis)],['持仓批次',r=>fmt(arr(r.lots).length,0)]],positions),el('h3',{},'委托状态'),table([['订单',r=>text(r.order?.orderId)],['资产',r=>text(r.order?.symbol)],['方向',r=>text(r.order?.side)],['状态',r=>text(r.state?.status||r.state?.phase)],['剩余数量',r=>fmt(r.state?.remainingQuantity,0)]],orders),el('h3',{},'账户事件'),table([['成交时间',accountEventTime],['方向',r=>text(r.side)],['资产',r=>text(r.symbol)],['数量',r=>fmt(r.quantity,0)],['成交价',r=>yuan(r.price)],['手续费',r=>yuan(r.fee)]],arr(root.events)));for(const [key]of fields)policyInputs[key].value=data.riskPolicy?.[key]??'';};
   const read=async()=>{const p=plan();status.textContent='正在读取主账户…';try{const data=await call(p,'read');if(!live(p))return;show(data);status.textContent='主账户已读取 · 原始账务与委托相互核对。';}catch(error){if(live(p))status.textContent=error.message;}};
   account.addEventListener('change',()=>{generation++;preview=null;current=null;output.replaceChildren();for(const node of Object.values(policyInputs))node.value='';status.textContent='账户已切换，请重新读取；尚未发起任何账户写入。';});
   host.append(panel('权威账务工作台','这是既有模拟订单与资金的同一份权威快照，和研究预演账户分开。',el('div',{class:'fy-toolbar'},account,action('读取账户',read,'primary'),action('读取拒单审计',async()=>{const p=plan();try{const result=await call(p,'audit',{pagination:{limit:100}});if(!live(p))return;output.replaceChildren(notice('审计记录 '+text(result.total)+' 条 · 当前最多显示100条'),table([['时间',r=>date(r.at||r.recordedAt||r.ts)],['资产',r=>text(r.symbol||r.order?.symbol)],['原因',r=>arr(r.reasonCodes).join(' · ')||text(r.reason)],['依据',r=>text(r.note||r.message)]],arr(result.items||result.records)));status.textContent='已读取拒单审计';}catch(error){if(live(p))status.textContent=error.message;}})),status,output));

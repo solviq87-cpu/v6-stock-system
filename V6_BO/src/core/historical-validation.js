@@ -94,7 +94,7 @@ function runValidatedBacktest(history){
    inSample:split.inSample.metrics,outOfSample:split.outOfSample.metrics};
  }
  return {status:result.metrics.closedTrades?'research-only':'insufficient',dataset,
-  metrics:result.metrics,statistics:result.statistics,cashFlows:result.cashFlows,holdout,assumptions:result.assumptions,warnings:result.warnings,
+  metrics:result.metrics,statistics:result.statistics,cashFlows:result.cashFlows,signalExecution:result.signalExecution,holdout,assumptions:result.assumptions,warnings:result.warnings,
   trades:result.trades,orders:result.orders,equity:result.equity,openPositions:result.openPositions,
   releaseEligible:false,reason:'研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收'};
 }

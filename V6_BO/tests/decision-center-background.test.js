@@ -152,3 +152,46 @@ test('disabled collector while awaiting archive does not consume its real attemp
  enabled=false;release([]);await first;assert.equal(calls,0);assert.equal(worker.status().lastAttempt,null);
  enabled=true;now+=60000;await worker.tick();assert.equal(calls,1);
 });
+
+test('F25 delayed collector receipt cannot report current success across day, role, permission, phase or clock change',async()=>{
+ const {createRuntimeTrace}=require('../src/core/runtime-trace');
+ for(const change of ['day','role','permission','phase','clock']){
+  let now=Date.parse('2026-11-25T16:00:00+08:00'),day='20261125',primary=true,enabled=true,minute=960,release,calls=0;
+  const trace=createRuntimeTrace({clock:()=>now});
+  const worker=createDecisionCenterBackground({trace,clock:()=>now,enabled:()=>enabled,isPrimary:()=>primary,
+   session:()=>({openDay:true,trading:minute<900,minute,day}),candidates:()=>['600000'],
+   collectHistory:()=>{calls++;return new Promise(resolve=>release=resolve);},collectFinancials:async()=>assert.fail('unexpected collection')});
+  const running=worker.tick();await new Promise(setImmediate);await worker.tick();assert.equal(calls,1);
+  if(change==='day'){now+=86400000;day='20261126';}
+  if(change==='role')primary=false;
+  if(change==='permission')enabled=false;
+  if(change==='phase')minute=915;
+  if(change==='clock')now--;
+  release({ok:true,result:{status:'admitted'}});await running;
+  const state=worker.status();assert.equal(state.running,false);assert.equal(state.lastResult.status,'superseded');
+  assert.equal(state.lastAttempt.day,'2026-11-25');assert.equal(state.lastSuccessAt,null);
+  assert.equal(state.lastResult.completedAt,change==='clock'?null:now);
+  const spans=trace.read().spans;assert.equal(spans.find(x=>x.stage==='market.history').status,'blocked');
+  assert.equal(spans.find(x=>x.stage==='task.decision-background').status,'blocked');
+ }
+});
+test('F25 superseded history does not enter success cache and next trading day remains independent',async()=>{
+ let now=Date.parse('2026-11-25T16:00:00+08:00'),day='20261125',release,calls=[];
+ const worker=createDecisionCenterBackground({clock:()=>now,enabled:()=>true,isPrimary:()=>true,
+  session:()=>({openDay:true,trading:false,minute:960,day}),candidates:()=>['600000'],
+  collectHistory:v=>{calls.push(v);return calls.length===1?new Promise(r=>release=r):Promise.resolve({ok:true,result:{status:'admitted'}});},
+  collectFinancials:async()=>({ok:false})});
+ const first=worker.tick();await new Promise(setImmediate);now+=86400000;day='20261126';
+ release({ok:true,result:{status:'admitted'}});await first;
+ assert.equal(worker.status().lastSuccessAt,null);await worker.tick();
+ assert.deepEqual(calls.map(x=>x.day),['2026-11-25','2026-11-26']);
+ assert.equal(worker.status().lastResult.status,'collected');assert.equal(worker.status().lastSuccessAt,now);
+});
+test('F25 a rejected late callback is historical, not a current failure or success',async()=>{
+ let primary=true,reject;
+ const worker=createDecisionCenterBackground({clock:()=>Date.parse('2026-11-25T16:00:00+08:00'),enabled:()=>true,isPrimary:()=>primary,
+  session:()=>({openDay:true,trading:false,minute:960,day:'20261125'}),candidates:()=>['600000'],
+  collectHistory:()=>new Promise((resolve,r)=>reject=r),collectFinancials:async()=>assert.fail('unexpected')});
+ const p=worker.tick();await new Promise(setImmediate);primary=false;reject(Error('late supplier failure'));await p;
+ assert.equal(worker.status().lastResult.status,'superseded');assert.equal(worker.status().lastSuccessAt,null);
+});
