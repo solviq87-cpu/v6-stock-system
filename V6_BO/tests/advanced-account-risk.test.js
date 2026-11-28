@@ -61,3 +61,37 @@ test('worker reads original account without modifying it and rejects corrupt pee
   assert.equal((await runAdvancedAccountRiskJob({...input,replica:true})).status,'replica');
  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
+
+test('F24.3 advanced diagnostics reserve the exact original budget; nonfills cannot reduce minimum commission',()=>{
+ const day='2026-11-25',now=Date.parse(day+'T10:00:00+08:00');
+ const feePolicy={version:'v1',feeBps:0,minFee:5,sellTaxBps:0,commissionScope:'order-day'};
+ const feeEvidence={version:'v1',gross:1000,commission:5,tax:0,transfer:0,total:5};
+ const item={order:{orderId:'pending',symbol:'600000',side:'buy',quantity:100,tradeDate:day,limitPrice:10},
+  state:{terminal:false,remainingQuantity:100},events:[{type:'not-a-fill',date:day,feeEvidence}]};
+ const book={revision:3,paperOnly:true,brokerConnected:false,feePolicy,
+  account:{cash:10000,events:[],positions:{},eventHashes:{}},orders:{pending:item}};
+ const before=JSON.stringify(book);
+ const d=mod.accountExitDiagnostics(book,{account:'pool',day,now,marketOpen:true,continuous:true});
+ eq(d.status,'observed-unverified');eq(d.reservedCash,1005);eq(d.availableCash,8995);
+ eq(d.reconciliation.reservedCash,1005);eq(d.canTrade,false);eq(JSON.stringify(book),before);
+});
+test('F24.3 a partial order uses fill-only current-day commission credit, resets next day and rejects contradictory fees',()=>{
+ const day='2026-11-25',now=Date.parse(day+'T10:00:00+08:00');
+ const feePolicy={version:'v1',feeBps:0,minFee:5,sellTaxBps:0,commissionScope:'order-day'};
+ const feeEvidence={version:'v1',gross:1000,commission:5,tax:0,transfer:0,total:5};
+ const fill={type:'fill',eventId:'entry',orderId:'pending',date:day,quantity:100,price:10,fee:5,feeEvidence};
+ const item={order:{orderId:'pending',symbol:'600000',side:'buy',quantity:300,tradeDate:day,limitPrice:10},
+  state:{terminal:false,remainingQuantity:200},events:[fill]};
+ const event={eventId:'entry',orderId:'pending',symbol:'600000',side:'buy',quantity:100,price:10,fee:5,tradeDate:day,gross:1000,cashAfter:8995};
+ const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+ const book={revision:3,paperOnly:true,brokerConnected:false,feePolicy,account:{cash:8995,events:[event],
+  positions:{'600000':{quantity:100,lots:[{quantity:100,buyDate:day,price:10,cost:1005,fee:5,sourceEventId:'entry'}]}},
+  eventHashes:{entry:digest({orderId:'pending',fill,tradeDate:day})}},orders:{pending:item}};
+ const run=(b,d,at)=>mod.accountExitDiagnostics(b,{account:'pool',day:d,now:at,marketOpen:true,continuous:true});
+ const same=run(book,day,now),next=run(book,'2026-11-26',now+86400000);
+ eq(same.reservedCash,2000);eq(same.availableCash,6995);eq(same.reconciliation.reservedCash,2000);
+ eq(next.reservedCash,2005);eq(next.availableCash,6990);eq(next.reconciliation.reservedCash,2005);
+ const bad=structuredClone(book);bad.orders.pending.events[0].feeEvidence.total=100;
+ const result=run(bad,day,now);eq(result.reservedCash,null);eq(result.availableCash,null);
+ eq(result.reconciliation.reservedCash,null);assert.ok(result.alerts.some(a=>a.code==='CASH_RESERVATION_UNKNOWN'));
+});

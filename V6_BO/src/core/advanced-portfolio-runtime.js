@@ -229,9 +229,9 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
    observations:history.observations([plan.code]),asOf:now,horizon:policy.horizonSessions,confidence:policy.confidence,returnBasis:'adjusted-price'}),
    quantity:receipt.quantity,quoteAt:entry.quoteAt,scenarioVersion:policy.version};
  });
- const cashBaseline=sourceRef&&finite(diagnostic.cash)&&finite(diagnostic.availableCash)&&diagnostic.availableCash>=0&&diagnostic.availableCash<=diagnostic.cash?
+ const cashBaseline=sourceRef&&finite(diagnostic.cash)&&finite(diagnostic.reservedCash)&&diagnostic.reservedCash>=0&&finite(diagnostic.availableCash)&&diagnostic.availableCash>=0&&diagnostic.availableCash<=diagnostic.cash&&Math.abs(diagnostic.cash-diagnostic.availableCash-diagnostic.reservedCash)<=.011?
   {status:'observed-unverified',accountEvidenceRef:sourceRef,accountRevision:book.revision,availableCash:diagnostic.availableCash,
-   reservedCash:round(diagnostic.cash-diagnostic.availableCash),assumedInterest:0,actualYieldVerified:false,...flags}:
+   reservedCash:diagnostic.reservedCash,assumedInterest:0,actualYieldVerified:false,...flags}:
   unknown('ORIGINAL_AVAILABLE_CASH_UNAVAILABLE');
  const assets=snapshot?.positions.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/snapshot.equity,industry:p.industry,theme:p.theme}));
  const heldObservations=history.observations(heldCodes);
