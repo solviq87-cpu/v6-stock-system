@@ -106,6 +106,21 @@
     if(paired.length)line(proof,'配对方向一致次数','滞后 '+lag.lagMatches+' / '+paired.length+'；同期 '+lag.concurrentMatches+' / '+paired.length);
    }else node('p','领先滞后研究：配对证据不足或未知。',proof,'ml-muted');
    node('p','同期冲击不等于领先；未验证样本外效果，不形成预测信号。',proof,'ml-muted');
+   const early=s.earlyObservation,earlyClock=(at,d)=>{const i=rows.findIndex(r=>r.date===d),next=rows[i+1]?.date;return i>=0&&day(d)&&Number.isSafeInteger(at)&&at>=Date.parse(d+'T15:00:00+08:00')&&at<(next?Date.parse(next+'T09:30:00+08:00'):Date.parse(d+'T00:00:00+08:00')+86400000);};
+   const earlyValid=early?.mode==='five-frozen-session-early-observation-v1'&&early.scope==='five-session-window-only'&&early.actualCatalystVerified===false&&early.forwardValueVerified===false&&early.canTrade===false&&early.canNotify===false;
+   const firstIndex=rows.findIndex(r=>r.date===early?.firstDate),confirmedIndex=rows.findIndex(r=>r.date===early?.confirmedDate);
+   const firstValid=earlyValid&&firstIndex>0&&earlyClock(early.firstObservedAt,early.firstDate);
+   const confirmedValid=firstValid&&confirmedIndex===firstIndex+1&&earlyClock(early.confirmedAt,early.confirmedDate)&&early.confirmationDelayMs===early.confirmedAt-early.firstObservedAt&&early.confirmationDelayMs>0;
+   const noConfirmation=early?.confirmedAt===null&&early.confirmedDate===null&&early.confirmationDelayMs===null;
+   if(firstValid&&((early.status==='confirmed-within-window'&&confirmedValid&&early.invalidatedAt===null)||(early.status==='first-observation-only'&&noConfirmation&&early.invalidatedAt===null)||(early.status==='invalidated-observation'&&(confirmedValid||noConfirmation)&&Number.isSafeInteger(early.invalidatedAt)&&early.invalidatedAt>(early.confirmedAt??early.firstObservedAt)&&early.invalidatedAt<=Date.parse(data.tradeDate+'T00:00:00+08:00')+86400000))){
+    line(proof,'五日内首次符合观察',early.firstDate+' · '+time(early.firstObservedAt));
+    line(proof,'相邻交易日确认',confirmedValid?early.confirmedDate+' · 延迟 '+early.confirmationDelayMs+' 毫秒':'尚无确认');
+    if(early.status==='invalidated-observation')line(proof,'后续失效观察',time(early.invalidatedAt));
+   }else if(earlyValid&&early.status==='left-censored-existing-strength'&&early.firstObservedAt===null)node('p','窗口首日已有强势，首次发现时点未知。',proof,'ml-muted');
+   else if(earlyValid&&early.status==='no-qualified-observation'&&early.firstObservedAt===null)node('p','该五日窗口未见符合条件的观察，不代表没有机会。',proof,'ml-muted');
+   else node('p','五日首次观察证据不足或未知。',proof,'ml-muted');
+   node('p','首次观察仅限封存窗口；未认证真实催化与前向收益。',proof,'ml-muted');
+
    node('p','共同样本为事后覆盖对照；群体迁移仅为描述性研究，非事前信号，不构成买卖建议。',proof,'ml-muted');
   }
   const detail=node('div',undefined,sector,'ml-sector-detail');
