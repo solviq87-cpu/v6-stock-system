@@ -171,3 +171,104 @@
 
 ## H03.12 原长期运行观察证据一致性补强（兼及H01.13/H02.12）
 固定父提交 c0096cbaeca9e869de9d98a30c979c0247936358 的四条正式工作流均已成功：[主CI](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46135616430)（12/12作业成功）、[Windows](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46135616568)、[双端](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46135616414)、[逐提交覆盖](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46135616462)。本次仅复用原 runtime-acceptance，不另建服务；冻结内部验收标准，返回独立副本，避免调用方修改阈值却保留原hash。观测到主副写权限撤销/异常时清除原版本证明缓存，重新取得权限必须重新认证；刷新失败不复用旧证明。版本证明只保留合法SHA字符串与已安装布尔值快照，避免引用对象被外部修改。正常五分钟缓存不变。保留原写入锁、回放、账本、15秒行情门禁及5/20/60日独立复核门禁。上一轮实际执行抽取原 createRuntimeAcceptance 的隔离V8 6场景修前1/6、修后6/6（内存文件系统、模拟指标/时钟/锁/摘要，非完整Node），本提交额外严格限定SHA字符串类型。新增5项原生测试及原五分钟缓存用例待新HEAD正式CI。真实主机、持久化、长期持续观察、角色瞬时切换又恢复（无上游单调epoch）仍待验，不宣称持续运行已认证。第一批专项局部26/62，全组26/176；完整签收0。原证据记录不删除、不覆盖历史数据，不合并不部署。
+
+
+## 用户最新要求两批收口：第一批 H01—H08（126项）
+固定已通过父提交 `d79082f00ffcd48c83c1744cf5c24cac96932735`，原[主回归8081/8081](https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46138287392/job/140958387048)，0失败、0取消、0跳过；另20/20、40/40、24/24；四条正式工作流全部成功。以下为本次逐项复核**局部证据**，不将同一测试反复算作新增开发，不把测试通过当实盘、全市场或长期运行完整验收。原26项专项证据与25项非重叠基线证据保留（H01 16，H02 13，H03 14，H04 8，共51）；本轮从精确父提交完整主回归逐项补充61项不同编号局部关联依据，并新增H05.9隔离修复1项，共113/126；其中专项新增或定向复核27项、原有能力复用依据86项。**待补强13/126，完整验收0/126；全组113/176局部有据，63/176未取得同等局部证据，完整验收0/176。** 未修改原任务编号，第二批仍为H09—H12 50项并复核第一批遗留。表中TAP是父提交原生主回归的真实测试名和序号，非当前新增测试通过数。
+
+| 模块 | 任务数 | 局部有据（含复用） | 暂缺同等证据 | 完整验收 |
+|---|---:|---:|---:|---:|
+| H01 | 16 | 16 | 0 | 0 |
+| H02 | 16 | 16 | 0 | 0 |
+| H03 | 14 | 14 | 0 | 0 |
+| H04 | 16 | 14 | 2 | 0 |
+| H05 | 16 | 11 | 5 | 0 |
+| H06 | 16 | 13 | 3 | 0 |
+| H07 | 16 | 16 | 0 | 0 |
+| H08 | 16 | 13 | 3 | 0 |
+| 第一批合计 | 126 | 113 | 13 | 0 |
+
+### 新增精确原生测试证据映射（61项）
+| 原任务 | 固定父提交TAP证据 | 真实适用边界 |
+|---|---|---|
+| H02.3 | 1135 `complete worker terminates on timeout and allows subsequent requests`；8065 `constructor failure, worker error, exit and original timeout release every existing wrapper` | 异常退出、超时释放后允许再次执行；自动重启策略与实际长期故障待验 |
+| H02.5 | 1406 `capacity pins pending work, limits input and allows later cache eviction without expanding workers`；2617 `old session labels do not evict an already valid current-day index cache` | 失效缓存容量回收与日期保护；全盘缓存清理不认证 |
+| H02.6 | 8058 `two background declarations cannot consume the independent risk reservation`；8061 `simultaneous child admissions use atomic shared slots, not a budget per worker` | 统一并发准入和独立风险槽；动态负载重调度仍待 |
+| H04.3 | 888 `C6.5 lunch, premarket or after-session sequences cannot claim continuous trading plunges`；889 `C6.5 identical duplicates deduplicate; real continuous morning and afternoon plunges stay visible` | 连续盘中急跌反例及正常对照；真实历史全市场联合回放待 |
+| H04.6 | 655 `C9.1 two comparable deteriorations after observed crowding identify a shadow collapse candidate only` | 同口径拥挤恶化及影子崩解候选；真实全过程待 |
+| H04.7 | 2777 `late correction and retraction change only later visible evidence, not earlier decision snapshots`；1510 `missing and late benchmarks stay null; corporate actions cannot become false event returns` | 修订/撤回的可知时间及事件收益反例；提前兑现、反向行情真实重演待 |
+| H04.8 | 436 `C8.2 three successive equal hypothetical shocks compound, not add or claim actual limit rates`；437 `C8.2 unknown sellable amount keeps total no-exit shock but no fictitious locked split`；910 `C21.4 duplicate market reports deduplicate, same-day conflict cannot count as a consecutive market decline` | 合成连续冲击、未知可卖仓位和连续市场下跌；真实个股连续下跌待 |
+| H04.12 | 1811 `stage cutoffs retain late arrivals only where they were actually known and preserve rejected candidates`；1347 `actual background collection and incomplete receipts use one bounded parent trace without extra dispatch` | 原工作流时点与原任务父链；联合调度全场景待 |
+| H04.13 | 6783 `candidate re-ranking or changed frozen stock quote invalidates historical provenance`；4907 `decision chase risk: a move toward the same target triggers a new chase-risk veto` | 候选重排后证据失效及追高否决；真实市场重排待 |
+| H05.3 | 6652 `actual workspace worker correlates a coalesced read with one real execution receipt`；1347 `actual background collection and incomplete receipts use one bounded parent trace without extra dispatch` | 原任务及工作线程阶段耗时；异常发现至研究完成的真实全链待 |
+| H05.5 | 1360 `plan trace measures committed observation, not delivery; read-only and duplicate alerts do not dispatch`；317 `elapsed preview budget and monotonic clock failure stop further synchronous validation without changing the account` | 风险观察提交与保护预算边界；实际风险触发至生效时间待 |
+| H05.6 | 6664 `48 queue eviction and rejection are not attempts, and guard/late callbacks stay unknown`；1360 `plan trace measures committed observation, not delivery; read-only and duplicate alerts do not dispatch` | 排队、尝试和送达语义分离；真实送达时间待 |
+| H05.7 | 2447 `batch38-08 independent deadline covers uncooperative headers and body, late data not projected`；2453 `batch37-06 hard timeout even if fetch ignores AbortSignal; late headers never read`；2454 `batch37-07 deadline covers incomplete response body even with ignored abort; late body cannot finish successfully` | 行情接口头/体硬超时；真实接口延迟基准待 |
+| H05.8 | 317 `elapsed preview budget and monotonic clock failure stop further synchronous validation without changing the account`；180 `timeouts and worker errors release the single slot without exposing private paths or errors`；181 `advanced risk runs a real HTTP server and worker with original accounts, editor permission and no writes or egress` | 账户预览预算与真实隔离HTTP风险工作线程；生产响应时间待 |
+| H05.10 | 5376 `resource budget: summary does not repeatedly filter the full retained span ring` | 原汇总单次遍历的操作量反例；真实瓶颈基准待 |
+| H05.11 | 1401 `page reads return immediately, coalesce codes and expose only completed independent evidence`；210 `account and exit evidence survives absent or over-budget optional context; paused sessions keep cost unknown` | 原同步页面快速返回和可选上下文缺失保留账户证据；真实研究速度待 |
+| H05.12 | 1811 `stage cutoffs retain late arrivals only where they were actually known and preserve rejected candidates`；6652 `actual workspace worker correlates a coalesced read with one real execution receipt` | 阶段可知时点及后续工作线程；深度研究真实时限待 |
+| H05.13 | 1408 `timeout aborts work, ignores late success and never overlaps an uncooperative injected reader`；8005 `43-playbook cache and held-stock exception cannot resurrect expired signals` | 超时和失效结果不得恢复 |
+| H05.14 | 1409 `close cancels queued and active work and does not publish any late result`；989 `mobile concurrent requests are coalesced and never overwrite a newer shared snapshot` | 取消后的迟到结果及旧共享快照不得覆盖 |
+| H06.1 | 229 `insufficient or unknown disk capacity rejects before creating plaintext or changing original inputs`；230 `source growth after the disk preflight stops capture before encryption exceeds the original budget` | 原磁盘容量检查；本组此前host-audit还验证OS CPU/内存/home盘；GPU/显存真实探针待 |
+| H06.2 | 8060 `real nested workers share the same admission and parent termination reclaims orphaned child leases`；8061 `simultaneous child admissions use atomic shared slots, not a budget per worker` | 原嵌套线程共享原子并发限制；进程/OS总预算待 |
+| H06.3 | 8058 `two background declarations cannot consume the independent risk reservation`；8063 `release provenance shares the original bounded background slots and cannot borrow the risk slot` | 共享后台声明预算及独立风险槽 |
+| H06.4 | 337 `automatic research coalesces reads, follows the next session and never re-dates late history`；7657 `strong markets, non-excluded sectors and unknown data never lower research priority` | 原交易日推进和研究优先级保护；动态组合调度待 |
+| H06.5 | 1406 `capacity pins pending work, limits input and allows later cache eviction without expanding workers`；8058 `two background declarations cannot consume the independent risk reservation` | 容量拒绝和保留风险槽；实际非关键计算动态延迟待 |
+| H06.6 | 1409 `close cancels queued and active work and does not publish any late result`；8065 `constructor failure, worker error, exit and original timeout release every existing wrapper` | 取消、退出释放和原任务收尾；分批、暂停完整联动待 |
+| H06.7 | 8058 `two background declarations cannot consume the independent risk reservation`；8065 `constructor failure, worker error, exit and original timeout release every existing wrapper` | 后台工作线程准入独立风险槽；真实大模型训练负载待 |
+| H06.8 | 8058 `two background declarations cannot consume the independent risk reservation`；58 `account cache accepts the exact 15 second boundary, rejects the next millisecond and preserves provider ordering` | 风险独立预算、原15秒报价门禁 |
+| H06.9 | 8061 `simultaneous child admissions use atomic shared slots, not a budget per worker`；8063 `release provenance shares the original bounded background slots and cannot borrow the risk slot` | 统一后台任务原子准入；全模型及策略真实负载待 |
+| H06.10 | 8058 `two background declarations cannot consume the independent risk reservation`；8063 `release provenance shares the original bounded background slots and cannot borrow the risk slot` | 同时最多两后台声明；全策略运行模式待 |
+| H06.11 | 1193 `source requests are coalesced across breadth, historical ladder and structured review readers`；1719 `strict original settlement maturity invalidates cache while unchanged effective inputs remain reusable` | 原共享请求及可复用有效输入缓存；批量推理实际效率待 |
+| H06.15 | 8058 `two background declarations cannot consume the independent risk reservation`；8063 `release provenance shares the original bounded background slots and cannot borrow the risk slot` | 风险独立预留准入；实际持仓连续监控待 |
+| H06.16 | 58 `account cache accepts the exact 15 second boundary, rejects the next millisecond and preserves provider ordering`；1336 `fill rechecks current risk policy; rejection leaves cash and order events unchanged` | 现存独立报价及成交风险门禁；新运行模式不存在完整验收 |
+| H07.1 | 1193 `source requests are coalesced across breadth, historical ladder and structured review readers`；1271 `the original market importer persists exact raw bytes and historical as-of reads never substitute a later snapshot` | 原数据请求合并与原始归档 |
+| H07.2 | 989 `mobile concurrent requests are coalesced and never overwrite a newer shared snapshot`；1217 `same persisted account serves both responsive dashboard and authenticated research ranking` | 移动端并发共享快照与原账户 |
+| H07.3 | 1768 `EMA/MACD batch, incremental and serialized restart are independent paths; cold history actually changes the answer` | EMA/MACD完整、增量及冷历史对照 |
+| H07.4 | 1719 `strict original settlement maturity invalidates cache while unchanged effective inputs remain reusable`；4281 `current raw content must match the classified cache even when the version hash remains intact` | 有效输入缓存复用及内容一致性 |
+| H07.5 | 1768 `EMA/MACD batch, incremental and serialized restart are independent paths; cold history actually changes the answer`；5156 `identical market retries are harmless but contradictory same-batch observations are not chosen by array order` | 批次算法及重复/矛盾输入一致性 |
+| H07.6 | 989 `mobile concurrent requests are coalesced and never overwrite a newer shared snapshot`；8061 `simultaneous child admissions use atomic shared slots, not a budget per worker` | 原并发共享与原子预算；所有算法并发一致性待 |
+| H07.7 | 1768 `EMA/MACD batch, incremental and serialized restart are independent paths; cold history actually changes the answer`；6110 `identical evidence deduplicates across clock changes and restarts, preserving the original recorded time` | 序列化重启及原证据去重 |
+| H07.8 | 1768 `EMA/MACD batch, incremental and serialized restart are independent paths; cold history actually changes the answer`；3131 `Tencent raw day response cannot impersonate adjusted stock history` | EMA/MACD与复权来源隔离；所有K线周期待 |
+| H07.9 | 1984 `original, accepted and proposed variants share the same fresh daily scorecard`；8002 `all four strategies invalidate cached candidates without requiring a new source version` | 统一因子分数与四策略缓存失效 |
+| H07.10 | 2962 `H04.5 same frozen category population replays old and new broad leader without changing original ranks`；5382 `same-day current repetition cannot conceal changed calculation or membership metadata` | 冻结行业强度口径及成分/计算信息一致性；资金完整验证待 |
+| H07.11 | 523 `C38.1 original recognition, auto validation and historical replay return the same full path evidence`；1338 `research ledger uses the same dated fee engine and entry risk reasons` | 原风险回放与研究账本复用；全组合计算待 |
+| H07.12 | 1133 `performance recomputes known equity and Wilson interval; zero volatility has no Sharpe`；3456 `cost stress recalculates actual ledger fees and additive slippage without using adjusted-price labels` | 真实已知权益、原费用与绩效复算 |
+| H07.13 | 1510 `missing and late benchmarks stay null; corporate actions cannot become false event returns`；3343 `re-sealing a stored replay with newly declared adjusted history cannot bypass restore checks` | 公司行动与复权历史不得造成错误回放 |
+| H07.14 | 1719 `strict original settlement maturity invalidates cache while unchanged effective inputs remain reusable`；8002 `all four strategies invalidate cached candidates without requiring a new source version`；5544 `retained holdout windows cannot be reused across target or model versions and calendar revisions cannot hide history` | 输入、策略缓存及模型版本隔离；完整算法依赖待 |
+| H07.15 | 275 `auction cache never stamps Friday supplier data as Monday and retains old good evidence`；4281 `current raw content must match the classified cache even when the version hash remains intact`；4397 `a newer cache queried for a past trigger cannot lend future versions or a future journal head` | 原始日/时间与内容、历史缓存用途；全缓存契约待 |
+| H07.16 | 275 `auction cache never stamps Friday supplier data as Monday and retains old good evidence`；7949 `serializing and hydrating an old cache preserves observation dates but cannot grant wire freshness` | 缓存读取和更新不产生新行情时点 |
+| H08.3 | 6873 `immutable archive runner creates idempotent private daily output, conflict blocks rewrite`；5972 `account and all referenced audit segments backup and restore as one verified snapshot` | 已有日归档和账本分段备份；数据库规模/分区基准待 |
+| H08.4 | 6984 `CSV import deduplicates identical records and rejects a conflicting batch atomically`；2667 `native archive survives process restart and exact retry keeps one original receipt and blob` | 原内容去重与冲突拒绝 |
+| H08.5 | 103 `full history archive preserves exact source/index/report bytes and optional matching input`；124 `1000-entry snapshot archives/restores all versions and does not reset the append boundary` | 完整原档案及版本历史恢复 |
+| H08.6 | 1406 `capacity pins pending work, limits input and allows later cache eviction without expanding workers`；8026 `artifact cache is bounded and never caches branch or deployed target evidence` | 现有缓存容量上限；实际存储预算和生命周期覆盖待 |
+| H08.7 | 2930 `H01 ring eviction never turns absent issue evidence into a healthy runtime certificate`；5966 `automatic threshold rotation retains all records and immutable archive contents` | 原诊断内存环及审计轮转；普通磁盘运行日志限额待 |
+| H08.8 | 229 `insufficient or unknown disk capacity rejects before creating plaintext or changing original inputs`；230 `source growth after the disk preflight stops capture before encryption exceeds the original budget` | 磁盘容量及采集时增长前置保护；长期预警待 |
+| H08.9 | 948 `hash corruption and symlink archives fail closed instead of silently returning empty research`；5971 `missing index, changed or missing archives refuse financial mutation instead of resetting history` | 原档案与账本完整性、损坏拒绝 |
+| H08.10 | 3845 `encrypted backup restores verified data; wrong key and corruption never publish destination`；1552 `backup verifies hashes and restores identical state only after explicit apply` | 加密备份和哈希核验 |
+| H08.11 | 103 `full history archive preserves exact source/index/report bytes and optional matching input`；3054 `bounded original report snapshots retain every version and never modify or recreate the archive` | 原始历史与报告版本保留；全数据保留政策待 |
+| H08.12 | 224 `isolated drill consumes the real encrypted backup and original restore tools with measured local RPO/RTO`；128 `real CLI archive/verify/restore and JSON results use the same complete history` | 隔离环境真实加密备份、恢复CLI；用户主机演练待 |
+| H08.13 | 5972 `account and all referenced audit segments backup and restore as one verified snapshot`；1552 `backup verifies hashes and restores identical state only after explicit apply` | 账户、审计段及状态恢复一致；真实用户账本待 |
+| H08.15 | 5966 `automatic threshold rotation retains all records and immutable archive contents`；5299 `an unreadable current snapshot is an I/O failure, not permission to restore an older account` | 保留审计档案，不以旧档案覆盖异常当前账户 |
+| H08.16 | 1558 `backup rejects symlink parent and restore rejects backup overlap`；5299 `an unreadable current snapshot is an I/O failure, not permission to restore an older account` | 原恢复目标隔离、当前账本损坏拒绝旧回退 |
+
+### H05.9 实际代码补强（另1项）
+复用原 runtime-trace：修复工作线程回执丢失 `calls/timing` 导致批量总耗时与单次跨度混淆，校验完整批量标识及正整数次数，非法回执不污染原dispatch；旧回执兼容。保留原汇总统计、环及权限不变，新增内部 `timingBreakdown` 分别记录单次跨度和同步调用总量的样本、有效时长、P50/P95，未知仍null；不将批量总耗时当单次响应，旧汇总兼容值仍混合，不改UI/现有诊断接口。实际抽取原完整模块隔离V8同步用例（模拟ALS、随机标识、时钟）：修前1/5、修后5/5。新增5项原生回归已语法检查，须新提交正式CI。不宣称生产延迟降低，无实际设备对比。
+
+### 第一批尚缺同等局部证据（13项）
+- H04.2 真实重大政策发布与实施变化重演
+- H04.4 ETF同窗盘中实际异动
+- H05.1 政策发现延迟
+- H05.2 行情异动检测延迟
+- H05.4 市场变化到候选重排延迟
+- H05.15 实际用户硬件目标
+- H05.16 同条件优化前后测量
+- H06.12 模型压缩量化效果验证
+- H06.13 基于真实测量的模式调整
+- H06.14 模式切换间隔
+- H08.1 真实长期增长
+- H08.2 实际高频查询数据库索引
+- H08.14 盘中维护负载不阻塞证据
+
+真实行情、授权数据、实机、36联合场景、5/20/60交易日及未建立的动态模式、数据库索引/性能能力仍须专项后续，不能用原测试名称替代实现。没有新增API、运行服务、UI、采集或生产权限；不合并、不部署、不删除旧资料。

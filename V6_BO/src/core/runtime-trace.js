@@ -193,14 +193,16 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
  function summary(){
   // Aggregate the bounded ring once. Keep each exact duration for the
   // existing percentiles; neither sampling nor history retention changes.
-  const accumulator=()=>({samples:0,completed:0,failed:0,blocked:0,unknown:0,skipped:0,times:[]});
+  const accumulator=()=>({samples:0,completed:0,failed:0,blocked:0,unknown:0,skipped:0,times:[],elapsed:[],batch:[],elapsedSamples:0,batchSamples:0});
   const diagnosticGroups=new Map();
   const groups=new Map(GROUPS.map(stage=>[stage,accumulator()]));
   const byHook=new Map([...STAGES].map(stage=>[stage,accumulator()]));
   function add(value,row){
    if(!value)return;
    value.samples++;value[row.status]++;
-   if(Number.isFinite(row.durationMs))value.times.push(row.durationMs);
+   const batch=row.timing==='sum-of-actual-calls';
+   if(batch)value.batchSamples++;else value.elapsedSamples++;
+   if(Number.isFinite(row.durationMs)){value.times.push(row.durationMs);(batch?value.batch:value.elapsed).push(row.durationMs);}
   }
   for(const row of rows){
    add(groups.get(row.stage.slice(0,row.stage.indexOf('.'))),row);
@@ -215,7 +217,12 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
   };
   const stages=[...groups].map(([stage,value])=>describe(stage,value));
   const hooks=[...byHook].map(([stage,value])=>describe(stage,value));
-  return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,diagnosticIssues:{schemaVersion:1,groups:[...diagnosticGroups.values()].map(row=>({...row}))},coverage:'only executed hooks; unobserved stages are not inferred'};
+  // Do not use a sum of synchronous calls as a single request latency.
+  const describeTiming=(samples,times)=>{times.sort((a,b)=>a-b);return {samples,timedSamples:times.length,
+   p50Ms:times.length?times[Math.ceil(times.length*.5)-1]:null,p95Ms:times.length?times[Math.ceil(times.length*.95)-1]:null};};
+  const timingBreakdown=[...byHook].map(([stage,v])=>({stage,elapsedSpan:describeTiming(v.elapsedSamples,v.elapsed),
+   sumOfActualCalls:describeTiming(v.batchSamples,v.batch)}));
+  return {...read({recent:0}),observedSpanCount:rows.length,stages,hooks,timingBreakdown,diagnosticIssues:{schemaVersion:1,groups:[...diagnosticGroups.values()].map(row=>({...row}))},coverage:'only executed hooks; unobserved stages are not inferred'};
  }
  // Only internal workerData may carry this small envelope. Main-thread callers
  // cannot restore a JSON/client context; same-process resume requires issuance.
@@ -244,8 +251,11 @@ function createRuntimeTrace({capacity=256,maxActive=64,clock=Date.now,monotonic=
    if(!row||row.traceId!==parent.traceId||typeof row.spanId!=='string'||!ID.test(row.spanId)||existing.has(row.spanId)||ids.has(row.spanId)||
     typeof row.parentSpanId!=='string'||!ID.test(row.parentSpanId)||![executionStage,'research.stage','factor.evaluate'].includes(row.stage)||
     !OUTCOMES.has(row.status)||!(row.reasonCode===null||CODES.has(row.reasonCode))||!ts(row.startedAt)||!ts(row.finishedAt)||!duration(row.durationMs))return false;
+   const hasBatch=Object.hasOwn(row,'calls')||Object.hasOwn(row,'timing');
+   if(hasBatch&&(row.timing!=='sum-of-actual-calls'||!Number.isSafeInteger(row.calls)||row.calls<1||row.stage===executionStage))return false;
    ids.add(row.spanId);clean.push({traceId:parent.traceId,spanId:row.spanId,parentSpanId:row.parentSpanId,links:[],stage:row.stage,
     startedAt:row.startedAt,finishedAt:row.finishedAt,durationMs:row.durationMs,status:row.status,reasonCode:row.reasonCode,origin:'worker-thread',
+    ...(hasBatch?{calls:row.calls,timing:row.timing}:{}),
     versions:hashes(row.versions,['application','source','strategy','factor','riskPolicy','feePolicy']),refs:hashes(row.refs,['signal','decision','input','account','event'])});
   }
   const roots=clean.filter(row=>row.parentSpanId===parent.spanId);
