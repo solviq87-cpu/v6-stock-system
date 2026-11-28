@@ -378,3 +378,13 @@ test('F06/F07 original deep research report carries declared business path and c
  assert.ok(row.textBaseline.sentences.some(s=>s.negationHint));
  assert.equal(row.industry.canTrade,false);
 });
+
+test('F16 original depth report accepts explicitly authorized L1 only and retains ordinary snapshot restriction',()=>{
+ const d=depth(),side=(price,quantity)=>({symbol:d.symbol,source:d.source,volumeUnit:'shares',quoteAt:d.quoteAt,price,quantity});
+ const row={...d,granularity:'quote-snapshot',levelOne:true,bids:[side(9.9,200)],asks:[side(10.1,100)],authorization:{...d.authorization,scope:['quote-snapshot']}};
+ const r=D.buildDepthResearch({depth:[row]},{asOf:t2});
+ assert.equal(r.rows[0].status,'observed-research');assert.equal(r.rows[0].metrics.completeOrderBook,false);assert.equal(r.rows[0].metrics.executionCapacity,null);assert.equal(r.rows[0].microstructure.pressureKind,'l1-displayed-quantity-proxy');
+ assert.equal(r.riskObservations.length,0);assert.equal(r.microstructureSessions.rows[0].uniqueQuoteTimes,1);assert.equal(r.canTrade,false);
+ const no=D.buildDepthResearch({depth:[{...row,authorization:null}]},{asOf:t2});assert.equal(no.rows[0].status,'authorization-unavailable');
+ const ordinary=D.buildDepthResearch({depth:[{...row,levelOne:false}]},{asOf:t2});assert.equal(ordinary.rows[0].status,'unsupported-granularity');
+});
