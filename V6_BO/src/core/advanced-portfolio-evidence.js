@@ -38,6 +38,22 @@ function capacityScenarios({prior,asOf,price,lotSize,capitalLevels,targetWeight,
  });}catch{return unknown("SCENARIO_FEE_UNAVAILABLE");}
  return report({rows,source:prior.source,dataVersion:prior.dataVersion,observedDate:prior.date,availableAt:prior.availableAt,priceBasis:prior.priceBasis,turnoverBasis:prior.turnoverBasis||"original-turnover",assumptions:["前日原始量额参与率双重上限；估值使用当前原报价，不把复权价当成交价","平方根冲击为压力假设，未经实盘校准","费用和冲击仅为情景估计，未认证真实成交与收益"]});
 }
+// F33.4: compare lower participation assumptions using the same archived
+// prior and quote. Never exceed the original configured maximum.
+function capacityParticipationSensitivity(input={}){
+ const base=capacityScenarios(input);
+ if(base.status!=='estimated-unverified')return {...base,participationSensitivity:[]};
+ const cap=input.maxParticipationPct;
+ const rates=[cap/4,cap/2,cap];
+ const participationSensitivity=rates.map(rate=>{
+  const value=rate===cap?base:capacityScenarios({...input,maxParticipationPct:rate,
+   // Keep the same impact-at-original-limit model, not a retuned curve.
+   impactBpsAtLimit:input.impactBpsAtLimit*Math.sqrt(rate/cap)});
+  return {participationPct:rate,status:value.status,reason:value.reason??null,rows:value.rows??[]};
+ });
+ return {...base,participationSensitivity,actualFillVerified:false};
+}
+
 function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipationPct,assumedExitBps}={}){
  if(!stamp(now)||!position||!symbol(position.symbol)||!Number.isSafeInteger(position.quantity)||position.quantity<0||!Number.isSafeInteger(position.sellable)||position.sellable<0||position.sellable>position.quantity)return unknown("AUTHORITATIVE_POSITION_OR_SELLABLE_UNKNOWN");
  const alerts=[];
@@ -183,24 +199,65 @@ function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,retur
  const policyBlocked=riskBudgetAfter!==null&&(riskBudgetAfter.status==="unknown"||riskBudgetAfter.estimatedConstraintsSatisfied!==true);
  return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
 }
+// Reuse the existing non-overlapping calendar windows for both held-stock
+// comparisons and available-cash scenarios. A broken edge restarts the window.
+function opportunityWindows(observations,horizon,build){
+ const periods=[];let buffer=[];
+ for(const o of observations){
+  if(!day(o.previousDate)||o.previousDate>=o.date)return null;
+  if(buffer.length&&o.previousDate!==buffer.at(-1).date)buffer=[];
+  buffer.push(o);
+  if(buffer.length===horizon){
+   const compounded=code=>buffer.reduce((f,x)=>f*(1+x.returns[code]),1)-1;
+   periods.push({start:buffer[0].previousDate,end:o.date,...build(compounded)});
+   buffer=[];
+  }
+ }
+ return periods;
+}
+// F24.4: the available cash alternative is the original account's free cash,
+// not frozen funds or hypothetical proceeds from selling existing holdings.
+function compareAvailableCash({snapshot,candidate,observations,asOf,horizon=5,returnBasis="total-return",confidence=.95}={}){
+ if(!snapshot||!label(snapshot.evidenceRef)||!finite(snapshot.cash)||snapshot.cash<0||
+  !positive(snapshot.availableCash)||snapshot.availableCash>snapshot.cash||snapshot.availableCash>1e12||
+  !candidate||!symbol(candidate.symbol)||!label(candidate.evidenceRef)||!positive(candidate.notional)||
+  ![candidate.entryCost,candidate.exitCost].every(x=>finite(x)&&x>=0)||
+  candidate.notional+candidate.entryCost>snapshot.availableCash||
+  !Number.isSafeInteger(horizon)||horizon<1||horizon>20)return unknown("INCOMPARABLE_AVAILABLE_CASH_OR_COST");
+ const validation=tailRisk({assets:[{symbol:candidate.symbol,weight:1}],observations,asOf,confidence,returnBasis});
+ if(validation.status==="unknown")return validation;
+ const capital=snapshot.availableCash;
+ const periods=opportunityWindows(observations,horizon,compounded=>({
+  net:(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/capital}));
+ if(!periods)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
+ if(periods.length<12||periods.some(p=>!finite(p.net)))return unknown("FEWER_THAN_TWELVE_PAIRED_HORIZONS");
+ const values=periods.map(p=>p.net),mu=mean(values),n=values.length;
+ const losses=values.map(x=>-x).sort((a,b)=>b-a),k=Math.ceil(n*(1-confidence)-1e-9);
+ return report({symbol:candidate.symbol,accountEvidenceRef:snapshot.evidenceRef,gateEvidenceRef:candidate.evidenceRef,
+  capital,uninvestedCash:round(capital-candidate.notional-candidate.entryCost),notional:candidate.notional,
+  entryCost:candidate.entryCost,exitCost:candidate.exitCost,horizonSessions:horizon,sampleCount:n,
+  start:periods[0].start,end:periods.at(-1).end,asOf,returnBasis,confidence,
+  cashBaseline:{meanNetReturn:0,interestAssumption:'explicit-zero-interest',actualYieldVerified:false},
+  candidate:{meanNetReturn:round(mu),volatility:round(Math.sqrt(mean(values.map(x=>(x-mu)**2))*n/(n-1))),
+   downsideDeviation:round(Math.sqrt(mean(values.map(x=>Math.min(0,x)**2)))),
+   historicalVaR:k>=10?round(losses[k-1]):null,historicalES:k>=10?round(mean(losses.slice(0,k))):null},
+  meanNetDifference:round(mu),historicalCandidateAdvantageFraction:values.filter(v=>v>0).length/n,
+  historicalMeanAboveCash:mu>0,recommendation:null,automaticSwitch:false,canTrain:false,
+  assumptions:['同一原账户可用现金、固定候选份额；不释放冻结资金、不假设卖出现有持仓',
+   '零现金利息为比较假设，候选计当前费用与冲击的入场和退出压力；未来收益、真实成交及利息未验证']});
+}
 // Paired, non-overlapping historical scenarios use the same capital, dates,
 // horizon and return basis. They are not forecasts or a switching instruction.
 function compareOpportunity({hold,candidate,observations,asOf,horizon=5,returnBasis="total-return",confidence=.95}={}){
  if(!hold||!candidate||!symbol(hold.symbol)||!symbol(candidate.symbol)||hold.symbol===candidate.symbol||!label(hold.evidenceRef)||!label(candidate.evidenceRef)||!positive(hold.notional)||!positive(candidate.notional)||![hold.exitCost,candidate.entryCost,candidate.exitCost,candidate.cashRemainder].every(x=>finite(x)&&x>=0)||Math.abs(candidate.notional+candidate.entryCost+candidate.cashRemainder-hold.notional)>.011||!Number.isSafeInteger(horizon)||horizon<1||horizon>20)return unknown("INCOMPARABLE_CAPITAL_OR_COST_EVIDENCE");
  const validation=tailRisk({assets:[{symbol:hold.symbol,weight:.5},{symbol:candidate.symbol,weight:.5}],observations,asOf,confidence,returnBasis});
  if(validation.status==="unknown")return validation;
- const periods=[];let buffer=[];
- for(const o of observations){
-  if(!day(o.previousDate)||o.previousDate>=o.date)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
-  if(buffer.length&&o.previousDate!==buffer.at(-1).date)buffer=[];
-  buffer.push(o);
-  if(buffer.length===horizon){
-   const compounded=code=>buffer.reduce((f,x)=>f*(1+x.returns[code]),1)-1;
-   const holdNet=(hold.notional*compounded(hold.symbol)-hold.exitCost)/hold.notional;
-   const candidateNet=(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/hold.notional;
-   periods.push({start:buffer[0].previousDate,end:o.date,holdNet,candidateNet,difference:candidateNet-holdNet});buffer=[];
-  }
- }
+ const periods=opportunityWindows(observations,horizon,compounded=>{
+  const holdNet=(hold.notional*compounded(hold.symbol)-hold.exitCost)/hold.notional;
+  const candidateNet=(candidate.notional*compounded(candidate.symbol)-candidate.entryCost-candidate.exitCost)/hold.notional;
+  return {holdNet,candidateNet,difference:candidateNet-holdNet};
+ });
+ if(!periods)return unknown("MISSING_HORIZON_CALENDAR_ALIGNMENT");
  if(periods.length<12)return unknown("FEWER_THAN_TWELVE_PAIRED_HORIZONS");
  const summary=field=>{const values=periods.map(p=>p[field]),mu=mean(values),losses=values.map(x=>-x).sort((a,b)=>b-a),k=Math.ceil(values.length*(1-confidence)-1e-9);return {meanNetReturn:round(mu),volatility:round(Math.sqrt(values.reduce((s,x)=>s+(x-mu)**2,0)/(values.length-1))),downsideDeviation:round(Math.sqrt(mean(values.map(x=>Math.min(0,x)**2)))),historicalVaR:k>=10?round(losses[k-1]):null,historicalES:k>=10?round(mean(losses.slice(0,k))):null,tailReason:k>=10?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS"};};
  const differences=periods.map(p=>p.difference).sort((a,b)=>a-b),n=differences.length;
@@ -321,6 +378,17 @@ function previewPlanBatch({snapshot,plans,policy=null,accountRevision}={}){
  }
  out.reasonCodes=[...reason].sort();
  out.jointBudgetStatus=out.reasonCodes.some(x=>x.endsWith("_EXCEEDED"))?"conditional-budget-exceeded":out.reasonCodes.length?"unknown":"conditional-cash-and-known-caps-within-limit";
+ // F34.4: only a bounded equal-notional reference among already reconciled
+ // plans. This does not recalculate fees/lots or claim an executable optimizer.
+ const eqRef={status:'unknown',notionalPerPlan:null,unusedAvailableCash:null,rows:[],executionFeasibleCertified:false,covarianceOptimized:false,canTrade:false};
+ if(out.jointBudgetStatus==='conditional-cash-and-known-caps-within-limit'&&rows.length>=2){
+  const equalGross=Math.min(...rows.map(x=>x.gross),Math.floor((free-fees)/rows.length));
+  if(equalGross>0)Object.assign(eqRef,{status:'descriptive-reference',notionalPerPlan:money(equalGross),
+   unusedAvailableCash:money(free-fees-equalGross*rows.length),
+   rows:rows.map(x=>({planId:x.p.planId,symbol:x.p.symbol,originalNotional:money(x.gross),referenceNotional:money(equalGross)})),
+   basis:'equal additional notional bounded by each original plan and existing total fee reserve; not rounded to executable lots'});
+ }
+ out.equalNotionalReference=eqRef;
  return out;
 }
-module.exports={capacityScenarios,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,pointInTimeVersion};
+module.exports={capacityScenarios,capacityParticipationSensitivity,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,compareAvailableCash,pointInTimeVersion};

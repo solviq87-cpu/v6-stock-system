@@ -40,3 +40,36 @@ test('candidate cap counts accepted unique codes, not invalid input positions',(
  const r=assessCandidateEvidence(snapshot,{usable:false},{usable:false},candidates,{});
  assert.equal(r.items.length,45);
 });
+
+test('duplicate candidates retain original explicit IDs, strategy versions and ranks; any hard risk vetoes the group',()=>{
+ const candidates=[{code:'000001',candidateId:'first',strategyId:'fourteen',strategyVersion:'v1',rank:3,finalScore:75},
+  {code:'000001',candidateId:'second',strategyId:'eight',strategyVersion:'v2',originalRank:1,finalScore:90,isST:true},
+  {code:'000002',finalScore:67}];
+ const before=JSON.stringify(candidates);
+ const r=assessCandidateEvidence(snapshot,{usable:true},{usable:true},candidates,{items:[{code:'000001'},{code:'000002'}]});
+ assert.equal(r.items[0].originalScore,75);
+ assert.equal(r.items[0].riskStatus,'blocked');
+ assert.equal(r.items[0].evidenceReady,false);
+ assert.deepEqual(r.items[0].origins.map(x=>[x.candidateId,x.strategyId,x.strategyVersion,x.originalRank]),[['first','fourteen','v1',3],['second','eight','v2',1]]);
+ assert.equal(r.items[1].origins[0].originalRank,null);
+ assert.equal(r.candidateCoverage.duplicateOriginCount,1);
+ assert.equal(r.tradingValueStatus,'not-assessed');
+ assert.equal(r.canQualify,false);
+ assert.equal(JSON.stringify(candidates),before);
+});
+test('late duplicate after the display cap cannot bypass the hard-risk veto',()=>{
+ const candidates=Array.from({length:55},(_,i)=>({code:String(i+1).padStart(6,'0'),finalScore:75}));
+ candidates.push({code:'000001',tradable:false,finalScore:90});
+ const r=assessCandidateEvidence(snapshot,{usable:true},{usable:true},candidates,{items:[{code:'000001'}]});
+ assert.equal(r.items.length,50);
+ assert.equal(r.items[0].riskStatus,'blocked');
+ assert.equal(r.items[0].originCount,2);
+ assert.equal(r.candidateCoverage.omittedCodeCount,5);
+ assert.equal(r.candidateCoverage.omittedOriginCount,5);
+});
+test('conflicting quote-time evidence remains unknown in the strict live consumer',()=>{
+ const r=assessCandidateEvidence(snapshot,{usable:true},{usable:true},[{code:'000001',finalScore:75}],{items:[{code:'000001',quoteTimeStatus:'recent-source-unverified'},{code:'000001',quoteTimeStatus:'unknown'}]},{requireOriginalQuoteTime:true});
+ assert.equal(r.items[0].quoteTimeStatus,'conflicting');
+ assert.equal(r.items[0].riskStatus,'unknown');
+ assert.equal(r.canTrade,false);
+});

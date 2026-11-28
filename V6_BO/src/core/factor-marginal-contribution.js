@@ -106,6 +106,20 @@ function assessFactorMarginalContribution({
    status:!comparable?'incomparable':harmful?'harmful-adjustment':
     supported?'supported-unverified':'increment-unconfirmed'});
  }
+ // Classify the declared experiment without treating absence of a weight
+ // change, missing observations or an inconclusive IC as permanent invalidity.
+ const evaluations=new Map(factors.map(x=>[x.factorId,x]));
+ const dispositions=ids.map(factorId=>{
+  const evaluated=evaluations.get(factorId);
+  return {factorId,
+   status:!evaluated?'not-triggered':!evaluated.comparable?'data-blocked':
+    evaluated.confirmedHarm?'negative-ic-evidence':
+    evaluated.supportedIncrement?'positive-ic-unverified':'inconclusive-ic',
+   applicability:'not-assessed',permanentlyInvalid:false,
+   approvedUses:[],canPromote:false,
+   economicValue:{netReturnDelta:null,tailLossDelta:null,latencyDeltaMs:null,resourceDelta:null,
+    status:'not-observed-by-ic-scorer'}};
+ });
  const harmfulFactorIds=factors.filter(x=>x.confirmedHarm).map(x=>x.factorId),
   supportedFactorIds=factors.filter(x=>x.supportedIncrement).map(x=>x.factorId),
   incomparableFactorIds=factors.filter(x=>!x.comparable).map(x=>x.factorId);
@@ -115,7 +129,9 @@ function assessFactorMarginalContribution({
   evidenceBasis:'frozen-factor-training-and-time-isolated-forward-observation',
   labelTimeEvidence:hasLabelDates?'provided-and-checked':'not-provided',
   counterfactual:'revert-one-factor-to-accepted-weight-others-stay-proposed',
-  changedFactorCount:factors.length,factors,
+  changedFactorCount:factors.length,factors,dispositions,
+  valueScope:'paired-rank-ic-only',independentEconomicValueVerified:false,
+  automaticPromotionAuthorized:false,
   harmfulFactorIds,supportedFactorIds,incomparableFactorIds,
   blocksPromotion:harmfulFactorIds.length>0||incomparableFactorIds.length>0,
   canTrade:false,productionWeightsChanged:false};

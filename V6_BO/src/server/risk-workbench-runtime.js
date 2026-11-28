@@ -307,6 +307,9 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
       `来源：${risk.source} · ${risk.sourceAt?new Date(risk.sourceAt).toISOString():'时点未知'}\n条件观察、订单提交及实际成交分别核对，成交以原账本为准。`;
     try{
       const accepted=sendPrivate(message,{private:true,sseEdit:true,beforeSend,
+        ...(originalPlanAlert?{planNotice:{accountEpoch:key.accountEpoch,deliveryId:reservation.deliveryId,
+          observationId:risk.references.observationId,alertId:risk.references.alertId,code:risk.object.id,
+          kind:risk.references.kind,quoteAt:risk.sourceAt}}:{}),
         onReceipt:result=>receipt(key,reservation.deliveryId,result),
         signalRefs:typeof risk.object.id==='string'&&/^\d{6}$/.test(risk.object.id)?[{code:risk.object.id,
           type:originalPlanAlert?'plan-'+risk.references.kind:'risk-'+risk.category,ts:risk.sourceAt,

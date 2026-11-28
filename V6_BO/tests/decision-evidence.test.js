@@ -159,3 +159,68 @@ test('real receipt bridge reaches all four council views and all nine radar axes
  const noFinancial=await require('../src/core/decision-center').buildDecisionCenter({...input,decisionFinancials:null},{now});
  assert.equal(noFinancial.cards[0].council.assessed,3);assert.equal(noFinancial.cards[0].council.views[0].score,null);
 });
+
+ 
+// F19.1: local, synthetic disclosure fixtures, not provider or investment evidence.
+function seasonalFinancials(current,prior,priorDate='2025-09-30'){
+ const rawRow=(reportDate,value,roe)=>({SECURITY_CODE:code,SECUCODE:code+'.SH',CURRENCY:'CNY',
+  REPORT_DATE:reportDate,NOTICE_DATE:'2026-10-30',UPDATE_DATE:'2026-10-30',
+  ROEJQ:roe,ZCFZL:40,PARENTNETPROFITTZ:20,TOTALOPERATEREVETZ:10,MGJYXJJE:value});
+ const rows=[rawRow(priorDate,prior,10),rawRow('2026-09-30',current,12)];
+ const bytes=data=>Buffer.from(JSON.stringify({success:true,result:{data}}));
+ const period=parseFinancials(bytes(rows),{symbol:code,kind:'period',receivedAt});
+ const quarter=parseFinancials(bytes([rows[1]]),{symbol:code,kind:'quarter',receivedAt:receivedAt+1000,period});
+ return {symbol:code,source:'eastmoney-financials',datasets:{period,quarter}};
+}
+test('F19.1 preserves cash-flow same-period values, receipt and raw identity without changing four-rule score',()=>{
+ const data=seasonalFinancials(1.25,.75),before=JSON.stringify(data);
+ const result=fundamentalEvidence(data,{code,day,now}),cash=result.seasonalCash;
+ assert.equal(result.score,100);assert.equal(result.rules.length,4);assert.equal(result.sourceTimes.length,4);
+ assert.equal(cash.status,'observed-unverified');assert.equal(cash.current.value,1.25);assert.equal(cash.prior.value,.75);
+ assert.equal(cash.differenceCnyPerShare,.5);assert.equal(cash.knownAt,receivedAt);
+ assert.equal(cash.current.evidenceId.split(':')[0],data.datasets.period.rawHash);
+ assert.equal(cash.prior.reportDate,'2025-09-30');assert.equal(cash.initialDisclosureVerified,false);
+ assert.equal(cash.industryComparison,null);assert.equal(cash.orderEvidence,null);
+ assert.equal(cash.canTrade,false);assert.equal(cash.canTrain,false);assert.equal(cash.canNotify,false);
+ assert.equal(JSON.stringify(data),before);
+ const enriched=enrichDecisionEvidence(quote(),{financials:data,code,day,now,account,accountEvidence});
+ assert.deepEqual(enriched.fundamentalEvidence.seasonalCash,cash);
+ assert.deepEqual(enriched.factorScores.fundamental.seasonalCash,cash);
+});
+test('F19.1 treats zero and negative cash flow as observed values rather than missing or growth ratios',()=>{
+ const cash=fundamentalEvidence(seasonalFinancials(-.5,0),{code,day,now}).seasonalCash;
+ assert.equal(cash.status,'observed-unverified');assert.equal(cash.prior.value,0);assert.equal(cash.differenceCnyPerShare,-.5);
+});
+test('F19.1 leaves missing, invalid and nonmatching quarters unknown without substituting zeros',()=>{
+ for(const data of [seasonalFinancials(null,1),seasonalFinancials(1,null),seasonalFinancials('1',0),seasonalFinancials(1,0,'2025-06-30')]){
+  const cash=fundamentalEvidence(data,{code,day,now}).seasonalCash;
+  assert.equal(cash.status,'unknown');assert.equal(cash.differenceCnyPerShare,null);assert.equal(cash.knownAt,null);
+ }
+});
+test('F19.1 refuses future receipt, stale or wrong day, synthetic or withdrawn evidence',()=>{
+ const data=seasonalFinancials(1,.5);
+ const cases=[{data,day,now:receivedAt-1},{data,day:'2027-06-01',now:Date.parse('2027-06-01T10:00:00+08:00')},
+  {data,day:'2026-11-24',now},{data:{...data,simulated:true},day,now},{data:{...data,retracted:true},day,now},
+  {data:{...data,datasets:{...data.datasets,period:{...data.datasets.period,fixture:true}}},day,now}];
+ for(const c of cases)assert.equal(fundamentalEvidence(c.data,{code,day:c.day,now:c.now}).seasonalCash.status,'unknown');
+});
+
+test('F19.3/4 same-period turnover and margin evidence retains units and explicit deterioration without invented industry or valuation',()=>{
+ const make=(period,margin,net,inventory,receivables)=>({SECURITY_CODE:code,SECUCODE:code+'.SH',CURRENCY:'CNY',REPORT_DATE:period,
+  NOTICE_DATE:'2026-10-30',UPDATE_DATE:'2026-10-30',ROEJQ:10,ZCFZL:40,XSMLL:margin,XSJLL:net,CHZZTS:inventory,YSZKZZTS:receivables});
+ const a=make('2025-09-30',20,10,40,30),b=make('2026-09-30',15,5,60,0);
+ const period=parseFinancials(Buffer.from(JSON.stringify({success:true,result:{data:[a,b]}})),{symbol:code,kind:'period',receivedAt});
+ const data={symbol:code,source:'eastmoney-financials',datasets:{period}},before=JSON.stringify(data);
+ const r=fundamentalEvidence(data,{code,day,now}),v=r.operatingResearch;
+ assert.equal(v.status,'company-observations-only');assert.deepEqual(v.rows.map(x=>[x.field,x.unit,x.delta]),
+  [['grossMarginPct','percent',-5],['netMarginPct','percent',-5],['receivableDays','days',-30],['inventoryDays','days',20]]);
+ assert.equal(v.valuationDivergence.samePeriodMarginsBothLower,true);
+ assert.equal(v.valuationDivergence.persistentDeterioration,null);assert.equal(v.valuationDivergence.peerValuation,null);
+ assert.equal(v.industryDemand.value,null);assert.equal(v.earningsGuidance.consensusExpectation,null);assert.equal(v.canTrade,false);
+ assert.equal(r.score,null);assert.equal(JSON.stringify(data),before);
+ const wrong=structuredClone(data);wrong.datasets.period.records[0].reportDate='2025-06-30';
+ assert.ok(fundamentalEvidence(wrong,{code,day,now}).operatingResearch.rows.every(x=>x.delta===null));
+ const missing=structuredClone(data);missing.datasets.period.records[1].values.CHZZTS=-1;
+ assert.equal(fundamentalEvidence(missing,{code,day,now}).operatingResearch.rows.find(x=>x.field==='inventoryDays').status,'unknown');
+ assert.equal(fundamentalEvidence({...data,retracted:true},{code,day,now}).operatingResearch.status,'unknown');
+});
