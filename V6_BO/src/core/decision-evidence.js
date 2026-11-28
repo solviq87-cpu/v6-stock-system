@@ -55,6 +55,24 @@ function verifyFinancialRaw(observationRoot,reference){
  }finally{if(fd!==undefined)fs.closeSync(fd);}
 }
 
+// F19.1 supplementary research evidence: never a new scoring rule or trade gate.
+function seasonalCashEvidence(features,{code,day,now}){
+ const empty={status:'unknown',current:null,prior:null,differenceCnyPerShare:null,knownAt:null,
+  unit:'CNY/share',industryComparison:null,orderEvidence:null,initialDisclosureVerified:false,
+  basis:'same-report-period; latest received revision, not initial disclosure',researchOnly:true,canTrade:false,canTrain:false,canNotify:false};
+ const valid=v=>v&&v.code===code&&v.source==='eastmoney-financials'&&v.unit==='CNY/share'&&
+  v.periodKind==='period'&&finite(v.value)&&time(v.availableAt)&&v.availableAt<=now&&
+  time(v.recordedAt)&&v.recordedAt===v.availableAt&&typeof v.evidenceId==='string'&&/^[a-f0-9]{64}:/.test(v.evidenceId);
+ const current=features.operatingCashPerShare,prior=features.operatingCashPerSharePriorYear;
+ if(!time(now)||day!==dayOf(now)||!valid(current)||!valid(prior))return empty;
+ const age=Date.parse(day+'T00:00:00+08:00')-Date.parse(current.reportDate+'T00:00:00+08:00');
+ if(!finite(age)||age<0||age>220*86400000||prior.reportDate!==String(Number(current.reportDate.slice(0,4))-1)+current.reportDate.slice(4)||
+  current.availableAt!==prior.availableAt||current.evidenceId.split(':')[0]!==prior.evidenceId.split(':')[0])return empty;
+ const difference=current.value-prior.value;
+ if(!finite(difference))return empty;
+ return {...empty,status:'observed-unverified',current,prior,differenceCnyPerShare:difference,knownAt:current.availableAt};
+}
+
 function fundamentalEvidence(financials,{code,day,now=Date.now()}={}){
  const missing=[];
  let features={};
@@ -91,7 +109,7 @@ function fundamentalEvidence(financials,{code,day,now=Date.now()}={}){
    '%；单季利润同比 '+features.earningsGrowthPct.value+'%，营收同比 '+features.revenueGrowthPct.value+'%；四项规则满足 '+hits+'/4。':
    '缺少'+(missing.join('、')||'可核验财报原始回执'),
   formula:'100 × 满足的四项财务规则 / 4；四项输入全部可核验才评分，不是估值或盈利概率',
-  ruleVersion:VERSION,inputs,rules,sourceTimes,missing,...flags};
+  ruleVersion:VERSION,inputs,rules,sourceTimes,missing,seasonalCash:seasonalCashEvidence(features,{code,day,now}),...flags};
 }
 
 function quoted(row,day,now){
