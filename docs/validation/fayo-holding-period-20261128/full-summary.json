@@ -1,0 +1,21 @@
+{
+  "base": "dc713d00ba543748c9e62fcb0237bc9774fc5b77",
+  "stats": {
+    "tests": 8158,
+    "pass": 8158,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 150749.128795,
+  "sourceHashes": {
+    "src/core/holding-period-comparison.js": "56ec79f6765faf5700bfbf6ed34beecbb602c2cdfa7080437ec1d9859cc1e25c",
+    "src/core/complete-workbench.js": "4edf6671b2ca387a3b641cc638ebc3734e30bc314e6fe2811299b0ae021991e8",
+    "public/nova/holding-period-view.mjs": "e974c528bc104143b37e97247bcade6a6cd0bd29311c921a40e3eee213d75039",
+    "public/nova/research.js": "ef5ccfa424ecfe6d1d38d6028f04b95dcd93f5e78f214f386df2bfd8476a97f3",
+    "tests/holding-period-comparison.test.js": "9d410bf9f6cceadfcfd56143eb01fc7729f8026899a8aa3a71e20985a0d4da0f",
+    "tests/holding-period-view.test.js": "f31492e282705068edda29f331f80ad076e1517c08b301809770b2782562fd3b"
+  },
+  "rawLogSha256": "1ff8d8d4fbb5315fece324990f5cd00ece93fcb8532491c99307f207584da834",
+  "note": "Local full run at dirty source with these final code hashes. Exact committed native receipts, CI and complete combination are separately verified."
+}

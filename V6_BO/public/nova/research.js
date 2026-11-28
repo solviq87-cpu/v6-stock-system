@@ -1,5 +1,6 @@
 import {createResearchReplay,replayTime} from './evidence-workbench.mjs';
 import {renderStrategyComparison} from './strategy-comparison-view.mjs';
+import {renderHoldingPeriodComparison} from './holding-period-view.mjs';
 import {h as fyNode,button as fyAction} from './ui.js';
 /* FAYO research workbenches. Native modules; no legacy DOM, styles or controllers. */
 import {renderRecords} from './research-records.js';
@@ -112,7 +113,8 @@ function renderReport(result,ctx){
   if(r.releaseGate)el.append(box('研究门禁',arr(r.releaseGate.blockers).join('；')||'研究检查结果不等于交易授权。',evidenceTree(r.releaseGate)));
   if(r.patternPools)el.append(box('形态研究分池','同一只股票可命中多项研究条件。',...Object.entries(r.patternPools).map(([name,list])=>detail(name+' · '+arr(list).length+'只',stockRows(list,ctx)))));
   if(r.strategyComparison)el.append(renderStrategyComparison(r.strategyComparison));
-  const used=new Set(['ranked','items','stocks','stock','systems','evaluations','releaseGate','patternPools','metrics','strategyComparison']);
+  if(r.holdingPeriodComparison)el.append(renderHoldingPeriodComparison(r.holdingPeriodComparison));
+  const used=new Set(['ranked','items','stocks','stock','systems','evaluations','releaseGate','patternPools','metrics','strategyComparison','holdingPeriodComparison']);
   const summary=Object.fromEntries(Object.entries(r).filter(([key])=>!used.has(key)));
   el.append(detail('完整证据与检验链',evidenceTree(summary)),toolbar(btn('导出本次证据',()=>download('fayo-research-evidence.json',r))));
   return el;
@@ -234,6 +236,7 @@ function backtest(ctx){
   w.action('仅重建研究账本',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/ledger',(i.history||i));});
   w.action('原策略历史对照',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/reference-strategy-research',(i.history?i:{history:i}));});
   w.action('原策略同条件回放',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/complete-run',{...(i.history?i:{history:i}),includeStrategyComparison:true});},{freezeAuto:true});
+  w.action('多期限原回测',async()=>{const i=await historyInput();return i.observation?preview(i):request(ctx,'/api/research/complete-run',{...(i.history?i:{history:i}),includeHoldingPeriodComparison:true});},{freezeAuto:true});
   root.append(w.body);
   const cache=workbench(ctx,'服务端历史库','读取已有日K或明确更新历史。每个来源的缺失、陈旧与拒绝原因分别保留。',[field('股票代码（逗号分隔）',codes)]);
   const codesValue=()=>codes.value.split(/[\s,，]+/).map(x=>x.trim()).filter(Boolean);

@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const history=require('../fayo-strategy-comparison-20261128/history.json');
+const {runHoldingPeriodStudy}=require(path.resolve('src/core/holding-period-comparison'));
+const {runValidatedBacktest}=require(path.resolve('src/core/historical-validation'));
+const out=process.env.FAYO_STUDY_RECEIPTS;assert.ok(out);fs.mkdirSync(out,{recursive:true});
+const {baseline,comparison}=runHoldingPeriodStudy(history);
+assert.equal(comparison.backtestEvaluations,5);assert.ok(comparison.periods.every(p=>p.status==='no-buy-fills'&&p.markedAccountReturnPct===null));
+assert.deepEqual(comparison.periods[0].report,baseline);
+for(const p of comparison.periods)assert.deepEqual(p.report,runValidatedBacktest({...history,holdDays:p.holdDays}));
+fs.writeFileSync(path.join(out,'offline.json'),JSON.stringify({inputRawHash:history.rawHash,newNetworkRequests:0,oldSourceDecoderNotRepeated:true,comparison},null,2)+'\n');
+console.log(JSON.stringify({kernelDenyNetwork:true,periods:5,newNetworkRequests:0,allNoBuyFills:true,allReportsMatchOriginal:true}));

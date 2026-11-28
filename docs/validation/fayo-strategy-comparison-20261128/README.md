@@ -44,7 +44,7 @@ F12.1原台账指向`factor-model-comparison.js`，该模块比较因子IC版本
 ```sh
 FAYO_STUDY_RECEIPTS=/tmp/fayo-comparison-offline python tests/helpers/deny-network-connect.py node ../docs/validation/fayo-strategy-comparison-20261128/offline.cjs
 FAYO_STUDY_RECEIPTS=/tmp/fayo-comparison-ui node ../docs/validation/fayo-strategy-comparison-20261128/native.cjs
-node --test tests/strategy-comparison-protocol.test.js tests/strategy-comparison-view.test.js tests/studio-fixture-utf8.test.js tests/strategy-portfolio-lab.test.js tests/unified-strategy-project.test.js tests/unified-run-audit.test.js tests/complete-workbench.test.js tests/native-strategy-daily.test.js
+node --test tests/strategy-comparison-protocol.test.js tests/strategy-comparison-view.test.js tests/studio-fixture-utf8.test.js tests/strategy-portfolio-lab.test.js tests/unified-strategy-project.test.js tests/unified-run-audit.test.js tests/native-strategy-daily.test.js
 npm run check
 npm test
 ```

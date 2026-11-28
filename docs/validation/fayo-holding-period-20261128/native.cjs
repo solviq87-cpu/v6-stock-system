@@ -1,0 +1,20 @@
+'use strict';
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),crypto=require('node:crypto'),{spawnSync,execFileSync}=require('node:child_process');
+const {createFixture}=require(path.resolve('tests/helpers/v6-studio-fixture'));
+const out=process.env.FAYO_STUDY_RECEIPTS;assert.ok(out);fs.mkdirSync(out,{recursive:true});
+const input=path.join(__dirname,'../fayo-strategy-comparison-20261128/history.json'),history=JSON.parse(fs.readFileSync(input)),now=Date.parse('2026-11-28T10:00:00+08:00');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fayo-horizon-clock-')),clock=path.join(dir,'clock');fs.writeFileSync(clock,String(now));
+const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+(async()=>{const f=await createFixture({count:0,clockFile:clock});try{
+ const before=await f.request('/api/research/complete-run','POST',{history});assert.equal(before.body.ok,true);assert.equal(before.body.result.holdingPeriodComparison,undefined);
+ const started=performance.now(),after=await f.request('/api/research/complete-run','POST',{history,includeHoldingPeriodComparison:true}),elapsed=performance.now()-started;
+ assert.equal(after.body.ok,true);const {holdingPeriodComparison:v,...unchanged}=after.body.result;assert.deepEqual(unchanged,before.body.result);
+ assert.deepEqual(v.periods.map(p=>p.holdDays),[1,3,5,10,20]);assert.ok(v.periods.every(p=>p.status==='no-buy-fills'&&p.markedAccountReturnPct===null&&p.closedAccountReturnPct===null));
+ const viewer=await f.request('/api/research/complete-run','POST',{history,includeHoldingPeriodComparison:true},f.viewerToken);assert.equal(viewer.body.ok,false);assert.equal(viewer.body.readOnly,true);assert.equal(viewer.body.result,undefined);
+ const malformed=await f.request('/api/research/complete-run','POST',{history,includeHoldingPeriodComparison:'true'});assert.equal(malformed.body.ok,false);assert.match(malformed.body.error,/布尔/);assert.equal(malformed.body.result,undefined);
+ const both=await f.request('/api/research/complete-run','POST',{history,includeHoldingPeriodComparison:true,includeStrategyComparison:true});assert.equal(both.body.ok,true);assert.deepEqual(both.body.result.holdingPeriodComparison,v);assert.equal(both.body.result.strategyComparison.commonEvaluatedSignals,0);
+ const run=spawnSync('python',[path.join(__dirname,'browser.py')],{input:JSON.stringify({origin:'http://127.0.0.1:'+f.port,token:f.token,output:out,history:input,now,expectedDatasetFingerprint:v.datasetFingerprint,expectedProtocolFingerprint:v.protocolFingerprint}),encoding:'utf8',timeout:240000});assert.equal(run.status,0,run.stderr.slice(-3500));
+ const files=['src/core/holding-period-comparison.js','src/core/complete-workbench.js','public/nova/holding-period-view.mjs','public/nova/research.js','src/core/historical-validation.js','src/strategy/research-v2-position-ledger-backtest.js','src/core/trading-fees.js','src/core/common-entry-risk.js'];
+ fs.writeFileSync(path.join(out,'native.json'),JSON.stringify({head:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),sourceHashes:Object.fromEntries(files.map(p=>[p,sha(fs.readFileSync(p))])),clockIsControlled:true,noActualPortfolio:true,newSupplierRequests:0,inputRawHash:history.rawHash,controls:{defaultMissing:true,explicitAvailable:true,viewer:{http:viewer.status,denied:true,readOnly:true},malformed:{http:malformed.status,denied:true},originalStrategyComparisonCoexists:true,allOriginalOutputsUnchanged:true},workerRoundTripMs:elapsed,comparison:v},null,2)+'\n');
+ console.log(JSON.stringify({controls:5,periods:5,backtestEvaluations:v.backtestEvaluations,browserWidths:[1366,390,320],workerRoundTripMs:elapsed}));
+ }finally{await f.close();fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e.message);process.exitCode=1;});

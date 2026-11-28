@@ -11,11 +11,13 @@ const {buildEightPointEvidence}=require('./eight-point-research-pipeline');
 function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
   if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('研究输入必须是对象');
   if(payload.includeStrategyComparison!==undefined&&typeof payload.includeStrategyComparison!=='boolean')throw Error('同条件回放开关必须是布尔值');
+  if(payload.includeHoldingPeriodComparison!==undefined&&typeof payload.includeHoldingPeriodComparison!=='boolean')throw Error('多期限研究开关必须是布尔值');
   const history=payload.history,ds=validateDataset(history);
   if(ds.stocks*ds.barsPerStock>20000||ds.barsPerStock>1000)throw Error('交互研究限制总K线20000条、每只1000条；更大任务使用离线CLI');
   if(history.asOf>aShareCalendarDate())throw Error('研究数据截至日期位于未来');
   const calendar=payload.calendar?createTradingCalendar(payload.calendar).assertDates(history.stocks[0].bars.map(b=>b.date)):{valid:null,reason:'未提供交易所日历，未进行开闭市核验'};
-  const backtest=runValidatedBacktest(history);
+  const periodStudy=payload.includeHoldingPeriodComparison===true?require('./holding-period-comparison').runHoldingPeriodStudy(history):null;
+  const backtest=periodStudy?periodStudy.baseline:runValidatedBacktest(history);
   const session=buildSession(history,payload.paperConfig||{}).session;
   const native=runNativeDaily(history,{snapshots:payload.snapshots||{},pythonEvidence:payload.pythonEvidence||{},splitDay:history.splitDay});
   // Additional research explanation is isolated so unsupported optional market
@@ -66,6 +68,7 @@ function runCompleteWorkbench(payload,{previousWatchStates=[]}={}){
     backtest,paper:session.report,reconciliation,
     strategies,selectionEvidence,eightPointFlow,
     ...(payload.includeStrategyComparison===true?{strategyComparison}:{}),
+    ...(periodStudy?{holdingPeriodComparison:periodStudy.comparison}:{}),
     ...(payload.validatePublicRules===true?{publicRuleForwardAudit}:{}),
     externalAcceptance:['供应商行情授权及对账','真实短信送达','生产HTTPS和跨机恢复','电脑手机真机验收']};
 }
