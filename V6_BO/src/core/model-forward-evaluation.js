@@ -3,6 +3,7 @@
 // treats a model-generated candle as a price, a fill, or a realized return.
 const path=require('node:path');
 const {forwardScopeReport}=require('./fayo-model-evidence-audit');
+const {horizonPairs}=require('./fayo-final-model-review');
 const S=require('./research-workspace-store');
 const VERSION='frozen-close-forecast-v1',HORIZONS=[1,5,20,60];
 const MODEL_IDENTITY_FIELDS=['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'];
@@ -275,7 +276,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
  const selected=rows.filter(r=>(!symbol||r.symbol===symbol)&&(!runId||r.runId===runId));
  return {schemaVersion:1,mode:'frozen-model-forward-evaluation',evaluationVersion:VERSION,status:'available',groups:summaries.slice(offset,offset+limit),groupTotal:summaries.length,
   rows:selected.slice().reverse().slice(offset,offset+limit),total:selected.length,offset,limit,
-  forwardScope:forwardScopeReport(scopeRecords,asOf),
+  forwardScope:forwardScopeReport(scopeRecords,asOf),multiHorizonComparison:horizonPairs(scopeRecords),
   scope:{symbol:symbol||null,runId:runId||null},pairs:pairedComparisons(selected),inputComparison:'各模型覆盖范围可能不同；不能据原始MAE跨范围排名',
   limitations:['这里只评价未复权收盘价预测误差，不是可成交收益或获利概率','导入版本、权重/训练截止期及耗时均未由本系统核验；不执行上传代码或调模型API',
    '首次到达的闭合行情用于首次评价；后续修订单列，不改写首次值','同股同日同版本重复预测不增加样本；重叠窗口非独立证据'],...S.FLAGS};
