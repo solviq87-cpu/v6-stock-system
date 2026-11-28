@@ -9,6 +9,7 @@ const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:pat
 const {readSnapshot}=require('./forward-tracking-store');
 const {discoverCaptures}=require('./factor-maturity-manifest');
 const {verifyAndJoin}=require('./factor-shadow-evolution');
+const {buildSizePartition}=require('./factor-size-style-evidence');
 const {HORIZONS}=require('./forward-signal-observer');
 const sha=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
@@ -88,6 +89,26 @@ function matchedIndustryDiagnostics(rows,id){
   withinIndustrySelectionSpreadPct:spreads.length>=2?round(mean(spreads)):null,selectionGroups:spreads.length,
   note:'同一冻结证券子集，行业组均值与行业内极端因子组的毛价格差分列；不等同市场或行业因果超额、真实成交净收益、样本外独立验证'};
 }
+function matchedSizeDiagnostics(rows,id,partition){
+ const out={status:'unknown',reason:partition?.reason??'SIZE_LABELS_INCOMPLETE',expected:partition?.expected??null,observed:0,
+  matchedRawIC:null,withinSizeIC:null,factorSizeIC:null,smallMinusLargeGrossPct:null,groups:[],netReturnCertified:false,canTrade:false};
+ if(partition?.status!=='declared-point-in-time-partition')return out;
+ const member=new Map(partition.groups.flatMap(g=>g.members.map(m=>[m.symbol,{group:g.id,cap:m.valueYuan}])));
+ const matched=rows.filter(r=>member.has(r.symbol)&&finite(r.returnPct)&&finite(r.values?.[id]));
+ const groups=partition.groups.map(g=>{
+  const a=matched.filter(r=>member.get(r.symbol).group===g.id);
+  return {id:g.id,expected:g.members.length,observed:a.length,meanGrossPriceReturnPct:round(mean(a.map(r=>r.returnPct))),rows:a};
+ });
+ const details=groups.map(({rows,...g})=>g);
+ if(matched.length!==rows.length||groups.some(g=>g.observed<3))return {...out,observed:matched.length,groups:details};
+ const residuals=groups.flatMap(g=>{const s=mean(g.rows.map(r=>r.values[id])),y=mean(g.rows.map(r=>r.returnPct));return g.rows.map(r=>({score:r.values[id]-s,value:r.returnPct-y}));});
+ return {...out,status:'descriptive-only',reason:null,observed:matched.length,groups:details,
+  matchedRawIC:round(spearman(matched.map(r=>r.values[id]),matched.map(r=>r.returnPct))),
+  withinSizeIC:round(spearman(residuals.map(r=>r.score),residuals.map(r=>r.value))),
+  factorSizeIC:round(spearman(matched.map(r=>r.values[id]),matched.map(r=>member.get(r.symbol).cap))),
+  smallMinusLargeGrossPct:round(groups[0].meanGrossPriceReturnPct-groups[1].meanGrossPriceReturnPct),
+  note:'候选相对规模组在标签成熟前冻结；非扣费净收益或独立风格归因。'};
+}
 function checkWindow(w,signalDay,reportAsOf,h){
  if(!w||w.tradingDays!==h||
    !['observed','pending','calendar-incomplete',
@@ -130,6 +151,7 @@ function auditOneDay(features,report,{now=Date.now()}={}){
  }
  const unique=joined.filter(x=>counts.get(x.symbol)===1);
  const duplicateExcluded=joined.length-unique.length;
+ const sizePartition=buildSizePartition(joined,{provider:features.feed.provider,datasetId:features.feed.datasetId,signalDay:features.signalDay});
  const byId=features.factors.map(f=>f.id);
  const windows=HORIZONS.map((h,index)=>{
   const available=[],statuses={
@@ -159,6 +181,7 @@ function auditOneDay(features,report,{now=Date.now()}={}){
     neutralSamples:neutral.eligible.length,
     industryGroups:neutral.groups,
     matchedIndustry:matchedIndustryDiagnostics(available,id),
+    sizeStyle:matchedSizeDiagnostics(available,id,sizePartition),
     industryStatus:adjusted===null?
      neutral.reason||'insufficient-within-industry-variation':'descriptive-only',
     note:'信号时点行业分组去均值后的横截面秩相关；非净收益或因果归因'};
@@ -215,13 +238,19 @@ function auditFactorHorizonSeries(episodes,{now=Date.now(),
    const conflicting=days.filter(x=>x.factorIC[id].industryStatus==='industry-taxonomy-mismatch').length;
    const matched=days.map(x=>x.factorIC[id].matchedIndustry).filter(x=>finite(x.matchedRawIC)&&finite(x.matchedNeutralIC));
    const spreads=days.map(x=>x.factorIC[id].matchedIndustry.withinIndustrySelectionSpreadPct).filter(finite);
+   const size=days.map(x=>x.factorIC[id].sizeStyle).filter(x=>x?.status==='descriptive-only');
+   const sizeValues=key=>size.map(x=>x[key]).filter(finite);
    factors[id]={rawICDays:raw.length,meanRawIC:round(mean(raw)),
     industryNeutralICDays:neutral.length,meanIndustryNeutralIC:round(mean(neutral)),
     insufficientIndustryDays:days.length-neutral.length,
     taxonomyMismatchDays:conflicting,
     matchedIndustryDays:matched.length,meanMatchedRawIC:round(mean(matched.map(x=>x.matchedRawIC))),
     meanMatchedNeutralIC:round(mean(matched.map(x=>x.matchedNeutralIC))),withinIndustrySelectionDays:spreads.length,
-    meanWithinIndustrySelectionSpreadPct:round(mean(spreads)),styleExposure:null,independentHoldoutCertified:false,
+    meanWithinIndustrySelectionSpreadPct:round(mean(spreads)),
+    styleExposure:size.length?{status:'descriptive-only',days:size.length,meanWithinSizeIC:round(mean(sizeValues('withinSizeIC'))),
+     meanMatchedRawIC:round(mean(sizeValues('matchedRawIC'))),meanFactorSizeIC:round(mean(sizeValues('factorSizeIC'))),
+     meanSmallMinusLargeGrossPct:round(mean(sizeValues('smallMinusLargeGrossPct'))),netReturnCertified:false}:null,
+    independentHoldoutCertified:false,
     industryNeutralStatus:neutral.length>=minimumDays?
      'descriptive-only':'insufficient-independent-days'};
   }
@@ -281,4 +310,4 @@ function auditStoredFactorHorizonSeries({captureDir,trackingDir,now=Date.now()}=
  return {...full,fingerprint:sha(full)};
 }
 module.exports={auditOneDay,auditFactorHorizonSeries,auditStoredFactorHorizonSeries,
- spearman,neutralRows,checkWindow,matchedIndustryDiagnostics};
+ spearman,neutralRows,checkWindow,matchedIndustryDiagnostics,matchedSizeDiagnostics};

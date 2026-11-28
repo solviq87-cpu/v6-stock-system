@@ -24,7 +24,7 @@ const dates=weekdays(100),ids=['sector_heat','leader_strength'],
  factorFeed={source:'imported',provider:'synthetic-factor-only',datasetId:'factor-unit'};
 const now=at('2026-11-10');
 function episode(index=0,{industry=true,last=60,flipH20=false,
- missingH5=false,corporateH5=false,duplicates=false}={}){
+ missingH5=false,corporateH5=false,duplicates=false,size=false}={}){
  const d=dates[index],signals=[],rows=[],stocks=[];
  for(let j=0;j<6;j++){
   const symbol='60000'+j,id=d+'-'+symbol,sector=j<3?'SW_A':'SW_B',
@@ -40,6 +40,8 @@ function episode(index=0,{industry=true,last=60,flipH20=false,
   }};
   if(industry)row.industry={code:sector,source:factorFeed.provider,
    observedAt:at(d),classificationVersion:'unit-industry-2026'};
+  if(size)row.sizeEvidence={symbol,tradeDate:d,source:factorFeed.provider,datasetId:factorFeed.datasetId,evidenceId:id+'-size',
+   basis:'total-market-cap',unit:'CNY',valueYuan:(j+1)*1000000000,observedAt:at(d,'15:00:00'),knownAt:at(d,'15:10:00')};
   rows.push(row);
   const future=[1,5,20,60],bars=[
    {date:d,close:10,volume:100,suspended:false}
@@ -225,4 +227,14 @@ test('F29 identical industry-covered sample exposes selection spread separately 
  assert.equal(r.netReturnCertified,false);assert.equal(matchedIndustryDiagnostics(rows.slice(0,3),'x').status,'unknown');
  const mixed=rows.map((v,i)=>i===0?{...v,industry:{...v.industry,classificationVersion:'v2'}}:v);
  assert.equal(matchedIndustryDiagnostics(mixed,'x').status,'unknown');
+});
+
+test('F29.3 original size freeze fixes membership before mature outcomes and rejects forged clocks',()=>{
+ const x=episode(0,{size:true}),r=auditOneDay(x.features,x.report,{now}).windows[1].factorIC.sector_heat.sizeStyle;
+ assert.equal(r.status,'descriptive-only');assert.deepEqual(r.groups.map(g=>[g.id,g.expected,g.observed]),[['relatively-smaller',3,3],['relatively-larger',3,3]]);
+ assert.ok(r.factorSizeIC>0);assert.equal(r.netReturnCertified,false);
+ const gap=episode(0,{size:true,missingH5:true}),missing=auditOneDay(gap.features,gap.report,{now}).windows[1].factorIC.sector_heat.sizeStyle;
+ assert.equal(missing.status,'unknown');assert.equal(missing.groups[0].expected,3);assert.equal(missing.groups[0].observed,2);
+ const tampered=structuredClone(x.features);tampered.features[0].sizeEvidence.knownAt+=86400000;tampered.fingerprint=hash((({fingerprint,...rest})=>rest)(tampered));
+ assert.throws(()=>auditOneDay(tampered,x.report,{now}),/冻结市值证据/);
 });
