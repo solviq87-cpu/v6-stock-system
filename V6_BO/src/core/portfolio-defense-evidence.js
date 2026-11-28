@@ -214,11 +214,16 @@ function styleShock(h,p,partition,assumptions){
  const out={status:'unknown',reason:'ORIGINAL_FROZEN_SIZE_OR_PENDING_EVIDENCE_UNAVAILABLE',scenarios:[],actualLoss:null,realizedLoss:null,...FLAGS};
  if(!h||!p||!assumptions||partition?.status!=='declared-point-in-time-partition'||!Array.isArray(partition.groups)||partition.groups.length!==2||
   !qty(h.eq)||h.eq===0||!Array.isArray(h.rows)||!Array.isArray(p.rows)||!qty(p.fees))return out;
- const members=new Map(),ids=['relatively-smaller','relatively-larger'];
- for(const id of ids){
-  const g=partition.groups.find(x=>x.id===id);
-  if(!g||!Array.isArray(g.members)||!g.members.length)return out;
-  for(const row of g.members){if(!code(row?.symbol)||members.has(row.symbol))return out;members.set(row.symbol,id);}
+ // The original two groups must contain the entire frozen cohort, not
+ // merely the securities currently held or ordered in this account.
+ const groups=partition.groups,ids=['relatively-smaller','relatively-larger'];
+ if(groups.some((g,i)=>g?.id!==ids[i]||!Array.isArray(g.members)||!g.members.length))return out;
+ const count=groups.reduce((n,g)=>n+g.members.length,0);
+ if(count<6||count>500||partition.expected!==count||partition.observed!==count||
+  groups[0].members.length!==Math.floor(count/2))return out;
+ const members=new Map();
+ for(const g of groups){
+  for(const row of g.members){if(!code(row?.symbol)||members.has(row.symbol))return out;members.set(row.symbol,g.id);}
  }
  if([...h.rows,...p.rows].some(row=>!members.has(row?.symbol)||!qty(row.value)))return out;
  const heldTotal=sum(h.rows.map(x=>x.value)),pendingTotal=sum(p.rows.map(x=>x.value));
