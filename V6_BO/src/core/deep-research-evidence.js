@@ -290,9 +290,28 @@ function buildEventImpactStudy(input={}, options={}) {
     limitations:['市场调整差额只作描述，不能单独证明事件的因果贡献','各观察周期全部保留；不按事后最佳收益挑选影响持续期','端点收益不能证明期间最大回撤或可成交净收益','事前固定窗口仅为未独立验证的全市场调整伪事件对照，不是预注册试验或行业匹配；净异常收益及置信区间未知']});
 }
 
+// Keep the first disclosed financial value separate from a restatement. The
+// existing declaration reader supplies identity and chronology checks. A later
+// revision, or a same-code event without the exact first-revision reference,
+// cannot supply the first disclosure's historical outcome.
+function firstDisclosureReview(a,raw,events,derived,asOf){
+  const base={status:'unknown',first:null,latest:provenance(a,asOf),latestValue:a.value,mediumTerm:[],canTrade:false,canNotify:false,actualExecutionVerified:false};
+  const matches=raw.filter(r=>r?.source===a.source&&r.id===a.id&&r.revision===1&&provenance(r,asOf));
+  const originals=[...new Map(matches.map(r=>[hash(r),r])).values()],f=originals[0];
+  if(originals.length!==1||f.retracted===true||f.publishedAt!==a.announcementAt||!finite(f.value)||!['symbol','period','metric','unit','announcementAt'].every(k=>f[k]===a[k]))return base;
+  const first={...provenance(f,asOf),value:f.value,announcementAt:f.announcementAt};
+  const event=f.eventRef,key=event&&JSON.stringify([event.source,event.id,event.revision,f.symbol]),e=key?events.get(key):null;
+  const bound=e&&e.retracted!==true&&e.eventType==='earnings'&&e.publishedAt===f.announcementAt&&e.recordedAt<=f.recordedAt&&e.revision===1;
+  const mediumTerm=bound?derived.filter(o=>o.eventSource===e.source&&o.eventId===e.id&&o.eventRevision===e.revision&&o.symbol===f.symbol&&[20,60].includes(o.horizonSessions)&&o.startAt>f.recordedAt&&priceOutcome(o,asOf)).map(o=>{
+    const r=priceOutcome(o,asOf);return {id:o.id,horizonSessions:o.horizonSessions,startAt:o.startAt,endAt:o.endAt,priceSource:o.stock.source,stockReturnPct:r.stockReturnPct,benchmarkReturnPct:r.benchmarkReturnPct,excessReturnPct:r.excessReturnPct,evidence:r.proof};
+  }):[];
+  return {...base,status:'declared-first-disclosure',first,restated:a.revision!==f.revision,mediumTerm,mediumTermStatus:mediumTerm.length?'descriptive-unverified':'unknown-first-event-or-mature-window',firstEvent:bound?provenance(e,asOf):null};
+}
 function buildExpectationStudy(input={}, options={}) {
   const asOf=clock(options), actuals=versions(input.actuals,asOf,'业绩实际值',500), rows=[], missing=[], rejected=[...actuals.rejected];
   const rawActuals=array(input.actuals,'业绩实际值',500);
+  const firstEventIndex=new Map(versions(input.events,asOf,'财报关联事件').rows.map(e=>[JSON.stringify([e.source,e.id,e.revision,e.symbol]),e]));
+  const derived=Array.isArray(options.derivedOutcomes)?options.derivedOutcomes:[];
   for (const a of actuals.rows) {
     if(a.retracted===true)continue;
     if (!symbol(a.symbol) || !text(a.period,80) || !text(a.metric,80) || !text(a.unit,60) || !finite(a.value) ||
@@ -301,6 +320,7 @@ function buildExpectationStudy(input={}, options={}) {
       ['symbol','period','metric','unit','announcementAt'].some(k=>r[k]!==a[k]))){
       rejected.push({id:a.id,reason:'actual-identity-or-original-announcement-rewritten'});continue;
     }
+    const firstDisclosure=firstDisclosureReview(a,rawActuals,firstEventIndex,derived,asOf);
     // Freeze the expectation strictly before the ORIGINAL announcement, even
     // when the actual financial result has subsequently been revised.
     const selected=versions(input.expectations,a.announcementAt-1,'事前预期',2000);
@@ -309,7 +329,7 @@ function buildExpectationStudy(input={}, options={}) {
       (e.expectationKind!=='consensus'||Number.isSafeInteger(e.sampleSize)&&e.sampleSize>=1));
     if (!expectations.length) {
       rows.push({id:a.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,actual:a.value,
-        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,expectationBasis:expectationBasis(a,null),
+        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,firstDisclosure,expectationBasis:expectationBasis(a,null),
         evidence:[provenance(a,asOf)],missing:['没有真实且严格早于原始公告的同口径预期']});continue;
     }
     for (const e of expectations) {
@@ -320,7 +340,7 @@ function buildExpectationStudy(input={}, options={}) {
         [reaction.startPrice,reaction.endPrice].every(x=>finite(x)&&x>0)&&finite(100*(reaction.endPrice/reaction.startPrice-1))&&reaction.priceBasis==='unadjusted'&&reaction.corporateAction===false;
       const priceReaction=validReaction?{returnPct:round(100*(reaction.endPrice/reaction.startPrice-1)),startAt:reaction.startAt,endAt:reaction.endAt,evidence:rp}:null;
       rows.push({id:a.id+'|'+e.source+'|'+e.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,
-        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),expectationBasis:expectationBasis(a,e),
+        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),firstDisclosure,expectationBasis:expectationBasis(a,e),
         surprisePct:e.value===0?null:round(delta/Math.abs(e.value)*100),
         classification:sign===null?'direction-unknown':sign>0?'above-expectation':sign<0?'below-expectation':'in-line',
         priceReaction,priceResponseCase:!priceReaction||sign===null?'unknown':sign>0&&priceReaction.returnPct<0?'positive-surprise-negative-response':
@@ -727,7 +747,7 @@ function buildDeepResearchEvidence(input={}, options={}) {
   if (input.newsJournalRows!==undefined) effective.events=[...array(input.events,'事件'),...extractNewsJournalEvents(input.newsJournalRows,{asOf})];
   const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar,workspaceEvents:input.workspaceEvents},{asOf});
   effective.eventOutcomes=[...array(input.eventOutcomes,'事件结果'),...derived.eventOutcomes];
-  const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf}),
+  const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf,derivedOutcomes:derived.eventOutcomes}),
     69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
     71:buildSessionEffectiveness(effective,{asOf,costs:options.costs}),72:buildThemeCrowding(effective,{asOf})};
   modules[67].archiveDerivation={...derived,eventOutcomes:derived.eventOutcomes.map(o=>({id:o.id,eventId:o.eventId,horizonSessions:o.horizonSessions}))};
@@ -735,6 +755,21 @@ function buildDeepResearchEvidence(input={}, options={}) {
   modules[67].eventReview=projectEventReview({events:versions(effective.events,asOf,'事件').rows,relations:versions(effective.relations,asOf,'关系证据',2000).rows,
     journalRows:input.newsJournalRows??[],account:modules[69].account,asOf});
   modules[67].eventTracking=trackEventCandidates({journalRows:input.newsJournalRows??[],workspaceEvents:input.workspaceEvents??[],asOf});
+  // Operating evidence and observed share-price leadership are independent.
+  // A peer cohort is not certified event-free without a complete news receipt.
+  // Match the exact event revision, never the symbol alone.
+  const outcomeIndex=new Map();
+  for(const o of derived.eventOutcomes){const key=JSON.stringify([o.eventSource,o.eventId,o.eventRevision,o.symbol]),group=outcomeIndex.get(key)||[];group.push(o);outcomeIndex.set(key,group);}
+  const trackedIndex=new Map((modules[67].eventTracking.rows||[]).filter(t=>t.current?.eventHash).map(t=>[JSON.stringify([t.source,t.current.eventHash,t.current.sequence]),t]));
+  modules[67].businessResearch={mode:'original-event-business-and-peer-review-v1',canTrade:false,canNotify:false,causalInferenceVerified:false,rows:modules[67].eventReview.rows.filter(r=>r.industry.businessPaths.length||r.policy.paths.length||r.overseas.paths.length).map(r=>{
+    const key=JSON.stringify([r.event.source,r.event.id,r.event.revision,r.symbol]),linked=outcomeIndex.get(key)||[];
+    const track=trackedIndex.get(JSON.stringify([r.event.source,r.event.evidenceId,r.event.revision]));
+    const screen=track?.candidates.find(c=>c.symbol===r.symbol)||null;
+    const peers=linked.filter(o=>o.industryReaction?.status==='descriptive-unverified').map(o=>({id:o.id,horizonSessions:o.horizonSessions,priceSource:o.stock.source,industry:o.industryReaction.industry,post:o.industryReaction.post,relativePriceLeading:o.industryReaction.post.peerExcessPct>0}));
+    return {event:r.event,symbol:r.symbol,businessPaths:r.industry.businessPaths,policyPaths:r.policy.paths,overseasPaths:r.overseas.paths,
+      operatingOrders:r.industry.businessPaths.filter(p=>p.orderEvidence!==null).map(p=>({entityId:p.entityId,productId:p.productId,evidence:p.evidence,order:p.orderEvidence})),
+      priceLeadership:peers,screenAssociation:screen,noEventMatchedControl:null,causalInferenceVerified:false,currentCandidateCertified:false,canTrade:false,canNotify:false};
+  })};
   modules[67].missing=[...new Set([...modules[67].missing,...derived.pending.map(r=>r.reason)])];
   return {schemaVersion:1,asOf,modules,riskObservations:Object.values(modules).flatMap(m=>m.riskObservations),
     missing:Object.values(modules).flatMap(m=>m.missing.map(reason=>({task:m.task,reason}))),...FLAGS};
