@@ -334,3 +334,5 @@ test('73 sector exposure groups never collide with ordinary object prototype nam
     assert.equal(r.canTrade,false);
   }
 });
+
+test('F44 original constrained replay retains full blocked shares and marked versus realized PnL',t=>{const {frozen,history,knownAt}=replayFixture(t);history.stocks[0].bars[2].lowerLimit=history.stocks[0].bars[2].open;const r=D.replayDecisionAlternatives(frozen,history,{asOf:knownAt}),cash=r.replayDetails.find(x=>x.alternativeId==='cash'),out=r.jointOutcomeEvidence.rows.find(x=>x.alternativeId==='cash');assert.equal(r.status,'compared');assert.equal(cash.executionCoverage.sell.requestedQuantity,4000);assert.equal(cash.executionCoverage.sell.unfilledQuantity,4000);assert.equal(cash.executionCoverage.sell.filledQuantity,0);assert.equal(cash.executionCoverage.allExitCompleted,false);assert.equal(out.realizedNetPnl,null);assert.equal(out.markedNetPnl,r.rows.find(x=>x.id==='cash').netPnl);assert.equal(r.jointOutcomeEvidence.expectedUtility,null);});
