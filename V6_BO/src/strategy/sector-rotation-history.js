@@ -11,10 +11,11 @@ const dateOK=x=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&
  new Date(Date.parse(x+'T00:00:00Z')).toISOString().slice(0,10)===x;
 const round=x=>Number(x.toFixed(3));
 const acceptable=new Set(['imported-unverified','partial-evidence']);
+const validMemberHash=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
  const empty={schemaVersion:1,mode:'research-only',status:'unknown',
   scope:'explicit-calendar-and-imported-archives-only',tradeDates:[],
-  sectors:[],evaluatedThreeSession:0,evaluatedFiveSession:0,
+  sectors:[],evaluatedThreeSession:0,evaluatedFiveSession:0,leadingSectorReplay:[],
   verifiedLive:false,canTrade:false,canNotify:false,weightsChanged:false,
   autoPromotion:false,rankingModified:false,
   note:'仅比较同来源、同分类版本、同时间段的历史板块研究快照；3/5仅指显式交易日历中的连续观测，无实时/收益/资金流认证'};
@@ -82,6 +83,7 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
   const window=tradeDates.slice(-n),out={status:'unknown',sessions:n,
    calendarDates:window,reason:null,observations:[]};
   if(window.length!==n){out.reason='explicit-calendar-too-short';return out;}
+  const memberHashes=new Set();let memberHashesKnown=0;
   for(const d of window){
    const r=byDay.get(d),s=maps.get(d)?.get(key);
    if(!r||!s||!acceptable.has(s.status)||!finite(s.score)||
@@ -94,6 +96,11 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
     s.memberCount!==reference.memberCount){
     out.reason='membership-version-or-size-changed';return out;
    }
+   if(s.memberSetHash!==undefined){
+    if(!validMemberHash(s.memberSetHash)){out.reason='invalid-membership-identity';return out;}
+    memberHashes.add(s.memberSetHash);memberHashesKnown++;
+    if(memberHashes.size>1){out.reason='membership-identity-changed';return out;}
+   }
    out.observations.push({tradeDate:d,score:s.score,upPct:s.upPct,
     changePct:s.changePct,state:s.state,memberCount:s.memberCount,
     sampleRank:s.rank??null,rankDenominator:s.rankDenominator??null,
@@ -101,6 +108,7 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
   }
   const observations=out.observations,a=observations[0],b=observations.at(-1);
   out.status='descriptive-unverified';
+  out.membershipIdentityStatus=memberHashesKnown===n?'matching-frozen-set':'legacy-or-incomplete-set-evidence';
   out.scoreChange=round(b.score-a.score);
   out.breadthChangePctPoints=round(b.upPct-a.upPct);
   out.meanScore=round(observations.reduce((sum,s)=>sum+s.score,0)/n);
@@ -115,6 +123,43 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
    'five-session-broad-strength':'five-session-mixed';
   return out;
  }
+ // Replay only a descriptive handover of the leading broad sector within
+ // the same imported, fully observed category. Do not equate a rank with
+ // the real market's mainline, or compare overlapping concept/industry sets.
+ function replayPair(from,to,category){
+  const a=byDay.get(from),b=byDay.get(to);
+  const base={from,to,category,status:'unknown',previous:null,current:null,changed:null,
+   scope:'same-frozen-imported-sector-population-only',canTrade:false,canNotify:false};
+  const reject=reason=>({...base,reason});
+  if(!a||!b)return reject('adjacent-session-archive-missing');
+  if(a.data.classificationVersion!==b.data.classificationVersion||
+     localMinute(a.observedAt)!==localMinute(b.observedAt))
+   return reject('classification-or-observation-minute-changed');
+  const ar=[...maps.get(from).values()].filter(s=>s.category===category);
+  const br=[...maps.get(to).values()].filter(s=>s.category===category);
+  if(ar.length<3||ar.length!==br.length)return reject('comparable-category-population-missing');
+  const complete=(rows)=>rows.every(s=>acceptable.has(s.status)&&finite(s.score)&&s.score>=0&&s.score<=100&&
+   finite(s.upPct)&&s.upPct>=0&&s.upPct<=100&&finite(s.changePct)&&s.changePct>=-100&&s.changePct<=100&&
+   Number.isSafeInteger(s.memberCount)&&s.memberCount>=5&&s.memberCount<=10000&&s.observedStocks===s.memberCount&&
+   s.coveragePct===100&&validMemberHash(s.memberSetHash)&&Number.isSafeInteger(s.rank)&&s.rank>=1&&
+   s.rank<=rows.length&&s.rankDenominator===rows.length)&&new Set(rows.map(s=>s.rank)).size===rows.length;
+  if(!complete(ar)||!complete(br))return reject('full-population-or-membership-identity-unavailable');
+  const lookup=new Map(br.map(s=>[s.code,s]));
+  if(ar.some(s=>{const t=lookup.get(s.code);return !t||s.name!==t.name||s.memberCount!==t.memberCount||s.memberSetHash!==t.memberSetHash;}))
+   return reject('frozen-sector-population-changed');
+  const leader=rows=>{
+   const best=Math.max(...rows.map(s=>s.score)),top=rows.filter(s=>s.score===best);
+   return top.length===1&&top[0].rank===1&&top[0].state==='broad-strength'?top[0]:null;
+  };
+  const before=leader(ar),after=leader(br);
+  if(!before||!after)return reject('unique-broad-leader-unavailable');
+  const view=(s,r)=>({code:s.code,name:s.name,score:s.score,upPct:s.upPct,observedAt:r.observedAt,memberSetHash:s.memberSetHash});
+  return {...base,status:'descriptive-unverified',previous:view(before,a),current:view(after,b),
+   changed:before.code!==after.code,reason:before.code!==after.code?'observed-leading-sector-switch':'same-observed-leading-sector'};
+ }
+ const leadingSectorReplay=[];
+ for(let i=1;i<dates.length;i++)for(const category of ['industry','concept'])
+  leadingSectorReplay.push(replayPair(dates[i-1],dates[i],category));
  const current=first.study.sectors.filter(s=>
   ['industry','concept'].includes(s?.category)&&acceptable.has(s.status)&&
   finite(s.score)&&finite(s.upPct)&&finite(s.coveragePct)&&s.coveragePct>=80);
@@ -130,7 +175,7 @@ function evaluateSectorRotation(records,{tradeDates,asOf=Date.now()}={}){
   marketProvider:first.quoteProvider,membershipProvider:first.membershipProvider,
   classificationVersion:first.classificationVersion,
   alignedTimeOfDayMinute:clockMinute,
-  sectors,evaluatedThreeSession:sectors.filter(x=>x.threeSession.status==='descriptive-unverified').length,
+  sectors,leadingSectorReplay,evaluatedThreeSession:sectors.filter(x=>x.threeSession.status==='descriptive-unverified').length,
   evaluatedFiveSession:sectors.filter(x=>x.fiveSession.status==='descriptive-unverified').length,
   reason:'historical-thresholds-not-validated'};
 }

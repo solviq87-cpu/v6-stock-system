@@ -4,6 +4,7 @@
  * eastmoney-market-snapshot; NEVER fetch a second time, infer quote timestamps,
  * or present an equal-weight member proxy as a provider-published sector index.
  */
+const crypto=require('node:crypto');
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {classifyQuoteTime,snapshotCaptureWindow}=require('./market-snapshot-quote-time');
 const {evaluateDailySectorStrength}=require('../strategy/daily-sector-strength');
@@ -64,7 +65,7 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
  if(quotes.size<5||quotes.size/snapshot.universeSize<minMarketCoverage)
   return unknown('fresh-market-quote-coverage-insufficient');
  const marketProxy=Array.from(quotes.values()).reduce((total,s)=>total+s.changePct,0)/quotes.size;
- const sectors=[],seenSectorIds=new Set();
+ const sectors=[],seenSectorIds=new Set(),memberSets=new Map();
  for(const item of membership.sectors){
   const id=String(item?.category)+'|'+String(item?.code);
   if(seenSectorIds.has(id))return unknown('duplicated-sector-membership');
@@ -76,6 +77,8 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
     item.memberCount!==item.members.length||new Set(item.members).size!==item.members.length||
     Array.from(item.members).some(s=>!symbolOK(s)))
    return unknown('membership-members-invalid');
+  // The frozen membership, not the currently available quote subset, defines identity.
+  memberSets.set(id,crypto.createHash('sha256').update(JSON.stringify([...item.members].sort())).digest('hex'));
   const members=item.members.map(symbol=>quotes.get(symbol)).filter(Boolean);
   // Every member has a frozen mapping. Unavailable quotes stay absent;
   // the underlying study enforces >=80% coverage, no inferred 0% returns.
@@ -98,7 +101,7 @@ function bridgeExistingMarketSector(snapshot,membership,{asOf,maxQuoteAgeMs=3000
   returnMethod:'equal-weight-constituents-proxy',
   benchmarkMethod:'equal-weight-valid-constituents-universe',
   membershipFrozenAt:membership.observedAt,
-  study:{...study,returnMethod:'equal-weight-constituents-proxy',
+  study:{...study,sectors:study.sectors.map(s=>({...s,memberSetHash:memberSets.get(s.category+'|'+s.code)})),returnMethod:'equal-weight-constituents-proxy',
    benchmarkMethod:'equal-weight-valid-constituents-universe',
    classificationVersion:membership.classificationVersion,
    note:study.note+'；板块与大盘涨幅均为有效个股等权代理，非板块指数或交易所基准'},
