@@ -248,4 +248,4 @@ function investigateKnownNews(event, news) {
   }
   return {status:inspected ? 'cached-window-checked' : 'unavailable', inspected, evidenceHashes:[...refs]};
 }
-module.exports = {createIndexWindowResearch, investigateKnownNews};
+module.exports = {createIndexWindowResearch, investigateKnownNews, sameMinuteResearchPolicy:Object.freeze({sessionMinute,PRIOR_DAYS})};
