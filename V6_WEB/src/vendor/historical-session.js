@@ -2,18 +2,31 @@
 
 const boardLimits = {main:10, chinext:20, star:20, bse:30};
 function limitPct(stock) {
-  if (Number.isFinite(stock.limitPct) && stock.limitPct > 0 && stock.limitPct <= 100) return stock.limitPct;
+  if (stock.noPriceLimit === true || stock.ipoNoLimit === true) return null;
+  if (stock.limitPct !== undefined) return Number.isFinite(stock.limitPct) && stock.limitPct > 0 && stock.limitPct <= 100 ? stock.limitPct : null;
   if (stock.isST) return 5;
   return Object.hasOwn(boardLimits, stock.market) ? boardLimits[stock.market] : null;
+}
+
+// Preserve supplied daily state, including an explicit unknown limit.
+function historicalSecurityState(stock, bar = {}) {
+  return {isST:bar.isST ?? stock?.isST, suspended:bar.suspended ?? stock?.suspended,
+    tradable:bar.tradable ?? stock?.tradable,
+    limitPct:bar.limitPct === undefined ? stock?.limitPct : bar.limitPct,
+    noPriceLimit:bar.noPriceLimit === undefined ? stock?.noPriceLimit : bar.noPriceLimit,
+    ipoNoLimit:bar.ipoNoLimit === undefined ? stock?.ipoNoLimit : bar.ipoNoLimit};
 }
 
 // A later intraday unlock is unavailable to a simulated opening order.
 function atLockedLimit(bar, prior, stock, side) {
   if (!['buy','sell'].includes(side)) return {blocked:true, reason:'委托方向无效'};
   if (!(Number.isFinite(bar?.open) && bar.open > 0)) return {blocked:true, reason:'开盘价无效'};
+  const daily = {...stock, ...historicalSecurityState(stock,bar)};
+  if (daily.noPriceLimit === true || daily.ipoNoLimit === true)
+    return {blocked:true, reason:'该交易日无涨跌幅限制，当前限价撮合模型不适用'};
   let boundary = side === 'buy' ? bar.upperLimit : bar.lowerLimit;
   if (boundary === undefined) {
-    const limit = limitPct({...stock, isST:bar.isST ?? stock?.isST, limitPct:bar.limitPct ?? stock?.limitPct});
+    const limit = limitPct(daily);
     const reference=bar.corporateAction?.referenceClose??prior?.close;
     if (!limit || !Number.isFinite(reference) || reference <= 0) return {blocked:true, reason:'缺少涨跌停制度或前收盘价'};
     const pct = side === 'buy' ? limit : -limit;
@@ -48,8 +61,7 @@ function historicalStock(stock, day, source, timestamp) {
   const prev = bars[day - 1];
   // Only dated, as-of-close factors are eligible. Latest stock-level scores never travel back in time.
   return {...visibleCloseFactors(bar), symbol:stock.symbol || stock.code, market:stock.market,
-    isST:bar.isST ?? stock.isST, suspended:bar.suspended ?? stock.suspended,
-    tradable:bar.tradable ?? stock.tradable, limitPct:stock.limitPct,
+    ...historicalSecurityState(stock,bar),
     close:bar.close, pctChange:(bar.close / prev.close - 1) * 100, bars, feed:{source,timestamp}};
 }
 
@@ -70,4 +82,4 @@ function assertAligned(stocks, stop, tradingDates) {
     }
   }
 }
-module.exports = {limitPct, atLockedLimit, historicalStock, assertAligned, visibleCloseFactors};
+module.exports = {historicalSecurityState,limitPct, atLockedLimit, historicalStock, assertAligned, visibleCloseFactors};

@@ -1,0 +1,22 @@
+{
+  "before.tap": {
+    "rawSha256": "101db40a843aad0cbc5bcff405e6aca526fc45e295b1f7f6cd9de8b8601fd896",
+    "gitCopy": "trailing line whitespace normalized only"
+  },
+  "related.tap": {
+    "rawSha256": "0983a2289cb49131441cb9bb2ca1a727d998156cd9e077df6f3d4ba81b74b9cd",
+    "gitCopy": "trailing line whitespace normalized only"
+  },
+  "kernel-offline.tap": {
+    "rawSha256": "c0b7a563d52084d0d38598c8467e623d325d1e249a6836bd6ed152267a8821a1",
+    "gitCopy": "trailing line whitespace normalized only"
+  },
+  "native-initial-failure.log": {
+    "rawSha256": "1dba8c6a343ec565fcf3f83aefee371462965075df9f671762fbe4bb570004ba",
+    "gitCopy": "trailing line whitespace normalized only"
+  },
+  "before-domain-guard.tap": {
+    "rawSha256": "283f1c2fced545b8d4632164ea1fc4c600bb18acb324aacc09c36d4504395731",
+    "gitCopy": "trailing line whitespace normalized only"
+  }
+}

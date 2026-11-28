@@ -249,6 +249,10 @@ function readMarketDataAsOf({root,decisionAt,provider,datasetId}={}){
 // Official background receipts are a second *kind of record* in the existing
 // evidence journal and blob directory, not a second store or market feed.
 const BACKGROUND_PROTOCOL='fayo-event-data-v1';
+// A distinct record version lets an older reader skip ETF receipts while reading
+// its existing sources from the same immutable journal after a code rollback.
+const ETF_PROTOCOL='fayo-szse-etf-monthly-v1';
+const backgroundProtocol=provider=>provider==='szse-fund'?ETF_PROTOCOL:BACKGROUND_PROTOCOL;
 const day=value=>typeof value==='string'&&/^\d{4}-\d\d-\d\d$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 function backgroundScope(provider,value){
  if(!value||Array.isArray(value)||typeof value!=='object')throw Error('背景数据范围无效');
@@ -259,6 +263,9 @@ function backgroundScope(provider,value){
  }else if(provider==='sec-edgar'){
   keys=['cik','tag','unit','asOf'];scope={cik:value.cik,tag:value.tag,unit:value.unit,asOf:value.asOf};
   if(!Number.isSafeInteger(scope.cik)||scope.cik<1||scope.cik>9999999999||typeof scope.tag!=='string'||!/^[A-Za-z][A-Za-z0-9]{1,63}$/.test(scope.tag)||!['USD','shares','USD/shares'].includes(scope.unit)||!day(scope.asOf)||scope.asOf<'1994-01-01')throw Error('SEC背景数据范围无效');
+ }else if(provider==='szse-fund'){
+  keys=['month','documentId'];scope={month:value.month,documentId:value.documentId};
+  require('./szse-etf-monthly').validateScope(scope);
  }else if(provider==='us-eia'){
   keys=['series','start','end'];scope={series:value.series,start:value.start,end:value.end};
   if(!['RWTC','RBRTE'].includes(scope.series)||!day(scope.start)||!day(scope.end)||scope.start>scope.end)throw Error('EIA背景数据范围无效');
@@ -270,6 +277,7 @@ function backgroundScope(provider,value){
 }
 function backgroundProjection(provider,scope,raw,observedAt){
  if(!Buffer.isBuffer(raw)||!raw.length||!validTime(observedAt))throw Error('背景数据原回执无效');
+ if(provider==='szse-fund')return require('./szse-etf-monthly').projectEtfMonthly(raw,scope,observedAt);
  const text=raw.toString('utf8');
  if(!Buffer.from(text,'utf8').equals(raw))throw Error('背景数据原响应不是有效UTF-8');
  if(provider==='ecb'){
@@ -290,18 +298,24 @@ function backgroundRoot(root){
  if(dir.split(path.sep).some(x=>['www','htdocs'].includes(x.toLowerCase())))throw Error('禁止公开背景数据存储');
  return dir;
 }
+const backgroundPublisher=provider=>provider==='szse-fund'?'szse':provider;
+const sourceTimePrecision=provider=>{
+ if(provider==='szse-fund')return 'report-month';
+ if(provider==='sec-edgar')return 'filing-date';
+ return ['ecb','us-eia'].includes(provider)?'observation-date':'observation-year';
+};
 const backgroundScopeId=(provider,scope)=>store.digest({provider,scope});
 function backgroundEvents(root,asOf=Date.now()){
- const events=store.readEvents(roots(backgroundRoot(root)).events,{asOf}).filter(e=>e.data?.protocol===BACKGROUND_PROTOCOL);
+ const events=store.readEvents(roots(backgroundRoot(root)).events,{asOf}).filter(e=>[BACKGROUND_PROTOCOL,ETF_PROTOCOL].includes(e.data?.protocol));
  const latest=new Map(),first=new Map(),observations=new Set();
  for(const e of events){
   const d=e.data,scope=backgroundScope(d.provider,d.scope),scopeId=backgroundScopeId(d.provider,scope),p=latest.get(scopeId),versionKey=scopeId+':'+d.dataVersion;
   const same=p?.data.dataVersion===d.dataVersion,known=first.get(versionKey)??e.recordedAt;
   const observationKey=scopeId+':'+d.observedAt;
-  if(d.scopeId!==scopeId||d.upstreamGroup!==d.provider||!validTime(d.requestStartedAt)||!validTime(d.observedAt)||d.requestStartedAt>d.observedAt||d.observedAt>e.recordedAt||d.availableAt!==e.recordedAt||
+  if(d.protocol!==backgroundProtocol(d.provider)||d.scopeId!==scopeId||d.upstreamGroup!==backgroundPublisher(d.provider)||!validTime(d.requestStartedAt)||!validTime(d.observedAt)||d.requestStartedAt>d.observedAt||d.observedAt>e.recordedAt||d.availableAt!==e.recordedAt||
      d.sourcePublishedAt!==null||d.sourceRevisedAt!==null||d.sourceRevisionKnown!==false||d.firstKnownAt!==known||d.version!==(same?p.data.version:(p?.data.version??0)+1)||
      d.previousReceipt!==(p?.hash??null)||d.revisionDetectedAt!==(p&&!same?d.observedAt:null)||p&&p.data.observedAt>=d.observedAt||observations.has(observationKey)||
-     !HASH.test(d.dataVersion||'')||d.dataVersion!==d.rawEvidence?.sha256||!HASH.test(d.projectionHash||'')||!['response-body','decoded-body-text'].includes(d.byteBasis)||
+     !HASH.test(d.dataVersion||'')||d.dataVersion!==d.rawEvidence?.sha256||!HASH.test(d.projectionHash||'')||!['response-body','decoded-body-text'].includes(d.byteBasis)||d.provider==='szse-fund'&&d.byteBasis!=='response-body'||
      Object.keys(store.FLAGS).some(k=>d[k]!==store.FLAGS[k]))throw Error('背景数据版本或时点链完整性无效');
   observations.add(observationKey);latest.set(scopeId,e);if(!first.has(versionKey))first.set(versionKey,e.recordedAt);
  }
@@ -316,7 +330,7 @@ function readBackgroundReceipt(root,event){
 function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,requestStartedAt,observedAt}={}){
  root=backgroundRoot(root);const scope=backgroundScope(provider,input),scopeId=backgroundScopeId(provider,scope);
  const lineage=require('./data-source-lineage').resolveUpstream(provider);
- if(!lineage.known||lineage.group!==provider||!validTime(requestStartedAt)||!validTime(observedAt)||requestStartedAt>observedAt||!['response-body','decoded-body-text'].includes(byteBasis))throw Error('背景数据来源或时点无效');
+ if(!lineage.known||lineage.group!==backgroundPublisher(provider)||!validTime(requestStartedAt)||!validTime(observedAt)||requestStartedAt>observedAt||!['response-body','decoded-body-text'].includes(byteBasis)||provider==='szse-fund'&&byteBasis!=='response-body')throw Error('背景数据来源或时点无效');
  const projection=backgroundProjection(provider,scope,raw,observedAt),dataVersion=sha(raw),projectionHash=store.digest(projection);
  // Validate the existing original journal/raw references before extending it.
  // The per-series predecessor is rechecked inside the original store lock.
@@ -332,14 +346,14 @@ function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,reques
  const rawEvidence=saveRaw(root,raw),availableAt=Date.now();
  if(!validTime(availableAt)||availableAt<observedAt)throw Error('背景数据归档时钟回退');
  const same=previous?.data.dataVersion===dataVersion,first=series.find(e=>e.data.dataVersion===dataVersion);
- const data={protocol:BACKGROUND_PROTOCOL,provider,upstreamGroup:provider,scope,scopeId,rawEvidence,dataVersion,projectionHash,byteBasis,
+ const data={protocol:backgroundProtocol(provider),provider,upstreamGroup:lineage.group,scope,scopeId,rawEvidence,dataVersion,projectionHash,byteBasis,
   requestStartedAt,observedAt,availableAt,firstKnownAt:first?.recordedAt??availableAt,sourcePublishedAt:null,sourceRevisedAt:null,sourceRevisionKnown:false,
   revisionDetectedAt:previous&&!same?observedAt:null,version:same?previous.data.version:(previous?.data.version??0)+1,previousReceipt:previous?.hash??null,
-  sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
+  sourceTimePrecision:sourceTimePrecision(provider),verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
  const requestId='background-'+store.digest({scopeId,observedAt,dataVersion}).slice(0,64);
  return store.appendEvent(roots(root,true).events,'diagnostic',data,{now:availableAt,requestId,beforeCommitLocked:({events:current,reused})=>{
   if(reused)return true;
-  const last=current.filter(e=>e.data?.protocol===BACKGROUND_PROTOCOL&&e.data.scopeId===scopeId).at(-1);
+  const last=current.filter(e=>e.data?.protocol===backgroundProtocol(provider)&&e.data.scopeId===scopeId).at(-1);
   return (last?.hash??null)===(previous?.hash??null);
  }});
 }
@@ -351,7 +365,7 @@ function readBackgroundAsOf({root,provider,scope:input,decisionAt}={}){
  // become available merely because their reporting dates are earlier.
  let data=null;for(const e of series)data=readBackgroundReceipt(root,e);
  const selected=series.at(-1);
- return {schemaVersion:1,protocol:BACKGROUND_PROTOCOL,status:selected?'available-research-snapshot':'unavailable-at-decision',provider,scope,decisionAt,
+ return {schemaVersion:1,protocol:backgroundProtocol(provider),status:selected?'available-research-snapshot':'unavailable-at-decision',provider,scope,decisionAt,
   receipt:selected?{hash:selected.hash,...selected.data}:null,data,visibleReceipts:series.length,verifiedExternal:false,verifiedLive:false,pointInTimeBacktestReady:false,...store.FLAGS};
 }
 function archiveBackgroundResult(result,{root,raw,byteBasis,scope}={}){
@@ -389,6 +403,15 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){
     const projected=readBackgroundReceipt(directory,event),records=provider==='sec-edgar'?projected.records:projected.rows;
     // Only known source fields cross this boundary, not raw responses, paths,
     // arbitrary metadata, or an inferred original publication timestamp.
+    if(provider==='szse-fund'){
+     // Preselected fund identities for a compact view. The as-of reader returns the entire monthly table.
+     const selectedSymbols=['159915','159919','159922','159845','159901'];
+     const selected=selectedSymbols.map(symbol=>records.find(r=>r.symbol===symbol)).filter(Boolean);
+     checked++;
+     return {...row,status:'verified-latest-receipt',scope:d.scope,byteBasis:d.byteBasis,sourceTimePrecision:sourceTimePrecision(provider),
+      sourceUrl:projected.sourceUrl,recordCount:records.length,missingValues:records.filter(r=>r.monthlyTurnoverWanCny===null).length,
+      records:selected,netSubscriptions:null,buyerIdentity:null};
+    }
     const values=records.slice(-5).map(r=>provider==='ecb'?{period:r.date,value:r.unitsPerEuro,unit:projected.currency+' / EUR'}:
      provider==='sec-edgar'?{period:r.reportedEnd,value:r.reportedValue,unit:r.unit,filedDate:r.filedDate,accession:r.accession}:
       provider==='us-eia'?{period:r.date,value:r.value,unit:r.unit}:
@@ -396,7 +419,7 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){
     const missingValues=records.filter(r=>(provider==='ecb'?r.unitsPerEuro:provider==='sec-edgar'?r.reportedValue:r.value)===null).length;
     checked++;
     return {...row,status:'verified-latest-receipt',scope:backgroundScope(provider,d.scope),byteBasis:d.byteBasis,
-     sourceTimePrecision:['ecb','us-eia'].includes(provider)?'observation-date':provider==='sec-edgar'?'filing-date':'observation-year',
+     sourceTimePrecision:sourceTimePrecision(provider),
      records:values,recordCount:records.length,missingValues,
      ...(provider==='worldbank'?{annualComparison:require('./worldbank-indicators').annualBackgroundComparison(projected),observationAgeMs:asOf-d.observedAt,usage:'low-frequency-local-research-only'}:{})};
    }catch{return row;}

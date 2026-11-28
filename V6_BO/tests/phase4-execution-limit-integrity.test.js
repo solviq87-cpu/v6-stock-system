@@ -85,3 +85,51 @@ test('browser retains the exact existing shared historical-session implementatio
  const root=path.resolve(__dirname,'../..');
  assert.deepEqual(fs.readFileSync(path.join(root,'V6_BO/src/strategy/historical-session.js')),fs.readFileSync(path.join(root,'V6_WEB/src/vendor/historical-session.js')));
 });
+
+test('historical snapshots use the signal-day limit and exemption flags with future rows isolated',()=>{
+ const s={symbol:'600000',market:'main',limitPct:5,isST:true,noPriceLimit:true,ipoNoLimit:true,bars:[
+  {date:'2026-11-13',close:10},
+  {date:'2026-11-16',close:10,isST:false,limitPct:10,noPriceLimit:false,ipoNoLimit:false},
+  {date:'2026-11-17',close:11,isST:false,limitPct:20,noPriceLimit:true,ipoNoLimit:true}
+ ]};
+ for(const model of [backend,browser]){
+  const earlier=model.historicalStock(s,1,'imported',1);
+  assert.equal(earlier.limitPct,10);assert.equal(earlier.isST,false);assert.equal(earlier.noPriceLimit,false);assert.equal(earlier.ipoNoLimit,false);
+  const later=model.historicalStock(s,2,'imported',2);
+  assert.equal(later.limitPct,20);assert.equal(later.noPriceLimit,true);assert.equal(later.ipoNoLimit,true);
+  s.bars[2].limitPct=30;assert.equal(model.historicalStock(s,1,'imported',1).limitPct,10);s.bars[2].limitPct=20;
+ }
+});
+
+test('explicit unknown daily limits cannot borrow a current board default',()=>{
+ for(const limitPct of [null,0,-1,NaN,Infinity,'10',101])for(const side of ['buy','sell']){
+  const result=both({open:10,limitPct},prior,stock,side);assert.equal(result.blocked,true);assert.match(result.reason,/制度/);
+ }
+ assert.equal(both({open:10},prior,stock,'buy').blocked,false,'the existing no-field legacy baseline remains usable');
+ assert.equal(both({open:10.5,limitPct:5},prior,{...stock,limitPct:20},'buy').blocked,true);
+ assert.equal(both({open:10.5,limitPct:20},prior,{...stock,limitPct:5},'buy').blocked,false);
+});
+
+test('explicit no-limit sessions return an unsupported execution state without inventing a board cap',()=>{
+ for(const flag of ['noPriceLimit','ipoNoLimit'])for(const side of ['buy','sell']){
+  const result=both({open:10,[flag]:true},prior,stock,side);
+  assert.equal(result.blocked,true);assert.match(result.reason,/无涨跌幅限制/);assert.equal(result.boundary,undefined);
+  assert.equal(both({open:10,[flag]:false},prior,{...stock,[flag]:true},side).blocked,false);
+ }
+});
+
+test('the original historical explanation uses dated security state in its actual rule evidence',()=>{
+ const bars=Array.from({length:40},(_,i)=>({date:new Date(Date.UTC(2026,0,1+i)).toISOString().slice(0,10),
+  open:10,close:10,high:10.2,low:9.8,volume:1000000,amount:120000000,isST:false,suspended:false,tradable:true,
+  limitPct:10,noPriceLimit:false,ipoNoLimit:false}));
+ Object.assign(bars.at(-2),{open:10.9,close:11,high:11,low:10.9});
+ Object.assign(bars.at(-1),{open:11.3,close:11.1,high:11.4,low:11,volume:3000000});
+ const history={source:'imported',asOf:bars.at(-1).date,priceBasis:'unadjusted',stocks:[{
+  symbol:'600000',market:'main',isST:true,limitPct:5,noPriceLimit:true,ipoNoLimit:true,bars}]};
+ const {historicalExplanations}=require('../src/core/research-explanation-projection');
+ const result=historicalExplanations(history),row=result.candidates[0];
+ assert.ok(row.rationale.selection.rules.some(rule=>rule.id==='pattern:limit_up_shakeout_main'));
+ assert.equal(row.historicalOnly,true);assert.equal(result.canTrade,false);assert.equal(result.officialCandidates,0);
+ const unknown=structuredClone(history);unknown.stocks[0].bars.at(-1).limitPct=null;
+ assert.equal(historicalExplanations(unknown).candidates[0].rationale.selection.rules.some(rule=>rule.id==='pattern:limit_up_shakeout_main'),false);
+});

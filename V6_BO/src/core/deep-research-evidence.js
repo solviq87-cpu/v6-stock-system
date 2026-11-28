@@ -11,6 +11,7 @@ const {scorecards} = require('./research-workspace-analytics');
 const {validatePlan} = require('./paper-decision-plan');
 const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
+const {macroStudy,policyStudy}=require('./fayo-policy-macro-study');
 
 const LIMIT = 10000;
 const FLAGS = Object.freeze({researchOnly:true, canTrade:false, canNotify:false,
@@ -710,6 +711,8 @@ function buildDeepResearchEvidence(input={}, options={}) {
     69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
     71:buildSessionEffectiveness(effective,{asOf,costs:options.costs}),72:buildThemeCrowding(effective,{asOf})};
   modules[67].archiveDerivation={...derived,eventOutcomes:derived.eventOutcomes.map(o=>({id:o.id,eventId:o.eventId,horizonSessions:o.horizonSessions}))};
+  modules[67].policyStudy=policyStudy(input.policyEvidence,input.newsJournalRows,modules[67],{asOf});
+  modules[68].macroStudy=macroStudy(input.macroEvidence,input.newsJournalRows,{asOf,background:input.background});
   modules[67].missing=[...new Set([...modules[67].missing,...derived.pending.map(r=>r.reason)])];
   return {schemaVersion:1,asOf,modules,riskObservations:Object.values(modules).flatMap(m=>m.riskObservations),
     missing:Object.values(modules).flatMap(m=>m.missing.map(reason=>({task:m.task,reason}))),...FLAGS};

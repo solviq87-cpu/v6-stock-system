@@ -1,0 +1,1020 @@
+{
+  "schemaVersion": 1,
+  "status": "combined-candidate-unverified",
+  "parent": "d56d35a618a9ec58e4b660e1a8e1e475122378b2",
+  "sources": [
+    {
+      "pr": 603,
+      "base": "c1d21913d346fabdae1b80e7e47d397d56c27edc",
+      "head": "f0cfce0abc1313837eb964f6ef0561c5b5d64e00"
+    },
+    {
+      "pr": 565,
+      "base": "a286dc0622f60f5685346ab35782a10b4f05e385",
+      "head": "74b1fc6fcdbbc606f4cb88637ac07e490da0f9e4"
+    },
+    {
+      "pr": 599,
+      "base": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+      "head": "85e9fe31fbf03e2ab7138ae28c632c2687828238"
+    },
+    {
+      "pr": 578,
+      "base": "b936ebdddb8c11948dd0e63f95332898dd5c1cf5",
+      "head": "6c9319f4ee355d8f0562c8761723df3c41c28472"
+    }
+  ],
+  "manifest": [
+    {
+      "path": "DEPLOYMENT.md",
+      "action": "keep original base; preserve other candidates' exact document deltas in separate receipt",
+      "sourcePrs": [
+        603,
+        565,
+        599,
+        578
+      ]
+    },
+    {
+      "path": "HANDOFF.md",
+      "action": "keep original base; preserve other candidates' exact document deltas in separate receipt",
+      "sourcePrs": [
+        603,
+        565,
+        599,
+        578
+      ]
+    },
+    {
+      "path": "V6_BO/config/data-source-registry-2026.json",
+      "sourcePr": 603,
+      "blob": "ab9d0fdae7d1511d34ed574de8ea2f762630af49"
+    },
+    {
+      "path": "V6_BO/public/nova/deep-research.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        603,
+        599
+      ],
+      "hunks": [
+        {
+          "pr": 603,
+          "hunks": [
+            {
+              "header": "@@ -106,15 +106,15 @@ export function renderRuntimeObservationCoverage(observation){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -124,6 +124,11 @@ export function renderBackgroundArchive(overview){",
+              "mode": "exact-hunk"
+            }
+          ]
+        },
+        {
+          "pr": 599,
+          "hunks": [
+            {
+              "header": "@@ -8,7 +8,7 @@ const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -270,7 +270,7 @@ export function renderDeepResearch(ctx){",
+              "mode": "exact-hunk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/public/nova/fayo.css",
+      "sourcePr": 603,
+      "blob": "38fc0a5b6cef01b7aa6b7c553af1ee240e1787ee"
+    },
+    {
+      "path": "V6_BO/public/nova/operations.js",
+      "sourcePr": 603,
+      "blob": "73f9bbeddc5939fec8a4648710bf2c7d465615ee"
+    },
+    {
+      "path": "V6_BO/scripts/fayo-advanced-safety-browser-check.js",
+      "action": "keep original dev C20 safety fixture",
+      "blob": "415ea83a9cc7f660e305c1667baf719b0f3c7c15",
+      "sourcePrs": [
+        603
+      ]
+    },
+    {
+      "path": "V6_BO/scripts/fayo-deep-research-browser-check.js",
+      "sourcePr": 603,
+      "blob": "d505ab5186da1fec6a75b7df7f9863a5cfa57dd1"
+    },
+    {
+      "path": "V6_BO/scripts/szse-etf-monthly.js",
+      "sourcePr": 603,
+      "blob": "12e4d9722b118f63a3b1effb90a834304782bdbe"
+    },
+    {
+      "path": "V6_BO/server.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        603
+      ],
+      "hunks": [
+        {
+          "pr": 603,
+          "hunks": [
+            {
+              "header": "@@ -128,7 +128,15 @@ function prepareRecommendationDelivery(text, options, now = Date.now()) {",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -139,9 +147,11 @@ function prepareRecommendationDelivery(text, options, now = Date.now()) {",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -10027,7 +10037,10 @@ function pushAll(text, force, opts) {",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -10102,8 +10115,16 @@ function pushAll(text, force, opts) {",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -10425,9 +10446,11 @@ const _fsPrivateQueue = FSQ.createQueue(",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -11810,12 +11833,12 @@ function approvedFactorCache(){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -11843,7 +11866,7 @@ function centerEvidenceRuntime(){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -21401,6 +21424,17 @@ function handle(req, res, u, body) {",
+              "mode": "exact-hunk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/src/core/data-source-readiness-audit.js",
+      "sourcePr": 603,
+      "blob": "507da45013674cb1b49f95d3de19e254aa2e8a78"
+    },
+    {
+      "path": "V6_BO/src/core/fayo-queued-plan-evidence.js",
+      "sourcePr": 603,
+      "blob": "4bee6877660d8f8ee631cf4f83e686cac6dc0784"
+    },
+    {
+      "path": "V6_BO/src/core/market-data-evidence.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        603
+      ],
+      "hunks": [
+        {
+          "pr": 603,
+          "hunks": [
+            {
+              "header": "@@ -249,6 +249,10 @@ function readMarketDataAsOf({root,decisionAt,provider,datasetId}={}){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -259,6 +263,9 @@ function backgroundScope(provider,value){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -270,6 +277,7 @@ function backgroundScope(provider,value){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -290,18 +298,24 @@ function backgroundRoot(root){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -316,7 +330,7 @@ function readBackgroundReceipt(root,event){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -332,14 +346,14 @@ function appendBackgroundReceipt({root,provider,scope:input,raw,byteBasis,reques",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -351,7 +365,7 @@ function readBackgroundAsOf({root,provider,scope:input,decisionAt}={}){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -389,14 +403,23 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){",
+              "mode": "exact-between-context"
+            },
+            {
+              "header": "@@ -389,14 +403,23 @@ function readBackgroundOverview({root,asOf=Date.now()}={}){",
+              "mode": "exact-unique-replacement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/src/core/paper-plan-notice-review.js",
+      "sourcePr": 603,
+      "blob": "6834a8b399936b2575111338b5030aee5233c987"
+    },
+    {
+      "path": "V6_BO/src/core/szse-etf-monthly.js",
+      "sourcePr": 603,
+      "blob": "0bb742b75548c4b27ab12d68473589ba49ce4621"
+    },
+    {
+      "path": "V6_BO/src/server/decision-evidence-runtime.js",
+      "sourcePr": 603,
+      "blob": "00f74c736b97494629bea9016d17e3d632ea691f"
+    },
+    {
+      "path": "V6_BO/src/server/risk-workbench-runtime.js",
+      "sourcePr": 603,
+      "blob": "ef7884dac074b5109003bbbc61e3229bf6e403f6"
+    },
+    {
+      "path": "V6_BO/tests/dashboard-push-privacy.test.js",
+      "action": "keep original dev C20 safety fixture",
+      "blob": "f11cedc2c19b008bd71b9e95ee26e393dd9576c1",
+      "sourcePrs": [
+        603
+      ]
+    },
+    {
+      "path": "V6_BO/tests/data-source-readiness-audit.test.js",
+      "sourcePr": 603,
+      "blob": "b7b92cf121b7aae0226f8eaf74a0df95ee553bd8"
+    },
+    {
+      "path": "V6_BO/tests/data-source-runtime-usage.test.js",
+      "sourcePr": 603,
+      "blob": "18d55c0ab7fd78a1b85b4d3ed81b3f354ca8a678"
+    },
+    {
+      "path": "V6_BO/tests/decision-evidence-server-contract.test.js",
+      "sourcePr": 603,
+      "blob": "651295ce81b3d9de6caaab439643090a5d053267"
+    },
+    {
+      "path": "V6_BO/tests/fayo-plan-card-evidence.test.js",
+      "sourcePr": 603,
+      "blob": "df16124b15a30783e9e95954bc62f7532624378e"
+    },
+    {
+      "path": "V6_BO/tests/fayo-queued-plan-evidence.test.js",
+      "sourcePr": 603,
+      "blob": "d7cef5a6ceb0f034159090951330a5b5ab4fdb8c"
+    },
+    {
+      "path": "V6_BO/tests/helpers/plan-notice-browser.cjs",
+      "sourcePr": 603,
+      "blob": "fe1a15bcfeb9ed5ea644fb55945e1b900db6dff5"
+    },
+    {
+      "path": "V6_BO/tests/recommendation-delivery.test.js",
+      "sourcePr": 603,
+      "blob": "78d54ee504cf155a750131195fb22744308bae39"
+    },
+    {
+      "path": "V6_BO/tests/risk-workbench-runtime-notifications.test.js",
+      "sourcePr": 603,
+      "blob": "478d04f649867716965d7a9bd46f4d218cf992d8"
+    },
+    {
+      "path": "V6_BO/tests/runtime-acceptance-view.test.mjs",
+      "sourcePr": 603,
+      "blob": "fa4ec937b3f1beec0378a1580db370bdc9452c89"
+    },
+    {
+      "path": "V6_BO/tests/szse-etf-monthly.test.js",
+      "sourcePr": 603,
+      "blob": "bfc9621d07a9826553b2f6835aedb545159e306d"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass2-queued-plan-20261128.md",
+      "sourcePr": 603,
+      "blob": "85ca51d88de732fb3350fd8b93db49e7b02fe9b4"
+    },
+    {
+      "path": "docs/validation/fayo-f38-plan-card-20261128/README.md",
+      "sourcePr": 603,
+      "blob": "5b025edde5d2389a9f1112cd2ec60c8f9fd39c23"
+    },
+    {
+      "path": "docs/validation/fayo-s08-etf/README.md",
+      "sourcePr": 603,
+      "blob": "d4ca9f4ae638b50f1e895fa4be71db143703e44e"
+    },
+    {
+      "path": "docs/validation/fayo-s08-etf/receipts.json",
+      "sourcePr": 603,
+      "blob": "0c9d54afd9eab856f14250787e95cb15742efac0"
+    },
+    {
+      "path": "docs/validation/fayo-s16-plan-read/README.md",
+      "sourcePr": 603,
+      "blob": "3415ef412ec96e2566669f07b75627ee8c4176ed"
+    },
+    {
+      "path": "docs/validation/fayo-s16-queue/README.md",
+      "sourcePr": 603,
+      "blob": "aec9b46e84f025b04e0f916bbed814b09b9e738b"
+    },
+    {
+      "path": "V6_BO/tests/news-evidence-http.test.js",
+      "sourcePr": 565,
+      "blob": "c8bf41eea7a49376e158371f8579ed07b74d93f8"
+    },
+    {
+      "path": "docs/validation/fayo-s14-gdp/README.md",
+      "sourcePr": 565,
+      "blob": "d71cccb5d0aee95d6a15fc6bda594b44c27a27f2"
+    },
+    {
+      "path": "docs/validation/fayo-s14-gdp/publications.js",
+      "sourcePr": 565,
+      "blob": "aa2ad773f1b9d799e3295b01fc4f569bebf03288"
+    },
+    {
+      "path": "docs/validation/fayo-s14-gdp/receipt.json",
+      "sourcePr": 565,
+      "blob": "2504a484f89ce2b34e1aebe21225e6051105cbac"
+    },
+    {
+      "path": "V6_BO/src/core/deep-research-evidence.js",
+      "sourcePr": 599,
+      "blob": "d248658602a1e35f8263e6804b3b06484a751930"
+    },
+    {
+      "path": "V6_BO/src/core/deep-research-workspace.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        599
+      ],
+      "hunks": [
+        {
+          "pr": 599,
+          "hunks": [
+            {
+              "header": "@@ -3,7 +3,7 @@",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -41,6 +41,7 @@ function importDeepEvidence(root,input,{now=Date.now(),authorize=()=>false}={}){",
+              "mode": "exact-hunk"
+            },
+            {
+              "header": "@@ -200,7 +201,7 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D",
+              "mode": "exact-hunk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/src/core/fayo-policy-macro-study.js",
+      "sourcePr": 599,
+      "blob": "62f319afc288b5addcac54f89f398a248cdd7b0c"
+    },
+    {
+      "path": "V6_BO/tests/deep-research-http.test.js",
+      "sourcePr": 599,
+      "blob": "fa07da56608f52bd21f69b140d6194e6ed5be62b"
+    },
+    {
+      "path": "V6_BO/tests/deep-research-workspace.test.js",
+      "sourcePr": 599,
+      "blob": "9357c65d00c24d13cb63070681cdf20ae6fa9ee9"
+    },
+    {
+      "path": "V6_BO/tests/fayo-policy-macro-study.test.js",
+      "sourcePr": 599,
+      "blob": "8e2fcdef0a2d6b6a3d3084db64a208190e5fd830"
+    },
+    {
+      "path": "V6_BO/tests/monetary-policy-chronology.test.js",
+      "sourcePr": 599,
+      "blob": "c2b897b816953269d651e1d75b75a73d0320a72e"
+    },
+    {
+      "path": "docs/validation/fayo-batch3-pass1-macro-policy/README.md",
+      "sourcePr": 599,
+      "blob": "b856bfb9be603059a3466f6facff85b929a50fd3"
+    },
+    {
+      "path": "docs/validation/fayo-policy-implementation/README.md",
+      "sourcePr": 599,
+      "blob": "fe9bb3d3d6d8cff68c1ff9db674cf9c9f1b6d1f9"
+    },
+    {
+      "path": "docs/validation/fayo-policy-implementation/replay.json",
+      "sourcePr": 599,
+      "blob": "88f95183149439a46d0bbc0965bbf5b21772d799"
+    },
+    {
+      "path": "V6_BO/public/nova/event-research.mjs",
+      "sourcePr": 578,
+      "blob": "df76515341dba2b582f10d801158eec9e0d750d3"
+    },
+    {
+      "path": "V6_BO/public/nova/research.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        578
+      ],
+      "hunks": [
+        {
+          "pr": 578,
+          "hunks": [
+            {
+              "header": "@@ -69,7 +69,7 @@ function renderReport(result,ctx){",
+              "mode": "identical-existing-hunk"
+            },
+            {
+              "header": "@@ -311,12 +311,48 @@ function evidence(ctx){",
+              "mode": "exact-hunk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/scripts/fayo-research-discipline-browser-check.js",
+      "action": "exact source patch reconciliation",
+      "sourcePrs": [
+        578
+      ],
+      "hunks": [
+        {
+          "pr": 578,
+          "hunks": [
+            {
+              "header": "@@ -136,7 +136,22 @@ const server=http.createServer((req,res)=>{",
+              "mode": "exact-unique-replacement"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "V6_BO/src/core/research-explanation-projection.js",
+      "sourcePr": 578,
+      "blob": "dc7ff504b44dce37f633649b539e1a0702271bfc"
+    },
+    {
+      "path": "V6_BO/src/strategy/historical-session.js",
+      "sourcePr": 578,
+      "blob": "c139ea07b9abd71808e229bf47f692a28dde3b87"
+    },
+    {
+      "path": "V6_BO/src/strategy/research-v2-limit-ladder-engine.js",
+      "sourcePr": 578,
+      "blob": "09bd59899c9604b5195c50c9b9339d2372994bac"
+    },
+    {
+      "path": "V6_BO/src/strategy/research-v2-universe-scanner.js",
+      "sourcePr": 578,
+      "blob": "707fdae9cfe40c052e9ab251941b4177ec478776"
+    },
+    {
+      "path": "V6_BO/src/strategy/universe-scanner.js",
+      "sourcePr": 578,
+      "blob": "e3f7622ac2e3959be5b179fc432930b17b462f53"
+    },
+    {
+      "path": "V6_BO/tests/fayo-capital-activity.test.mjs",
+      "sourcePr": 578,
+      "blob": "0e33bcc6f4e44c60a34034c8beaaee0a4617036c"
+    },
+    {
+      "path": "V6_BO/tests/fayo-capital-time-basis.test.mjs",
+      "sourcePr": 578,
+      "blob": "8b3cb7a9e07f2e250d6cc3ee6dc0b719b3ae60a0"
+    },
+    {
+      "path": "V6_BO/tests/fayo-event-research.test.mjs",
+      "sourcePr": 578,
+      "blob": "03aa486f01cd51483444fd7771acc23b26b662ab"
+    },
+    {
+      "path": "V6_BO/tests/fayo-index-adjustment.test.mjs",
+      "sourcePr": 578,
+      "blob": "919f017e4c2744df3fb853e73c01b5ef8167c98b"
+    },
+    {
+      "path": "V6_BO/tests/legacy-ladder-consistency.test.js",
+      "sourcePr": 578,
+      "blob": "373aa1468b720395d7e51874a6428c1f06495591"
+    },
+    {
+      "path": "V6_BO/tests/phase4-execution-limit-integrity.test.js",
+      "sourcePr": 578,
+      "blob": "9cd8ff1bc173ffd6015d6152a3082eaab29681a8"
+    },
+    {
+      "path": "V6_BO/tests/research-explanation-projection.test.js",
+      "sourcePr": 578,
+      "blob": "3a743fdda0c6f8778893e138769839d2bb2e196b"
+    },
+    {
+      "path": "V6_WEB/dist/assets/analysis.bundle.js",
+      "sourcePr": 578,
+      "blob": "c4b76958b880e7115144715054837783766f9779"
+    },
+    {
+      "path": "V6_WEB/src/vendor/historical-session.js",
+      "sourcePr": 578,
+      "blob": "c139ea07b9abd71808e229bf47f692a28dde3b87"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/README.md",
+      "sourcePr": 578,
+      "blob": "17b94b8438b55b25cd112b9c2c233d316efd6929"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/actual-buyback-1366.png",
+      "sourcePr": 578,
+      "blob": "3529cf291e3c0b7e62a5556db124b49b41a582de"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/actual-buyback-390.png",
+      "sourcePr": 578,
+      "blob": "db66bae431296933178f770dd7f5b0302601084d"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/actual-disposal-390.png",
+      "sourcePr": 578,
+      "blob": "5747cfe907a8f5ffef5e7cc5a8006590aa6a15ec"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/before-domain-guard.tap",
+      "sourcePr": 578,
+      "blob": "ddc958756e226f6147f34e8aef7524ad9ab44886"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/before.tap",
+      "sourcePr": 578,
+      "blob": "f4eadf816cfaaab249085c38abaaaa1d443efb17"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/browser.json",
+      "sourcePr": 578,
+      "blob": "bd16039989092990a9dfd25a1277fa7c4a331f77"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/browser.py",
+      "sourcePr": 578,
+      "blob": "8f30cb1824a0c81f0021b6b3f9bfaf178a0aa13e"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/full-summary.json",
+      "sourcePr": 578,
+      "blob": "0e6d1edc678f3d86525264b42b8539a8af7dd2f0"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/index-compatibility.json",
+      "sourcePr": 578,
+      "blob": "456f7a9186d9934f5277872fc22069cb3d2a606b"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/kernel-offline.tap",
+      "sourcePr": 578,
+      "blob": "6143e9c9d32f7fde6669d5f7524d6c3fc4f7e1d8"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/money-market-before.json",
+      "sourcePr": 578,
+      "blob": "483d310de95528bab1e91b3a826cb42a48412958"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/native.cjs",
+      "sourcePr": 578,
+      "blob": "8f190b38122344276c4467a56be26f36122f5855"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/native.json",
+      "sourcePr": 578,
+      "blob": "3dc80bb5f13d71da8930551dd02891e0c4e11f23"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/news-input.json",
+      "sourcePr": 578,
+      "blob": "76491ea96c40c9a557940dbbf04b4966ad56e57b"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/performance.cjs",
+      "sourcePr": 578,
+      "blob": "61d279f0bf83666c4b05e92ef2efe50133ada23d"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/performance.json",
+      "sourcePr": 578,
+      "blob": "05e6ac115aa4e14cdeca358dee4f0e9ff70e599b"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/raw-log-sha256.json",
+      "sourcePr": 578,
+      "blob": "006f212bdc46feb6709015e1ae9c3b386c3030a8"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/related.tap",
+      "sourcePr": 578,
+      "blob": "854f96443439699527ee5108b475d96489dec2b3"
+    },
+    {
+      "path": "docs/validation/fayo-capital-activity-20261128/source-receipts.json",
+      "sourcePr": 578,
+      "blob": "e9f412c925cbe15c2919524f8b810796d0f87f6c"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/README.md",
+      "sourcePr": 578,
+      "blob": "b86735bb7003304088dc0e6c6d81417d8498cc26"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/actual-buyback-1366.png",
+      "sourcePr": 578,
+      "blob": "66db0408dd57f70e1ced1027d55ce28f852caf08"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/actual-buyback-390.png",
+      "sourcePr": 578,
+      "blob": "dae4c25d29b2ab2d405ff7ad27a8363fa8c742dc"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/actual-disposal-390.png",
+      "sourcePr": 578,
+      "blob": "2cd323102c649b84b12a795d4c5090ea379309dc"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/approval-before.tap",
+      "sourcePr": 578,
+      "blob": "577fa0d19710f7cb61f591adda6b0554e146613e"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/before.tap",
+      "sourcePr": 578,
+      "blob": "1188afe89d5c25fdd670f4ea68dd6295112050d5"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/browser.json",
+      "sourcePr": 578,
+      "blob": "bd16039989092990a9dfd25a1277fa7c4a331f77"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/full-summary.json",
+      "sourcePr": 578,
+      "blob": "0c060de3f2265f25a912691ab2b5b1588b1e316a"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/kernel-offline.tap",
+      "sourcePr": 578,
+      "blob": "f0f095775f8052d362232261b1ea6b748ef08b4d"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/native.json",
+      "sourcePr": 578,
+      "blob": "1e1d10d4bd25f0dc50fcdd0f7008800757f89078"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/raw-log-sha256.json",
+      "sourcePr": 578,
+      "blob": "64a754fb4c89824c247ec94096a138eada5c1aa4"
+    },
+    {
+      "path": "docs/validation/fayo-capital-time-basis-20261128/related.tap",
+      "sourcePr": 578,
+      "blob": "86a36461ed0f19011483515243c8bc85b8e2e166"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/README.md",
+      "sourcePr": 578,
+      "blob": "0edfbc27f9ed720803ded7ec96bdbf0a6be9dd25"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/browser-regression.json",
+      "sourcePr": 578,
+      "blob": "110c30d616da24046b6c248b7292e25a2919ace4"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/browser.json",
+      "sourcePr": 578,
+      "blob": "12b0b657fbc49c7a5293acff2f448f68eb566fae"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/browser.py",
+      "sourcePr": 578,
+      "blob": "1cb6c94c96c49be3ba9f3bce264f16ec5a182098"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/history-1366.png",
+      "sourcePr": 578,
+      "blob": "efbb7c06c8e96d3de899a2cde82e1885ea7a18cb"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/history-390.png",
+      "sourcePr": 578,
+      "blob": "faf71ddecd87a2997868278b8063270b1b5695d2"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/history.json",
+      "sourcePr": 578,
+      "blob": "9d8f9301f786ed20cc7ce40355cc6a9b5162f994"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/incomplete-1366.png",
+      "sourcePr": 578,
+      "blob": "6f1d866dc3a2a1b7d975239c93fbb7e18c0f1b4b"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/incomplete-390.png",
+      "sourcePr": 578,
+      "blob": "425845ce47bdaa01f3489f0b8c84f8bfdb806678"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-browser.json",
+      "sourcePr": 578,
+      "blob": "98b984a4b0d2cd91263d7514c7d39c577bc09403"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-browser.py",
+      "sourcePr": 578,
+      "blob": "3eacb36377c1969858bad355285bbeb9e2c1a9a9"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-native.cjs",
+      "sourcePr": 578,
+      "blob": "cde0b6b2cff11f8be7392811921bb782448c2d4d"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-native.json",
+      "sourcePr": 578,
+      "blob": "deafe117529f58cadf4fe92027733517ea2cc300"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-normal-1366.png",
+      "sourcePr": 578,
+      "blob": "9bda24d506d8c823d14649399a7f1c836efba637"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/ladder-normal-390.png",
+      "sourcePr": 578,
+      "blob": "8abf8e31ed6e1e17e99a047e35aef0fbbd7f24c5"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-browser.json",
+      "sourcePr": 578,
+      "blob": "39a302123bd3bc83dc93627a2cb70d334e22545e"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-browser.py",
+      "sourcePr": 578,
+      "blob": "cc58689329f2cb15db96272379bb84d6b7beaede"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-excluded-1366.png",
+      "sourcePr": 578,
+      "blob": "fbf204e52c6a99ab5a7cd8dd2c0836d43ce89db2"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-excluded-390.png",
+      "sourcePr": 578,
+      "blob": "e67ea381e3dc4116836f8de7739ff630b72955a7"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-native.cjs",
+      "sourcePr": 578,
+      "blob": "c795d55049f523e06e6c252fd69933c63572117d"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/membership-native.json",
+      "sourcePr": 578,
+      "blob": "4cf36043b4647164601724f5ae2b68395885893a"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/native.cjs",
+      "sourcePr": 578,
+      "blob": "06368970a3b0b3e46de3bf54a71cbe292daad75e"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/native.json",
+      "sourcePr": 578,
+      "blob": "67376007d9e6e906262e60887a84a3bb77461676"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/render-before.txt",
+      "sourcePr": 578,
+      "blob": "88d93056c9633ecd9c54e82494c5d455bfc13c59"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/state-browser.json",
+      "sourcePr": 578,
+      "blob": "091418614e8e0896d47acae8c8180e12af58d0d7"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/state-browser.py",
+      "sourcePr": 578,
+      "blob": "8d51a0becb81a096d3aaf9c02a8ecef6db7214ce"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/state-native.cjs",
+      "sourcePr": 578,
+      "blob": "291c452f96f8c9bbe52cf32b2fe1ca18643cbbd6"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/state-summary.json",
+      "sourcePr": 578,
+      "blob": "fe61c693e1752b3718a9d0604f315d3c43c6b16e"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-1366.png",
+      "sourcePr": 578,
+      "blob": "7b4c88fbd6dce63897cd90d1e5a3303bddd301a7"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-390.png",
+      "sourcePr": 578,
+      "blob": "f941345f714fd8ad9be1b89ed80e2477196ce7a7"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-browser.json",
+      "sourcePr": 578,
+      "blob": "0886bc193708c7f09e3c37e2892cdf98ff6307ca"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-browser.py",
+      "sourcePr": 578,
+      "blob": "18a4d1b5a327aea29decae3d7bac925a8e0d327e"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-native.cjs",
+      "sourcePr": 578,
+      "blob": "0de9fe58e8dd8d4c86da9127173ef8024e2c1303"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-native.json",
+      "sourcePr": 578,
+      "blob": "4dd8471c2f098d98691f5e92620441acfa925a24"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-news-input.json",
+      "sourcePr": 578,
+      "blob": "b5696bb939e6e1923a688efb45f1562e83ca2243"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/type-source-receipts.json",
+      "sourcePr": 578,
+      "blob": "ab8c9662437dd51c0f1799b4ecd4303101720680"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/unknown.json",
+      "sourcePr": 578,
+      "blob": "b54e0058805038fc88abccc56ecbc2ad64d04362"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/unlimited.json",
+      "sourcePr": 578,
+      "blob": "f282d4710bb493e10203ec70bd84d3ded0ddb0ad"
+    },
+    {
+      "path": "docs/validation/fayo-dated-rules-20261127/web-build.json",
+      "sourcePr": 578,
+      "blob": "93d0ef94e299ce857c741d36585184f55b67ebc9"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/README.md",
+      "sourcePr": 578,
+      "blob": "6c6c7032f362e184eb2299ac627f06dfdf7d7e31"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/actual-current-1366.png",
+      "sourcePr": 578,
+      "blob": "6a6ef99ebb8594220d3a21f8f9aea144a65873d7"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/actual-current-390.png",
+      "sourcePr": 578,
+      "blob": "7163c2208b72ae109a92df720dd9c3899baa460a"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/before.tap",
+      "sourcePr": 578,
+      "blob": "fb8410b59b31fe4dacc66ff5cf02b43eb43d7944"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/browser.json",
+      "sourcePr": 578,
+      "blob": "e39a83e9659f15faf38961adb14d8b26638016d1"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/browser.py",
+      "sourcePr": 578,
+      "blob": "e2d6787feb533746223c5f6f96e3f2ced40b482e"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/event-related.tap",
+      "sourcePr": 578,
+      "blob": "0cfe70caf3374c30d66754344b1f06b029bae584"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/full-summary.json",
+      "sourcePr": 578,
+      "blob": "b7a17e372dce19696bf23696045a20d9f1615c32"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/kernel-offline.tap",
+      "sourcePr": 578,
+      "blob": "fd7718525a0e2276379961a2f16f06cb956156c3"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/native.cjs",
+      "sourcePr": 578,
+      "blob": "3bde9a952acf0dde45a52273d0e9dcd29abdac6a"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/native.json",
+      "sourcePr": 578,
+      "blob": "01460237d8462b24597801c7920088e98214b6e0"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/news-input.json",
+      "sourcePr": 578,
+      "blob": "e7617557612104ba967a5160fc9a89987f3b2cac"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/performance.cjs",
+      "sourcePr": 578,
+      "blob": "2f5ed4497b4983023f61faa19c0a2b858e9d1f15"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/performance.json",
+      "sourcePr": 578,
+      "blob": "c9f0912467848e981455de659a549fb4623da9e4"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/raw-log-sha256.json",
+      "sourcePr": 578,
+      "blob": "045dbad8aa9a95e8f5029b08d4da90b1b4fd1893"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/related.tap",
+      "sourcePr": 578,
+      "blob": "00b6549929762af3265a1a12c27a8c25d5a901b7"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/source-receipts.json",
+      "sourcePr": 578,
+      "blob": "87b83c0a38530da4c0e6d6a1d91e512c35c6eaa7"
+    },
+    {
+      "path": "docs/validation/fayo-index-adjustment-20261128/synthetic-withdrawn-390.png",
+      "sourcePr": 578,
+      "blob": "0296f7b721a8c5d292374d19f3ff4b9b18a962e5"
+    }
+  ],
+  "checks": [
+    {
+      "name": "server C20 entry binding",
+      "ok": true
+    },
+    {
+      "name": "server original notice and final price veto",
+      "ok": true
+    },
+    {
+      "name": "official background original ETF plus annual macro",
+      "ok": true
+    },
+    {
+      "name": "deep workspace both policy and risk budget",
+      "ok": true
+    },
+    {
+      "name": "native report both event and market",
+      "ok": true
+    },
+    {
+      "name": "both browser assertions",
+      "ok": true
+    },
+    {
+      "name": "deep UI original macro and ETF",
+      "ok": true
+    }
+  ],
+  "validation": {
+    "exactPatches": true,
+    "nativeRepositoryTestsRun": false,
+    "fullCIPassed": false
+  },
+  "preserveOlderBaseFiles": true,
+  "formalRelease": false
+}
