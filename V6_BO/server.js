@@ -128,7 +128,15 @@ function prepareRecommendationDelivery(text, options, now = Date.now()) {
   const rows = options.recommendationRows;
   if (!rows.length) return {ok: false, text: '', kind: 'missing-recommendation-evidence', canRecommend: false};
   const current = rows.map(row => reviewRecommendation(row, 'intraday-recommendation', now));
-  if (!options.forceHistoricalObservation && current.every(review => review.canRecommend)) {
+  // A second quote can only invalidate frozen current-price wording. It cannot
+  // supply missing evidence or renew the original candidate's quote clock.
+  const currentEligible = !options.forceHistoricalObservation && current.every(review => review.canRecommend);
+  const priceChanged = currentEligible && rows.some(row => {
+    const quote = S.lastPx?.get(row.code)?.wireQuote;
+    return quote && quote.code === row.code && quote.quoteAt >= row.quoteAt && quote.price !== row.price &&
+      require('./src/core/quote-observation-view').quoteUseEligibility(quote, now).canNotify;
+  });
+  if (currentEligible && !priceChanged) {
     newsReview=newsReview||recommendationNewsReview(rows,now);
     if(!newsReview.canRecommend)return rejectNews(newsReview);
     return {ok:true,text,kind:'intraday-recommendation',canRecommend:true,requiresNewsReview:true,newsRows:newsRows||freezeNewsRecommendationRows(rows),newsReview};
@@ -139,9 +147,11 @@ function prepareRecommendationDelivery(text, options, now = Date.now()) {
   const lines = rows.map(row => `▪ ${row.name || row.code}(${row.code}) 当时报价${row.price}` +
     `\n  原触发 ${new Date(row.triggerAt).toISOString()} · 报价原时点 ${new Date(row.quoteAt).toISOString()}` +
     `\n  证据ID ${row.signalId || '未完整冻结（partial）'}`);
-  return {ok:true,kind:'historical-trigger-observation',canRecommend:false,...newsMeta,
+  const historicalReason = priceChanged ? '较新或同时点的合格报价与触发价格不同，当前条件等待重新核实。'
+    : '该报价已过时或为手动历史重发；当前价格、资金和交易条件需重新核实。';
+  return {ok:true,kind:'historical-trigger-observation',reason:priceChanged?'CURRENT_PRICE_CHANGED':null,canRecommend:false,...newsMeta,
     text: '═══ 历史触发观察 · 非当前推荐 ═══\n' + lines.join('\n') +
-      '\n按原时点回放报价审核，不代表过去已经送达。该报价已过时或为手动历史重发；当前价格、资金和交易条件需重新核实。'};
+      '\n按原时点回放报价审核，不代表过去已经送达。' + historicalReason};
 }
 
 function auctionSendOptions(auction, message, historical = false) {
@@ -10027,7 +10037,10 @@ function pushAll(text, force, opts) {
   text = redactSecrets(text);   // ⛔ 凭据闸门：密码/令牌一律不许出网（2026-10-02）
   // kb 轮：把正文里的股票代码也写进 pushlog.extra，让每日收盘后能统一复盘各渠道命中率
   const _codes = extractStockCodes(text);
+  const planNotice = opts.private && opts.planNotice &&
+    require('./src/core/paper-plan-notice-review').noticeRef(opts.planNotice,opts.signalRefs);
   const _extra = base => Object.assign({}, base, { extra: { codes: _codes,
+    ...(planNotice?{planNotice}:{}),
     signalRefs: Array.isArray(opts.signalRefs) ? opts.signalRefs.map(a => ({ code: a.code, type: a.type, ts: a.ts, ...(/^[a-f0-9]{64}$/.test(a.signalId||'')?{signalId:a.signalId}:{}) })) : [] } });
   // ⛔ 2026-10-02 改：以前 essential=true 会让【副本实例也照发】（本意是"找回密码不能被副本吞掉"），
   //    实际后果是本地开发副本往用户手机狂发：找回验证码 44 条、只读申请、重置通知……
@@ -10102,8 +10115,16 @@ function pushAll(text, force, opts) {
   //    没配私密通道则记录私密未送达，不改发公共通道。
   //    ⚠️ 位置很讲究：必须排在副本拦截/条数闸门/夜间静默/面板推送【之后】，
   //       这样私密化只是"换个收件人"，不会顺手把静默和额度一起绕过去。
+  // The private worker already repeats the frozen-price review for each attempt.
+  // Public Feishu retries and the optional email transport use the same contract.
+  const publicQuoteOptions = !opts.private && delivery.canRecommend && Array.isArray(opts.recommendationRows)
+    ? {...opts, recommendationRows: Object.freeze(opts.recommendationRows.slice()), newsRecommendationRows: delivery.newsRows}
+    : null;
   const _newsReviewBeforeSend = delivery.requiresNewsReview ? () => {
-    const review=recommendationNewsReview(delivery.newsRows);
+    const latest = publicQuoteOptions && prepareRecommendationDelivery('', publicQuoteOptions);
+    if (latest && !latest.canRecommend && latest.newsReview?.canRecommend !== false)
+      return {ok:false,why:latest.reason==='CURRENT_PRICE_CHANGED'?'派发前价格已变化，等待重新核实':'派发前原推荐报价已失效'};
+    const review=latest?.newsReview || recommendationNewsReview(delivery.newsRows);
     if(review.canRecommend)return {ok:true};
     const why='新闻避险未通过：'+review.reason;
     _pushLast={ret:false,sent:false,why,t:Date.now()};
@@ -10425,9 +10446,11 @@ const _fsPrivateQueue = FSQ.createQueue(
     if (isReplica() && !job.options.manual) return cb(false, '本实例已切为副本，排队消息未发送');
     if (job.id !== feishuSecId() || job.secret !== (process.env.V6_FEISHU_PRIVATE_SECRET || (S.config && S.config.feishuSecSecret) || ''))
       return cb(false, '私密通道配置已变更，排队消息未发送');
-    if (job.options.recommendationRows && !job.options.forceHistoricalObservation &&
-        !prepareRecommendationDelivery(job.text, job.options).canRecommend)
-      return cb(false, '排队期间推荐证据失效，未发送');
+    if (job.options.recommendationRows && !job.options.forceHistoricalObservation) {
+      const checked = prepareRecommendationDelivery(job.text, job.options);
+      if (!checked.canRecommend) return cb(false, checked.reason==='CURRENT_PRICE_CHANGED'
+        ? '排队期间价格已变化，等待重新核实，未发送' : '排队期间推荐证据失效，未发送');
+    }
     return feishuProbe(job.id, job.secret, job.text).then(r => cb(r.ok, r.msg), () => cb(false, '送达结果未知：私密请求异常'));
   },
   { minGap: 1200, maxQ: 200, retry: 2, log: { warn: m => console.warn('[feishu-private] ' + m), error: m => console.error('[feishu-private] ' + m) } }
@@ -11511,6 +11534,18 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
 const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
+const {createIndexWindowResearch}=require('./src/core/index-window-research');
+const {createIndexNewsInvestigator}=require('./src/core/index-news-association');
+const investigateIndexNews=createIndexNewsInvestigator({
+  readNews:()=>S.news,allowsItem:newsEvidenceAllowsItem,currentState:newsEvidenceCurrent,
+  readSectors:()=>S.sectors,explicitSectorMatch:explicitNewsSectorMatch
+});
+const indexWindowResearch=createIndexWindowResearch({
+  historyRoot:path.join(__dirname,'data','index-window-research'),canPersist:()=>!isReplica(),
+  onHistoryError:code=>console.error('['+code+'] 研究基准未恢复或保存，当前报价与原账户不变'),
+  investigate:event=>investigateIndexNews(event),
+  reviewInvestigation:event=>investigateIndexNews(event,event.investigation.evidenceHashes)
+});
 const sessionIndices=require('./src/core/session-index-feed').createSessionIndexFeed({
   primary:()=>em.fetchIdxRt(),onUpdate:indices=>{S.idxRt=indices;}
 });
@@ -11597,6 +11632,8 @@ function sharedMarketRead(kind,edit) {
   state.dabanke=sharedDabanke(session,day);
   state.auctionObservations=sessionAuctionDisplay(session,day,state.marketRecovery);
   const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+  // Reading existing research is independent of dispatching supplier requests.
+  if(edit&&session.trading&&(!day||day===today))state.indexWindowResearch=indexWindowResearch.view(Date.now());
   if((!day||day===today)&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
     const feed=sessionIndices.read(session);
     state.indexChannels=feed.channels;
@@ -11810,12 +11847,12 @@ function approvedFactorCache(){
 }
 function centerEvidenceRuntime(){
   return decisionEvidenceRuntime??=require('./src/server/decision-evidence-runtime').createDecisionEvidenceRuntime({
-    isPrimary:()=>!isReplica()&&centerEvidenceEnabled(),
+    isPrimary:()=>!isReplica()&&centerEvidenceEnabled(),canReadArchive:()=>!isReplica(),
     session:now=>{const session=marketDisplaySession(now);return {...session,
       day:require('./src/core/limit-reason-evidence').normalizeDay(session.day),continuous:isContinuousTrading()};},
     readArchive:()=>require('./src/server/research-workspace-job').runWorkspaceJob({
       action:'shortline',root:shortlineResearchDir(),book:'main',replica:isReplica()}),
-    readContext:async plans=>{
+    readContext:async (plans,{publishReceipts=true}={})=>{
       const rules=await loadSystemPickRules(),decisions=await decisionCenterFor(true),now=Date.now();
       const book=_paperAuthority.pool.read(),account=require('./src/core/legacy-paper-projection').projectLegacy(book);
       const quotes=paperAuthorityQuotes(),marks=paperPrices(),policy=PAPER_CFG.pool;
@@ -11843,7 +11880,7 @@ function centerEvidenceRuntime(){
         const exitBlocked=account.enabled===false?'原模拟账户已暂停':quote&&isLimitDownPrice(plan.code,plan.name,quote.price)?'原退出巡检判定跌停，无法按该报价离场':null;
         exitEligibilityByPlan[plan.id]={allowed:exitBlocked?false:true,reason:exitBlocked||'原账户启用且原跌停巡检未拦截；仍须核对本计划可卖批次',checkedAt:now,quoteAt:quote?.quoteAt??null};
       }
-      advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
+      if(publishReceipts)advancedOriginalPlanReceipts={day:aShareCalendarDate(now),checkedAt:now,plans:activePlans.slice(0,20),
         checks:Object.fromEntries(activePlans.slice(0,20).map(plan=>[plan.id,entryEligibilityByPlan[plan.id]]))};
       return {book,quotes,calendar:paperAuthorityCalendar,entryEligibilityByPlan,exitEligibilityByPlan,now};
     },
@@ -19877,7 +19914,11 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
-      const readSessionIndices=()=>sessionIndices.read(marketDisplaySession());
+      const readSessionIndices=()=>{
+        const session=marketDisplaySession();
+        const feed=sessionIndices.read(session);
+        indexWindowResearch.observe(feed,session,Date.now());
+      };
       readSessionIndices();
       setInterval(readSessionIndices,5000).unref();
       setInterval(()=>{void sampleDecisionCrossChecks().catch(()=>{});},30000).unref();
@@ -21414,6 +21455,17 @@ function handle(req, res, u, body) {
   if (p === '/api/push-log' && req.method === 'GET') {
     let lTok = (u.searchParams && u.searchParams.get('token')) || '';
     if (!requireEditor(res, lTok, req)) return;
+    if (u.searchParams.has('planNotice')) {
+      const id=u.searchParams.get('planNotice');
+      const entry=/^[a-f0-9]{64}$/.test(id||'') && PUSH_LOG.find(row=>row?.extra?.planNotice?.deliveryId===id);
+      const ref=entry && require('./src/core/paper-plan-notice-review').noticeRef(entry.extra.planNotice,entry.extra.signalRefs);
+      if(!ref)return json(res,{ok:false,error:'未找到此投递对应的原计划凭据'});
+      const authorized=()=>isEditorReq(req,lTok||req.__tok);
+      return centerEvidenceRuntime().reviewNotice(ref,authorized).then(result=>{
+        if(!requireEditor(res,lTok,req))return;
+        return json(res,{ok:true,result});
+      }).catch(()=>{if(requireEditor(res,lTok,req))json(res,{ok:false,error:'计划复核暂不可用'});});
+    }
     // gov = 节流器状态（与 /api/state 的 pushGov 同源同一份，见 pushGovStat）
     // —— 让人在翻流水时顺带看见"今天还剩多少名额、拦了几条"，不用去别处找。
     // ⛔⛔ hw 轮修「早上的竞价到底发没发，永远查不到」：

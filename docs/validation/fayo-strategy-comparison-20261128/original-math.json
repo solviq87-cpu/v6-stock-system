@@ -1,0 +1,8 @@
+{
+  "baseline": "baf2f520362f94aa3a81405620d145ab325ae918",
+  "path": "V6_BO/src/core/strategy-portfolio-lab.js",
+  "scope": "Original imports/constants and all financial replay functions before the new comparison helpers",
+  "beforeSha256": "a812c2af0d455d331676a46da337f7f49a080eb9d01c5e9d5ddf74bf18d73237",
+  "afterSha256": "a812c2af0d455d331676a46da337f7f49a080eb9d01c5e9d5ddf74bf18d73237",
+  "unchanged": true
+}

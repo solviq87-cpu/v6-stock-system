@@ -1,6 +1,7 @@
 import hashlib
 import importlib.util
 import json
+import platform
 from pathlib import Path
 import shutil
 import subprocess
@@ -12,6 +13,40 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'V6_BO/scripts/build-windows-host
 spec = importlib.util.spec_from_file_location('windows_host_builder', SCRIPT)
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+
+
+@unittest.skipUnless(platform.system() == "Linux" and platform.machine() in {"x86_64", "aarch64"}, "WSL installer needs Linux")
+class OfflineNodeInstall(unittest.TestCase):
+    def test_untrusted_or_incomplete_material_never_triggers_download(self):
+        script = SCRIPT.parents[1] / "deploy/windows-host/install-node.sh"
+        arch = {"x86_64": "x64", "aarch64": "arm64"}[platform.machine()]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tools, home, materials = [root / name for name in ("bin", "user", "offline materials")]
+            for folder in [tools, home, materials]:
+                folder.mkdir()
+            for name in ("bash", "tar", "sha256sum", "mktemp", "uname", "python3", "rm"):
+                (tools / name).symlink_to(shutil.which(name))
+            curl = tools / "curl"
+            curl.write_text("#!/bin/sh\n: > \"$HOME/download-attempt\"\nexit 1\n")
+            curl.chmod(0o700)
+            archive = materials / ("node-v22.23.5-linux-" + arch + ".tar.xz")
+            archive.write_bytes(b"untrusted fixture")
+            checksums = materials / "SHASUMS256.txt"
+            for case in ["missing", "matching-untrusted-hash", "symlink"]:
+                with self.subTest(case=case):
+                    if case == "matching-untrusted-hash":
+                        checksums.write_text(hashlib.sha256(archive.read_bytes()).hexdigest() + "  " + archive.name + "\n")
+                    elif case == "symlink":
+                        archive.unlink()
+                        archive.symlink_to(checksums)
+                    result = subprocess.run(["/bin/bash", str(script), "--offline-dir", str(materials)],
+                                            env={"HOME": str(home), "PATH": str(tools)}, capture_output=True, timeout=10)
+                    self.assertNotEqual(result.returncode, 0)
+                    if case == "matching-untrusted-hash":
+                        self.assertIn(b"checksum-mismatch", result.stderr)
+                    self.assertFalse((home / "download-attempt").exists())
+                    self.assertFalse((home / ".local").exists())
 
 
 class HostBundle(unittest.TestCase):

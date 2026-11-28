@@ -47,14 +47,16 @@ function universeObservation(rows,symbol,date,{at='close'}={}){
  if(rows==null)return {eligible:true,verified:false,sector:null};
  if(!Array.isArray(rows)||!symbolOK(symbol)||!validDate(date)||!['open','close'].includes(at))throw Error('股票池证券或决策日期无效');
  const decisionAt=Date.parse(date+(at==='open'?'T09:30:00+08:00':'T15:00:00+08:00')),
-  row=rows.find(r=>r&&r.symbol===symbol&&r.from<=date&&date<=r.through);
+  matches=rows.filter(r=>r&&r.symbol===symbol&&r.from<=date&&date<=r.through),row=matches[0];
+ if(matches.length>1)return {eligible:false,verified:false,sector:null,reason:'AMBIGUOUS_POINT_IN_TIME_MEMBERSHIP'};
  if(row)validateMembershipRow(row);
  if(!row||Date.parse(row.knownAt)>decisionAt)return {eligible:false,verified:false,sector:null,reason:'NO_POINT_IN_TIME_MEMBERSHIP'};
  const base={eligible:row.eligible,verified:false,sector:row.sector||null,source:row.source,knownAt:row.knownAt},s=row.securityMaster;
  if(s===undefined)return rows.some(r=>r.securityMaster!==undefined)?{...base,eligible:false,reason:'MISSING_POINT_IN_TIME_SECURITY_MASTER'}:base;
- const reason=Date.parse(s.availableAt)>decisionAt?'SECURITY_MASTER_NOT_AVAILABLE':date<s.listedOn?'NOT_YET_LISTED':
+ if(Date.parse(s.availableAt)>decisionAt)return {...base,eligible:false,reason:'SECURITY_MASTER_NOT_AVAILABLE',securityCoverage:'not-available-at-decision'};
+ const reason=date<s.listedOn?'NOT_YET_LISTED':
   s.delistedOn!==null&&date>=s.delistedOn?'DELISTED':s.suspended?'HISTORICAL_SUSPENSION':s.isST?'HISTORICAL_ST':null;
- return {...base,eligible:base.eligible&&!reason,reason,securityMaster:{...s},securityCoverage:'declared-unverified'};
+ return {...base,eligible:base.eligible&&!reason,reason,securityMaster:{...s},securityCoverage:'declared-unverified',securityLifecycle:{listingAgeCalendarDays:date>=s.listedOn?Math.round((Date.parse(date)-Date.parse(s.listedOn))/86400000):null,intervalFrom:row.from,intervalThrough:row.through,dataVersion:s.dataVersion,feeVersion:s.feeVersion,availableAt:s.availableAt,verifiedExternal:false}};
 }
 
 /** Validate a declared complete PIT dataset at the original import/backtest

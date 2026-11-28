@@ -1,0 +1,61 @@
+(node:1309169) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/fayo-dated-rules/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/fayo-dated-rules/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ late retraction cannot change historical evidence (5.94229ms)
+✔ missing earlier version and future or invalid clocks remain unknown (0.564152ms)
+✔ explicit all-market scope cannot silently become a candidate-pool ranking (2.651142ms)
+✔ unfinished condition never executes (0.477691ms)
+✔ 普通股类型只绑定同一原文行的代码，不传播到同文档优先股 (3.336838ms)
+✔ 优先股与转债代码字段分别绑定，不将同文档证券代码当作相同类型 (0.786006ms)
+✔ 基金分类股票型不等于公司普通股，ETF身份来自基金文档和代码字段 (0.577372ms)
+✔ 无原文类型字段不按代码前缀或证券名称推断 (0.605044ms)
+✔ 冲突类型和多个基金代码保留歧义，不选第一个解释 (1.796182ms)
+✔ 未关联代码、坏输入及文本指令不能获得资格或触发外部操作 (0.804285ms)
+✔ 类型线索随原事件版本失效，旧截点仍保留当时的文档解释 (0.657433ms)
+✔ 并列字段和代码续行保持边界，畸形类型输入安全返回未知 (0.736021ms)
+✔ 普通股行出现多个代码且无逐列绑定时保持未知 (0.209556ms)
+✔ 仅返回最新修订时说明本页链不完整，不断言它是旧版本 (0.40399ms)
+✔ 补齐修订链后恢复本页线索展示，历史截点保留原版 (0.374525ms)
+✔ 被替代版本与来源撤稿分别保留明确原因 (0.393985ms)
+✔ 查询证券关联被移除不能被显示为旧版本或已撤稿 (0.295776ms)
+✔ 多个停用原因及类型冲突同时保留，不签发资格 (0.356158ms)
+✔ 未声明或不支持的停用原因返回待核对，外部文字不能变成批准 (0.295506ms)
+✔ 指数调样摘要保留日期精度及收市后阶段，不补精确发布或生效时刻 (14.810769ms)
+✔ 调出调入方向来自明确列头，仅绑定同一指数及已登记证券 (5.639424ms)
+✔ 日期到达或经过仍是执行未核实，不成为已实施或实际买入 (4.487634ms)
+✔ 日期型实施声明不推断开盘、生效时分或交易日调整 (0.377841ms)
+✔ 冲突日期、冲突阶段和非法日期均不选一个计划 (4.24593ms)
+✔ 日历按归档截点可知，晚取得旧公告不能倒填历史 (0.813669ms)
+✔ 撤稿、被替代、移除关联和缺链使日历失效，历史截点保留原计划 (9.323947ms)
+✔ 澄清、取消或延期文本不把引用旧日期视为可用计划 (0.57671ms)
+✔ 反列头、重复代码、未登记关联及不完整行不猜调样方向 (0.818856ms)
+✔ 表格按明确指数标题分段，不将首表名单传播至其他指数 (0.394836ms)
+✔ 没有成分调样上下文、过长正文及缺少日期保持无能力或未知 (0.4901ms)
+✔ 文本中的交易指令、权重及金额不产生资金估算或权限 (0.184088ms)
+✔ real server editor-only reads, explicit CLI writes, unknown failure and persistent restart (1292.184712ms)
+✔ persisted original, two revisions and terminal retraction survive a separate process restart (142.50586ms)
+✔ revision identity dedupes repeated intake but conflicts never overwrite (5.004656ms)
+✔ wrong supersedes, event/source, original clock and post-retraction edits fail closed (6.573113ms)
+✔ future clocks are rejected and missing source time/link stays unknown rather than received time (5.340643ms)
+✔ invalid batch validates before any publish; read-only empty query creates no directory (7.159388ms)
+✔ mutation, chain gaps, symlinks, exposed output and active writers are observable failures (5.057405ms)
+✔ provider batches preserve source clocks, dedupe columns and mark un-timed revisions unknown (21.498815ms)
+✔ provider time parsing uses explicit China zone, rejects ambiguity and invalid civil dates (0.207674ms)
+✔ actual server producer metadata does not replace absent, invalid or future publication with receipt time (6.949992ms)
+✔ existing server consumers refresh retractions after CLI append without process restart (27.739387ms)
+✔ full provider seed batches over 200 rows are preserved rather than silently truncated (272.316218ms)
+✔ read-only UI uses text nodes for titles/body and rejects script and credential links (1.495508ms)
+✔ D65/D40 sparse securities are rejected before append and cannot poison journal recovery (3.863633ms)
+✔ D65 current and point-in-time news queries reject coerced security identities (2.642008ms)
+✔ news private results clear on hiding and delayed responses cannot restore them (3.655849ms)
+✔ credential and symbol changes invalidate old news requests without enabling a newer pending request (5.397859ms)
+✔ news permission failure and offline transition remove already displayed private evidence (1.453364ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1453.83567

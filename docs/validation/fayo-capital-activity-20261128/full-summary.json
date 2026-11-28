@@ -1,0 +1,12 @@
+{
+  "command": "npm test (existing PowerShell/local model runtimes, one BLAS thread)",
+  "scope": "source 6a27214 plus this increment; exact production hashes in native.json",
+  "stats": {
+    "tests": 8088,
+    "pass": 8088,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 151765.656227
+}

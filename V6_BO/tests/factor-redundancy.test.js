@@ -119,3 +119,12 @@ test('correlation rejects nonfinite inputs and suppression never coerces malform
   assert.deepEqual(r.suppressedFactorIds,[]);
  }
 });
+
+test('F47.4 exact frozen duplicate values are retained apart from rank correlation and do not add a suppression rule',()=>{
+ const a=assessFactorRedundancy(days(25),id,reliability);assert.equal(a.exactValueDuplicatePairs.length,1);const p=a.exactValueDuplicatePairs[0];assert.equal(p.comparedRows,150);assert.equal(p.exactEqualRows,150);assert.equal(p.exactEqualDays,25);assert.equal(p.definitionEquivalent,null);assert.equal(p.changesOriginalSuppression,false);
+ const scaled=assessFactorRedundancy(days(25,(_i,j)=>({a:10+j*10,b:20+j*10,c:[20,80,40,70,10,90][j]})),id,reliability);assert.equal(scaled.pairs[0].relationship,'strong-positive');assert.equal(scaled.exactValueDuplicatePairs.length,0);
+});
+test('F47.4 flat equal values remain recorded without fabricating rank correlation, short history unknown',()=>{
+ const flat=assessFactorRedundancy(days(25,(_i,j)=>({a:50,b:50,c:[20,80,40,70,10,90][j]})),id,reliability);assert.equal(flat.exactValueDuplicatePairs.length,1);assert.equal(flat.pairs[0].medianRankCorrelation,null);assert.deepEqual(flat.suppressedFactorIds,[]);
+ const few=assessFactorRedundancy(days(10),id,reliability);assert.equal(few.exactValueDuplicatePairs.length,0);assert.equal(few.pairs[0].exactValueEvidence.status,'insufficient-training-days');
+});

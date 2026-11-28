@@ -1,6 +1,7 @@
 'use strict';
 // Local append-only evidence, not a source/timestamp attestation or sentiment model.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {projectNewsAttention}=require('./fayo-news-attention');
 const ROOT=path.resolve(__dirname,'../../data/news-evidence');
 const MAX_EVENTS=10000,MAX_FILE=128*1024,MAX_TOTAL=128*1024*1024;
 const FLAGS=Object.freeze({canTrade:false,canTrain:false,canNotify:false,
@@ -145,7 +146,7 @@ function query(root=ROOT,{symbol=null,limit=50,now=Date.now()}={}){
    supportStatus:!current?'superseded':x.kind==='retracted'?'retracted':unknown?'unknown':'source-declared-unverified'};
  });
  const current=rows.filter(e=>e.current);
- return {schemaVersion:1,mode:'news-evidence-readonly',total:rows.length,rows:rows.slice(-limit).reverse(),
+ return {schemaVersion:1,mode:'news-evidence-readonly',total:rows.length,rows:rows.slice(-limit).reverse(),attention:projectNewsAttention(all,{asOf:now,symbol}),
   summary:{totalRevisions:rows.length,currentEvents:current.length,
    retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
    eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,
@@ -240,7 +241,7 @@ function queryAt(root=ROOT,{symbol=null,limit=50,offset=0,asOf=Date.now(),now=Da
  });
  const current=rows.filter(e=>e.current);
  return {schemaVersion:1,mode:'news-evidence-readonly',asOf,total:rows.length,offset,limit,
-   nextOffset:offset+limit<rows.length?offset+limit:null,rows:rows.slice().reverse().slice(offset,offset+limit),
+   nextOffset:offset+limit<rows.length?offset+limit:null,rows:rows.slice().reverse().slice(offset,offset+limit),attention:projectNewsAttention(all,{asOf,symbol}),
    summary:{totalRevisions:rows.length,currentEvents:current.length,retractedEvents:current.filter(e=>e.supportStatus==='retracted').length,
    eligibleForResearchSupport:current.filter(e=>e.eligibleForResearchSupport).length,unknownEvents:current.filter(e=>e.supportStatus==='unknown').length},
    headHash:all.at(-1)?.eventHash||null,readonly:true,...FLAGS};

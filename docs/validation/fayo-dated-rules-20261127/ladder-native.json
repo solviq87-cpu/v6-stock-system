@@ -1,0 +1,2494 @@
+{
+  "scope": "Synthetic history imported into the original authenticated complete-run worker and original desktop/mobile research workflow. No security status or price is externally certified.",
+  "baseline": "0f5f24dfe86ec36e0163ccdc2b3f24966a36192a",
+  "sourceFiles": {
+    "src/strategy/historical-session.js": "063e38dd440ca6cf50b278ecf4a9e4c30b25400c81dea9ec4a74431af92b4b21",
+    "src/strategy/research-v2-limit-ladder-engine.js": "ec500a58c357ad82895217950fc2f6d1607eb84561c440e155df2b6bb8a7f307",
+    "src/strategy/universe-scanner.js": "2e21d7ed2f17a6493f26f5071e1311332f5c19cb6842bb3fbf9761929bc552c7",
+    "src/strategy/research-v2-universe-scanner.js": "9e41da6f45c1a615f306bf8d366c819756595ed45412a4dcb77c7205f3e287a9",
+    "src/core/research-explanation-projection.js": "5a0600ec4d93037be7ca3c5a687c5312c137c5cb489f47e50e36d746ecc75d4f",
+    "public/nova/research.js": "aee51c08ce9518fc8f688277e6806044a44468c32493852e87198530797b0e4a"
+  },
+  "rows": [
+    {
+      "input": "ladder-normal.json",
+      "sha256": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+      "http": 200,
+      "matched": true,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "backtest": {
+        "status": "insufficient",
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "riskPauseDays": 0,
+          "closedTrades": 0,
+          "winRatePct": null
+        },
+        "statistics": {
+          "observations": 13,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "cashFlows": [
+          {
+            "day": 27,
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "holdout": {
+          "status": "not-tested",
+          "reason": "未预先指定样本外分割点"
+        },
+        "assumptions": [
+          "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+          "卖出受阻继续持仓并每日按收盘价估值",
+          "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+          "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+          "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+        ],
+        "warnings": [],
+        "trades": [],
+        "orders": [],
+        "equity": [
+          {
+            "day": 27,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 28,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 29,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 30,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 31,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 32,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 33,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 34,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 35,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 36,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 37,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 38,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 39,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          }
+        ],
+        "openPositions": [],
+        "releaseEligible": false,
+        "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+      },
+      "paper": {
+        "schemaVersion": 1,
+        "mode": "offline-paper-replay",
+        "source": "imported",
+        "verifiedLive": false,
+        "canTrade": false,
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "fingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+        "cashFlows": [
+          {
+            "day": "2026-02-01",
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "statistics": {
+          "observations": 9,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "config": {
+          "initialCash": 100000,
+          "maxPositions": 3,
+          "allocationPct": 0.25,
+          "feeBps": 8,
+          "slippageBps": 10,
+          "sellTaxBps": 5,
+          "stopLossPct": 0.08,
+          "startDay": 31,
+          "maxDrawdownPausePct": null,
+          "maxDailyLossPausePct": null,
+          "maxParticipationPct": null,
+          "minPriorTurnover": null
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "riskPauseDays": 0,
+          "openPositions": 0
+        },
+        "positions": [],
+        "orders": [],
+        "equity": [
+          {
+            "date": "2026-02-01",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-02",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-03",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-04",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-05",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-06",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-07",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-08",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-09",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          }
+        ],
+        "signals": [
+          {
+            "signalDate": "2026-01-31",
+            "executionDate": "2026-02-01",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "21d18f475a1a3937c6ff23a6ec91357c74e848884773db7bdb8ac1ea6b7ef7e5",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-01",
+            "executionDate": "2026-02-02",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "c731237c662382fae9758499762581a5a236bdb500fa8fa63c291ef3efb20c09",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-02",
+            "executionDate": "2026-02-03",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "e5bfe03296e72f810d3e4f5d87e0c5781211045bbd688f9097eadba13a85a321",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-03",
+            "executionDate": "2026-02-04",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "b25bbd4fd984140d7b0ea32c9827901677c0edd1a1c443bb4d5e9582635880cc",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-04",
+            "executionDate": "2026-02-05",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "abdba01718b17e64e600482d2ac87d24a27105ed531127b0aeabece656958094",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-05",
+            "executionDate": "2026-02-06",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "1879dfbfd6b992484668ffe06390e60095ff756c032c9a301d72b537b661c615",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-06",
+            "executionDate": "2026-02-07",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "49b2fd061d47161783a1a7505d1a620c6776d2b7da2373218346036ee1c7a1cd",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-07",
+            "executionDate": "2026-02-08",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "fb87609aad0d88b19397fefe14266f5bd034d450e3b98404b8799800c17caf55",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-08",
+            "executionDate": "2026-02-09",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "accb8fdfc294279590d3e7f51125d85e53327dbbdaeda5094dd19cfbbc36c345",
+            "canTrade": false
+          }
+        ],
+        "provenance": {
+          "kind": "offline-replay-only",
+          "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+          "ordersWithSignalReference": 0,
+          "canTrade": false
+        },
+        "warnings": [
+          "使用历史日线的下一交易日开盘价进行纸面撮合，不代表真实可成交",
+          "不包含盘口排队、部分成交、退市及公司行为完整对账",
+          "仅供离线研究，不构成自动交易授权"
+        ],
+        "provenanceAudit": {
+          "ok": true,
+          "errors": [],
+          "signals": 9,
+          "orders": 0,
+          "linkedOrders": 0,
+          "datasetFingerprint": "65c08e6702cc58d1dee41846959314e05e17a4eef8bdacbb119145d0b1b80784",
+          "canTrade": false
+        },
+        "accountReconciliation": {
+          "ok": true,
+          "complete": true,
+          "tolerance": 0.02,
+          "tradeCount": 0,
+          "missingFee": 0,
+          "invalidTrades": 0,
+          "cash": {
+            "rebuilt": 100000,
+            "actual": 100000,
+            "diff": 0
+          },
+          "realized": {
+            "rebuilt": 0,
+            "actual": 0,
+            "diff": 0
+          },
+          "positions": {
+            "rebuiltSymbols": 0,
+            "actualSymbols": 0,
+            "differences": []
+          },
+          "errors": [],
+          "mode": "offline-paper-replay-read-only",
+          "canTrade": false
+        }
+      }
+    },
+    {
+      "input": "ladder-no-limit.json",
+      "sha256": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "backtest": {
+        "status": "insufficient",
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "riskPauseDays": 0,
+          "closedTrades": 0,
+          "winRatePct": null
+        },
+        "statistics": {
+          "observations": 13,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "cashFlows": [
+          {
+            "day": 27,
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "holdout": {
+          "status": "not-tested",
+          "reason": "未预先指定样本外分割点"
+        },
+        "assumptions": [
+          "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+          "卖出受阻继续持仓并每日按收盘价估值",
+          "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+          "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+          "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+        ],
+        "warnings": [],
+        "trades": [],
+        "orders": [],
+        "equity": [
+          {
+            "day": 27,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 28,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 29,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 30,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 31,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 32,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 33,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 34,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 35,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 36,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 37,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 38,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 39,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          }
+        ],
+        "openPositions": [],
+        "releaseEligible": false,
+        "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+      },
+      "paper": {
+        "schemaVersion": 1,
+        "mode": "offline-paper-replay",
+        "source": "imported",
+        "verifiedLive": false,
+        "canTrade": false,
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "fingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+        "cashFlows": [
+          {
+            "day": "2026-02-01",
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "statistics": {
+          "observations": 9,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "config": {
+          "initialCash": 100000,
+          "maxPositions": 3,
+          "allocationPct": 0.25,
+          "feeBps": 8,
+          "slippageBps": 10,
+          "sellTaxBps": 5,
+          "stopLossPct": 0.08,
+          "startDay": 31,
+          "maxDrawdownPausePct": null,
+          "maxDailyLossPausePct": null,
+          "maxParticipationPct": null,
+          "minPriorTurnover": null
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "riskPauseDays": 0,
+          "openPositions": 0
+        },
+        "positions": [],
+        "orders": [],
+        "equity": [
+          {
+            "date": "2026-02-01",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-02",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-03",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-04",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-05",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-06",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-07",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-08",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-09",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          }
+        ],
+        "signals": [
+          {
+            "signalDate": "2026-01-31",
+            "executionDate": "2026-02-01",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "9fc14ea1b9acce0bf5a9fce97e1fb049ea240c76ed06a7e1617309c0e2af8816",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-01",
+            "executionDate": "2026-02-02",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "6b3c8275782adadad45e5b2eae046ec7a272907c5d730e93fdce8c8d14970e5a",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-02",
+            "executionDate": "2026-02-03",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "53a363ece06c1014b215aae5e42638a10f2666a19c95cf741ce6241b7cf23553",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-03",
+            "executionDate": "2026-02-04",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "a29a3c872a553fdf61f8a45b550abf27d9f66e3af255554052d35bc4d210ee87",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-04",
+            "executionDate": "2026-02-05",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "7e5f32864c94f46d03004356b03ab21a044393adc3f9c6805534dbec27576a4c",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-05",
+            "executionDate": "2026-02-06",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "cdbe7781afb8bfce23c39ce9f83aff5390171c3cd1005dc3d52b99b6edd61b33",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-06",
+            "executionDate": "2026-02-07",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "985ed88a00d73837b5eef7ae281208af12b0a51b7f9c832bb81418df61f0280f",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-07",
+            "executionDate": "2026-02-08",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "446011f879ac70735b9c5711d1f3eef66db75154ff0c72fa6e6be5003b484fdf",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-08",
+            "executionDate": "2026-02-09",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "6eef774755280dbab0a83c2ab069ee91c4557d33f7eca63c87277444b8080124",
+            "canTrade": false
+          }
+        ],
+        "provenance": {
+          "kind": "offline-replay-only",
+          "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+          "ordersWithSignalReference": 0,
+          "canTrade": false
+        },
+        "warnings": [
+          "使用历史日线的下一交易日开盘价进行纸面撮合，不代表真实可成交",
+          "不包含盘口排队、部分成交、退市及公司行为完整对账",
+          "仅供离线研究，不构成自动交易授权"
+        ],
+        "provenanceAudit": {
+          "ok": true,
+          "errors": [],
+          "signals": 9,
+          "orders": 0,
+          "linkedOrders": 0,
+          "datasetFingerprint": "0c491a31950b9e10f57ad3d22aec061f731077bea0ef4b02defeaa9c9cf28a50",
+          "canTrade": false
+        },
+        "accountReconciliation": {
+          "ok": true,
+          "complete": true,
+          "tolerance": 0.02,
+          "tradeCount": 0,
+          "missingFee": 0,
+          "invalidTrades": 0,
+          "cash": {
+            "rebuilt": 100000,
+            "actual": 100000,
+            "diff": 0
+          },
+          "realized": {
+            "rebuilt": 0,
+            "actual": 0,
+            "diff": 0
+          },
+          "positions": {
+            "rebuiltSymbols": 0,
+            "actualSymbols": 0,
+            "differences": []
+          },
+          "errors": [],
+          "mode": "offline-paper-replay-read-only",
+          "canTrade": false
+        }
+      }
+    },
+    {
+      "input": "ladder-ipo.json",
+      "sha256": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "backtest": {
+        "status": "insufficient",
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "riskPauseDays": 0,
+          "closedTrades": 0,
+          "winRatePct": null
+        },
+        "statistics": {
+          "observations": 13,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "cashFlows": [
+          {
+            "day": 27,
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "holdout": {
+          "status": "not-tested",
+          "reason": "未预先指定样本外分割点"
+        },
+        "assumptions": [
+          "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+          "卖出受阻继续持仓并每日按收盘价估值",
+          "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+          "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+          "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+        ],
+        "warnings": [],
+        "trades": [],
+        "orders": [],
+        "equity": [
+          {
+            "day": 27,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 28,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 29,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 30,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 31,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 32,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 33,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 34,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 35,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 36,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 37,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 38,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 39,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          }
+        ],
+        "openPositions": [],
+        "releaseEligible": false,
+        "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+      },
+      "paper": {
+        "schemaVersion": 1,
+        "mode": "offline-paper-replay",
+        "source": "imported",
+        "verifiedLive": false,
+        "canTrade": false,
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "fingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+        "cashFlows": [
+          {
+            "day": "2026-02-01",
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "statistics": {
+          "observations": 9,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "config": {
+          "initialCash": 100000,
+          "maxPositions": 3,
+          "allocationPct": 0.25,
+          "feeBps": 8,
+          "slippageBps": 10,
+          "sellTaxBps": 5,
+          "stopLossPct": 0.08,
+          "startDay": 31,
+          "maxDrawdownPausePct": null,
+          "maxDailyLossPausePct": null,
+          "maxParticipationPct": null,
+          "minPriorTurnover": null
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "riskPauseDays": 0,
+          "openPositions": 0
+        },
+        "positions": [],
+        "orders": [],
+        "equity": [
+          {
+            "date": "2026-02-01",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-02",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-03",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-04",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-05",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-06",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-07",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-08",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-09",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          }
+        ],
+        "signals": [
+          {
+            "signalDate": "2026-01-31",
+            "executionDate": "2026-02-01",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "806c56348fdd51094cf733cbb3fa19f0c2499e6d8210dc0cb5187a538a1a43f8",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-01",
+            "executionDate": "2026-02-02",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "2c09ecfb66edd662958547a4f411a89576b94fead6ada82593f3f06737e545d6",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-02",
+            "executionDate": "2026-02-03",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "5bec586c5ebe18a2b4307373da282601bf309fcbf578f27dde86310dfa48cc38",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-03",
+            "executionDate": "2026-02-04",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "0050e2d246cbe78d442673a42075c9f5ddf5098d35e2da788503307bd396514d",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-04",
+            "executionDate": "2026-02-05",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "59aeeb9807392a90b562c4f160dc55106fb212f98339ec799eec3ff3487266b9",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-05",
+            "executionDate": "2026-02-06",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "7fa81b6cb8add5d2417cc56b9697b22efb9a72ea72ae3545f8bc6530c831914c",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-06",
+            "executionDate": "2026-02-07",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "6aeb4fb648295a94c7127380c652155251e34ed3357d11d82155689e3197bb29",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-07",
+            "executionDate": "2026-02-08",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "c70adf4b05dfd8a29ed6ab8c9e4e262d8d26cc7cb245c51fdca47330f544be4d",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-08",
+            "executionDate": "2026-02-09",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "4e3479c6467c3f3f984b323c5e83777416d26921af51e9426d3af8e1f21cb746",
+            "canTrade": false
+          }
+        ],
+        "provenance": {
+          "kind": "offline-replay-only",
+          "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+          "ordersWithSignalReference": 0,
+          "canTrade": false
+        },
+        "warnings": [
+          "使用历史日线的下一交易日开盘价进行纸面撮合，不代表真实可成交",
+          "不包含盘口排队、部分成交、退市及公司行为完整对账",
+          "仅供离线研究，不构成自动交易授权"
+        ],
+        "provenanceAudit": {
+          "ok": true,
+          "errors": [],
+          "signals": 9,
+          "orders": 0,
+          "linkedOrders": 0,
+          "datasetFingerprint": "5a1e0e8398d44ad8343626738e4ad01bcdc0d8655dbcecf986d1e87a99f1b70b",
+          "canTrade": false
+        },
+        "accountReconciliation": {
+          "ok": true,
+          "complete": true,
+          "tolerance": 0.02,
+          "tradeCount": 0,
+          "missingFee": 0,
+          "invalidTrades": 0,
+          "cash": {
+            "rebuilt": 100000,
+            "actual": 100000,
+            "diff": 0
+          },
+          "realized": {
+            "rebuilt": 0,
+            "actual": 0,
+            "diff": 0
+          },
+          "positions": {
+            "rebuiltSymbols": 0,
+            "actualSymbols": 0,
+            "differences": []
+          },
+          "errors": [],
+          "mode": "offline-paper-replay-read-only",
+          "canTrade": false
+        }
+      }
+    },
+    {
+      "input": "ladder-dated.json",
+      "sha256": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+      "http": 200,
+      "matched": true,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "backtest": {
+        "status": "insufficient",
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "riskPauseDays": 0,
+          "closedTrades": 0,
+          "winRatePct": null
+        },
+        "statistics": {
+          "observations": 13,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "cashFlows": [
+          {
+            "day": 27,
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "holdout": {
+          "status": "not-tested",
+          "reason": "未预先指定样本外分割点"
+        },
+        "assumptions": [
+          "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+          "卖出受阻继续持仓并每日按收盘价估值",
+          "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+          "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+          "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+        ],
+        "warnings": [],
+        "trades": [],
+        "orders": [],
+        "equity": [
+          {
+            "day": 27,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 28,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 29,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 30,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 31,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 32,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 33,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 34,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 35,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 36,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 37,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 38,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 39,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          }
+        ],
+        "openPositions": [],
+        "releaseEligible": false,
+        "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+      },
+      "paper": {
+        "schemaVersion": 1,
+        "mode": "offline-paper-replay",
+        "source": "imported",
+        "verifiedLive": false,
+        "canTrade": false,
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "fingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+        "cashFlows": [
+          {
+            "day": "2026-02-01",
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "statistics": {
+          "observations": 9,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "config": {
+          "initialCash": 100000,
+          "maxPositions": 3,
+          "allocationPct": 0.25,
+          "feeBps": 8,
+          "slippageBps": 10,
+          "sellTaxBps": 5,
+          "stopLossPct": 0.08,
+          "startDay": 31,
+          "maxDrawdownPausePct": null,
+          "maxDailyLossPausePct": null,
+          "maxParticipationPct": null,
+          "minPriorTurnover": null
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "riskPauseDays": 0,
+          "openPositions": 0
+        },
+        "positions": [],
+        "orders": [],
+        "equity": [
+          {
+            "date": "2026-02-01",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-02",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-03",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-04",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-05",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-06",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-07",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-08",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-09",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          }
+        ],
+        "signals": [
+          {
+            "signalDate": "2026-01-31",
+            "executionDate": "2026-02-01",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "7b85e9ec57dab44a082c7f1ab7e3affb0ce3ae2252ee815d07e39bee3ae3cd52",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-01",
+            "executionDate": "2026-02-02",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "3307d06c75a23766163b19770ca66949e62b154f505d87cb75ad262c377e5e5e",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-02",
+            "executionDate": "2026-02-03",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "e02a31e1373e870aab167399c2118b128f488d1a8756ab53a9159ad65a8cb1a0",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-03",
+            "executionDate": "2026-02-04",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "da1507931f673f0c5379950181ca1d87ebe6ea426a9f83e19f91285c828949bd",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-04",
+            "executionDate": "2026-02-05",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "319c95a49d28eaa9655e62f7a690040bbd574217b4a95242822536b81b97504c",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-05",
+            "executionDate": "2026-02-06",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "7d68fff0ea23b5a27953b3a5b78b8cf8f961708506f7f634a63180cfab1a96a4",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-06",
+            "executionDate": "2026-02-07",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "ba8f37d5e5075c7184768901f1b1826d68245e7bb7acc1f1210afb463f1432eb",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-07",
+            "executionDate": "2026-02-08",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "cf4a734a76d6780078a0ea59be324774a89548045b7cdabc890767249d29c2ca",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-08",
+            "executionDate": "2026-02-09",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "bd5ea643b0595aff96dc2f0f48e79c9d6973e7ad1e4ab06152489dbaf5e8427b",
+            "canTrade": false
+          }
+        ],
+        "provenance": {
+          "kind": "offline-replay-only",
+          "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+          "ordersWithSignalReference": 0,
+          "canTrade": false
+        },
+        "warnings": [
+          "使用历史日线的下一交易日开盘价进行纸面撮合，不代表真实可成交",
+          "不包含盘口排队、部分成交、退市及公司行为完整对账",
+          "仅供离线研究，不构成自动交易授权"
+        ],
+        "provenanceAudit": {
+          "ok": true,
+          "errors": [],
+          "signals": 9,
+          "orders": 0,
+          "linkedOrders": 0,
+          "datasetFingerprint": "99353eb38937e12b9011ca98c7054a43a5582921d454c821ad00dbcbe5b0907b",
+          "canTrade": false
+        },
+        "accountReconciliation": {
+          "ok": true,
+          "complete": true,
+          "tolerance": 0.02,
+          "tradeCount": 0,
+          "missingFee": 0,
+          "invalidTrades": 0,
+          "cash": {
+            "rebuilt": 100000,
+            "actual": 100000,
+            "diff": 0
+          },
+          "realized": {
+            "rebuilt": 0,
+            "actual": 0,
+            "diff": 0
+          },
+          "positions": {
+            "rebuiltSymbols": 0,
+            "actualSymbols": 0,
+            "differences": []
+          },
+          "errors": [],
+          "mode": "offline-paper-replay-read-only",
+          "canTrade": false
+        }
+      }
+    },
+    {
+      "input": "ladder-gap.json",
+      "sha256": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+      "http": 200,
+      "matched": false,
+      "coverage": {
+        "status": "unknown",
+        "complete": false,
+        "verifiedExternal": false,
+        "canTrade": false,
+        "missing": [
+          "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+        ]
+      },
+      "canTrade": false,
+      "backtest": {
+        "status": "insufficient",
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "riskPauseDays": 0,
+          "closedTrades": 0,
+          "winRatePct": null
+        },
+        "statistics": {
+          "observations": 13,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "cashFlows": [
+          {
+            "day": 27,
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "holdout": {
+          "status": "not-tested",
+          "reason": "未预先指定样本外分割点"
+        },
+        "assumptions": [
+          "收盘后扫描、次交易日开盘执行；买入后最早下一交易日卖出",
+          "卖出受阻继续持仓并每日按收盘价估值",
+          "按整手下单；手续费、卖出印花税及双向滑点按参数计入",
+          "涨跌停按简化板块参数判断，不能替代逐日交易所规则",
+          "缺少真实订单簿、成交队列、公司行为复权与准确市场日历，结果仅供研究"
+        ],
+        "warnings": [],
+        "trades": [],
+        "orders": [],
+        "equity": [
+          {
+            "day": 27,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 28,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 29,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 30,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 31,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 32,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 33,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 34,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 35,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 36,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 37,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 38,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          },
+          {
+            "day": 39,
+            "cash": 100000,
+            "marketValue": 0,
+            "value": 100000,
+            "openPositions": 0,
+            "unpriced": []
+          }
+        ],
+        "openPositions": [],
+        "releaseEligible": false,
+        "reason": "研究回测不构成实盘放行；需要真实来源校验、模拟盘和人工风控验收"
+      },
+      "paper": {
+        "schemaVersion": 1,
+        "mode": "offline-paper-replay",
+        "source": "imported",
+        "verifiedLive": false,
+        "canTrade": false,
+        "dataset": {
+          "stocks": 1,
+          "barsPerStock": 40,
+          "firstDate": "2026-01-01",
+          "lastDate": "2026-02-09",
+          "source": "imported",
+          "asOf": "2026-02-09",
+          "historicalCoverage": {
+            "status": "unknown",
+            "complete": false,
+            "verifiedExternal": false,
+            "canTrade": false,
+            "missing": [
+              "缺少完整逐时点证券主数据、公司行为和费用来源覆盖；旧股票池不是完整历史成分股证明"
+            ]
+          },
+          "verifiedExternal": false
+        },
+        "fingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+        "cashFlows": [
+          {
+            "day": "2026-02-01",
+            "kind": "initial",
+            "amount": 100000,
+            "balance": 100000
+          }
+        ],
+        "statistics": {
+          "observations": 9,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "annualizedReturnPct": null,
+          "annualizedVolatilityPct": 0,
+          "sharpe": null,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "winRate95Pct": null,
+          "assumptions": [
+            "收益为每日净值变化，年化交易日数可配置，默认252",
+            "夏普无风险收益率设为0；胜率区间使用Wilson方法",
+            "短于一年不报告年化收益；统计区间不证明策略有效性"
+          ]
+        },
+        "config": {
+          "initialCash": 100000,
+          "maxPositions": 3,
+          "allocationPct": 0.25,
+          "feeBps": 8,
+          "slippageBps": 10,
+          "sellTaxBps": 5,
+          "stopLossPct": 0.08,
+          "startDay": 31,
+          "maxDrawdownPausePct": null,
+          "maxDailyLossPausePct": null,
+          "maxParticipationPct": null,
+          "minPriorTurnover": null
+        },
+        "metrics": {
+          "initialCash": 100000,
+          "finalEquity": 100000,
+          "returnPct": 0,
+          "maxDrawdownPct": 0,
+          "closedTrades": 0,
+          "winRatePct": null,
+          "realizedPnl": 0,
+          "blockedOrders": 0,
+          "riskPauseDays": 0,
+          "openPositions": 0
+        },
+        "positions": [],
+        "orders": [],
+        "equity": [
+          {
+            "date": "2026-02-01",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-02",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-03",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-04",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-05",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-06",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-07",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-08",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          },
+          {
+            "date": "2026-02-09",
+            "cash": 100000,
+            "positions": 0,
+            "equity": 100000,
+            "drawdownPct": 0
+          }
+        ],
+        "signals": [
+          {
+            "signalDate": "2026-01-31",
+            "executionDate": "2026-02-01",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "01ef563da8333dbeb6cc75635061f8bfcfa351c79f089bdabdf17bff1d035135",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-01",
+            "executionDate": "2026-02-02",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "b9428e5b8a3f7584730a3edef87cccbf81ed366bc94f51eaf11ab715cb47aff0",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-02",
+            "executionDate": "2026-02-03",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "0fa9f02ff44d06101d272bce62701310b3db089e47e213fe0a3335698f2e2960",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-03",
+            "executionDate": "2026-02-04",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "d2c1a97202d8e11056a8dcf60e1c1cd827e2bf8d4e77ebc715dc7378ba9d7a5a",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-04",
+            "executionDate": "2026-02-05",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "a40e487042b4026452b72b287de1ec760a8e1596bf25dcaeedee07b9c24dcd15",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-05",
+            "executionDate": "2026-02-06",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "2b2daa4b0d6e47553e63246f749de77d14d24bca356b249ff67728a6380d4c6a",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-06",
+            "executionDate": "2026-02-07",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "90f0004aa624b7eace52c4256c471874f452384acf59a6e90c4e42c6d57f2f42",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-07",
+            "executionDate": "2026-02-08",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "722486682127fdefc55109e19c03c1e4f3c1cb5218be8b4dd2418e88b8e4d893",
+            "canTrade": false
+          },
+          {
+            "signalDate": "2026-02-08",
+            "executionDate": "2026-02-09",
+            "picks": [],
+            "eligible": 0,
+            "source": "imported",
+            "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+            "decisionMode": "offline-next-day-replay",
+            "signalId": "a37bac76d1981905d5632b6c21a3ef94f160de684d382cea31cc88b3db60ad35",
+            "canTrade": false
+          }
+        ],
+        "provenance": {
+          "kind": "offline-replay-only",
+          "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+          "ordersWithSignalReference": 0,
+          "canTrade": false
+        },
+        "warnings": [
+          "使用历史日线的下一交易日开盘价进行纸面撮合，不代表真实可成交",
+          "不包含盘口排队、部分成交、退市及公司行为完整对账",
+          "仅供离线研究，不构成自动交易授权"
+        ],
+        "provenanceAudit": {
+          "ok": true,
+          "errors": [],
+          "signals": 9,
+          "orders": 0,
+          "linkedOrders": 0,
+          "datasetFingerprint": "364afd4cae64a79786f6659e0b0cdaee26d578b4777ce2da7ec8554796136173",
+          "canTrade": false
+        },
+        "accountReconciliation": {
+          "ok": true,
+          "complete": true,
+          "tolerance": 0.02,
+          "tradeCount": 0,
+          "missingFee": 0,
+          "invalidTrades": 0,
+          "cash": {
+            "rebuilt": 100000,
+            "actual": 100000,
+            "diff": 0
+          },
+          "realized": {
+            "rebuilt": 0,
+            "actual": 0,
+            "diff": 0
+          },
+          "positions": {
+            "rebuiltSymbols": 0,
+            "actualSymbols": 0,
+            "differences": []
+          },
+          "errors": [],
+          "mode": "offline-paper-replay-read-only",
+          "canTrade": false
+        }
+      }
+    }
+  ],
+  "scans": [
+    {
+      "input": "ladder-normal.json",
+      "http": 200,
+      "ladder": {
+        "eligible": true,
+        "stage": "首板",
+        "next": "一进二候选",
+        "streak": 1,
+        "score": 89,
+        "warnings": [
+          "RSI超买"
+        ]
+      },
+      "verifiedLive": false,
+      "provenance": "user-uploaded-unverified"
+    },
+    {
+      "input": "ladder-no-limit.json",
+      "http": 200,
+      "ladder": {
+        "eligible": false,
+        "reason": "该交易日无涨跌幅限制，当前限价撮合模型不适用"
+      },
+      "verifiedLive": false,
+      "provenance": "user-uploaded-unverified"
+    },
+    {
+      "input": "ladder-ipo.json",
+      "http": 200,
+      "ladder": {
+        "eligible": false,
+        "reason": "该交易日无涨跌幅限制，当前限价撮合模型不适用"
+      },
+      "verifiedLive": false,
+      "provenance": "user-uploaded-unverified"
+    },
+    {
+      "input": "ladder-dated.json",
+      "http": 200,
+      "ladder": {
+        "eligible": true,
+        "stage": "首板",
+        "next": "一进二候选",
+        "streak": 1,
+        "score": 89,
+        "warnings": [
+          "RSI超买"
+        ]
+      },
+      "verifiedLive": false,
+      "provenance": "user-uploaded-unverified"
+    },
+    {
+      "input": "ladder-gap.json",
+      "http": 200,
+      "ladder": {
+        "eligible": false,
+        "reason": "缺少涨跌停制度或前收盘价"
+      },
+      "verifiedLive": false,
+      "provenance": "user-uploaded-unverified"
+    }
+  ],
+  "viewerReturnedReport": false
+}

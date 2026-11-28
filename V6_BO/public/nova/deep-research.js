@@ -8,7 +8,7 @@ const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':
  'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
  'implemented':'代码已实现','connected':'接口已接通','waiting':'待验证','not-deployed':'尚未部署','partial':'部分具备','available':'已有数据','passed':'验证通过','failed':'验证失败',
  'missing':'缺少实现或证据','blocked':'存在阻塞','observing':'观察积累中','verified':'已有核验登记','deployed':'已有部署登记'};
-const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
+const labels={policyStudy:'政策实施与经营传导',macroStudy:'宏观信用及事前预期',creditEconomicState:'信用与经济方向对照',creditSpread:'同期限信用利差（声明研究）',margin:'披露融资余额',surprises:'事前预期差',hypotheses:'预登记假设',strategyPriceStudies:'事件价格观察（非净收益）',status:'状态',reason:'原因',missing:'缺失依据',rejected:'未纳入记录',source:'来源',sourceUrl:'原始来源',
  symbol:'股票',eventType:'事件类型',title:'事件',revision:'修订',publishedAt:'公开时点',firstKnownAt:'首次获知',recordedAt:'保存时点',
  horizonSessions:'观察交易日',horizonDays:'持有交易日',stockReturnPct:'价格变化 %',benchmarkReturnPct:'同期市场变化 %',excessReturnPct:'市场调整差额 %',
  samples:'样本数',independentEvents:'独立事件数',independentDates:'独立日期数',averageExcessReturnPct:'平均市场调整差额 %',failureCases:'失败与反向案例',
@@ -106,15 +106,15 @@ export function renderRuntimeObservationCoverage(observation){
 }
 
 export function renderBackgroundArchive(overview){
- const names={ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
+ const names={'szse-fund':'深交所ETF证券成交月报',ecb:'ECB参考汇率','sec-edgar':'SEC财报事实',worldbank:'世界银行宏观指标'};
  const valid=overview?.mode==='official-background-archive-overview'&&overview.canTrade===false&&overview.pointInTimeBacktestReady===false;
  const state=valid?overview.status:'unavailable';
  const labels={unconfigured:'尚未配置原背景档案','missing-archive':'尚未取得原档案',empty:'该截点尚无背景记录',unavailable:'档案不可用，保留未知',partial:'部分范围待校验',available:'已核对显示范围的最新回执'};
  const rows=valid?arr(overview.rows).slice(0,12):[];
- const scopeLabel=r=>r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
+ const scopeLabel=r=>r.provider==='szse-fund'?r.scope.month:r.provider==='ecb'?`${r.scope.currency} / EUR · ${r.scope.start} 至 ${r.scope.end}`:
   r.provider==='sec-edgar'?`CIK ${r.scope.cik} · ${r.scope.tag} · 截至 ${r.scope.asOf}`:
    `${r.scope.country} · ${r.scope.indicator} · ${r.scope.startYear} 至 ${r.scope.endYear}`;
- return section('官方背景档案','参考汇率、申报财报与宏观统计只用于研究背景；不作为实时价格、交易信号或历史外部可知性证明。',
+ return section('官方背景档案','列出本地已取得的历史资料、报告期和原文回执。',
   facts([['状态',labels[state]||labels.unavailable],['本地信息截止',valid?dateTime(overview.asOf):null],['可见数据范围',valid?overview.totalScopes:null],
    ['已复核最新回执',valid&&overview.totalScopes!=null?overview.checkedLatestReceipts:null],['待核范围',valid?overview.unverifiedScopes:null]]),
   rows.length?rows.map(r=>{
@@ -124,6 +124,11 @@ export function renderBackgroundArchive(overview){
      ['原始发布时间','未知'],['原始修订时间','未知'],['档案版本',r.version],['回执SHA-256',r.archiveHash],
      ['原响应SHA-256',r.dataVersion],['本次复核',ok?'原响应与投影哈希一致':r.status==='not-checked-budget'?'超过本次读取预算，未核验':'回执不可用']]),
     ok?facts([['记录数',r.recordCount],['明确缺值数',r.missingValues],['原始字节依据',r.byteBasis==='response-body'?'响应字节':'解码后的正文']]):null,
+    ok&&r.provider==='szse-fund'?h('div',{class:'fy-etf-monthly'},
+     note('报告期 '+r.scope.month+'。二级市场成交额以万元人民币计。净申购未知，交易主体未知。'),
+     r.records.length?table([{label:'观察基金（深市）',value:x=>x.symbol+' '+x.name},
+      {label:'目标指数',value:x=>x.trackingIndex??'未知'},{label:'当月成交额（万元）',value:x=>x.monthlyTurnoverWanCny==null?'未知':String(x.monthlyTurnoverWanCny)}],r.records):empty('本期未列入所选观察基金'),
+     /^W\d{21}\.html$/.test(r.scope.documentId)?h('a',{href:'https://docs.static.szse.cn/www/market/periodical/month/'+r.scope.documentId,target:'_blank',rel:'noopener noreferrer'},'深交所月报原表'):null):
     ok&&r.records.length?table([{label:'观察或报告期间',value:x=>x.period},{label:'数值',value:x=>x.value==null?'未知':value(x.value)},
      {label:'单位',value:x=>x.unit??'未知'},{label:'申报日期',value:x=>x.filedDate??'不适用'}],r.records.slice(0,5)):empty(ok?'暂无该范围的可见数值':'尚无已复核数值'));
   }):empty(labels[state]||labels.unavailable,'只读页面不会发起采集或创建档案。'),
@@ -270,7 +275,7 @@ export function renderDeepResearch(ctx){
  const refresh=button('读取当前证据',load,'primary');root.insertBefore(h('div',{class:'fy-toolbar'},refresh),status);
  choose.addEventListener('change',()=>{turn++;draw();if(choose.value==='acceptance'&&!acceptance)void load();});
  const file=h('input',{type:'file',accept:'.json,application/json','aria-label':'选择结构化研究证据'});
- const importStatus=note('仅接收有来源的结构化证据；首次获知时间由后台登记。');
+ const importStatus=note('仅接收自有或已授权证据；macroEvidence / policyEvidence 使用原新闻档案指纹，首次获知时间由后台登记，不能把声明当认证。');
  file.addEventListener('change',async()=>{imported=null;pendingImport=null;const ticket=++fileTurn,selected=file.files?.[0];if(!selected||!editable())return;
   if(selected.size>500000){importStatus.textContent='文件超过500KB，请按来源分批导入。';return;}
   try{const parsed=JSON.parse(await selected.text());if(!parsed||!Array.isArray(parsed.records)||!parsed.type)throw Error();if(ctx.signal?.aborted||ticket!==fileTurn)return;imported=parsed;importStatus.textContent='已读取 '+parsed.records.length+' 条，点击保存后才会进入研究档案。';}

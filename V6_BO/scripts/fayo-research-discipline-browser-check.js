@@ -136,7 +136,45 @@ const server=http.createServer((req,res)=>{
    assert.equal(await page.evaluate(()=>window.calls.length),count,'viewer controls issue no private requests');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.method==='POST').every(c=>c.body.action==='explain')),true);
-   report.push({width,passed:true,timings,screenshots,nextPlanChecks:['original incident retained','separate later-plan original fact','same-account-source-symbol binding','future receipt rejected','different rule version stays unknown','no selected next plan retains the original coverage reason','no added mutation request']});await page.close();
+   // Exercise native action consumption, including a response without a
+   // close-review attachment and the automatic market fallback on cold start.
+   const market=await require('../src/core/live-market-research').researchLiveMarket({
+    now:Date.parse('2026-11-05T10:00:00+08:00'),
+    fetchSnapshot:async()=>({source:'browser-fixture',date:'2026-11-05',universeSize:3,
+      retrievedAt:'2026-11-05T10:00:00+08:00',stocks:[-2,-1,5].map((pctChange,i)=>({
+       code:String(i+1).padStart(6,'0'),pctChange,amount:i+1,vendorQuoteAt:Date.parse('2026-11-05T09:59:59+08:00')
+      }))})
+   });
+   await page.evaluate(async market=>{
+     const {renderResearch}=await import('/nova/research.js');
+     const ctx={role:'edit',state:{},api:async path=>path.endsWith('decision-pipeline')?{market,ranked:[]}:market};
+     document.querySelector('#mount').replaceChildren(renderResearch({sub:'desk'},ctx));
+   },market);
+   const structure=page.getByRole('heading',{name:'近期报价股票结构',exact:true});
+   await structure.nth(1).waitFor();
+   assert.equal(await structure.count(),2);
+   assert.match(await page.locator('#mount').innerText(),/涨跌幅中位数\s*-1%/);
+   await page.getByRole('button',{name:'只看公开市场交集',exact:true}).click();
+   await structure.first().waitFor();
+   assert.deepEqual(errors,[]);
+   await capture('recent-market-structure',structure.first().locator('..'),{region:true});
+   assert.deepEqual(external,[]);
+   await page.evaluate(async()=>{
+    const {renderResearch}=await import('/nova/research.js');
+    const ctx={role:'edit',canEdit:true,signal:new AbortController().signal,state:{},
+     navigate:()=>{},selectStock:()=>{},notify:()=>{},api:async()=>({ok:true,result:{
+      mode:'integrated-research',canTrade:false,tradeDate:'2026-11-16',publicReview:{day:'2026-11-16'},selectionEvidence:{status:'evaluated'}}})};
+    document.getElementById('mount').replaceChildren(renderResearch({view:'lab',sub:'backtest'},ctx));
+   });
+   const historical=page.locator('section').filter({has:page.getByRole('heading',{name:'历史实验',exact:true})}).first();
+   await historical.locator('details:has(textarea) > summary').first().click();
+   await historical.getByText('或粘贴完整证据',{exact:true}).click();
+   await historical.locator('textarea').first().fill('{}');
+   await historical.getByRole('button',{name:'运行完整实验',exact:true}).click();
+   await historical.getByText('已读取研究结果',{exact:true}).waitFor();
+   await historical.getByText('完整证据与检验链',{exact:true}).click();
+   assert.equal(await historical.getByText('选股证据',{exact:true}).count(),1,'a historical result without a public review renders its evidence');
+   report.push({width,passed:true,timings,screenshots,genericHistoricalReportRendered:true,nextPlanChecks:['original incident retained','separate later-plan original fact','same-account-source-symbol binding','future receipt rejected','different rule version stays unknown','no selected next plan retains the original coverage reason','no added mutation request']});await page.close();
   }
   const result={scope:'native modules, synthetic read-only APIs and optional-model fixtures; timings are local interaction measurements, not production or live-model certification',report};
   if(output)fs.writeFileSync(path.join(output,'fayo-research-discipline-report.json'),JSON.stringify(result,null,2)+'\n');

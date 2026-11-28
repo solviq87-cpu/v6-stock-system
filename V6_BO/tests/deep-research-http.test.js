@@ -86,6 +86,7 @@ test('real deep HTTP uses existing editor permissions, worker reports, private i
  const imported=r.body.result.research.modules['67'].events.find(e=>e.id===input.records[0].id);
  assert.equal(imported.firstKnownAt,first.recordedAt);assert.equal(imported.publishedAt,input.records[0].publishedAt);
  assert.equal(r.body.result.research.modules['68'].rows.length,0);assert.equal(r.body.result.research.modules['69'].rows.length,0);
+ assert.equal(r.body.result.research.modules['67'].policyStudy.status,'unknown');assert.equal(r.body.result.research.modules['68'].macroStudy.creditEconomicState.status,'unknown');assert.equal(r.body.result.research.modules['68'].macroStudy.margin.actualForcedLiquidationQuantity,null);
  assert.equal(r.body.result.research.modules['72'].rows.length,0);
 
  for(const query of ['?root=/etc','?now=1','?asOf=1','?accountId=foreign','?book=demo','?token='+f.token]){

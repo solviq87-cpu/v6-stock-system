@@ -79,6 +79,21 @@ test('model comparison uses the intersection of exact input/target/horizon, with
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),r=F.evaluationView(root,[e,later],{asOf:at(71)});assert.equal(r.pairs.rows.length,1);assert.equal(r.pairs.rows[0].samples,1);assert.equal(r.pairs.rows[0].profitComparison,null);assert.equal(r.pairs.rows[0].independenceCertified,false);
  const other=event(D.buildWorkspaceDecision(fixture({symbol:'600001'})),3),p=prediction(other);p.model.id='M02';save(root,other,p,'pair_forecast_003',e.recordedAt+4000);const different=F.evaluationView(root,[e,other,later,event(D.buildWorkspaceDecision(fixture({index:71,symbol:'600001'})),4)],{asOf:at(71)});assert.equal(different.pairs.rows.length,1);
 });
+test('paired errors disclose each side’s full frozen and observed denominators',t=>{
+ const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);
+ b.model.id='challenger';
+ save(root,e,a,'coverage_base_001');
+ save(root,e,b,'coverage_pair_002',e.recordedAt+3000);
+ const other=event(D.buildWorkspaceDecision(fixture({symbol:'600001'})),3);
+ save(root,other,prediction(other),'coverage_base_003',e.recordedAt+4000);
+ const later=event(D.buildWorkspaceDecision(fixture({index:71})),2);
+ const report=F.evaluationView(root,[e,other,later],{asOf:at(71)});
+ const [pair]=report.pairs.rows;
+ assert.equal(pair.samples,1);
+ const sides=new Map([[pair.modelA.id,pair.coverageA],[pair.modelB.id,pair.coverageB]]);
+ assert.deepEqual(sides.get(a.model.id),{frozen:2,observed:1,pending:0,missing:1,invalid:0});
+ assert.deepEqual(sides.get(b.model.id),{frozen:1,observed:1,pending:0,missing:0,invalid:0});
+});
 test('sampling parameters form distinct model configurations, while missing training metadata stays unknown',t=>{
  const root=setup(t),e=origin(),a=prediction(e),b=prediction(e);delete a.model.trainingCutoff;b.model.sampleCount=10;
  save(root,e,a,'config_forecast_001');save(root,e,b,'config_forecast_002',e.recordedAt+3000);
@@ -106,4 +121,15 @@ test('changing output kind on the same model origin preserves the first forecast
 test('large model catalogs paginate complete totals and bound quadratic pair comparison',t=>{
  const root=setup(t),e=origin();for(let i=0;i<25;i++){const p=prediction(e);p.model.id='custom'+i;save(root,e,p,'many_forecasts_'+String(i).padStart(3,'0'),e.recordedAt+2000+i);}
  const later=event(D.buildWorkspaceDecision(fixture({index:71})),2),v=F.evaluationView(root,[e,later],{asOf:at(71),offset:20,limit:20});assert.equal(v.groupTotal,25);assert.equal(v.groups.length,5);assert.equal(v.total,25);assert.equal(v.rows.length,5);assert.equal(v.pairs.rows.length,0);assert.equal(v.pairs.limitedGroups,1);
+});
+
+test('F49.2 original frozen forecast view keeps independent target horizons and input fingerprint',t=>{
+ const root=setup(t),e=origin(),input=F.prepareInput(e),close=input.bars.at(-1).close,p=prediction(e);
+ const first=input.targets.find(x=>x.horizon===1),later=input.targets.find(x=>x.horizon===5);
+ assert.ok(first&&later);
+ p.forecasts=[{...first,point:close*.9},{...later,point:close*1.1}];
+ const saved=save(root,e,p),v=F.evaluationView(root,[e],{asOf:e.recordedAt+2000,limit:1});
+ assert.equal(v.rows.length,1);assert.equal(v.horizonContexts.total,1);const c=v.horizonContexts.rows[0];
+ assert.equal(c.forecastId,saved.forecastId);assert.equal(c.mixedDirections,true);
+ assert.deepEqual(c.horizons.map(h=>h.horizon),[1,5]);assert.ok(c.horizons.every(h=>h.inputFingerprint===input.inputFingerprint&&h.directionMatched===null));
 });

@@ -1,4 +1,30 @@
 const eventBindings=new WeakMap();
+// A single local deadline for a visible view. This only repaints existing
+// evidence; it never fetches data, refreshes its source time or grants a permit.
+export function createExpiryRepaint({repaint,signal,page=globalThis.document,now=Date.now,setTimeout:later=globalThis.setTimeout,clearTimeout:cancel=globalThis.clearTimeout}){
+ let timer=null,deadline=null,stopped=false;
+ const clear=()=>{if(timer!==null){cancel(timer);timer=null;}};
+ function schedule(){
+  clear();
+  if(stopped||signal?.aborted||deadline===null||page?.visibilityState==='hidden')return;
+  timer=later(()=>{timer=null;if(stopped||signal?.aborted)return;deadline=null;repaint();},Math.max(1,Math.min(2147483647,deadline-now())));
+  timer?.unref?.();
+ }
+ function watch(deadlines=[]){
+  if(stopped||signal?.aborted)return;
+  const at=now(),future=deadlines.filter(t=>Number.isSafeInteger(t)&&t>at);
+  deadline=future.length?Math.min(...future):null;schedule();
+ }
+ function visibility(){
+  if(page?.visibilityState==='hidden'){clear();return;}
+  if(stopped||signal?.aborted||deadline===null)return;
+  if(deadline<=now()){clear();deadline=null;repaint();}else schedule();
+ }
+ function stop(){stopped=true;deadline=null;clear();page?.removeEventListener?.('visibilitychange',visibility);signal?.removeEventListener('abort',stop);}
+ if(signal?.aborted)stop();
+ else{page?.addEventListener?.('visibilitychange',visibility);signal?.addEventListener('abort',stop,{once:true});}
+ return {watch,stop};
+}
 function bindEvent(node,name,handler){
  let events=eventBindings.get(node);
  if(!events){events=new Map();eventBindings.set(node,events);}

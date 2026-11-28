@@ -19,7 +19,7 @@ function selectActivePlans(plans,book,day){
     (plan.intendedDate===day||plan.intendedDate<day&&heldPlans.has(plan.code+'/'+plan.id)));
 }
 // The scheduler observes frozen research plans. It has no order mutation API.
-function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArchive,readContext,
+function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,canReadArchive=isPrimary,session,readArchive,readContext,
   observe,store,privateReady,sendPrivate,historyDay,historySymbols,collectHistory,trace=runtimeTrace}) {
   let plans=[],loadedAt=0,epoch=0,observing=false,collecting=false,historyKey='',attempts=0,nextHistoryAt=0;
   const state={status:'waiting',lastObservedAt:null,lastAttemptAt:null,lastSuccessAt:null,lastCompletedAt:null,attemptSequence:0,completedSequence:null,planCount:0,activePlanCount:0,lastError:null,
@@ -117,6 +117,18 @@ function createDecisionEvidenceRuntime({clock=Date.now,isPrimary,session,readArc
     finally{collecting=false;}
     return status();
   }
-  return {tick,tickHistory,status,invalidate};
+  let reviewing=false;
+  async function reviewNotice(ref,authorized) {
+    if(reviewing)return {status:'busy',reason:'已有计划复核进行中，请稍后再读',original:null,current:null,
+      checkedAt:clock(),canTrade:false,accountMutated:false};
+    reviewing=true;
+    const version=epoch;
+    try {
+      return await require('../core/paper-plan-notice-review').reviewPlanNotice(ref,{clock,session,store,readArchive,readContext,
+        canRead:()=>canReadArchive() && authorized(),
+        available:()=>epoch===version && isPrimary() && authorized()});
+    } finally { reviewing=false; }
+  }
+  return {tick,tickHistory,status,invalidate,reviewNotice};
 }
 module.exports={createDecisionEvidenceRuntime,selectActivePlans};
