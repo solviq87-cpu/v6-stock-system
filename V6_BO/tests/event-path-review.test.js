@@ -4,12 +4,12 @@ const {projectEventReview:project}=require('../src/core/event-path-review');
 const t=Date.parse('2026-11-12T14:30:00Z'),at=t+10000;
 const body='发文机关甲：适用于产品甲。计划购买宽基ETF。已完成公开披露的操作。指数调仓说明。';
 const event=(p={})=>({id:'event-1',source:'public-document',sourceUrl:'https://example.org/disclosure',revision:1,symbol:'600000',publishedAt:t,firstKnownAt:t+1000,recordedAt:t+2000,title:'政策文件',bodyScope:'declared-body',body,policyApplicability:{entityId:'product:alpha',productId:'alpha',clause:'适用于产品甲'},publisherEvidence:{role:'issuing-entity',publisher:'发文机关甲',clause:'发文机关甲：适用于产品甲'},...p});
-const relation=(p={})=>({id:'business-1',source:'company-disclosure',sourceUrl:'https://example.org/company',revision:1,publishedAt:t-10000,firstKnownAt:t-9000,recordedAt:t-8000,from:'600000',to:'product:alpha',productId:'alpha',marketRegion:'US',relationClass:'business',bodyScope:'declared-body',documentText:'公司主营产品甲。',businessClause:'主营产品甲',validFrom:t-20000,validUntil:null,...p});
+const relation=(p={})=>({id:'business-1',source:'company-disclosure',sourceUrl:'https://example.org/company',revision:1,publishedAt:t-10000,firstKnownAt:t-9000,recordedAt:t-8000,from:'600000',to:'product:alpha',productId:'alpha',marketRegion:'US',relation:'supplier',relationClass:'business',bodyScope:'declared-body',documentText:'公司主营产品甲。',businessClause:'主营产品甲',validFrom:t-20000,validUntil:null,...p});
 const account=(p={})=>({status:'observed-account',sourceAt:at-1000,positions:[{symbol:'600000',shares:100}],...p});
 const run=(events=[event()],relations=[relation()],options={})=>project({events,relations,asOf:at,account:account(),...options});
 test('policy application and company product need separate literal documents and point-in-time identity',()=>{
  const r=run(),p=r.rows[0].policy;assert.equal(p.status,'declared-path-review');assert.equal(p.paths[0].productId,'alpha');assert.equal(p.paths[0].evidence.id,'business-1');assert.equal(p.benefitAmount,null);assert.equal(p.impactDirection,null);assert.equal(r.canTrade,false);assert.equal(r.canNotify,false);
- for(const rr of [relation({productId:'beta'}),relation({relationClass:'concept'}),relation({businessClause:'不存在于原文'}),relation({recordedAt:t+3000}),relation({validUntil:t+1000}),relation({from:'600001'}),relation({retracted:true})])assert.equal(run([event()],[rr]).rows[0].policy.status,'unknown');
+ for(const rr of [relation({relation:null}),relation({from:null}),relation({productId:'beta'}),relation({relationClass:'concept'}),relation({businessClause:'不存在于原文'}),relation({recordedAt:t+3000}),relation({validUntil:t+1000}),relation({from:'600001'}),relation({retracted:true})])assert.equal(run([event()],[rr]).rows[0].policy.status,'unknown');
  for(const e of [event({bodyScope:'provider-summary'}),event({policyApplicability:{entityId:'product:alpha',productId:'alpha',clause:'虚构条款'}})])assert.equal(run([e]).rows[0].policy.status,'unknown');
 });
 test('foreign release uses explicit timezone and matching business geography; unknown exposure is not zero',()=>{
@@ -50,4 +50,9 @@ test('duplicate provider summaries are grouped for review without becoming sourc
  const a=event({bodyScope:'provider-summary'}),b=event({id:'event-2',source:'another-provider',bodyScope:'provider-summary'}),c=event({id:'event-3',bodyScope:'declared-body'});
  const r=run([a,b,c]);assert.equal(r.reviewOrder.length,2);assert.ok(r.reviewOrder.some(g=>g.refs.length===2&&g.authorityClue===false));
  assert.ok(r.rows.filter(x=>x.event.id!=='event-3').every(x=>x.policy.status==='unknown'&&x.authority.status==='authority-unknown'));
+});
+test('bounded review prioritizes a known holding before newer nonholding copies',()=>{
+ const held=event({id:'older-held',publishedAt:t-200000,firstKnownAt:t-199000,recordedAt:t-198000});
+ const copies=Array.from({length:101},(_,i)=>event({id:'new-'+i,symbol:'600001',publisherEvidence:null}));
+ const r=run([...copies,held]);assert.equal(r.eligibleEvents,102);assert.equal(r.truncatedEvents,2);assert.equal(r.reviewOrder[0].holdingRelated,true);assert.ok(r.rows.some(x=>x.event.id==='older-held'));
 });
