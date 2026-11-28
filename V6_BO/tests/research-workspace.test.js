@@ -39,3 +39,13 @@ test('timeline and run catalogs have real totals and deterministic pagination',t
  const v=W.workspaceView(root,{symbol:'600000',offset:20,limit:20});assert.equal(v.timelineTotal,26);assert.equal(v.timeline.length,6);assert.equal(v.runs.total,26);assert.equal(v.runs.rows.length,6);
  for(const q of [{limit:101},{offset:-1},{symbol:'../etc'},{asOf:Date.now()+1000},{runId:'bad'},{compareId:'a'.repeat(64)},{screenId:'a'.repeat(64)}])assert.throws(()=>W.workspaceView(root,q));
 });
+
+test('F12/F14/F18 original selected workspace and export retain read-only review and tail metrics',async t=>{
+ const options=setup(t),input={symbol:'600000',provider:'tencent',requestId:'review_third_delivery_001',nativeEvidence:native()};
+ const saved=await W.reviewStored(input,options,{read:async()=>({ok:true,result:fixture()})});assert.equal(saved.ok,true);
+ const v=W.workspaceView(options.workspaceRoot,{symbol:'600000'}),review=v.researchOverview.dailyReview;
+ assert.equal(review.runId,v.selectedRun.id);assert.equal(review.rows.length,16);assert.equal(review.canTrade,false);
+ assert.equal(v.researchOverview.opportunity.status,'not-certified');
+ assert.ok(v.scorecard.groups.every(g=>g.tailRisk.canTrade===false&&g.environmentEvidence.canApprove===false));
+ assert.deepEqual(W.exportResearch(v).researchOverview,v.researchOverview);
+});
