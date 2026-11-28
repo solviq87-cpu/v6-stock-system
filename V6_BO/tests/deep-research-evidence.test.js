@@ -388,3 +388,27 @@ test('F16 original depth report accepts explicitly authorized L1 only and retain
  const no=D.buildDepthResearch({depth:[{...row,authorization:null}]},{asOf:t2});assert.equal(no.rows[0].status,'authorization-unavailable');
  const ordinary=D.buildDepthResearch({depth:[{...row,levelOne:false}]},{asOf:t2});assert.equal(ordinary.rows[0].status,'unsupported-granularity');
 });
+
+test('F07 original reports distinguish declared issuer guidance and missing consensus entitlement',()=>{
+ const g=expected({id:'guide',expectationKind:'company-guidance',metric:'净利润',unit:'万元',bodyScope:'declared-body',body:'2026Q3净利润100万元。',guidanceDocument:{issuerSymbol:'600000',documentKind:'issuer-guidance',clause:'2026Q3净利润100万元'}});
+ const a=actual({metric:'净利润',unit:'万元'}),c=expected({id:'market',metric:'净利润',unit:'万元'});
+ const r=D.buildExpectationStudy({actuals:[a],expectations:[g,c]},{asOf:t2});
+ assert.equal(r.rows.find(x=>x.expectationKind==='company-guidance').expectationBasis.status,'declared-issuer-guidance');
+ const denied=r.rows.find(x=>x.expectationKind==='consensus').expectationBasis;
+ assert.equal(denied.comparison,null);assert.equal(denied.consensusAuthorized,false);
+});
+test('F07.4-F07.6 original archive projection uses prior frozen industry, fixed windows and rejects imported derived claims',()=>{
+ const input=eventArchive(),dates=input.eventCalendar.tradeDates;
+ const publicAt=at('2026-11-05T10:00:00'),members=['600000','600001','600002','600003','600004','600005'];
+ input.events=[event({publishedAt:publicAt,firstKnownAt:publicAt,recordedAt:publicAt})];
+ const start=at('2026-11-02T15:00:00'),end=at('2026-11-03T15:00:00'),known=end+1000;
+ const evidence={provider:'eastmoney',symbol:'600000',tradeDate:'2026-11-03',knownAt:known,window:{start,end},returnBasis:'price',benchmark:{provider:'eastmoney',code:'000985',name:'全A',return:.01,knownAt:known},classification:{provider:'eastmoney',version:'v1',knownAt:start,effectiveAt:start},methodology:{noCorporateActions:true},boards:[{code:'A',name:'行业甲',category:'industry',members,membersKnownAt:start,membersEffectiveAt:start,return:.01,knownAt:known}],stocks:members.map(symbol=>({symbol,return:.01,knownAt:known}))};
+ input.workspaceEvents=[{kind:'analysis',sequence:1,hash:'a'.repeat(64),recordedAt:known+1000,data:{symbol:'600000',tradeDate:'2026-11-03',asOf:known,provider:'eastmoney',priceBasis:'unadjusted',context:{marketLinkageEvidence:evidence}}}];
+ const own=input.archive.bars;input.archive.bars=own.concat(members.slice(1).flatMap(code=>own.map(b=>({...b,code,open:10,low:9,high:11,close:10.1}))));
+ input.archive.market=own.map(b=>({date:b.date,indexEvidence:{name:'中证全指',source:'supplied-index',receivedAt:at(b.date+'T15:01:00'),rows:[{date:b.date,open:100,close:101,knownAt:at(b.date+'T15:00:01')}]}}));
+ const r=D.buildDeepResearchEvidence(input,{asOf:input.asOf}).modules[67],first=r.rows.find(x=>x.horizonSessions===1);
+ assert.ok(first);assert.equal(first.industryReaction.status,'descriptive-unverified');assert.equal(first.industryReaction.industry.archiveHash,'a'.repeat(64));assert.equal(first.industryReaction.pricedInConfirmed,false);
+ assert.equal(r.archiveDerivation.windowLifecycle[0].windows[0].status,'elapsed-needs-new-evidence');assert.equal(r.archiveDerivation.windowLifecycle[0].autoRenew,false);
+ const forged=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({industryReaction:first.industryReaction,inputOrigin:'explicit-private-import'})]},{asOf:t1});
+ assert.equal(forged.rows[0].industryReaction,null);
+});
