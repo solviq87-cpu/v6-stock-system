@@ -260,7 +260,15 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
  const assets=snapshot?.positions.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/snapshot.equity,industry:p.industry,theme:p.theme}));
  const heldObservations=history.observations(heldCodes);
  const tail=assets?.length?tailRisk({assets,observations:heldObservations,asOf:now,confidence:policy?.confidence||.95,returnBasis:'adjusted-price'}):unknown(heldCodes.length?'CURRENT_PORTFOLIO_VALUATION_UNAVAILABLE':'NO_OPEN_POSITION_RISK');
- const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,quotes,previews,exits,tail,observations:heldObservations});
+ // Optional server-owned frozen original episode only. Never infer market cap
+ // from prices or use a later cohort for an earlier decision.
+ let stylePartition=null;
+ if(context.styleFeatureEpisode)try{
+  const e=require('./factor-shadow-evolution').verifyEpisode(context.styleFeatureEpisode,now);
+  if(e.signalDay===day)stylePartition=require('./factor-size-style-evidence').buildSizePartition(e.features,{provider:e.feed.provider,datasetId:e.feed.datasetId,signalDay:e.signalDay});
+ }catch{/* unknown until original archived evidence is supplied */}
+ const defense=buildPortfolioDefense({book,diagnostic,snapshot,account,day,now,quotes,previews,exits,tail,observations:heldObservations,
+  stylePartition,styleAssumptions:require('./portfolio-stress-evidence').DEFAULT_ASSUMPTIONS});
  const opportunityComparisons=[],holdingOrigins=new Map(diagnostic.positions.slice(0,10).map(p=>
   [p.symbol,originalHoldingProtection(book,book.account.positions[p.symbol],plans,now)]));
  for(const held of diagnostic.positions.slice(0,10))for(const candidate of checkedPlans.slice(0,5)){

@@ -24,3 +24,16 @@ test('F29 F12 three original versions use identical mature rows and earlier fixe
  assert.deepEqual(calls.slice(0,3),calls.slice(3,6));assert.deepEqual(calls.slice(0,3),calls.slice(6,9));assert.equal(a.canTrade,false);
  assert.equal(compareSizeVersions([{day,rows:input.slice(1),sizePartition:partition}],['a','b'],weights,score).status,'unknown');
 });
+
+const {styleShock}=require('../src/core/portfolio-defense-evidence');
+test('F29 F45 relative size shock counts existing and remaining buy exposure and original fees once',()=>{
+ const partition=buildSizePartition(rows(),options),h={eq:2000000,rows:[{symbol:'600000',value:500000},{symbol:'600009',value:300000}]},
+ p={fees:500,rows:[{symbol:'600000',value:100000}]},a={version:'fixed',gapPct:10,liquidityPriceShockPct:5,additionalLiquidationCostBps:300};
+ const r=styleShock(h,p,partition,a);
+ assert.equal(r.status,'conditional-style-scenarios');assert.equal(r.scenarios[0].heldMarkLoss,725);assert.equal(r.scenarios[0].additionalPendingMarkLoss,145);
+ assert.equal(r.scenarios[0].allPendingFillLoss,875);assert.equal(r.scenarios[0].allPendingFillEquityAfter,19125);assert.equal(r.scenarios[1].heldMarkLoss,435);
+ assert.equal(r.scenarios[0].canTrade,false);assert.equal(r.realizedLoss,null);assert.equal(r.otherGroupUnchanged,true);
+ for(const bad of [null,{...p,rows:[{symbol:'999999',value:100000}]},{...p,fees:null}])assert.equal(styleShock(h,bad,partition,a).status,'unknown');
+ assert.equal(styleShock(h,p,partition,{...a,gapPct:NaN}).status,'unknown');
+ assert.equal(styleShock(h,p,null,a).status,'unknown');
+});

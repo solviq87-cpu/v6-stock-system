@@ -15,7 +15,7 @@ const stamp=x=>Number.isSafeInteger(x)&&x>0&&x<=8e15;
 const absoluteRoot=x=>typeof x==='string'&&x.length<=4096&&!x.includes('\0')&&path.isAbsolute(x);
 function boundedPortfolioContext(value){
  if(!plain(value))throw Error('invalid portfolio context');
- const allowed=['history','plans','planChecks','classifications','equityEvidence','opportunityEvidence','scenarioPolicy'];
+ const allowed=['history','plans','planChecks','classifications','equityEvidence','opportunityEvidence','scenarioPolicy','styleFeatureEpisode'];
  let bytes=0,nodes=0;
  const seen=new Set();
  const copy=(item,depth=0)=>{
