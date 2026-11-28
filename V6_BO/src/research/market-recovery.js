@@ -115,18 +115,20 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
   let detailJob=null,detailRetryAfter=0,retryDay='',retryDelay=30000;
   function needsFlags(r){return typeof r.aboveMa5!=='boolean'||typeof r.breakHigh!=='boolean';}
   function warmDetails(){
-    const watch=state.closeWatch,day=getDay();
+    const watch=state.closeWatch,day=getDay(),replicaAtStart=Boolean(isReplica());
+    const currentRole=()=>getDay()===day&&Boolean(isReplica())===replicaAtStart;
+    if(replicaAtStart&&!replicaPublicReads)return;
     if(retryDay!==day){retryDay=day;detailRetryAfter=0;retryDelay=30000;}
     if(detailJob||!watch||watch.day!==day||clock()<detailRetryAfter)return;
     const todo=watch.items.filter(r=>readFlow&&!Number.isFinite(r.mainInflow)||readFlags&&needsFlags(r));
     if(!todo.length)return;
     detailJob=(async()=>{
-      for(let i=0;i<todo.length&&getDay()===day;i+=3){
+      for(let i=0;i<todo.length&&currentRole();i+=3){
         const writes=new Map();
         await Promise.all(todo.slice(i,i+3).map(async row=>{
           const [flow,flags]=await Promise.allSettled([
-            readFlow&&!Number.isFinite(row.mainInflow)?readFlow(row.code,day):null,
-            readFlags&&needsFlags(row)?readFlags(row.code,day):null
+            readFlow&&!Number.isFinite(row.mainInflow)?Promise.resolve().then(()=>currentRole()?readFlow(row.code,day):null):null,
+            readFlags&&needsFlags(row)?Promise.resolve().then(()=>currentRole()?readFlags(row.code,day):null):null
           ]);
           const same=(x,time)=>x?.day===day&&x.code===row.code&&Number.isSafeInteger(x[time])&&x[time]>=Date.parse(day+'T15:00:00+08:00')&&x[time]<=clock();
           const f=flow.value,b=flags.value,fields={};
@@ -134,29 +136,49 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
           if(same(b,'barKnownAt')&&typeof b.aboveMa5==='boolean'&&typeof b.breakHigh==='boolean'&&b.barSource)Object.assign(fields,{aboveMa5:b.aboveMa5,breakHigh:b.breakHigh,barSource:b.barSource,barKnownAt:b.barKnownAt});
           if(Object.keys(fields).length)writes.set(row.code,fields);
         }));
-        if(state.closeWatch?.day!==day||getDay()!==day)return;
+        if(state.closeWatch?.day!==day||!currentRole())return;
         if(!writes.size)continue;
         const current=state.closeWatch;
         state.closeWatch={...current,knownAt:Math.max(current.knownAt,...[...writes.values()].map(x=>Math.max(x.flowKnownAt||0,x.barKnownAt||0))),
           items:current.items.map(row=>writes.has(row.code)?{...row,...writes.get(row.code)}:row)};
-        if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
+        if(file&&!replicaAtStart)atomicWrite(file,JSON.stringify({format:1,state}));
         onCollected(day);
       }
-    })().catch(()=>{}).finally(()=>{if(day===getDay()){detailRetryAfter=clock()+retryDelay;retryDelay=Math.min(300000,retryDelay*2);}detailJob=null;});
+    })().catch(()=>{}).finally(()=>{if(currentRole()){detailRetryAfter=clock()+retryDelay;retryDelay=Math.min(300000,retryDelay*2);}detailJob=null;});
   }
   async function run(day){
-    const attempt=clock();state={...state,referenceDay:day,phase:'searching',lastAttemptAt:attempt};
+    const attempt=clock(),replicaAtStart=Boolean(isReplica());
+    const stillCurrent=()=>getDay()===day&&Boolean(isReplica())===replicaAtStart;
+    const discard=()=>{state.phase='scheduled';state.nextRetryAt=0;return [];};
+    const checkClock=minimum=>{const at=clock();if(!Number.isSafeInteger(at)||at<minimum)throw Error('invalid collection clock');return at;};
+    state={...state,referenceDay:day,phase:'searching',lastAttemptAt:attempt};
     try{
       const result=await collect(day);
-      if(isReplica()&&!replicaPublicReads)return [];
-      const now=clock(),rows=(result.rows||[]).filter(r=>r.date<=day&&Number.isSafeInteger(r.knownAt)&&r.knownAt<=now);
-      mergePublicRows(state,rows,day,now);
-      const watch=closeWatchFrom(rows,day,now,result.closeReasons,state.closeWatch);
-      const current=watch||state.closeWatch;
+      if(!stillCurrent())return discard();
+      if(!Number.isSafeInteger(attempt)||attempt<=0)throw Error('invalid collection clock');
+      const now=checkClock(attempt);
+      const rows=(result.rows||[]).filter(r=>dayOk(r?.date)&&r.date<=day&&Number.isSafeInteger(r.knownAt)&&r.knownAt>0&&r.knownAt<=now);
+      const {emotion}=await import('../../public/nova/shortline/market.mjs');
+      if(!stillCurrent())return discard();
+      const beforeSave=checkClock(now);
+      // Archive acknowledgement precedes publication. A rejected or late receipt
+      // must not refresh the last-success clock or replace earlier visible data.
+      if(rows.length&&!replicaAtStart){
+        const durable=await save(rows,day);
+        if(!stillCurrent())return discard();
+        if(!durable)throw Error('等待研究归档');
+      }
+      checkClock(beforeSave);
+      // All remaining projection work is synchronous; publish only after the
+      // original archive and optional local projection have both succeeded.
+      const next={...state};
+      mergePublicRows(next,rows,day,now);
+      const watch=closeWatchFrom(rows,day,now,result.closeReasons,next.closeWatch);
+      const current=watch||next.closeWatch;
       if(current?.day===day){
-        const prior=new Map((state.closeWatch?.day===day?state.closeWatch.items:[]).map(r=>[r.code,r]));
+        const prior=new Map((next.closeWatch?.day===day?next.closeWatch.items:[]).map(r=>[r.code,r]));
         const details=new Map((result.closeDetails||[]).filter(r=>r.day===day&&r.source&&Number.isSafeInteger(r.knownAt)&&r.knownAt>=Date.parse(day+'T15:00:00+08:00')&&r.knownAt<=now).map(r=>[r.code,r]));
-        state.closeWatch={...current,items:current.items.map(row=>{
+        next.closeWatch={...current,items:current.items.map(row=>{
           const old=prior.get(row.code)||{},d=details.get(row.code),out={...old,...row};
           if(d){
             for(const k of ['price','amount','floatCap','turnover','sealAmount'])if(Number.isFinite(d[k])&&d[k]>=0&&(k!=='turnover'||d[k]<=100))out[k]=d[k];
@@ -165,54 +187,52 @@ function createMarketRecovery({collect,save,getDay,onCollected=()=>{},readFlow,r
           }
           return out;
         })};
-        warmDetails();
       }
       const brief=result.thsBrief;
-      if(brief?.day===day&&brief.source==='同花顺每日复盘'&&brief.knownAt<=now&&brief.knownAt>=Date.parse(day+'T15:00:00+08:00'))state.thsBrief=brief;
+      if(brief?.day===day&&brief.source==='同花顺每日复盘'&&brief.knownAt<=now&&brief.knownAt>=Date.parse(day+'T15:00:00+08:00'))next.thsBrief=brief;
       if(result.indexSeries?.length){
-        const series=new Map((state.indexSeries||[]).filter(r=>r.day===day).map(r=>[r.code,r]));
+        const series=new Map((next.indexSeries||[]).filter(r=>r.day===day).map(r=>[r.code,r]));
         for(const r of result.indexSeries)if(r.day===day&&r.knownAt<=now)series.set(r.code,r);
-        state.indexSeries=[...series.values()];
+        next.indexSeries=[...series.values()];
       }
-      state.sources=(result.sources||[]).slice(0,36).map(s=>({name:sourceName(s,'V6 原始数据'),status:s.status==='available'?'available':'retrying'}));
+      next.sources=(result.sources||[]).slice(0,36).map(s=>({name:sourceName(s,'V6 原始数据'),status:s.status==='available'?'available':'retrying'}));
       if(Array.isArray(result.coverage)){
         const retained=new Map();
-        const rows=[...(state.coverage||[]),...result.coverage].filter(x=>x&&dayOk(x.day)&&x.day<=day&&Number.isSafeInteger(x.knownAt)&&x.knownAt<=now)
+        const rows=[...(next.coverage||[]),...result.coverage].filter(x=>x&&dayOk(x.day)&&x.day<=day&&Number.isSafeInteger(x.knownAt)&&x.knownAt<=now)
           .sort((a,b)=>a.day.localeCompare(b.day)||a.knownAt-b.knownAt);
         for(const x of rows)retained.set(x.kind+'/'+x.scope,Object.fromEntries(['kind','scope','source','day','observed','total','adv','dec','flat','upLimit','downLimit','buckets','quoteAt','amountCny','change','meanChange','knownAt','complete']
           .filter(k=>x[k]!=null).map(k=>[k,x[k]])));
-        state.coverage=[...retained.values()].sort((a,b)=>b.day.localeCompare(a.day)||b.knownAt-a.knownAt).slice(0,12);
+        next.coverage=[...retained.values()].sort((a,b)=>b.day.localeCompare(a.day)||b.knownAt-a.knownAt).slice(0,12);
       }
-      state.emotion=null;
-      const {emotion}=await import('../../public/nova/shortline/market.mjs');
-      const available=marketValues(state.history),last=state.history.find(r=>r.date===day);
+      next.emotion=null;
+      const available=marketValues(next.history),last=next.history.find(r=>r.date===day);
       for(const row of available.slice().reverse()){
         const mood=emotion(available,row.date,now);
         if(mood.stage!=='未判定'){
-          state.emotion={value:mood.stage,confidence:mood.confidence,date:row.date,source:'V6 多日收盘证据',knownAt:now};
+          next.emotion={value:mood.stage,confidence:mood.confidence,date:row.date,source:'V6 多日收盘证据',knownAt:now};
           break;
         }
       }
-      if(rows.some(r=>r.date===day&&fields.some(k=>valueOk(k,r[k]))))state.lastSuccessAt=now;
-      const durable=rows.length&&!isReplica()?await save(rows,day):true;
-      cachedDay=day;cachedRows=rows;
-      const currentCoverage=(state.coverage||[]).filter(x=>x.day===day&&x.complete&&x.observed===x.total);
+      if(rows.some(r=>r.date===day&&fields.some(k=>valueOk(k,r[k]))))next.lastSuccessAt=now;
+      const currentCoverage=(next.coverage||[]).filter(x=>x.day===day&&x.complete&&x.observed===x.total);
       const hasBreadth=last?.metrics.adv&&last.metrics.dec||currentCoverage.some(x=>x.kind==='breadth'&&x.scope.startsWith('沪深两市交易股票')&&numeric(x.adv)&&numeric(x.dec));
       const hasAmount=last?.metrics.amount||currentCoverage.some(x=>x.kind==='amount'&&x.scope==='沪深两市成交额'&&numeric(x.amountCny));
       const sessions=available.slice(-3);
       const continuous=sessions.length===3&&sessions.at(-1).date===day&&sessions.every((r,i)=>
         (!i||!r.previousDay||r.previousDay===sessions[i-1].date)&&['upLimit','downLimit','breakRate','height','leader','diffusion'].every(k=>numeric(r[k])));
       const complete=hasBreadth&&hasAmount&&last&&continuous&&essential.filter(k=>!['adv','dec','amount'].includes(k)).every(k=>last.metrics[k]);
-      if(!durable)throw Error('等待研究归档');
-      state.phase=complete?'ready':'partial';
-      misses=complete?0:misses+1;
-      const covered=state.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day);
-      const published=state.thsBrief?.day===day&&state.closeWatch?.day===day&&state.closeWatch.items.every(r=>r.reasonRaw);
-      state.nextRetryAt=now+(complete&&covered&&published?4*3600000:Math.min(30,2**Math.min(misses||1,5))*60000);
-      if(file&&!isReplica())atomicWrite(file,JSON.stringify({format:1,state}));
+      next.phase=complete?'ready':'partial';
+      const nextMisses=complete?0:misses+1;
+      const covered=next.coverage?.some(r=>r.kind==='market-distribution'&&r.day===day);
+      const published=next.thsBrief?.day===day&&next.closeWatch?.day===day&&next.closeWatch.items.every(r=>r.reasonRaw);
+      next.nextRetryAt=now+(complete&&covered&&published?4*3600000:Math.min(30,2**Math.min(nextMisses||1,5))*60000);
+      if(file&&!replicaAtStart)atomicWrite(file,JSON.stringify({format:1,state:next}));
+      state=next;misses=nextMisses;cachedDay=day;cachedRows=rows;
+      warmDetails();
       if(rows.length||result.coverage?.length||watch||brief?.day===day)onCollected(day);
       return rows;
     }catch{
+      if(!stillCurrent())return discard();
       misses++;state.phase='partial';state.nextRetryAt=clock()+Math.min(30,2**Math.min(misses,5))*60000;
       return cachedDay===day?cachedRows:[];
     }
