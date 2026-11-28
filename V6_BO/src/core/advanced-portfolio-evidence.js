@@ -129,6 +129,28 @@ function equityDailyRisk({initialAt,initialEquity,rows,asOf,dailyEvidence}){
  const rf=Math.expm1(Math.log1p(e.riskFreeAnnual)/252),excess=returns.map(r=>r-rf),mu=mean(excess),sd=Math.sqrt(mean(excess.map(r=>(r-mu)**2))*returns.length/(returns.length-1)),downside=Math.sqrt(mean(excess.map(r=>Math.min(0,r)**2)));
  return report({sampleCount:returns.length,source:e.source,dataVersion:e.dataVersion,knownAt:e.knownAt,annualization:252,riskFreeAnnual:e.riskFreeAnnual,riskFreeBasis:e.riskFreeBasis,annualizedVolatility:round(sd*Math.sqrt(252)),sharpe:sd>0?round(mu/sd*Math.sqrt(252)):null,sortino:downside>0?round(mu/downside*Math.sqrt(252)):null,maximumFlowAdjustedDrawdown:round(maxDrawdown),factorVersion:"fayo-equity-daily-risk-v1"});
 }
+// Single-linkage components over already calculated same-window stock
+// correlations. Missing/constant returns do not establish singleton clusters.
+function historicalCorrelationClusters(assets,correlations){
+ const threshold=.7,n=assets.length,empty={status:"unknown",threshold,windowSessions:30,recent:[],previous:[],pairAgreement:null,industryPairAgreement:null,industryComparablePairs:0,causalPropagationEstablished:false,canTrade:false};
+ if(n<2||correlations.length!==n*(n-1)/2||correlations.some(r=>!finite(r.recent30)||!finite(r.previous30)))return {...empty,reason:"INCOMPLETE_TWO_WINDOW_CORRELATIONS"};
+ const groups=field=>{
+  const parent=assets.map((_,i)=>i),index=new Map(assets.map((a,i)=>[a.symbol,i]));
+  const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+  for(const row of correlations)if(row[field]>=threshold){const a=root(index.get(row.symbols[0])),b=root(index.get(row.symbols[1]));if(a!==b)parent[Math.max(a,b)]=Math.min(a,b);}
+  const out=new Map();for(let i=0;i<n;i++){const k=root(i);if(!out.has(k))out.set(k,[]);out.get(k).push(assets[i].symbol);}
+  const clusters=[...out.values()].map(g=>g.sort()).sort((a,b)=>a[0].localeCompare(b[0]));
+  return {clusters,bySymbol:new Map(clusters.flatMap((g,i)=>g.map(s=>[s,i])))};
+ };
+ const recent=groups("recent30"),previous=groups("previous30");
+ let agreement=0,industryPairs=0,industryAgreement=0;
+ for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+  const a=assets[i],b=assets[j],nowSame=recent.bySymbol.get(a.symbol)===recent.bySymbol.get(b.symbol),priorSame=previous.bySymbol.get(a.symbol)===previous.bySymbol.get(b.symbol);
+  if(nowSame===priorSame)agreement++;
+  if(label(a.industry)&&label(b.industry)){industryPairs++;if(nowSame===(a.industry===b.industry))industryAgreement++;}
+ }
+ return {...empty,status:"descriptive-unverified",reason:null,recent:recent.clusters,previous:previous.clusters,pairAgreement:round(agreement/correlations.length),industryPairAgreement:industryPairs?round(industryAgreement/industryPairs):null,industryComparablePairs:industryPairs,basis:"fixed positive correlation >=0.7; connected components; last and previous 30 matched observations; classification is not a causal business link"};
+}
 function tailRisk({assets,observations,asOf,confidence=.95,returnBasis="total-return"}={}){
  if(!["total-return","adjusted-price"].includes(returnBasis))return unknown("UNSUPPORTED_RETURN_BASIS");
  if(!stamp(asOf)||!Array.isArray(assets)||!assets.length||assets.length>100||!assets.every(a=>a&&symbol(a.symbol)&&positive(a.weight)&&a.weight<=1)||new Set(assets.map(a=>a.symbol)).size!==assets.length||assets.reduce((s,a)=>s+a.weight,0)>1+1e-9||![.9,.95,.99].includes(confidence)||!Array.isArray(observations)||observations.length<60||observations.length>3000)return unknown("INSUFFICIENT_ALIGNED_EVIDENCE");
@@ -162,7 +184,7 @@ function tailRisk({assets,observations,asOf,confidence=.95,returnBasis="total-re
   const recent=corr(vectors.slice(-30)),previous=corr(vectors.slice(-60,-30));
   correlations.push({symbols:[codes[i],codes[j]],recent30:recent,previous30:previous,change:recent===null||previous===null?null:round(recent-previous)});
  }
- return report({sampleCount:n,start:observations[0].date,end:last,confidence,tailCount:k,returnBasis,factorVersion:"fayo-historical-tail-v2",dailyVolatility:round(sd),dailyDownsideDeviation:round(downside),historicalVaR:tailKnown?round(order[k-1].loss):null,historicalES:tailKnown?round(mean(worst.map(x=>x.loss))):null,tailReason:tailKnown?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS",varAttributionBasis:"kth-worst-loss-boundary-equal-loss-scenarios-averaged",varBoundaryScenarioCount:varBoundary.length,contributions,industryContributions:groups("industry"),themeContributions:groups("theme"),correlations,assumptions:[returnBasis==="total-return"?"同日完整总收益率、当前固定多头权重，现金收益设0":"同日后复权价格变动场景、当前固定多头权重，现金收益设0；并非经认证总收益率","历史等权单日场景；正损失为风险，负贡献可能抵消风险","波动与下行偏差为Euler贡献；VaR按最差ceil(n×尾部比例)的边界场景归因，同损失场景取均值，不冒充连续分布边际VaR","尾部至少10个观测；不保证未来最大损失，不认证上游数据"]});
+ return report({sampleCount:n,start:observations[0].date,end:last,confidence,tailCount:k,returnBasis,factorVersion:"fayo-historical-tail-v2",meanDailyReturn:round(mu),dailyVolatility:round(sd),dailyDownsideDeviation:round(downside),historicalVaR:tailKnown?round(order[k-1].loss):null,historicalES:tailKnown?round(mean(worst.map(x=>x.loss))):null,tailReason:tailKnown?null:"FEWER_THAN_TEN_TAIL_OBSERVATIONS",varAttributionBasis:"kth-worst-loss-boundary-equal-loss-scenarios-averaged",varBoundaryScenarioCount:varBoundary.length,contributions,industryContributions:groups("industry"),themeContributions:groups("theme"),correlations,correlationClusters:historicalCorrelationClusters(assets,correlations),assumptions:[returnBasis==="total-return"?"同日完整总收益率、当前固定多头权重，现金收益设0":"同日后复权价格变动场景、当前固定多头权重，现金收益设0；并非经认证总收益率","历史等权单日场景；正损失为风险，负贡献可能抵消风险","波动与下行偏差为Euler贡献；VaR按最差ceil(n×尾部比例)的边界场景归因，同损失场景取均值，不冒充连续分布边际VaR","尾部至少10个观测；不保证未来最大损失，不认证上游数据"]});
 }
 function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,returnBasis="total-return"}={}){
  if(!snapshot||!label(snapshot.evidenceRef)||!positive(snapshot.equity)||!finite(snapshot.cash)||snapshot.cash<0||!finite(snapshot.availableCash)||snapshot.availableCash<0||snapshot.availableCash>snapshot.cash||!Array.isArray(snapshot.positions)||snapshot.positions.length>1000||!snapshot.positions.every(p=>p&&symbol(p.symbol)&&finite(p.marketValue)&&p.marketValue>=0)||new Set(snapshot.positions.map(p=>p.symbol)).size!==snapshot.positions.length)return unknown("ACCOUNT_PROJECTION_UNAVAILABLE");
@@ -187,17 +209,24 @@ function previewPosition({snapshot,plan,gate,riskContext,observations,asOf,retur
   riskBudgetAfter={status:"observed-unverified",policyVersion:checked.policyVersion,evidenceRef:riskContext.evidenceRef,originalEquityBasis:checked.exposure.equity,afterFeeEquity:afterEquity,estimatedConstraintsSatisfied:checked.allowed,reasonCodes:checked.reasonCodes,budgets,canTrade:false,writesAccount:false};
  }catch{riskBudgetAfter=unknown("ORIGINAL_RISK_POLICY_UNAVAILABLE");}
  const assets=(pp,equity)=>pp.filter(p=>p.marketValue>0).map(p=>({symbol:p.symbol,weight:p.marketValue/equity,industry:p.industry,theme:p.theme}));
- let incrementalPortfolioRisk=null;
+ let incrementalPortfolioRisk=null,marginalMarkedReturn=null;
  if(Array.isArray(observations)&&stamp(asOf)){
   const after=tailRisk({assets:assets(positions,afterEquity),observations,asOf,returnBasis});
-  const beforeAssets=assets(snapshot.positions,snapshot.equity),before=beforeAssets.length?tailRisk({assets:beforeAssets,observations,asOf,returnBasis}):{status:"estimated-unverified",dailyVolatility:0,dailyDownsideDeviation:0,historicalVaR:0,historicalES:0};
+  const beforeAssets=assets(snapshot.positions,snapshot.equity),before=beforeAssets.length?tailRisk({assets:beforeAssets,observations,asOf,returnBasis}):{status:"estimated-unverified",meanDailyReturn:0,dailyVolatility:0,dailyDownsideDeviation:0,historicalVaR:0,historicalES:0};
   if(before.status!=="unknown"&&after.status!=="unknown"){
    const metrics={};for(const key of ["dailyVolatility","dailyDownsideDeviation","historicalVaR","historicalES"]){metrics[key]={before:before[key],after:after[key],change:finite(before[key])&&finite(after[key])?round(after[key]-before[key]):null};}
    incrementalPortfolioRisk={status:"estimated-unverified",metrics,sampleCount:after.sampleCount,start:after.start,end:after.end,returnBasis,factorVersion:after.factorVersion,canTrade:false,writesAccount:false};
+   if(gateStatus==="allowed"&&total<=snapshot.availableCash&&(!riskBudgetAfter||riskBudgetAfter.estimatedConstraintsSatisfied===true)){
+    const base=before.meanDailyReturn,afterOriginalBasis=after.meanDailyReturn*afterEquity/snapshot.equity-plan.fee/snapshot.equity;
+    if([base,afterOriginalBasis].every(finite))marginalMarkedReturn=report({sampleCount:after.sampleCount,start:after.start,end:after.end,
+     originalEquity:snapshot.equity,entryFee:plan.fee,baselineMean:round(base),candidateMeanAfterEntryFee:round(afterOriginalBasis),
+     difference:round(afterOriginalBasis-base),returnBasis,exitCost:null,realized:false,forecast:false,
+     basis:"one-day aligned price scenarios; fixed original account, cash yield zero, entry fee once; exit cost unknown"});
+   }
   }else incrementalPortfolioRisk=unknown(after.reason||before.reason||"INCOMPLETE_ALIGNED_POSITION_HISTORY");
  }
  const policyBlocked=riskBudgetAfter!==null&&(riskBudgetAfter.status==="unknown"||riskBudgetAfter.estimatedConstraintsSatisfied!==true);
- return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
+ return report({cashAfter:round(snapshot.cash-total),availableCashAfter:round(snapshot.availableCash-total),equityAfter:round(afterEquity),totalWeight:round(positions.reduce((s,p)=>s+p.marketValue,0)/afterEquity),symbolWeight:round(positions.find(p=>p.symbol===plan.symbol).marketValue/afterEquity),industry:groups("industry"),theme:groups("theme"),strategy:groups("strategy"),riskBudgetAfter,incrementalPortfolioRisk,marginalMarkedReturn,originalGateStatus:gateStatus,originalGateReason:label(gate?.reason)?gate.reason:null,previewBlocked:total>snapshot.availableCash||gateStatus!=="allowed"||policyBlocked,assumptions:["假设按后端计划价全额成交，费用即刻扣除；不是订单","沿原风控函数观察政策额度，待买委托计入敞口；政策检查不替代原事务回执","增量风险使用同一历史样本及当前持仓权重；原门禁结果不是执行授权"]});
 }
 // Reuse the existing non-overlapping calendar windows for both held-stock
 // comparisons and available-cash scenarios. A broken edge restarts the window.

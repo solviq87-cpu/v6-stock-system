@@ -250,6 +250,7 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
     seen.add(row.fingerprint);seenEvents.add(row.settlementIdentity);accepted.push(row);
   }
   const standard=accepted.filter(row=>row.quality==='standard');
+  const evidenceExclusions=Object.fromEntries([...new Set(excluded.map(x=>x.reason))].sort().map(reason=>[reason,excluded.filter(x=>x.reason===reason).length]));
   const strata=Object.fromEntries(['standard','black-swan','extreme'].map(key=>[key,summary(accepted.filter(row=>row.quality===key))]));
   const groups=key=>Object.fromEntries([...new Set(standard.map(row=>row[key]))].map(value=>[value,stress(standard.filter(row=>row[key]===value))]));
   const folds=(walkforward?.folds||[]).map(fold=>{
@@ -263,7 +264,7 @@ function buildExecutionValidation(archive,walkforward,{now=Date.now()}={}) {
   });
   return {status:standard.length?'observed-verified-simulation-settlements':'missing-verified-frozen-settlements',
     method:'frozen-plan-and-original-ledger-cost-validation',acceptedTrades:accepted.length,standardTrades:standard.length,
-    excludedCount:excluded.length,excluded:excluded.slice(-40),settings:{...settings,stressSlippageBps:[...settings.stressSlippageBps],
+    excludedCount:excluded.length,excluded:excluded.slice(-40),settlementReview:{attemptedRecords:attempts.length,acceptedSettlements:accepted.length,evidenceExclusions,standardLossSettlements:standard.filter(x=>x.netCents<0).length,decisionErrors:null,missedOpportunityCost:null,reason:'净亏损不等同于决策错误；没有冻结拒绝时点和成熟可成交反事实，不推定误拒',canTrain:false,canTrade:false},settings:{...settings,stressSlippageBps:[...settings.stressSlippageBps],
       stressFeeMultipliers:[...settings.stressFeeMultipliers]},strata,byRegime:groups('regime'),byCycle:groups('cycle'),byStrategy:groups('strategy'),
     overall:stress(standard),folds,settledEntryCosts:settledEntryCosts(standard,entryBenchmarks),
     planEvidence:{originalLinkReconciled:accepted.filter(row=>row.planEvidenceBasis==='original-plan-link-reconciled').length,

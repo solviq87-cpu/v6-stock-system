@@ -67,3 +67,19 @@ test("F33 capacity compares bounded participation rates without new source or tr
  equal(x.participationSensitivity[0].rows[0].estimatedShares,1000);equal(x.participationSensitivity[2].rows[0].estimatedShares,4000);
  equal(x.actualFillVerified,false);equal(x.canTrade,false);
 });
+
+test("F34 marginal daily marking uses the same original account denominator, fees and gate",()=>{
+ const start=Date.parse("2025-01-01T00:00:00Z"),asOf=start+61*86400000,observations=Array.from({length:60},(_,i)=>({date:new Date(start+i*86400000).toISOString().slice(0,10),availableAt:start+(i+1)*86400000,source:"p",dataVersion:"v1",evidenceKind:"historical",returnBasis:"total-return",returns:{"600000":.01,"600001":.02}}));
+ const snapshot={evidenceRef:"book",equity:1000,cash:600,availableCash:500,positions:[{symbol:"600000",marketValue:400}]},plan={symbol:"600001",price:10,quantity:30,fee:1,evidenceRef:"plan"};
+ const gate={status:"allowed",evidenceRef:"gate"},x=api.previewPosition({snapshot,plan,gate,observations,asOf});
+ equal(x.marginalMarkedReturn.baselineMean,.004);equal(x.marginalMarkedReturn.candidateMeanAfterEntryFee,.009);equal(x.marginalMarkedReturn.difference,.005);equal(x.marginalMarkedReturn.exitCost,null);
+ equal(api.previewPosition({snapshot,plan,gate:{...gate,status:"blocked"},observations,asOf}).marginalMarkedReturn,null);
+ equal(api.previewPosition({snapshot,plan,gate,observations:observations.slice(0,59),asOf}).marginalMarkedReturn,null);
+});
+test("F30 stock grouping compares prior and recent windows without inventing causal links",()=>{
+ const start=Date.parse("2025-01-01T00:00:00Z"),asOf=start+61*86400000,observations=Array.from({length:60},(_,i)=>{const x=i%2?.01:-.01;return {date:new Date(start+i*86400000).toISOString().slice(0,10),availableAt:start+(i+1)*86400000,source:"p",dataVersion:"v1",evidenceKind:"historical",returnBasis:"total-return",returns:{"600000":x,"600001":i<30?-x:x,"600002":-x}}});
+ const assets=[{symbol:"600000",weight:.3,industry:"a"},{symbol:"600001",weight:.3,industry:"a"},{symbol:"600002",weight:.3,industry:"b"}];
+ const r=api.tailRisk({assets,observations,asOf}).correlationClusters;
+ equal(r.status,"descriptive-unverified");assert.deepEqual(r.recent,[["600000","600001"],["600002"]]);assert.deepEqual(r.previous,[["600000"],["600001","600002"]]);equal(r.pairAgreement,.33333333);equal(r.industryPairAgreement,1);equal(r.causalPropagationEstablished,false);
+ const constant=observations.map(o=>({...o,returns:{...o.returns,"600002":0}}));equal(api.tailRisk({assets,observations:constant,asOf}).correlationClusters.status,"unknown");
+});
