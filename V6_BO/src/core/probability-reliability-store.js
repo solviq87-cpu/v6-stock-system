@@ -246,6 +246,7 @@ function readProbabilityResearch(root, {scope = 'formal', asOf = Date.now()} = {
     metrics:s.evaluation ? {calibration:s.evaluation.calibration, validationRaw:s.evaluation.validationRaw,
       validationCalibrated:s.evaluation.validationCalibrated, calibratedCoverage:s.evaluation.calibratedCoverage,
       holdoutCoverage:probability.frozenHoldoutCoverage(s.evaluation),
+      regimeReliability:s.evaluation.regimeReliability??null,reliabilityDrift:s.evaluation.reliabilityDrift??null,
       expectedCalibration:s.evaluation.expectedCalibration??null,scheduledPurgedCalibration:s.evaluation.scheduledPurgedCalibration??null,
       calibrationCoverage:s.evaluation.calibrationCoverage??null,completeCalibrationEvidence:s.evaluation.completeCalibrationEvidence??null,
       comparisonOnIdenticalRows:s.evaluation.comparisonOnIdenticalRows, validationWindowClosed:s.evaluation.validationWindowClosed??null,

@@ -27,6 +27,17 @@ function register(plan,{now=Date.now()}={}){
 }
 function verifiedPlan(plan){const p=verify(plan);assert(p.schemaVersion===1,'研究登记版本无效');assert(register(p,{now:p.registeredAt}).fingerprint===plan.fingerprint,'研究登记合同不一致');return p;}
 function targetDay(calendar,signalDay,horizon){assert(calendar.isOpen(signalDay),'预测不在交易日');let d=signalDay;for(let i=0;i<horizon;i++){d=calendar.next(d);assert(d,'标签窗口超出日历');}return d;}
+// Existing observed-market-regime labels; never infer neutral from absent input.
+const REGIMES=Object.freeze(['risk_on','risk_off','trend','mean_reversion','neutral']);
+function freezeRegimeEvidence(value,predictedAt,signalDay){
+ if(value===undefined||value===null)return null;
+ assert(value&&typeof value==='object'&&!Array.isArray(value)&&REGIMES.includes(value.regime)&&
+  str(value.source)&&str(value.version)&&hex(value.fingerprint)&&ms(value.knownAt)&&
+  value.knownAt<=predictedAt&&value.date===signalDay&&day(value.knownAt)===signalDay&&value.usable===true,
+  '行情分类证据缺失、时点越界或版本无效');
+ return {regime:value.regime,source:value.source,version:value.version,fingerprint:value.fingerprint,
+  knownAt:value.knownAt,date:value.date,usable:true};
+}
 function freezePrediction(plan,input,calendarData,{now=Date.now()}={}){
  return freezeWithCalendar(plan,verifiedPlan(plan),input,createTradingCalendar(calendarData),now);
 }
@@ -38,8 +49,9 @@ function freezeWithCalendar(plan,p,input,calendar,now){
  // Match the existing journal boundary for direct core and CLI callers.
  assert(close(end)<=p.validationEndAt,'标签成熟窗口超出预登记结束时间');
  const phase=x.predictedAt<p.validationStartAt?'calibration':'validation';
+ const regimeEvidence=freezeRegimeEvidence(x.regimeEvidence,x.predictedAt,d);
  assert(now<close(end)&&(phase!=='calibration'||now<p.validationStartAt),'不能在标签成熟或下一阶段后补冻结');
- return seal({schemaVersion:1,planFingerprint:plan.fingerprint,id:x.id,code:x.code,scope:x.scope,source:x.source,sourceFingerprint:x.sourceFingerprint,target:x.target,modelVersion:x.modelVersion,modelFingerprint:x.modelFingerprint,value:x.value,predictedAt:x.predictedAt,observedAt:x.observedAt,frozenAt:now,signalDay:d,targetDay:end,calendarFingerprint:calendar.metadata.sha256,phase});
+ return seal({schemaVersion:1,planFingerprint:plan.fingerprint,id:x.id,code:x.code,scope:x.scope,source:x.source,sourceFingerprint:x.sourceFingerprint,target:x.target,modelVersion:x.modelVersion,modelFingerprint:x.modelFingerprint,value:x.value,predictedAt:x.predictedAt,observedAt:x.observedAt,frozenAt:now,signalDay:d,targetDay:end,calendarFingerprint:calendar.metadata.sha256,phase,...(regimeEvidence?{regimeEvidence}:{})});
 }
 const bin=x=>Math.min(POLICY.bins-1,Math.floor(x*POLICY.bins));
 const average=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
@@ -80,6 +92,47 @@ function metrics(rows){
  const loo=[...groups.values()].filter(g=>g.n<rows.length).map(g=>(total-g.loss)/(rows.length-g.n));
  return {samples:rows.length,days:groups.size,brier:total/rows.length,logLoss:average(rows.map(r=>-Math.log(Math.max(1e-15,r.y?r.p:1-r.p)))),ece:curve.reduce((s,b)=>s+(b.samples?b.samples*Math.abs(b.meanPrediction-b.observedFrequency):0),0)/rows.length,curve,dayLeaveOneOutBrierRange:loo.length?[Math.min(...loo),Math.max(...loo)]:null};
 }
+// F36.1/F36.3. Fixed, versioned cohorts are independently fitted on the
+// calibration window only. The original one-time trial still owns the result.
+function summarizeRegimeReliability(frozen,rows,p,windowClosed){
+ const key=e=>e?JSON.stringify([e.regime,e.source,e.version]):null;
+ const cohorts=new Map();
+ let unknownValidation=0;
+ for(const f of frozen){
+  const k=key(f.regimeEvidence);
+  if(!k){if(f.phase==='validation')unknownValidation++;continue;}
+  if(!cohorts.has(k))cohorts.set(k,{key:k,regime:f.regimeEvidence.regime,source:f.regimeEvidence.source,version:f.regimeEvidence.version,
+   expectedCalibration:0,expectedValidation:0,fit:[],holdout:[]});
+  const c=cohorts.get(k);
+  if(f.phase==='validation')c.expectedValidation++;
+  else if(close(f.targetDay)<p.validationStartAt)c.expectedCalibration++;
+ }
+ const base={status:!windowClosed?'withheld-until-window-close':'descriptive-unverified',unknownValidation,
+  frozenValidation:frozen.filter(f=>f.phase==='validation').length,cohorts:[],canTrade:false,canApprove:false,
+  automaticCalibrationUpdated:false,independentCalibrationCertified:false};
+ if(cohorts.size>20)return {...base,status:'unknown',reason:'REGIME_VERSION_COHORT_LIMIT'};
+ if(!windowClosed)return base;
+ for(const r of rows.calibration)if(r.regimeKey&&cohorts.has(r.regimeKey))cohorts.get(r.regimeKey).fit.push(r);
+ for(const r of rows.validation)if(r.regimeKey&&cohorts.has(r.regimeKey))cohorts.get(r.regimeKey).holdout.push(r);
+ const output=[];
+ for(const {key:k,regime,source,version,expectedCalibration,expectedValidation,fit,holdout} of cohorts.values()){
+  const enoughEvidence=enough(fit)&&enough(holdout),bins=Array.from({length:POLICY.bins},()=>[]);
+  for(const r of fit)bins[bin(r.p)].push(r.y);
+  const paired=enoughEvidence?holdout.filter(r=>bins[bin(r.p)].length>=POLICY.minBin):[];
+  const fitBase=average(fit.map(r=>r.y)),observed=average(holdout.map(r=>r.y));
+  const raw=metrics(paired),calibrated=metrics(paired.map(r=>({...r,p:average(bins[bin(r.p)])})));
+  const constant=metrics(paired.map(r=>({...r,p:fitBase})));
+  const complete=paired.length>0&&fit.length===expectedCalibration&&holdout.length===expectedValidation&&paired.length===expectedValidation;
+  output.push({regime,source,version,expectedCalibration,expectedValidation,calibrationSamples:fit.length,eligibleValidation:holdout.length,
+   pairedSamples:paired.length,coverage:expectedValidation?paired.length/expectedValidation:null,
+   status:!paired.length?'insufficient-evidence':complete?'complete-descriptive':'partial-descriptive',
+   rawBrier:raw.brier,calibratedBrier:calibrated.brier,constantBrier:constant.brier,
+   calibrationEventRate:fitBase,validationEventRate:observed,eventRateShift:fitBase===null||observed===null?null:observed-fitBase,
+   completePairedComparison:complete,canPromote:false});
+ }
+ output.sort((a,b)=>JSON.stringify([a.regime,a.source,a.version]).localeCompare(JSON.stringify([b.regime,b.source,b.version])));
+ return {...base,status:output.length?'descriptive-unverified':'no-regime-evidence',cohorts:output};
+}
 function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
  const p=verifiedPlan(plan);assert(ms(now)&&now>=p.registeredAt&&Array.isArray(predictions)&&Array.isArray(outcomes)&&predictions.length<=50000&&outcomes.length<=50000,'研究输入无效');
  const calendar=createTradingCalendar(calendarData),byId=new Map(),keys=new Set(),labels=new Map(),exclusions=Object.create(null),rows={calibration:[],validation:[]};
@@ -92,7 +145,8 @@ function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
   if(p.target==='netProfitAfterFill'){exclude('requires-original-verified-settlement-adapter');continue;}
   if(y.quality!=='standard'){exclude('nonstandard-label');continue;}
   if(f.phase==='calibration'&&y.availableAt>=p.validationStartAt){exclude('purged-overlapping-or-late-calibration-label');continue;}
-  rows[f.phase].push({p:f.value,y:Number(y.value),signalDay:f.signalDay});
+  const regimeKey=f.regimeEvidence?JSON.stringify([f.regimeEvidence.regime,f.regimeEvidence.source,f.regimeEvidence.version]):null;
+  rows[f.phase].push({p:f.value,y:Number(y.value),signalDay:f.signalDay,regimeKey});
  }
  const fit=rows.calibration,holdout=rows.validation,validationWindowClosed=now>=p.validationEndAt;
  const ready=validationWindowClosed&&enough(fit)&&enough(holdout);
@@ -121,6 +175,15 @@ function evaluate(plan,predictions,outcomes,calendarData,{now=Date.now()}={}){
   improvedBrierOnCompleteHoldout:complete?pairedCalibrated.brier<pairedRaw.brier:null,
   calibrationCertified:false};
  const report = {schemaVersion:1,mode:'probability-reliability-research',scope:p.scope,target:p.target,targetLabel:TARGETS[p.target],modelVersion:p.modelVersion,modelFingerprint:p.modelFingerprint,planFingerprint:plan.fingerprint,asOf:now,policy:POLICY,status:p.scope==='test'?'fixture-only':ready&&comparable&&completeCalibrationEvidence?'descriptive-holdout-evaluated':'insufficient-or-incomplete-evidence',exclusions,expectedValidation,expectedCalibration,scheduledPurgedCalibration,calibrationCoverage,completeCalibrationEvidence,calibration:metrics(fit),validationWindowClosed,validationRaw:metrics(validationWindowClosed?holdout:[]),validationCalibrated:pairedCalibrated,pairedComparison,calibratedCoverage:validationWindowClosed&&holdout.length?calibrated.length/holdout.length:null,comparisonOnIdenticalRows:comparable,uncertaintyMethod:'leave-one-signal-day-out sensitivity, not a confidence interval',calibrationCertified:false,canTrade:false,canApprove:false,productionWeightsChanged:false,note:'源端真实性及登记存证独立核验尚需原实例；规则分、频率与模型概率不得混用。'};
- return {...report,holdoutCoverage:frozenHoldoutCoverage(report)};
+ const regimeReliability=summarizeRegimeReliability(frozen,rows,p,validationWindowClosed);
+ const observedEventRate=validationWindowClosed?average(holdout.map(r=>r.y)):null;
+ const reliabilityDrift={status:!validationWindowClosed?'withheld-until-window-close':fit.length&&holdout.length?'descriptive-only':'unknown',
+  calibrationSamples:fit.length,validationSamples:validationWindowClosed?holdout.length:null,
+  calibrationEventRate:calibrationBaseRate,validationEventRate:observedEventRate,
+  eventRateShift:calibrationBaseRate===null||observedEventRate===null?null:observedEventRate-calibrationBaseRate,
+  lateOrOverlappingCalibrationLabels:exclusions['purged-overlapping-or-late-calibration-label']||0,
+  invalidOrUnmaturedLabels:exclusions['invalid-or-unmatured-label']||0,
+  automaticCalibrationUpdated:false,calibrationCertified:false};
+ return {...report,holdoutCoverage:frozenHoldoutCoverage(report),regimeReliability,reliabilityDrift};
 }
-module.exports={TARGETS,POLICY,register,freezePrediction,evaluate,frozenHoldoutCoverage};
+module.exports={TARGETS,POLICY,register,freezePrediction,evaluate,frozenHoldoutCoverage,summarizeRegimeReliability};

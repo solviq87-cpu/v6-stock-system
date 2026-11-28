@@ -145,3 +145,31 @@ test('sealed coverage retains zero counts and withholds ratios for missing or co
  assert.equal(frozenHoldoutCoverage({...report,validationCalibrated:{samples:1}}),null);
  assert.equal(frozenHoldoutCoverage({...report,pairedComparison:{expectedValidation:4}}),null);
 });
+
+test('F36 frozen regime cohorts fit only their own earlier labels and never report before the holdout closes',()=>{
+ const fs=[];
+ for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++){
+  const t=time(i,'10:00');
+  fs.push(prediction(i,j,{regimeEvidence:{regime:'risk_on',source:'test-fixture',version:'v1',fingerprint:sourceFingerprint,knownAt:t,date:dates[i],usable:true}}));
+ }
+ const ys=fs.map(f=>label(f,f.phase==='calibration'?f.code!=='000005':f.code==='000001'));
+ const r=evaluate(plan,fs,ys,calendar,{now:time(70)}),c=r.regimeReliability.cohorts[0];
+ assert.equal(c.expectedValidation,100);assert.equal(c.pairedSamples,100);assert.equal(c.coverage,1);
+ assert.ok(c.calibratedBrier>c.rawBrier);assert.equal(c.completePairedComparison,true);
+ assert.equal(r.regimeReliability.automaticCalibrationUpdated,false);
+ assert.ok(r.reliabilityDrift.eventRateShift<0);
+ const early=evaluate(plan,fs.filter(f=>f.predictedAt<=time(45)),ys.filter(y=>fs.find(f=>f.id===y.predictionId).predictedAt<=time(45)),calendar,{now:time(45)});
+ assert.deepEqual(early.regimeReliability.cohorts,[]);assert.equal(early.reliabilityDrift.validationEventRate,null);
+ assert.throws(()=>prediction(5,0,{regimeEvidence:{regime:'risk_on',source:'test-fixture',version:'v1',fingerprint:sourceFingerprint,knownAt:time(6),date:dates[5],usable:true}}),/行情分类证据/);
+});
+test('F36 unknown or changed regime versions cannot borrow calibration sample coverage',()=>{
+ const fs=[];
+ for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++){
+  const t=time(i,'10:00');
+  fs.push(prediction(i,j,{...(j===0?{}:{regimeEvidence:{regime:'risk_off',source:'test-fixture',version:start===2?'v1':'v2',fingerprint:sourceFingerprint,knownAt:t,date:dates[i],usable:true}})}));
+ }
+ const r=evaluate(plan,fs,fs.map(f=>label(f,f.code==='000001')),calendar,{now:time(70)});
+ assert.equal(r.regimeReliability.unknownValidation,20);
+ assert.ok(r.regimeReliability.cohorts.every(x=>x.pairedSamples===0&&x.calibratedBrier===null));
+ assert.equal(r.regimeReliability.independentCalibrationCertified,false);
+});
