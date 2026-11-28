@@ -38,6 +38,14 @@ export function renderHoldingPeriodComparison(data){
     return h('li',{},row.holdDays+'日：可用路径 '+value(d.usableRecords)+'/'+value(d.totalSettledRecords)+
      '；平均最大有利 '+pct(d.meanMfePct)+'；平均最大不利 '+pct(d.meanMaePct));
    })),
+   h('h3',{},'固定参考路径与收益敏感性'),
+   h('p',{class:'fy-note'},'固定±3%价格触及仅为研究参考，不是原买卖阈值。同日双触及标记歧义，缺价停牌删失；入场日触及不代表T+1可卖。按5个交易日区块重采样原账户净值，非独立置信区间或DSR。'),
+   h('ul',{},data.periods.map(row=>{
+    const labels=row.settledExcursions?.pathLabelCounts||{},u=row.returnUncertainty||{};
+    return h('li',{},row.holdDays+'日：双触及歧义 '+value(labels['ambiguous-same-bar'])+'；删失 '+value(labels.censored)+
+      '；净值日收益样本 '+value(u.sessions)+'；重采样均值范围 '+(Array.isArray(u.resampledMeanRangePct)?u.resampledMeanRangePct.map(x=>finite(x)?format(x)+'%':'未知').join(' / '):'未知')+
+      '；最大绝对收益日占比 '+(finite(u.largestAbsoluteDayShare)?format(u.largestAbsoluteDayShare*100)+'%':'未知')+'；DSR 未验证');
+   })),
    h('h3',{},'候选信号与联合纸面成交'),
    h('p',{class:'fy-note'},'全信号分母为原扫描器每个已扫描日去重后的候选，含持仓、资格或仓位限制；条件分母为实际纸面买入批次。部分买入按开盘可负担整手股数和流动性上限区分，部分退出、仍持有和公司行为未知单列。不是全市场信号或真实成交概率。'),
    h('ul',{},data.periods.map(row=>{

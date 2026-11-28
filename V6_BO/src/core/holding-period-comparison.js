@@ -4,6 +4,9 @@
 const crypto=require('node:crypto');
 const {runValidatedBacktest}=require('./historical-validation');
 const HORIZONS=Object.freeze([1,3,5,10,20]);
+// Fixed, descriptive sensitivity protocol; never optimized on the output.
+const PATH_REFERENCE=Object.freeze({upperPct:3,lowerPct:-3,version:'fixed-symmetric-3pct-v1'});
+const UNCERTAINTY_REFERENCE=Object.freeze({blockSessions:5,resamples:256,minimumSessions:40,maximumSessions:2000,seed:20261128});
 const FLAGS=Object.freeze({canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,eligibleForPromotion:false,weightsChanged:false});
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 // Identify symbols for which ordinary unadjusted-price paths or allocated
@@ -114,7 +117,8 @@ function summarizeSettledExcursions(history,report){
  const total=Array.isArray(report?.trades)?report.trades.length:null;
  const empty={status:'unavailable',totalSettledRecords:total,usableRecords:0,excludedRecords:total,rows:[],
   meanMfePct:null,meanMaePct:null,coveragePct:null,barInspections:0,intradayOrderKnown:false,
-  executionCertified:false,canTrain:false,canTrade:false};
+  executionCertified:false,canTrain:false,canTrade:false,
+  pathReference:PATH_REFERENCE,pathLabelCounts:null,formalPathLabelsCertified:false};
  const unavailable=reason=>({...empty,reason});
  const affected=corporateAffectedSymbols(report);
  if(total===null||report.metrics?.closedTrades!==total||!affected||!Array.isArray(history?.stocks))return unavailable('ORIGINAL_PATH_EVIDENCE_UNAVAILABLE');
@@ -137,7 +141,7 @@ function summarizeSettledExcursions(history,report){
    buyDate:validDays&&date(stock.bars[t.buyDay]?.date)?stock.bars[t.buyDay].date:null,
    sellDate:validDays&&date(stock.bars[t.sellDay]?.date)?stock.bars[t.sellDay].date:null,
    status:'unknown',mfePct:null,maePct:null,netReturnPct:null,extremaOrder:'unknown'};
-  const exclude=reason=>rows.push({...row,reason});
+  const exclude=reason=>rows.push({...row,reason,pathLabel:{status:reason==='INCOMPLETE_OR_RESTRICTED_PRICE_PATH'?'censored':'unknown',date:null,canTrain:false}});
   if(!validDays||!row.shares||!row.buyDate||!row.sellDate||row.buyDate>=row.sellDate||row.sellDate>history.asOf||
    !positive(t.entry)||!positive(t.exit)||!positive(t.costBasis)||!finite(t.netPnl)){
    exclude('INVALID_OR_UNDATED_SETTLED_RECORD');continue;
@@ -148,7 +152,8 @@ function summarizeSettledExcursions(history,report){
    exclude('ORIGINAL_FILL_LINEAGE_UNAVAILABLE');continue;
   }
   if(barInspections+t.sellDay-t.buyDay+1>80000)return unavailable('PATH_INSPECTION_BUDGET_EXCEEDED');
-  let high=t.entry,low=t.entry,previous='',missing=false;
+  let high=t.entry,low=t.entry,previous='',missing=false,firstTouch=null;
+  const upper=t.entry*(1+PATH_REFERENCE.upperPct/100),lower=t.entry*(1+PATH_REFERENCE.lowerPct/100);
   for(let d=t.buyDay;d<=t.sellDay;d++){
    barInspections++;
    const b=stock.bars[d];
@@ -159,6 +164,17 @@ function summarizeSettledExcursions(history,report){
     missing=true;break;
    }
    previous=b.date;
+   if(!firstTouch){
+    // Opening print precedes intraday extrema, except the entry day, whose
+    // opening price may precede the modeled entry. Exit day has ONLY its open.
+    const openStatus=d>t.buyDay?(b.open>=upper?'upper-observed':b.open<=lower?'lower-observed':null):null;
+    if(openStatus)firstTouch={status:openStatus,date:b.date,observation:'open'};
+    else if(d!==t.sellDay){
+     const u=b.high>=upper,l=b.low<=lower;
+     if(u||l)firstTouch={status:u&&l?'ambiguous-same-bar':u?'upper-observed':'lower-observed',date:b.date,observation:'daily-extrema-order-unverified'};
+    }
+    if(firstTouch)firstTouch.entryDay=d===t.buyDay;
+   }
    // On the modeled sell-at-open session do not borrow the later day's high/low.
    high=Math.max(high,d===t.sellDay?b.open:b.high);
    low=Math.min(low,d===t.sellDay?b.open:b.low);
@@ -168,13 +184,55 @@ function summarizeSettledExcursions(history,report){
   if(![mfe,mae,net].every(finite)){exclude('INVALID_PATH_RANGE');continue;}
   const round=x=>Number(x.toFixed(6));
   rows.push({...row,status:'descriptive-only',mfePct:round(mfe),maePct:round(mae),netReturnPct:round(net),
-   entryPrice:t.entry,exitPrice:t.exit,observedHigh:high,observedLow:low,reason:null});
+   entryPrice:t.entry,exitPrice:t.exit,observedHigh:high,observedLow:low,reason:null,
+   pathLabel:{...(firstTouch||{status:'no-touch-before-modeled-exit',date:null}),executionCertified:false,canTrain:false}});
  }
  const usable=rows.filter(x=>x.status==='descriptive-only'),n=usable.length;
  const mean=key=>n?Number((usable.reduce((s,x)=>s+x[key]/n,0)).toFixed(6)):null;
  return {...empty,status:n?'descriptive-only':'no-usable-paths',rows,usableRecords:n,excludedRecords:total-n,
   coveragePct:total?Number((100*n/total).toFixed(6)):null,meanMfePct:mean('mfePct'),meanMaePct:mean('maePct'),barInspections,
+  pathLabelCounts:Object.fromEntries(['upper-observed','lower-observed','ambiguous-same-bar','no-touch-before-modeled-exit','censored','unknown'].map(status=>[status,rows.filter(r=>r.pathLabel?.status===status).length])),
   basis:'modeled opening entry; daily high/low through prior session; exit session opening print only; entry baseline zero; price excursions before costs, settled net return separate'};
+}
+// F35.3: bounded, deterministic moving-block sensitivity on the original
+// marked account equity curve, never on independently duplicated trade rows.
+function summarizeEquityUncertainty(report){
+ const policy=UNCERTAINTY_REFERENCE,rows=report?.equity;
+ const base={status:'unknown',reason:null,policy,sessions:null,meanDailyLogReturnPct:null,resampledMeanRangePct:null,
+  largestAbsoluteDayShare:null,meanWithoutLargestDayPct:null,deflatedSharpeRatio:null,
+  independentTrialHistoryVerified:false,confidenceIntervalCertified:false,canTrain:false,canTrade:false};
+ const fail=reason=>({...base,reason});
+ const finite=x=>typeof x==='number'&&Number.isFinite(x);
+ if(!Array.isArray(rows)||rows.length-1<policy.minimumSessions||rows.length-1>policy.maximumSessions)return fail('INSUFFICIENT_OR_OVER_BUDGET_EQUITY_SESSIONS');
+ if(!Array.isArray(report.orders)||!report.orders.some(o=>o?.side==='buy'&&o.status==='filled'))return fail('NO_ORIGINAL_BUY_FILLS');
+ if(!Array.isArray(report.cashFlows)||!report.cashFlows.every(f=>['initial','buy','sell','corporate-action'].includes(f?.kind))||
+  report.cashFlows.filter(f=>f.kind==='initial').length!==1)return fail('EXTERNAL_OR_UNKNOWN_CASH_FLOW');
+ if(rows.some((r,i)=>!Number.isSafeInteger(r?.day)||(i&&r.day!==rows[i-1].day+1)||!finite(r.value)||r.value<=0||
+  !Array.isArray(r.unpriced)||r.unpriced.length||!finite(r.cash)||!finite(r.marketValue)||Math.abs(r.value-r.cash-r.marketValue)>.021))
+  return fail('UNRECONCILED_OR_INCOMPLETE_EQUITY_PATH');
+ const daily=rows.slice(1).map((r,i)=>Math.log(r.value/rows[i].value));
+ if(!daily.every(finite))return fail('INVALID_DAILY_RETURN');
+ const n=daily.length,prefix=[0];for(const x of daily)prefix.push(prefix.at(-1)+x);
+ const total=prefix.at(-1),abs=daily.reduce((a,x)=>a+Math.abs(x),0);
+ let largest=0;for(let i=1;i<n;i++)if(Math.abs(daily[i])>Math.abs(daily[largest]))largest=i;
+ let state=policy.seed>>>0;
+ const rand=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};
+ const reps=[];
+ for(let j=0;j<policy.resamples;j++){
+  let sum=0;
+  for(let done=0;done<n;){
+   const k=Math.min(policy.blockSessions,n-done),start=Math.floor(rand()*(n-k+1));
+   sum+=prefix[start+k]-prefix[start];done+=k;
+  }
+  reps.push(100*sum/n);
+ }
+ reps.sort((a,b)=>a-b);
+ const round=x=>Number.isFinite(x)?Number(x.toFixed(8)):null;
+ return {...base,status:'descriptive-sensitivity',sessions:n,meanDailyLogReturnPct:round(100*total/n),
+  resampledMeanRangePct:[round(reps[Math.floor(.025*(reps.length-1))]),round(reps[Math.ceil(.975*(reps.length-1))])],
+  largestAbsoluteDayShare:abs>0?round(Math.abs(daily[largest])/abs):null,
+  meanWithoutLargestDayPct:round(100*(total-daily[largest])/(n-1)),
+  basis:'five-session moving blocks, 256 fixed-seed resamples of marked paper account daily log returns; no independent trial/DSR or confidence certification'};
 }
 function runHoldingPeriodStudy(history){
  // Take the protocol snapshot before any outcome computation. This local
@@ -187,7 +245,7 @@ function runHoldingPeriodStudy(history){
   end:history.end??history.stocks?.[0]?.bars?.length-1,splitDay:history.splitDay??null,
   comparison:'independent-account-trajectories; not identical-entry-cohort returns',
   exit:'original close-scheduled next-open exit; T+1, stop-loss, risk, capacity and blocked-exit rules retained',
-  snapshotStage:'in-process-before-evaluation; not externally preregistered'};
+  snapshotStage:'in-process-before-evaluation; not externally preregistered',pathReference:PATH_REFERENCE,uncertaintyReference:UNCERTAINTY_REFERENCE};
  const protocolFingerprint=hash({datasetFingerprint,protocol});
  const baseline=runValidatedBacktest(history);
  const unavailable=(reason,attempts=[])=>({baseline,comparison:{schemaVersion:1,mode:'holding-period-research-comparison',status:'unavailable',reason,
@@ -212,6 +270,7 @@ function runHoldingPeriodStudy(history){
    closedAccountReturnPct:buys&&closed&&!open?report.metrics.returnPct:null,
    drawdownPct:buys?report.metrics.maxDrawdownPct:null,
    settledNetDistribution:summarizeSettledNetReturns(report),settledExcursions,settledCosts,
+   returnUncertainty:summarizeEquityUncertainty(report),
    evidenceFingerprint:hash(report),report});
  }
  return {baseline,comparison:{schemaVersion:1,mode:'holding-period-research-comparison',status:'descriptive-only',
@@ -225,4 +284,4 @@ function runHoldingPeriodStudy(history){
    '本次协议指纹不是独立预注册、试验额度或留出集认证；即使有splitDay也不自动认证样本外',
    '历史证券、因子、公司行为、股票池及数据用途许可仍按原输入证据核验，不能倒填点时信息']}};
 }
-module.exports={HORIZONS,runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions,summarizeSettledCosts};
+module.exports={HORIZONS,runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions,summarizeSettledCosts,summarizeEquityUncertainty};

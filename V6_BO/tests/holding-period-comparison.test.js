@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const {runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions,summarizeSettledCosts}=require('../src/core/holding-period-comparison');
+const {runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions,summarizeSettledCosts,summarizeEquityUncertainty}=require('../src/core/holding-period-comparison');
 const {runValidatedBacktest}=require('../src/core/historical-validation');
 const {runCompleteWorkbench}=require('../src/core/complete-workbench');
 const fixture=()=>({source:'fixture',asOf:'2026-03-01',stocks:[{symbol:'600000',market:'main',bars:Array.from({length:60},(_,i)=>({date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),open:10+i*.04,high:10.1+i*.04,low:9.9+i*.04,close:10+i*.04,volume:1000000}))}]});
@@ -155,4 +155,32 @@ test('F20.1 no closed records and duplicate settlement cannot create a mature re
  const t={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:11,costBasis:1005,netPnl:85};
  const report={trades:[t,t],metrics:{closedTrades:2},orders:[{symbol:'600000',day:28,side:'buy',status:'filled',shares:100,price:10,fees:5},{symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:11,fees:10}],cashFlows:[]};
  assert.equal(summarizeSettledCosts(h,report).usableRecords,0);
+});
+
+test('F32 fixed research barriers keep same-bar ambiguity, censor restricted paths, exclude post-exit extrema',()=>{
+ const h=fixture(),bars=h.stocks[0].bars;
+ Object.assign(bars[28],{open:10,high:11,low:9,close:10,volume:100});
+ Object.assign(bars[29],{open:10,high:99,low:1,close:10,volume:100});
+ const trade={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:10,costBasis:1005,netPnl:-10};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:100,price:10},
+  {symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:10}],cashFlows:[]};
+ let r=summarizeSettledExcursions(h,report);
+ assert.equal(r.rows[0].pathLabel.status,'ambiguous-same-bar');assert.equal(r.rows[0].pathLabel.entryDay,true);
+ assert.equal(r.pathLabelCounts['ambiguous-same-bar'],1);assert.equal(r.formalPathLabelsCertified,false);
+ Object.assign(bars[28],{high:10.1,low:9.9});
+ r=summarizeSettledExcursions(h,report);assert.equal(r.rows[0].pathLabel.status,'no-touch-before-modeled-exit');
+ bars[28].suspended=true;r=summarizeSettledExcursions(h,report);assert.equal(r.rows[0].pathLabel.status,'censored');assert.equal(r.pathLabelCounts.censored,1);
+});
+test('F35 moving-block sensitivity uses reconciled original daily equity, deterministic blocks and no DSR inference',()=>{
+ const equity=Array.from({length:51},(_,i)=>({day:i+20,value:10000+i*10+(i===25?300:0),cash:10000+i*10+(i===25?300:0),marketValue:0,unpriced:[]}));
+ const report={equity,orders:[{side:'buy',status:'filled'}],cashFlows:[{kind:'initial'},{kind:'buy'},{kind:'sell'}]};
+ const r=summarizeEquityUncertainty(report);
+ assert.equal(r.status,'descriptive-sensitivity');assert.equal(r.sessions,50);assert.deepEqual(r,summarizeEquityUncertainty(report));
+ assert.ok(r.resampledMeanRangePct[0]<=r.resampledMeanRangePct[1]);assert.ok(r.largestAbsoluteDayShare>0);
+ assert.equal(r.deflatedSharpeRatio,null);assert.equal(r.confidenceIntervalCertified,false);
+ const bad=structuredClone(report);bad.equity[3].unpriced=['600000'];assert.equal(summarizeEquityUncertainty(bad).status,'unknown');
+ const gap=structuredClone(report);gap.equity[3].day+=2;assert.equal(summarizeEquityUncertainty(gap).status,'unknown');
+ assert.equal(summarizeEquityUncertainty({...report,cashFlows:[...report.cashFlows,{kind:'deposit'}]}).status,'unknown');
+ assert.equal(summarizeEquityUncertainty({...report,orders:[]}).status,'unknown');
 });

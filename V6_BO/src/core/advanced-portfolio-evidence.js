@@ -38,6 +38,22 @@ function capacityScenarios({prior,asOf,price,lotSize,capitalLevels,targetWeight,
  });}catch{return unknown("SCENARIO_FEE_UNAVAILABLE");}
  return report({rows,source:prior.source,dataVersion:prior.dataVersion,observedDate:prior.date,availableAt:prior.availableAt,priceBasis:prior.priceBasis,turnoverBasis:prior.turnoverBasis||"original-turnover",assumptions:["前日原始量额参与率双重上限；估值使用当前原报价，不把复权价当成交价","平方根冲击为压力假设，未经实盘校准","费用和冲击仅为情景估计，未认证真实成交与收益"]});
 }
+// F33.4: compare lower participation assumptions using the same archived
+// prior and quote. Never exceed the original configured maximum.
+function capacityParticipationSensitivity(input={}){
+ const base=capacityScenarios(input);
+ if(base.status!=='estimated-unverified')return {...base,participationSensitivity:[]};
+ const cap=input.maxParticipationPct;
+ const rates=[cap/4,cap/2,cap];
+ const participationSensitivity=rates.map(rate=>{
+  const value=rate===cap?base:capacityScenarios({...input,maxParticipationPct:rate,
+   // Keep the same impact-at-original-limit model, not a retuned curve.
+   impactBpsAtLimit:input.impactBpsAtLimit*Math.sqrt(rate/cap)});
+  return {participationPct:rate,status:value.status,reason:value.reason??null,rows:value.rows??[]};
+ });
+ return {...base,participationSensitivity,actualFillVerified:false};
+}
+
 function exitRisk({position,quote,now,limitDown,suspended,prior,maxParticipationPct,assumedExitBps}={}){
  if(!stamp(now)||!position||!symbol(position.symbol)||!Number.isSafeInteger(position.quantity)||position.quantity<0||!Number.isSafeInteger(position.sellable)||position.sellable<0||position.sellable>position.quantity)return unknown("AUTHORITATIVE_POSITION_OR_SELLABLE_UNKNOWN");
  const alerts=[];
@@ -362,6 +378,17 @@ function previewPlanBatch({snapshot,plans,policy=null,accountRevision}={}){
  }
  out.reasonCodes=[...reason].sort();
  out.jointBudgetStatus=out.reasonCodes.some(x=>x.endsWith("_EXCEEDED"))?"conditional-budget-exceeded":out.reasonCodes.length?"unknown":"conditional-cash-and-known-caps-within-limit";
+ // F34.4: only a bounded equal-notional reference among already reconciled
+ // plans. This does not recalculate fees/lots or claim an executable optimizer.
+ const eqRef={status:'unknown',notionalPerPlan:null,unusedAvailableCash:null,rows:[],executionFeasibleCertified:false,covarianceOptimized:false,canTrade:false};
+ if(out.jointBudgetStatus==='conditional-cash-and-known-caps-within-limit'&&rows.length>=2){
+  const equalGross=Math.min(...rows.map(x=>x.gross),Math.floor((free-fees)/rows.length));
+  if(equalGross>0)Object.assign(eqRef,{status:'descriptive-reference',notionalPerPlan:money(equalGross),
+   unusedAvailableCash:money(free-fees-equalGross*rows.length),
+   rows:rows.map(x=>({planId:x.p.planId,symbol:x.p.symbol,originalNotional:money(x.gross),referenceNotional:money(equalGross)})),
+   basis:'equal additional notional bounded by each original plan and existing total fee reserve; not rounded to executable lots'});
+ }
+ out.equalNotionalReference=eqRef;
  return out;
 }
-module.exports={capacityScenarios,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,compareAvailableCash,pointInTimeVersion};
+module.exports={capacityScenarios,capacityParticipationSensitivity,exitRisk,cashFlowPerformance,tailRisk,previewPosition,previewPlanBatch,compareOpportunity,compareAvailableCash,pointInTimeVersion};

@@ -7,7 +7,7 @@ const {validatePlan,planFill,planIdOf}=require('./paper-decision-plan');
 const {buildPortfolioDefense}=require('./portfolio-defense-evidence');
 const {tradingFees,paperBuyLotSize:lotOf}=require('./trading-fees');
 const {quoteUseEligibility}=require('./quote-observation-view');
-const {capacityScenarios,exitRisk,previewPosition,previewPlanBatch,tailRisk,cashFlowPerformance,compareOpportunity,compareAvailableCash}=require('./advanced-portfolio-evidence');
+const {capacityParticipationSensitivity,exitRisk,previewPosition,previewPlanBatch,tailRisk,cashFlowPerformance,compareOpportunity,compareAvailableCash}=require('./advanced-portfolio-evidence');
 const flags={canTrade:false,writesAccount:false,automaticSwitch:false};
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const positive=x=>finite(x)&&x>0;
@@ -213,7 +213,7 @@ function buildAdvancedPortfolioReport({book,diagnostic,account,day,now,quotes={}
   const raw=marks(symbol),plan=plans.find(p=>p.code===symbol),position=diagnostic.positions.find(p=>p.symbol===symbol);
   const targetWeight=position&&raw&&positive(diagnostic.equity)?position.quantity*raw.quote.price/diagnostic.equity:finite(plan?.maxPosition)?plan.maxPosition/100:null;
   if(!policy||!raw||!positive(diagnostic.equity)||!positive(targetWeight)||raw.suspended!==false||raw.limitDown!==false)return {symbol,...unknown('CAPITAL_QUOTE_OR_POLICY_UNAVAILABLE')};
-  const value=capacityScenarios({prior:history.prior(symbol),asOf:now,price:raw.quote.price,lotSize:lotOf(symbol),capitalLevels:policy.capitalMultipliers.map(x=>round(diagnostic.equity*x)),targetWeight,maxParticipationPct:policy.maxParticipationPct,feeBps:0,impactBpsAtLimit:policy.impactBpsAtLimit,feeEstimator:quantity=>fee('buy',quantity,raw.quote.price).total});
+  const value=capacityParticipationSensitivity({prior:history.prior(symbol),asOf:now,price:raw.quote.price,lotSize:lotOf(symbol),capitalLevels:policy.capitalMultipliers.map(x=>round(diagnostic.equity*x)),targetWeight,maxParticipationPct:policy.maxParticipationPct,feeBps:0,impactBpsAtLimit:policy.impactBpsAtLimit,feeEstimator:quantity=>fee('buy',quantity,raw.quote.price).total});
   let feeVersion=null;try{feeVersion=fee('buy',lotOf(symbol),raw.quote.price).version;}catch{}
   return {symbol,...value,targetWeight,quoteAt:raw.quote.quoteAt,quoteSource:raw.quote.quoteSource,feeVersion,scenarioVersion:policy.version,capitalBasis:'multiples-of-original-current-equity'};
  });

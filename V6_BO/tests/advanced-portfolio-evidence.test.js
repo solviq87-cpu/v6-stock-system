@@ -58,3 +58,12 @@ test("late revisions do not overwrite historical as-of and duplicate conflicts f
   equal(api.pointInTimeVersion([a,b],q(3500)).status,"unknown");equal(api.pointInTimeVersion([a,b],q(5000)).record.version,1);equal(api.pointInTimeVersion([a,b],q(7000)).record.version,2);
   throws(()=>api.pointInTimeVersion([a,b,{...b,payloadHash:"c".repeat(64)}],q(7000)));throws(()=>api.pointInTimeVersion([a,{...b,firstAvailableAt:3000}],q(7000)));
  });
+
+test("F33 capacity compares bounded participation rates without new source or trade authority",()=>{
+ const asOf=Date.parse("2026-11-25T10:00:00+08:00"),prior={date:"2026-11-24",source:"provider",dataVersion:"v1",availableAt:asOf-3600000,priceBasis:"unadjusted",evidenceKind:"historical",amount:1000000,volume:100000,volumeUnit:"shares"};
+ const x=api.capacityParticipationSensitivity({asOf,prior,price:10,lotSize:100,capitalLevels:[1000000],targetWeight:1,maxParticipationPct:4,feeBps:5,impactBpsAtLimit:50});
+ equal(x.status,"estimated-unverified");equal(x.participationSensitivity.length,3);
+ equal(x.participationSensitivity[0].participationPct,1);equal(x.participationSensitivity[2].participationPct,4);
+ equal(x.participationSensitivity[0].rows[0].estimatedShares,1000);equal(x.participationSensitivity[2].rows[0].estimatedShares,4000);
+ equal(x.actualFillVerified,false);equal(x.canTrade,false);
+});
