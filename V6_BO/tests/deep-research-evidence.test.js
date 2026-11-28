@@ -412,3 +412,13 @@ test('F07.4-F07.6 original archive projection uses prior frozen industry, fixed 
  const forged=D.buildEventImpactStudy({events:[event()],eventOutcomes:[outcome({industryReaction:first.industryReaction,inputOrigin:'explicit-private-import'})]},{asOf:t1});
  assert.equal(forged.rows[0].industryReaction,null);
 });
+
+test('F14.2 original report projects actual news revisions and screening references separately',()=>{
+ const J=require('../src/core/news-evidence-journal');
+ const x={schemaVersion:1,source:'public-docs',eventId:'e1',sourceRevisionId:'r1',kind:'original',supersedes:null,url:'https://example.org/event',title:'原消息',body:'原文',securities:['600000'],publishedAt:t0,receivedAt:t0,revisedAt:null};
+ const seal=(input,at,sequence,previousHash)=>{const p={schemaVersion:1,sequence,previousHash,recordedAt:at,evidence:J.normalize(input,{now:at}),...J.FLAGS};return {...p,eventHash:J.hash(p)};};
+ const first=seal(x,t0,1,null),next=seal({...x,kind:'revised',sourceRevisionId:'r2',supersedes:first.eventHash,title:'澄清',body:'澄清原文',securities:['600001'],revisedAt:t1,receivedAt:t1},t1,2,first.eventHash);
+ const flags={researchOnly:true,canTrade:false,canNotify:false,productionWeightsChanged:false},payload={schemaVersion:1,kind:'screen',sequence:1,recordedAt:t2,...flags,data:{...flags,asOf:t2,provenance:'original-screen',codeVersion:{fingerprint:'a'.repeat(64)},total:1,rows:[{symbol:'600001',status:'selected'}]}};
+ const report=D.buildDeepResearchEvidence({newsJournalRows:[first,next],workspaceEvents:[{...payload,hash:J.hash(payload)}]},{asOf:t2});
+ const r=report.modules[67].eventTracking.rows[0];assert.equal(r.current.eventHash,next.eventHash);assert.deepEqual(r.removedSecurities,['600000']);assert.equal(r.candidates[0].symbol,'600001');assert.equal(r.candidates[0].screenStatus,'selected');assert.equal(r.newsDependencyVerified,false);assert.equal(r.canNotify,false);
+});
