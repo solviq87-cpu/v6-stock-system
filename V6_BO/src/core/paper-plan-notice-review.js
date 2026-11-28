@@ -2,7 +2,7 @@
 
 const {aShareCalendarDate}=require('./a-share-calendar');
 const {accountEpochOf}=require('./account-equity-evidence');
-const {observePaperPlans,planVersion,alertsForRecord,sessions,MAX_GAP_MS}=require('./paper-plan-observer');
+const {observePaperPlans,planVersion,alertsForRecord,sessions,MAX_GAP_MS,MAX_RECORDS,validateObservation}=require('./paper-plan-observer');
 
 const hash=value=>typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);
 const stamp=value=>Number.isSafeInteger(value)&&value>0&&value<8e15;
@@ -14,6 +14,60 @@ function noticeRef(value,signals) {
        row.ts===value.quoteAt && row.signalId===value.alertId)) return null;
   const {deliveryId,observationId,alertId,accountEpoch,code,kind,quoteAt}=value;
   return {deliveryId,observationId,alertId,accountEpoch,code,kind,quoteAt};
+}
+
+// F23.2: only use the immutable archive prefix visible at the original
+// trigger. A sampled quote is NOT the official open, daily high or low.
+function frozenSampledPath(records,trigger){
+  const base={status:'unknown',sampleCount:0,first:null,peak:null,trough:null,last:null,
+    originalOpen:null,originalPreviousClose:null,openingGapPct:null,
+    peakToTriggerPct:null,firstToTriggerPct:null,observedPattern:null,
+    maximumSampleGapMs:null,completeIntradayPath:false,canTrade:false,canTrain:false};
+  const unknown=reason=>({...base,reason});
+  try{
+    if(!Array.isArray(records)||records.length>MAX_RECORDS)return unknown('原采样档案超限或缺失');
+    validateObservation(trigger,{now:trigger.observedAt,day:trigger.day});
+    const window=sessions(trigger.day).find(([a,b])=>trigger.quoteAt>=a&&trigger.observedAt<b);
+    if(!window)return unknown('原触发不在同一连续竞价窗');
+    const point=r=>({price:r.price,quoteAt:r.quoteAt,observedAt:r.observedAt,observationId:r.fingerprint,source:r.source});
+    const rows=[];
+    for(const row of records){
+      if(!row||row.planId!==trigger.planId||row.planVersion!==trigger.planVersion||
+        row.decisionId!==trigger.decisionId||row.code!==trigger.code||row.day!==trigger.day||
+        row.entryEventId!==trigger.entryEventId||row.source!==trigger.source||row.mode!==trigger.mode)continue;
+      if(row.observedAt>trigger.observedAt||row.quoteAt>trigger.quoteAt||row.quoteAt<window[0])continue;
+      validateObservation(row,{now:trigger.observedAt,day:trigger.day});
+      if(row.frozenAt!==trigger.frozenAt||row.intendedDate!==trigger.intendedDate||
+        ['entryMin','entryMax','stop','target'].some(k=>row[k]!==trigger[k]))return unknown('原计划价格保护不一致');
+      rows.push(row);
+    }
+    if(!rows.some(r=>r.fingerprint===trigger.fingerprint))return unknown('缺少原触发采样引用');
+    rows.sort((a,b)=>a.quoteAt-b.quoteAt||a.observedAt-b.observedAt||a.fingerprint.localeCompare(b.fingerprint));
+    let first=null,peak=null,trough=null,last=null,maximumSampleGapMs=0,sampleCount=0;
+    for(const row of rows){
+      if(last&&row.quoteAt===last.quoteAt){
+        if(row.price!==last.price)return unknown('同源同原始时点报价矛盾');
+        continue;
+      }
+      if(last)maximumSampleGapMs=Math.max(maximumSampleGapMs,row.quoteAt-last.quoteAt);
+      last=point(row);sampleCount++;
+      first??=last;
+      if(!peak||last.price>peak.price)peak=last;
+      if(!trough||last.price<trough.price)trough=last;
+    }
+    // The trigger is the last original timestamp. Do not count repeated
+    // observations of the same source quote as another price movement.
+    if(!last||last.quoteAt!==trigger.quoteAt||last.price!==trigger.price)return unknown('原触发路径终点未核对');
+    const end=point(trigger),pct=(x,y)=>Number(((x/y-1)*100).toFixed(6));
+    const observedPattern=peak.quoteAt<end.quoteAt&&peak.price>trigger.entryMax&&end.price<peak.price?
+      end.price<trigger.entryMin?'sampled-rise-then-below-entry-range':
+      end.price<=trigger.entryMax?'sampled-rise-then-entry-range':'sampled-retreat-above-entry-range':null;
+    return {...base,status:'descriptive-only',sampleCount,first,peak,trough,last:end,
+      maximumSampleGapMs:sampleCount>1?maximumSampleGapMs:null,
+      peakToTriggerPct:pct(end.price,peak.price),firstToTriggerPct:pct(end.price,first.price),observedPattern,
+      basis:'same-plan-version/source/mode/lot and continuous session; archive prefix at original trigger',
+      reason:'仅原触发前已保存的离散采样；首笔不是开盘价，未证实高低开、回踩支撑、逐笔路径或成交'};
+  }catch{return unknown('原采样完整性或时点无法核验');}
 }
 
 // Explicit user read. Neither the scheduler's projection callback nor its
@@ -62,7 +116,8 @@ async function reviewPlanNotice(ref,{clock,canRead,available,session,store,readA
     original={code:record.code,kind:alert.kind,decisionId:record.decisionId,planId:record.planId,
       planVersion:record.planVersion,observedAt:record.observedAt,quoteAt:record.quoteAt,
       price:record.price,source:record.source,gate:alert.availability,reason:alert.reason,
-      entryMin:record.entryMin,entryMax:record.entryMax,stop:record.stop,target:record.target};
+      entryMin:record.entryMin,entryMax:record.entryMax,stop:record.stop,target:record.target,
+      sampledPath:frozenSampledPath(archived.records,record)};
     if(!available())return finish('historical','当前计划观察已暂停或版本已变化');
     const openedAt=clock(),atOpen=session(openedAt);
     reviewDay=atOpen.day;
@@ -102,4 +157,4 @@ async function reviewPlanNotice(ref,{clock,canRead,available,session,store,readA
     return finish('unknown','原始档案、当前报价或权威账户预检无法核验');
   }
 }
-module.exports={noticeRef,reviewPlanNotice};
+module.exports={noticeRef,reviewPlanNotice,frozenSampledPath};

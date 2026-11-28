@@ -328,3 +328,46 @@ test('F23.3 read begun before lunch cannot revive an old review in the afternoon
   assert.equal(reads,1);assert.equal(result.status,'historical');assert.equal(result.current,null);
   assert.equal(result.original.quoteAt,opened);assert.equal(result.canTrade,false);
 });
+
+test('F23.2 original notice path freezes the actual observed prefix and excludes later prices',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const plan=frozen(),state=book(false),at=stamp(entryDay,'10:00:00');
+  const before=observed({state,plan,day:entryDay,now:at-10000,price:10.4});
+  const peak=observed({state,plan,day:entryDay,now:at-5000,price:10.7});
+  const origin=observed({state,plan,day:entryDay,now:at,price:10});
+  const later=observed({state,plan,day:entryDay,now:at+5000,price:9.3});
+  const trigger=origin.records[0],alert=origin.alerts[0],archived={
+    records:[...before.records,...peak.records,...origin.records,...later.records],alerts:origin.alerts};
+  const input=JSON.stringify(archived);
+  const r=await reviewPlanNotice({quoteAt:trigger.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:trigger.fingerprint},{clock:()=>at+10000,canRead:()=>true,available:()=>false,
+    store:{read:async()=>archived},session:()=>assert.fail('historical read must not request current session'),
+    readArchive:()=>assert.fail('no extra archive'),readContext:()=>assert.fail('no new collection')});
+  const p=r.original.sampledPath;assert.equal(r.status,'historical');assert.equal(r.current,null);
+  assert.equal(p.status,'descriptive-only');assert.equal(p.sampleCount,3);assert.equal(p.first.price,10.4);
+  assert.equal(p.peak.price,10.7);assert.equal(p.trough.price,10);assert.equal(p.last.observationId,trigger.fingerprint);
+  assert.equal(p.observedPattern,'sampled-rise-then-entry-range');
+  assert.equal(p.openingGapPct,null);assert.equal(p.originalOpen,null);assert.equal(p.completeIntradayPath,false);
+  assert.equal(p.canTrade,false);assert.equal(JSON.stringify(archived),input);
+});
+test('F23.2 high sampled price followed by a breakdown is not support; same-timestamp conflicts fail closed',()=>{
+  const {frozenSampledPath}=require('../src/core/paper-plan-notice-review');
+  const plan=frozen(),state=book(false),at=stamp(entryDay,'10:00:00');
+  const make=(n,p)=>observed({state,plan,day:entryDay,now:at+n,price:p}).records[0];
+  const high=make(-5000,10.7),end=make(0,9.3);
+  const path=frozenSampledPath([high,end,end],end);
+  assert.equal(path.sampleCount,2);assert.equal(path.observedPattern,'sampled-rise-then-below-entry-range');
+  assert.equal(path.originalOpen,null);assert.equal(path.canTrade,false);
+  assert.equal(frozenSampledPath([high,make(-5000,10.6),end],end).status,'unknown');
+  assert.equal(frozenSampledPath([high],end).status,'unknown');
+});
+test('F23.2 separate sources, sessions and different frozen decisions never add to the original path',()=>{
+  const {frozenSampledPath}=require('../src/core/paper-plan-notice-review');
+  const state=book(false),plan=frozen(),at=stamp(entryDay,'13:00:10');
+  const trigger=observed({state,plan,day:entryDay,now:at,price:10}).records[0];
+  const earlier=observed({state,plan,day:entryDay,now:stamp(entryDay,'11:29:50'),price:10.7}).records[0];
+  const other=observed({state,plan,day:entryDay,now:at-5000,price:10.8}).records[0];
+  const path=frozenSampledPath([earlier,{...other,decisionId:'f'.repeat(64)},trigger],trigger);
+  assert.equal(path.sampleCount,1);assert.equal(path.peak.price,10);assert.equal(path.observedPattern,null);
+  assert.equal(path.maximumSampleGapMs,null);
+});
