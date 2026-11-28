@@ -185,3 +185,21 @@ test('F24.4 original account risk consumer supplies independent candidate cash c
  assert.equal(stale.cashBaseline.availableCash,10000);assert.equal(stale.cashComparisons[0].status,'unknown');
  assert.equal(stale.cashComparisons[0].candidate,undefined);
 });
+
+test('F24.1 original held-lot protection is distinct from new candidate and missing imported holding remains unknown',()=>{
+ const {book,input}=fixtures(),d=accountExitDiagnostics(book,input).portfolioEvidence.opportunityComparisons[0];
+ assert.equal(d.originalHoldingProtection.status,'unknown');assert.equal(d.originalHoldingProtection.stop,null);
+ assert.equal(d.candidateDecisionId,input.portfolioContext.plans.pool[0].decisionId);
+ assert.equal(d.reservedCash,0);assert.equal(d.availableCash,10000);assert.equal(d.actualSaleProceeds,null);assert.equal(d.replacementAuthorized,false);
+ const {originalHoldingProtection}=require('../src/core/advanced-portfolio-runtime'),plan=structuredClone(input.portfolioContext.plans.pool[0]);
+ plan.code='600000';plan.intendedDate=priorDay;plan.frozenAt=new Date(close(priorDay)-60000).toISOString();
+ Object.assign(plan.decisionEvidence,{code:plan.code,day:priorDay});
+ const e={eventId:'original-buy',symbol:plan.code,side:'buy',tradeDate:priorDay,timestamp:close(priorDay)-30000,quantity:1000,price:10,
+  reason:'作战台计划['+plan.id+'] 原账户风控'};
+ const position=book.account.positions['600000'];position.lots[0].sourceEventId=e.eventId;book.account.events=[e];
+ const r=originalHoldingProtection(book,position,[plan],now);
+ assert.equal(r.status,'observed-unverified');assert.equal(r.planId,plan.id);assert.equal(r.entryEventId,e.eventId);assert.equal(r.stop,8);
+ assert.equal(r.logicTextVerified,false);assert.equal(r.canTrade,false);
+ assert.equal(originalHoldingProtection(book,position,[plan,plan],now).status,'unknown');
+ const wrong=structuredClone(plan);wrong.stop=7;assert.equal(originalHoldingProtection(book,position,[wrong],now).status,'unknown');
+});

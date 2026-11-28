@@ -204,3 +204,23 @@ test('F19.1 refuses future receipt, stale or wrong day, synthetic or withdrawn e
   {data:{...data,datasets:{...data.datasets,period:{...data.datasets.period,fixture:true}}},day,now}];
  for(const c of cases)assert.equal(fundamentalEvidence(c.data,{code,day:c.day,now:c.now}).seasonalCash.status,'unknown');
 });
+
+test('F19.3/4 same-period turnover and margin evidence retains units and explicit deterioration without invented industry or valuation',()=>{
+ const make=(period,margin,net,inventory,receivables)=>({SECURITY_CODE:code,SECUCODE:code+'.SH',CURRENCY:'CNY',REPORT_DATE:period,
+  NOTICE_DATE:'2026-10-30',UPDATE_DATE:'2026-10-30',ROEJQ:10,ZCFZL:40,XSMLL:margin,XSJLL:net,CHZZTS:inventory,YSZKZZTS:receivables});
+ const a=make('2025-09-30',20,10,40,30),b=make('2026-09-30',15,5,60,0);
+ const period=parseFinancials(Buffer.from(JSON.stringify({success:true,result:{data:[a,b]}})),{symbol:code,kind:'period',receivedAt});
+ const data={symbol:code,source:'eastmoney-financials',datasets:{period}},before=JSON.stringify(data);
+ const r=fundamentalEvidence(data,{code,day,now}),v=r.operatingResearch;
+ assert.equal(v.status,'company-observations-only');assert.deepEqual(v.rows.map(x=>[x.field,x.unit,x.delta]),
+  [['grossMarginPct','percent',-5],['netMarginPct','percent',-5],['receivableDays','days',-30],['inventoryDays','days',20]]);
+ assert.equal(v.valuationDivergence.samePeriodMarginsBothLower,true);
+ assert.equal(v.valuationDivergence.persistentDeterioration,null);assert.equal(v.valuationDivergence.peerValuation,null);
+ assert.equal(v.industryDemand.value,null);assert.equal(v.earningsGuidance.consensusExpectation,null);assert.equal(v.canTrade,false);
+ assert.equal(r.score,null);assert.equal(JSON.stringify(data),before);
+ const wrong=structuredClone(data);wrong.datasets.period.records[0].reportDate='2025-06-30';
+ assert.ok(fundamentalEvidence(wrong,{code,day,now}).operatingResearch.rows.every(x=>x.delta===null));
+ const missing=structuredClone(data);missing.datasets.period.records[1].values.CHZZTS=-1;
+ assert.equal(fundamentalEvidence(missing,{code,day,now}).operatingResearch.rows.find(x=>x.field==='inventoryDays').status,'unknown');
+ assert.equal(fundamentalEvidence({...data,retracted:true},{code,day,now}).operatingResearch.status,'unknown');
+});

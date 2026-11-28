@@ -18,6 +18,14 @@ export function renderHoldingPeriodComparison(data){
   h('details',{class:'fy-details'},h('summary',{},'期限协议与完整证据'),
    h('p',{},'仅比较原研究扫描器，不是原四体系或全部策略的竞技。各期限原委托、成交、未平仓、净值、现金流及原分割指标随本次证据完整导出。'),
    h('p',{},'原默认期限 '+value(p?.baselinePeriod)+'日结果直接复用；本次协议在计算前形成，但未认证独立预注册、试验额度或样本外。'),
+   h('h3',{},'原信号、开盘成交与净收益核对'),
+   h('p',{class:'fy-note'},'按原前一交易日收盘信号、纸面开盘买卖、分摊入场费用、退出费用与滑点逐笔核对；未成交和未平仓不补收益。任一结算行无法核对时不发布全部结算金额。'),
+   h('ul',{},data.periods.map(row=>{
+    const d=row.settledCosts||{};
+    return h('li',{},row.holdDays+'日：可核对结算 '+value(d.usableRecords)+' / '+value(d.totalSettledRecords)+
+     '；已计划但未成交 '+value(d.unfilledScheduledBuySignals)+'；仍持有 '+value(d.openPositions)+
+     '；已结算毛损益 / 费用 / 净损益（元） '+[d.aggregateGrossPnl,d.aggregateFees,d.aggregateNetPnl].map(x=>finite(x)?format(x):'未知').join(' / '));
+   })),
    h('h3',{},'已结算份额净收益经验分布'),
    h('p',{class:'fy-note'},'只统计原回测已结算份额的净损益/分摊成本；公司行为证券保守排除，未平仓不补零。部分退出不等于独立样本，分位数不是预测区间或胜率。'),
    h('ul',{},data.periods.map(row=>{const d=row.settledNetDistribution||{},pct=x=>finite(x)?format(x)+'%':'未知';

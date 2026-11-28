@@ -73,6 +73,33 @@ function seasonalCashEvidence(features,{code,day,now}){
  return {...empty,status:'observed-unverified',current,prior,differenceCnyPerShare:difference,knownAt:current.availableAt};
 }
 
+// F19.2-4: preserve same-period company operational evidence without
+// treating turnover days as industry demand or guessing a peer valuation.
+function operatingResearch(features,{code,day,now}){
+ const valid=(v,unit)=>v&&v.code===code&&v.source==='eastmoney-financials'&&v.periodKind==='period'&&
+  v.unit===unit&&finite(v.value)&&time(v.availableAt)&&v.availableAt<=now&&v.recordedAt===v.availableAt&&
+  typeof v.evidenceId==='string'&&/^[a-f0-9]{64}:/.test(v.evidenceId);
+ const rows=[['grossMarginPct','percent'],['netMarginPct','percent'],['receivableDays','days'],['inventoryDays','days']].map(([field,unit])=>{
+  const current=features[field],prior=features[field+'PriorYear'];
+  const empty={field,unit,status:'unknown',current:null,prior:null,delta:null};
+  if(!time(now)||day!==dayOf(now)||!valid(current,unit)||!valid(prior,unit)||
+   unit==='days'&&(current.value<0||prior.value<0))return empty;
+  const age=Date.parse(day+'T00:00:00+08:00')-Date.parse(current.reportDate+'T00:00:00+08:00');
+  if(!finite(age)||age<0||age>220*86400000||prior.reportDate!==String(Number(current.reportDate.slice(0,4))-1)+current.reportDate.slice(4)||
+   current.availableAt!==prior.availableAt||current.evidenceId.split(':')[0]!==prior.evidenceId.split(':')[0]||
+   !finite(current.value-prior.value))return empty;
+  return {...empty,status:'observed-unverified',current,prior,delta:current.value-prior.value,
+   direction:unit==='days'?'turnover-days-change-only':current.value<prior.value?'lower-than-prior-report-period':'not-lower-than-prior-report-period'};
+ });
+ const margins=rows.filter(r=>r.unit==='percent'),lower=margins.every(r=>r.status==='observed-unverified'&&r.delta<0);
+ return {status:rows.some(r=>r.status==='observed-unverified')?'company-observations-only':'unknown',rows,
+  industryDemand:{status:'unknown',value:null,reason:'无带时点、单位和历史修订的同行业供需原始材料'},
+  earningsGuidance:{status:'unknown',companyGuidanceRevision:null,consensusExpectation:null,reason:'无可核对的原公司指引修订及独立一致预期；与F07原公告链联动待验'},
+  valuationDivergence:{status:'unknown',peerValuation:null,priceDivergence:null,persistentDeterioration:null,
+   samePeriodMarginsBothLower:margins.every(r=>r.status==='observed-unverified')?lower:null,
+   reason:'同报告期毛利率和净利率下降仅是公司经营反证；没有同行估值、原价格基准和连续修订，不能判定背离或低估'},
+  initialDisclosureVerified:false,researchOnly:true,canTrade:false,canNotify:false,canTrain:false};
+}
 function fundamentalEvidence(financials,{code,day,now=Date.now()}={}){
  const missing=[];
  let features={};
@@ -109,7 +136,7 @@ function fundamentalEvidence(financials,{code,day,now=Date.now()}={}){
    '%；单季利润同比 '+features.earningsGrowthPct.value+'%，营收同比 '+features.revenueGrowthPct.value+'%；四项规则满足 '+hits+'/4。':
    '缺少'+(missing.join('、')||'可核验财报原始回执'),
   formula:'100 × 满足的四项财务规则 / 4；四项输入全部可核验才评分，不是估值或盈利概率',
-  ruleVersion:VERSION,inputs,rules,sourceTimes,missing,seasonalCash:seasonalCashEvidence(features,{code,day,now}),...flags};
+  ruleVersion:VERSION,inputs,rules,sourceTimes,missing,seasonalCash:seasonalCashEvidence(features,{code,day,now}),operatingResearch:operatingResearch(features,{code,day,now}),...flags};
 }
 
 function quoted(row,day,now){
