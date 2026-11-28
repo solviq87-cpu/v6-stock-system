@@ -162,7 +162,7 @@ function deriveEventOutcomes({events=[],archive={},calendar,workspaceEvents=[]}=
   const exchangeOf=s=>/^(4|8|92)/.test(s)?'BSE':/^[569]/.test(s)?'SSE':/^[023]/.test(s)?'SZSE':null;
   windowLifecycle=selected.map(event=>eventWindowLifecycle({event,asOf,...(calendarExchanges.includes(exchangeOf(event.symbol))?{dates,calendarKnownAt:calendarAt,calendarHash}:{})}));
   const closeOf=d=>Date.parse(d+'T15:00:00+08:00'),openOf=d=>Date.parse(d+'T09:30:00+08:00');
-  const prices=new Map(),indices=new Map(),conflicts=new Set();
+  const prices=new Map(),indices=new Map(),conflicts=new Set(),industryWorkBudget={remaining:100000};
   function retain(map,key,b){
     const prior=map.get(key);
     if(prior&&prior.knownAt===b.knownAt&&hash(prior)!==hash(b)){conflicts.add(key);return;}
@@ -226,7 +226,7 @@ function deriveEventOutcomes({events=[],archive={},calendar,workspaceEvents=[]}=
         readStock:d=>prices.get(['stock',e.symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const regimeOverlay=h===1?eventRegimeOverlay({event:e,dates,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,
         readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))}):null;
-      const industryReaction=frozenIndustryReaction({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,workspaceEvents,
+      const industryReaction=frozenIndustryReaction({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,workspaceEvents,workBudget:industryWorkBudget,
         readStock:(symbol,d)=>prices.get(['stock',symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const id=hash({event:[e.source,e.id,e.revision],source,h,priceEvidence,benchmark,calendarHash});
       eventOutcomes.push({id:'archive-'+id,revision:1,source:'v6-private-archive-event-study',evidenceId:id,
