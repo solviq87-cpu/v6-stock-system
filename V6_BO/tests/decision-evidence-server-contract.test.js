@@ -407,12 +407,17 @@ test('same decision travels from persisted trigger and private receipt to read-o
   const reviewed=()=>runtime.reviewNotice(ref,()=>true);
   const initial=await reviewed();assert.equal(initial.status,'observed',JSON.stringify(initial));
   assert.equal(initial.original.decisionId,x.plan.decisionId);assert.equal(initial.current.price,10);
+  assert.equal(initial.original.observationId,ref.observationId);assert.equal(initial.original.alertId,ref.alertId);
+  assert.equal(initial.original.intendedDate,x.plan.intendedDate);assert.equal(initial.original.frozenAt,x.plan.frozenAt);
+  assert.equal(initial.original.originalQuoteValidUntil,ref.quoteAt+15000);assert.equal(initial.original.actionWindow,'original-entry-trading-day-only');
+  assert.equal(initial.current.sameOriginalContext,true);assert.equal(initial.current.remainingQuantity,0);assert.equal(initial.current.gate,true);
   const before=fs.readFileSync(x.authorityFile),oldArchive=await x.store.read({day,now:x.now()});
   x.set({now:x.now()+2000});x.refreshQuote(10.5);
   const moved=await reviewed();
   assert.equal(moved.status,'waiting',JSON.stringify(moved));assert.equal(moved.current.gate,false);
   assert.equal(moved.original.price,10);assert.equal(moved.current.price,10.5);
   assert.equal(moved.original.decisionId,x.plan.decisionId);assert.equal(moved.canTrade,false);
+  assert.deepEqual(moved.original,initial.original);assert.equal(moved.current.sameOriginalContext,true);
   const c=x.context;
   Object.assign(c,{_paperAuthorityRevision:{pool:c._paperAuthority.pool.read().revision},
     refreshPaperAuthority:()=>{},paperEquity:()=>x.book.account.cash,
