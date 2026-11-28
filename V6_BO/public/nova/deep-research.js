@@ -2,7 +2,7 @@ import {h,button,section,field,note,empty,table,dateTime,format,safeLink} from '
 const arr=value=>Array.isArray(value)?value:[];
 const titles={67:'事件影响',68:'预期差',69:'产业与公司关系',70:'盘口与竞价',71:'交易时段',72:'主题拥挤',73:'组合目标权重',74:'换仓成本门槛',75:'决策稳健性',76:'事前对照复盘'};
 const statuses={unknown:'证据不足',pending:'等待成熟证据','no-adjust':'暂不调整','not-evaluated':'暂不能评估',
- 'observed-research':'已有研究记录','candidate':'研究候选','prospective':'事前冻结','post-hoc-exploration':'事后探索',
+ 'observed-research':'已有研究记录','declared-review':'来源声明待核','declared-path-review':'业务路径待核','public-time-only':'仅有海外发布时间','declared-issuer-document':'发布主体声明未认证','authority-unknown':'来源权威性未知','declared-plan':'计划声明','declared-execution-statement':'执行声明，非成交回执','review-only':'仅供核对','declared-text-clue':'原文线索待核','current-account-association':'当前账户关联','observed-unverified':'观察未认证','partial-or-unknown':'部分或未知','descriptive-unverified':'描述性研究未认证','upward-price-context':'长期价格向上','downward-price-context':'长期价格向下','mixed-price-context':'长期价格分化','first-session-observed':'首日已观察','two-sessions-observed':'两日已观察','first-day-rise-faded':'首日上涨次日消退','first-day-fall-faded':'首日下跌次日消退','no-first-day-direction':'首日无方向','weakened':'幅度减弱','continued':'幅度延续','candidate':'研究候选','prospective':'事前冻结','post-hoc-exploration':'事后探索',
  'development-modified':'开发副本有改动','development-source-only':'源码副本，尚非安装验收','verified-local-manifest':'本地安装文件校验一致',
  'pending-real-observation':'等待真实运行积累','evidence-or-remediation-required':'需补齐证据或修复问题','ready-for-independent-review':'达到观察窗口，等待独立复核',
  'integrated-candidate-inventory':'统一候选版本代码盘点，非交付验收',
@@ -13,6 +13,7 @@ const labels={status:'状态',reason:'原因',missing:'缺失依据',rejected:'�
  horizonSessions:'观察交易日',horizonDays:'持有交易日',stockReturnPct:'价格变化 %',benchmarkReturnPct:'同期市场变化 %',excessReturnPct:'市场调整差额 %',
  samples:'样本数',independentEvents:'独立事件数',independentDates:'独立日期数',averageExcessReturnPct:'平均市场调整差额 %',failureCases:'失败与反向案例',
  events:'事件档案',groups:'分组比较',durationProfile:'不同观察窗口',rows:'可核对记录',limitations:'适用边界',evidence:'证据',
+ eventReview:'事件与资金证据复核',reviewOrder:'去重后的研究阅读顺序（非通知队列）',holdingRelated:'当前持仓是否关联',holdingsStatus:'持仓关联状态',authority:'发布主体声明',authorityClue:'发布主体原文线索',sourceAuthorityVerified:'来源权威性已认证',notificationQueueVerified:'真实通知队列已认证',policy:'政策适用路径',policyClause:'政策适用条款',productId:'产品标识',businessClause:'企业业务条款',overseas:'海外事件与境内敞口',region:'海外区域',sourceTime:'带时区的原发布时间',domesticExposure:'境内业务关联',impactDirection:'影响方向',benefitAmount:'受益金额',exposureAmount:'敞口金额',fund:'资金行为证据',plan:'计划声明',executionDisclosure:'执行声明',executionRecord:'实际成交回执',buyerIdentity:'实际交易主体',netSubscriptions:'净申赎',mechanisms:'并列待证资金机制',preEventStudy:'事前固定窗口对照',placeboGrossExcessPct:'伪事件市场调整差额 %',regimeOverlay:'事件后长短期背景',longContext:'事件前60日价格背景',shortReaction:'事件后短期观察',dayOneReturnPct:'首日指数变化 %',twoDayReturnPct:'两日累计指数变化 %',productionRegimeChanged:'生产市场分类是否改变',causalInferenceVerified:'因果推断是否认证',phase:'变化阶段',
  expectation:'事前预期',actual:'披露结果',surprise:'预期差',classification:'分类',assessment:'判断',value:'值',metric:'指标',period:'所属期间',
  from:'关系起点',to:'关系终点',relation:'关系类型',relationClass:'业务关系类别',strength:'证据强度',validFrom:'生效时点',validUntil:'失效时点',edges:'关系',paths:'潜在传导路径',
  granularity:'数据粒度',capabilities:'能够支持的分析',spreadBps:'买卖价差（基点）',imbalance:'可见深度失衡',quoteAt:'原始报价时点',receivedAt:'取得时点',
