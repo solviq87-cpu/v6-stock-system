@@ -1,0 +1,19 @@
+{
+  "base": "86da6ec5064e5e5eee048f4a17900f2c41d361b9",
+  "sourceHashes": {
+    "public/nova/decision-view.mjs": "309e82aa27c012d78d8221c4358b6ea6c70cb172d6f1316250f373a7c25410db",
+    "public/nova/app.js": "6d3042d95d50df22ff125e2bcbbfdda96799b9612288e6af188bc3425b313475",
+    "public/nova/ui.js": "eff93ea81677f89b326b6bf6e3efe5841e1b6da970e06f6312e6275ed7d585dd",
+    "public/nova/client.js": "977df6583545fa6a89b8cb4a8defb743f21036cc0a03639eb0335c038993ba85"
+  },
+  "stats": {
+    "tests": 8134,
+    "pass": 8134,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "rawLogSha256": "9833a5851ea26d38810ee2feebec3a161f89d206228fd0cd459b96980036235d",
+  "command": "PATH=/tmp/fayo-powershell-7.7.0-runtime:$PATH V6_MODEL_PYTHON=/tmp/fayo-model-bundle/venv/bin/python OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 npm test",
+  "scope": "current dirty source fingerprints; final commit CI and final combination separately recorded"
+}

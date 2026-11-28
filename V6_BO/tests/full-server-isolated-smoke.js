@@ -7,6 +7,7 @@ const net=require('node:net');
 const fs=require('node:fs');
 const os=require('node:os');
 const crypto=require('node:crypto');
+const offlineBoot=process.argv.includes('--offline-normal-boot');
 const source=path.resolve(__dirname,'..');
 // Metadata only: never read the source checkout's private configuration/accounts.
 function sourceDataInventory(){
@@ -44,6 +45,7 @@ for(const name of ['readFileSync','readFile','createReadStream']){const old=fs[n
 for(const name of ['openSync','open']){const old=fs[name];fs[name]=function(file,flags,...args){read(file);if(typeof flags==='number'?(flags&(fs.constants.O_WRONLY|fs.constants.O_RDWR|fs.constants.O_CREAT|fs.constants.O_TRUNC|fs.constants.O_APPEND)):!/^rs?$/.test(flags))write(file);return old.call(this,file,flags,...args);};}
 for(const name of ['writeFileSync','writeFile','appendFileSync','appendFile','createWriteStream','mkdirSync','mkdir','rmSync','rm','rmdirSync','rmdir','unlinkSync','unlink','truncateSync','truncate','chmodSync','chmod','chownSync','chown','utimesSync','utimes']){const old=fs[name];fs[name]=function(file,...args){write(file);return old.call(this,file,...args);};}
 for(const name of ['renameSync','rename','linkSync','link','symlinkSync','symlink','copyFileSync','copyFile']){const old=fs[name];fs[name]=function(from,to,...args){write(from);write(to);return old.call(this,from,to,...args);};}
+if(!${offlineBoot}){
 for(const name of ['node:http','node:https']){const m=require(name);m.request=m.get=()=>deny('outbound-'+name);}
 const net=require('node:net');net.connect=net.createConnection=net.Socket.prototype.connect=()=>deny('outbound-socket');require('node:tls').connect=()=>deny('outbound-tls');
 const dns=require('node:dns');for(const m of [dns,dns.promises])for(const name of Object.keys(m))if(/^(lookup|resolve|reverse)/.test(name)){
@@ -57,11 +59,19 @@ cp.spawnSync=(command,args,options)=>{
  if(command==='flock'&&JSON.stringify(args)==='["-n","3"]'&&file&&inside(file,root))return spawnSync('/usr/bin/flock',args,options);
  return deny('child-process');
 };
+}
 `);
   return {root,guard,violations};
  }catch(error){fs.rmSync(root,{recursive:true,force:true});throw error;}
 }
 async function stop(child){
+ // Normal initialization can start collectors. They share the fixture process group.
+ if(offlineBoot && child?.pid){
+  const exited=child.exitCode===null && child.signalCode===null ? new Promise(resolve=>child.once('exit',resolve)) : Promise.resolve();
+  try{process.kill(-child.pid,'SIGKILL');}catch(error){if(error.code!=='ESRCH')throw error;}
+  await exited;
+  return;
+ }
  if(!child||child.exitCode!==null||child.signalCode!==null)return;
  const exited=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGTERM');
  let timer;await Promise.race([exited,new Promise(resolve=>{timer=setTimeout(resolve,1000);})]);clearTimeout(timer);
@@ -74,7 +84,14 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
  try {
   const p=await port();
   // Do not inherit credentials, NODE_OPTIONS or configured paths to real data.
-  child=spawn(process.execPath,['--require',fixture.guard,'server.js'],{cwd:fixture.root,env:{PATH:'/usr/bin:/bin',TZ:'UTC',LANG:'C.UTF-8',TMPDIR:path.join(fixture.root,'tmp'),PORT:String(p),HOST:'127.0.0.1',V6_ISOLATED_BOOT_SMOKE:'1',QD_CLOUD:'1',V6_ORDER_ACCOUNTS_DIR:path.join(fixture.root,'data','order-accounts')},stdio:['ignore','pipe','pipe']});
+  const env={PATH:'/usr/bin:/bin',HOME:fixture.root,TZ:'UTC',LANG:'C.UTF-8',TMPDIR:path.join(fixture.root,'tmp'),PORT:String(p),HOST:'127.0.0.1',QD_CLOUD:'1',V6_ORDER_ACCOUNTS_DIR:path.join(fixture.root,'data','order-accounts')};
+  const args=['--require',fixture.guard,'server.js'];
+  let command=process.execPath;
+  if(offlineBoot){
+    command='/usr/bin/python3';
+    args.unshift(path.join(__dirname,'helpers','deny-network-connect.py'),process.execPath);
+  }else env.V6_ISOLATED_BOOT_SMOKE='1';
+  child=spawn(command,args,{cwd:fixture.root,env,detached:offlineBoot,stdio:['ignore','pipe','pipe']});
   child.on('error',error=>{startError=error;});child.stdout.on('data',x=>logs+=x);child.stderr.on('data',x=>logs+=x);
   let ready=false;
   for(let i=0;i<60;i++){
@@ -154,10 +171,10 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   const denied=JSON.parse(devices.body);
   assert.notEqual(denied.ok,true);
   assert.ok(!Array.isArray(denied.devices) && !Array.isArray(denied.items));
-  const post=(url,data)=>new Promise((resolve,reject)=>{
-    const body=JSON.stringify(data),req=http.request({hostname:'127.0.0.1',port:p,path:url,method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body)},timeout:1000},res=>{
+  const post=(url,data,headers={},timeout=1000)=>new Promise((resolve,reject)=>{
+    const body=JSON.stringify(data),req=http.request({hostname:'127.0.0.1',port:p,path:url,method:'POST',headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body),...headers},timeout},res=>{
       let b='';res.on('data',c=>b+=c);res.on('end',()=>resolve({status:res.statusCode,body:b}));
-    });req.on('error',reject);req.on('timeout',()=>req.destroy(Error('timeout')));req.end(body);
+    });req.on('error',reject);req.on('timeout',()=>req.destroy(Error('timeout '+url)));req.end(body);
   });
   const revoke=await post('/api/lock/revoke',{id:'nonexistent',token:''});
   assert.notEqual(JSON.parse(revoke.body).ok,true);
@@ -190,6 +207,20 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   assert.equal(riskReply.headers['cache-control'],'no-store');
   assert.equal(JSON.parse((await get(p,'/api/quote-cross-check?code=600001',headers)).body).ok,false,'GET must never contact providers');
   const missing=await get(p,'/nonexistent-test-asset-xyz');assert.ok([200,404].includes(missing.status));
+  if(offlineBoot){
+    nativeEntry(await get(p,'/m'),'/m');
+    const compared=JSON.parse((await post('/api/research/rule-comparison',{scores:{trendScore:80}},headers)).body);
+    assert.equal(compared.ok,true);
+    assert.equal(compared.analysis.rankingModified,false);
+    assert.ok(compared.analysis.systems.gpt.some(strategy=>strategy.rules.some(rule=>rule.field==='trendScore'&&rule.status==='pass')));
+    const failed=JSON.parse((await post('/api/research/live-market',{},headers,45000)).body);
+    assert.equal(failed.ok,false);
+    assert.equal(failed.verifiedLive,false);
+    assert.match(failed.error,/行情获取失败|市场研究失败/);
+    assert.ok(!failed.recentStructure,'离线采集失败不能产生新市场截面');
+    assert.ok(child.exitCode===null,'正常启动路径应保持可用');
+    console.log('PASS: 正常初始化、禁止出站连接、PC/手机共用服务、缺失证据保持未知');
+  }
   console.log('PASS: 完整服务、绯曜原生入口/版本/业务路由映射、恢复资产、404与真实鉴权拒绝/登录');
  } finally {
   await stop(child);
@@ -199,5 +230,5 @@ function get(port,url,headers={}){return new Promise((resolve,reject)=>{const re
   assert.deepEqual(sourceDataInventory(),before,'smoke must not create or modify source data/configuration files');
   assert.equal(violations,'','smoke attempted to read source private data, write outside temp, start a process or use egress: '+violations);
  }
- console.log('PASS: 临时副本启动、合成权限配置、无源码数据变化/私有配置读取/出站，进程与临时运行数据已清理');
+ console.log('PASS: 临时副本与合成权限配置已清理，源目录数据清单保持一致');
 })().catch(e=>{console.error(e.stack||e);process.exitCode=1;});

@@ -1,0 +1,715 @@
+{
+  "scope": "isolated original server plus controlled synthetic observations; production not changed",
+  "base": "cb3dfd8b7a86b27edb938e5bbea18d205c6ad9fa",
+  "fileSha256": {
+    "src/core/index-window-history.js": "d0156b373069ee3a8e4d1ee116792901527db2cb148a219e00032bceeb211de5",
+    "src/core/index-window-research.js": "3b39a4682be88be8b1a5cac9674c05a209b71df04bb8eee564cb558f0cdd5eb0",
+    "server.js": "f1fee04e9facd27f9946df333b5e8e789de689d03ff5445adc5fb65f917ee95d",
+    "public/nova/index-continuity-view.mjs": "7fbc48d0aada840308eae92f4afba65132f069ca768077f329029e16bc720112",
+    "public/nova/market.js": "10d506d909bead6c781dd8dd4d58582bfc0c890eb2ebab97765a91f7a0edd2a0"
+  },
+  "results": [
+    {
+      "case": "restored",
+      "http": 200,
+      "projection": {
+        "mode": "experimental-same-minute-range",
+        "priorDaysRequired": 20,
+        "priorDaysObserved": 20,
+        "history": {
+          "mode": "sealed-index-minute-history-v1",
+          "status": "restored",
+          "daysLoaded": 20,
+          "archivedDays": 20,
+          "currentSession": "fresh-observation-required",
+          "researchOnly": true,
+          "sourceVerified": false,
+          "canTrain": false,
+          "canTrade": false,
+          "canNotify": false
+        },
+        "events": [
+          {
+            "id": "20261127/1.000001/605/1/sina-index",
+            "day": "20261127",
+            "code": "1.000001",
+            "source": "sina-index",
+            "windowMinutes": 1,
+            "baseAt": 1795745040000,
+            "basePrice": 100.4,
+            "quoteAt": 1795745100000,
+            "price": 110,
+            "receivedAt": 1795745100000,
+            "detectedAt": 1795745100000,
+            "returnPct": 9.5617529880478,
+            "historicalMaxAbsPct": 0.09960159362549792,
+            "referenceDays": 20,
+            "validUntil": 1795745160000,
+            "method": "same-minute-absolute-range-v1",
+            "references": [
+              {
+                "date": "20261030",
+                "baseAt": 1793325840000,
+                "basePrice": 100.4,
+                "quoteAt": 1793325900000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "ebeb4fc0e689691ce8d9fdfff9e1cb939f0bf4ea526b8282768b40ba13aeed7f"
+              },
+              {
+                "date": "20261102",
+                "baseAt": 1793585040000,
+                "basePrice": 100.4,
+                "quoteAt": 1793585100000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "e6f9f5537bd50bbdbfd3bf2a852cfc743e188ff6a7005a0882502b3007b35dd9"
+              },
+              {
+                "date": "20261103",
+                "baseAt": 1793671440000,
+                "basePrice": 100.4,
+                "quoteAt": 1793671500000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "32fbd249c7c47539a7956009cba35632b7ef58adae6b6929072bc476e0848540"
+              },
+              {
+                "date": "20261104",
+                "baseAt": 1793757840000,
+                "basePrice": 100.4,
+                "quoteAt": 1793757900000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "6ec933504bb783c4265cc9f0616c0e93d2201aaeabbee686e6cb21c0918b9848"
+              },
+              {
+                "date": "20261105",
+                "baseAt": 1793844240000,
+                "basePrice": 100.4,
+                "quoteAt": 1793844300000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "0ea397ae54b3f5a3ddc376883e9301934b7f4edef01709ec1a0646f3c6f5cb87"
+              },
+              {
+                "date": "20261106",
+                "baseAt": 1793930640000,
+                "basePrice": 100.4,
+                "quoteAt": 1793930700000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "ec7f91fc13892ca284882387fa8c54ffce1a3580964a5d8adbf6e1bbb779bf6d"
+              },
+              {
+                "date": "20261109",
+                "baseAt": 1794189840000,
+                "basePrice": 100.4,
+                "quoteAt": 1794189900000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "75c4735bf40befde45fa5aad612a4a7b80d90db6bc70e35e03e92765e4b82348"
+              },
+              {
+                "date": "20261110",
+                "baseAt": 1794276240000,
+                "basePrice": 100.4,
+                "quoteAt": 1794276300000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "5350714eff108a5e4289903638bd752cbfd335d41bc446d1471089a04854f25e"
+              },
+              {
+                "date": "20261111",
+                "baseAt": 1794362640000,
+                "basePrice": 100.4,
+                "quoteAt": 1794362700000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "0349d72f3cc168b9a668df6d97327bdb6fa5770e427f74a620971eb1177f30b9"
+              },
+              {
+                "date": "20261112",
+                "baseAt": 1794449040000,
+                "basePrice": 100.4,
+                "quoteAt": 1794449100000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "ec182e109d7de597d7ad7415468088572e037d19781dca5fa87d23624fff67e4"
+              },
+              {
+                "date": "20261113",
+                "baseAt": 1794535440000,
+                "basePrice": 100.4,
+                "quoteAt": 1794535500000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "b5f906c8d7ecc5659427dbc34a214747e6031b0ff3f93f27d9aa208d820f194d"
+              },
+              {
+                "date": "20261116",
+                "baseAt": 1794794640000,
+                "basePrice": 100.4,
+                "quoteAt": 1794794700000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "8aa94756376bc65d7e06ea3531100131b3507f1fed59c2cd240efcedc7846666"
+              },
+              {
+                "date": "20261117",
+                "baseAt": 1794881040000,
+                "basePrice": 100.4,
+                "quoteAt": 1794881100000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "3edd16cac2d2f3b678b565727827f251b84524e6411f5965dc04e8c0decc91e5"
+              },
+              {
+                "date": "20261118",
+                "baseAt": 1794967440000,
+                "basePrice": 100.4,
+                "quoteAt": 1794967500000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "fad8cb1511e0da96a1c793ba66de13cbd4c067559903a2090b88873f3b63f1d2"
+              },
+              {
+                "date": "20261119",
+                "baseAt": 1795053840000,
+                "basePrice": 100.4,
+                "quoteAt": 1795053900000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "61af83843cb614dcdf303da567585d696f96d1dfc78c55c7ae282aedc3263cdd"
+              },
+              {
+                "date": "20261120",
+                "baseAt": 1795140240000,
+                "basePrice": 100.4,
+                "quoteAt": 1795140300000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "8e6d60bde5a615fdd825e363f170ebb4eb68bdafdca314ff13435911f9be7b3a"
+              },
+              {
+                "date": "20261123",
+                "baseAt": 1795399440000,
+                "basePrice": 100.4,
+                "quoteAt": 1795399500000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "b3652aaee0b80667849639fd59aed51f7b0723fe15cc1ab95b39fff9f592cdc6"
+              },
+              {
+                "date": "20261124",
+                "baseAt": 1795485840000,
+                "basePrice": 100.4,
+                "quoteAt": 1795485900000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "39018f01d2248d961083915ab552df3ed5f5977e0b6529e8b4ca1f80028a5813"
+              },
+              {
+                "date": "20261125",
+                "baseAt": 1795572240000,
+                "basePrice": 100.4,
+                "quoteAt": 1795572300000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "70510a5ef5f23c25e37e67f41578820c512c48159d1525b5307acc0f52305875"
+              },
+              {
+                "date": "20261126",
+                "baseAt": 1795658640000,
+                "basePrice": 100.4,
+                "quoteAt": 1795658700000,
+                "price": 100.5,
+                "returnPct": 0.09960159362549792,
+                "archiveHash": "8860290047601c919778d3c26a264338a2d6ef322e8a45c2dbcf93d8e074c1bc"
+              }
+            ],
+            "status": "market-only",
+            "attribution": "unknown",
+            "canTrade": false,
+            "canNotify": false,
+            "investigation": {
+              "status": "unavailable",
+              "reason": "invalid-window-or-evidence",
+              "inspected": 0,
+              "evidenceHashes": [],
+              "relatedSecurities": [],
+              "explicitSectors": [],
+              "currentLocalEvidence": false,
+              "attribution": "unknown",
+              "canTrade": false,
+              "canNotify": false
+            }
+          },
+          {
+            "id": "20261127/1.000001/605/5/sina-index",
+            "day": "20261127",
+            "code": "1.000001",
+            "source": "sina-index",
+            "windowMinutes": 5,
+            "baseAt": 1795744800000,
+            "basePrice": 100,
+            "quoteAt": 1795745100000,
+            "price": 110,
+            "receivedAt": 1795745100000,
+            "detectedAt": 1795745100000,
+            "returnPct": 10.000000000000009,
+            "historicalMaxAbsPct": 0.49999999999998934,
+            "referenceDays": 20,
+            "validUntil": 1795745160000,
+            "method": "same-minute-absolute-range-v1",
+            "references": [
+              {
+                "date": "20261030",
+                "baseAt": 1793325600000,
+                "basePrice": 100,
+                "quoteAt": 1793325900000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "ebeb4fc0e689691ce8d9fdfff9e1cb939f0bf4ea526b8282768b40ba13aeed7f"
+              },
+              {
+                "date": "20261102",
+                "baseAt": 1793584800000,
+                "basePrice": 100,
+                "quoteAt": 1793585100000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "e6f9f5537bd50bbdbfd3bf2a852cfc743e188ff6a7005a0882502b3007b35dd9"
+              },
+              {
+                "date": "20261103",
+                "baseAt": 1793671200000,
+                "basePrice": 100,
+                "quoteAt": 1793671500000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "32fbd249c7c47539a7956009cba35632b7ef58adae6b6929072bc476e0848540"
+              },
+              {
+                "date": "20261104",
+                "baseAt": 1793757600000,
+                "basePrice": 100,
+                "quoteAt": 1793757900000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "6ec933504bb783c4265cc9f0616c0e93d2201aaeabbee686e6cb21c0918b9848"
+              },
+              {
+                "date": "20261105",
+                "baseAt": 1793844000000,
+                "basePrice": 100,
+                "quoteAt": 1793844300000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "0ea397ae54b3f5a3ddc376883e9301934b7f4edef01709ec1a0646f3c6f5cb87"
+              },
+              {
+                "date": "20261106",
+                "baseAt": 1793930400000,
+                "basePrice": 100,
+                "quoteAt": 1793930700000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "ec7f91fc13892ca284882387fa8c54ffce1a3580964a5d8adbf6e1bbb779bf6d"
+              },
+              {
+                "date": "20261109",
+                "baseAt": 1794189600000,
+                "basePrice": 100,
+                "quoteAt": 1794189900000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "75c4735bf40befde45fa5aad612a4a7b80d90db6bc70e35e03e92765e4b82348"
+              },
+              {
+                "date": "20261110",
+                "baseAt": 1794276000000,
+                "basePrice": 100,
+                "quoteAt": 1794276300000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "5350714eff108a5e4289903638bd752cbfd335d41bc446d1471089a04854f25e"
+              },
+              {
+                "date": "20261111",
+                "baseAt": 1794362400000,
+                "basePrice": 100,
+                "quoteAt": 1794362700000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "0349d72f3cc168b9a668df6d97327bdb6fa5770e427f74a620971eb1177f30b9"
+              },
+              {
+                "date": "20261112",
+                "baseAt": 1794448800000,
+                "basePrice": 100,
+                "quoteAt": 1794449100000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "ec182e109d7de597d7ad7415468088572e037d19781dca5fa87d23624fff67e4"
+              },
+              {
+                "date": "20261113",
+                "baseAt": 1794535200000,
+                "basePrice": 100,
+                "quoteAt": 1794535500000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "b5f906c8d7ecc5659427dbc34a214747e6031b0ff3f93f27d9aa208d820f194d"
+              },
+              {
+                "date": "20261116",
+                "baseAt": 1794794400000,
+                "basePrice": 100,
+                "quoteAt": 1794794700000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "8aa94756376bc65d7e06ea3531100131b3507f1fed59c2cd240efcedc7846666"
+              },
+              {
+                "date": "20261117",
+                "baseAt": 1794880800000,
+                "basePrice": 100,
+                "quoteAt": 1794881100000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "3edd16cac2d2f3b678b565727827f251b84524e6411f5965dc04e8c0decc91e5"
+              },
+              {
+                "date": "20261118",
+                "baseAt": 1794967200000,
+                "basePrice": 100,
+                "quoteAt": 1794967500000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "fad8cb1511e0da96a1c793ba66de13cbd4c067559903a2090b88873f3b63f1d2"
+              },
+              {
+                "date": "20261119",
+                "baseAt": 1795053600000,
+                "basePrice": 100,
+                "quoteAt": 1795053900000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "61af83843cb614dcdf303da567585d696f96d1dfc78c55c7ae282aedc3263cdd"
+              },
+              {
+                "date": "20261120",
+                "baseAt": 1795140000000,
+                "basePrice": 100,
+                "quoteAt": 1795140300000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "8e6d60bde5a615fdd825e363f170ebb4eb68bdafdca314ff13435911f9be7b3a"
+              },
+              {
+                "date": "20261123",
+                "baseAt": 1795399200000,
+                "basePrice": 100,
+                "quoteAt": 1795399500000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "b3652aaee0b80667849639fd59aed51f7b0723fe15cc1ab95b39fff9f592cdc6"
+              },
+              {
+                "date": "20261124",
+                "baseAt": 1795485600000,
+                "basePrice": 100,
+                "quoteAt": 1795485900000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "39018f01d2248d961083915ab552df3ed5f5977e0b6529e8b4ca1f80028a5813"
+              },
+              {
+                "date": "20261125",
+                "baseAt": 1795572000000,
+                "basePrice": 100,
+                "quoteAt": 1795572300000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "70510a5ef5f23c25e37e67f41578820c512c48159d1525b5307acc0f52305875"
+              },
+              {
+                "date": "20261126",
+                "baseAt": 1795658400000,
+                "basePrice": 100,
+                "quoteAt": 1795658700000,
+                "price": 100.5,
+                "returnPct": 0.49999999999998934,
+                "archiveHash": "8860290047601c919778d3c26a264338a2d6ef322e8a45c2dbcf93d8e074c1bc"
+              }
+            ],
+            "status": "market-only",
+            "attribution": "unknown",
+            "canTrade": false,
+            "canNotify": false,
+            "investigation": {
+              "status": "unavailable",
+              "reason": "invalid-window-or-evidence",
+              "inspected": 0,
+              "evidenceHashes": [],
+              "relatedSecurities": [],
+              "explicitSectors": [],
+              "currentLocalEvidence": false,
+              "attribution": "unknown",
+              "canTrade": false,
+              "canNotify": false
+            }
+          }
+        ],
+        "continuity": [
+          {
+            "episodeId": "20261127/1.000001/605/1/sina-index",
+            "previousEpisodeId": null,
+            "revision": 1,
+            "firstDetectedAt": 1795745100000,
+            "previousQuoteAt": null,
+            "previousReturnPct": null,
+            "phase": "started",
+            "status": "abnormal",
+            "direction": "up",
+            "slot": 605,
+            "day": "20261127",
+            "code": "1.000001",
+            "source": "sina-index",
+            "windowMinutes": 1,
+            "baseAt": 1795745040000,
+            "basePrice": 100.4,
+            "quoteAt": 1795745100000,
+            "price": 110,
+            "receivedAt": 1795745100000,
+            "detectedAt": 1795745100000,
+            "validUntil": 1795745160000,
+            "returnPct": 9.5617529880478,
+            "historicalMaxAbsPct": 0.09960159362549792,
+            "referenceDays": 20,
+            "method": "adjacent-qualified-index-window-v1",
+            "attribution": "unknown",
+            "canTrade": false,
+            "canNotify": false
+          },
+          {
+            "episodeId": "20261127/1.000001/605/5/sina-index",
+            "previousEpisodeId": null,
+            "revision": 1,
+            "firstDetectedAt": 1795745100000,
+            "previousQuoteAt": null,
+            "previousReturnPct": null,
+            "phase": "started",
+            "status": "abnormal",
+            "direction": "up",
+            "slot": 605,
+            "day": "20261127",
+            "code": "1.000001",
+            "source": "sina-index",
+            "windowMinutes": 5,
+            "baseAt": 1795744800000,
+            "basePrice": 100,
+            "quoteAt": 1795745100000,
+            "price": 110,
+            "receivedAt": 1795745100000,
+            "detectedAt": 1795745100000,
+            "validUntil": 1795745160000,
+            "returnPct": 10.000000000000009,
+            "historicalMaxAbsPct": 0.49999999999998934,
+            "referenceDays": 20,
+            "method": "adjacent-qualified-index-window-v1",
+            "attribution": "unknown",
+            "canTrade": false,
+            "canNotify": false
+          }
+        ],
+        "canTrade": false
+      },
+      "archive": [
+        {
+          "day": "20261030",
+          "eventHash": "ebeb4fc0e689691ce8d9fdfff9e1cb939f0bf4ea526b8282768b40ba13aeed7f",
+          "fileSha256": "9343c5708149145451fb1632e24b266d36150e65c06f3052bfde9427256f5b42",
+          "bytes": 1347
+        },
+        {
+          "day": "20261102",
+          "eventHash": "e6f9f5537bd50bbdbfd3bf2a852cfc743e188ff6a7005a0882502b3007b35dd9",
+          "fileSha256": "f93db43c49ab64dbcd10344979389b8cbd961fd815f0ccf824f0de851b486c55",
+          "bytes": 1347
+        },
+        {
+          "day": "20261103",
+          "eventHash": "32fbd249c7c47539a7956009cba35632b7ef58adae6b6929072bc476e0848540",
+          "fileSha256": "57c0eca045fded4431424422a34c830475a2de5ab57a4937fd7e2bec68fc040c",
+          "bytes": 1347
+        },
+        {
+          "day": "20261104",
+          "eventHash": "6ec933504bb783c4265cc9f0616c0e93d2201aaeabbee686e6cb21c0918b9848",
+          "fileSha256": "da4e041c82a70b3b70e7b21636d76c3938f7c8d29b73ed70d879e5bcdee11f99",
+          "bytes": 1347
+        },
+        {
+          "day": "20261105",
+          "eventHash": "0ea397ae54b3f5a3ddc376883e9301934b7f4edef01709ec1a0646f3c6f5cb87",
+          "fileSha256": "cc4b652de6712d93c85509e8956d6449c9fc25c404e6c875dbb176d306de95b9",
+          "bytes": 1347
+        },
+        {
+          "day": "20261106",
+          "eventHash": "ec7f91fc13892ca284882387fa8c54ffce1a3580964a5d8adbf6e1bbb779bf6d",
+          "fileSha256": "858afa636fa95da406b600a53e495f5ab22dfd3330ad7d73a8f6666b8ca5a8d2",
+          "bytes": 1347
+        },
+        {
+          "day": "20261109",
+          "eventHash": "75c4735bf40befde45fa5aad612a4a7b80d90db6bc70e35e03e92765e4b82348",
+          "fileSha256": "03d408b8ffa0245fb165e2831448c2743a3d1d659e7d6a73bde1b5945645e944",
+          "bytes": 1347
+        },
+        {
+          "day": "20261110",
+          "eventHash": "5350714eff108a5e4289903638bd752cbfd335d41bc446d1471089a04854f25e",
+          "fileSha256": "76f358dde672f84b5f3e8db6385a883111bb0f9d75f2b892b27218de729f0989",
+          "bytes": 1347
+        },
+        {
+          "day": "20261111",
+          "eventHash": "0349d72f3cc168b9a668df6d97327bdb6fa5770e427f74a620971eb1177f30b9",
+          "fileSha256": "da1ce6b7c2a01b8924890ad66b1cd9a2bb772dc7be8fa369fda578ca6587f9ca",
+          "bytes": 1347
+        },
+        {
+          "day": "20261112",
+          "eventHash": "ec182e109d7de597d7ad7415468088572e037d19781dca5fa87d23624fff67e4",
+          "fileSha256": "64f07c0513d2113ab587ee1621e166fa1f1744808ba9abb0586bd8ef73f00069",
+          "bytes": 1347
+        },
+        {
+          "day": "20261113",
+          "eventHash": "b5f906c8d7ecc5659427dbc34a214747e6031b0ff3f93f27d9aa208d820f194d",
+          "fileSha256": "40c1b5175be8324467def81aa9ed15665e29e28d335ea0f3bdef48128deae371",
+          "bytes": 1347
+        },
+        {
+          "day": "20261116",
+          "eventHash": "8aa94756376bc65d7e06ea3531100131b3507f1fed59c2cd240efcedc7846666",
+          "fileSha256": "c3860f1be045c0843bc98d7aa0ccb139e5fe9b450afa23869669716f6a825cdf",
+          "bytes": 1347
+        },
+        {
+          "day": "20261117",
+          "eventHash": "3edd16cac2d2f3b678b565727827f251b84524e6411f5965dc04e8c0decc91e5",
+          "fileSha256": "7e6d42df5b4aac883bf6375a78f5c6772fe2e0239d26a909398056ac490b4432",
+          "bytes": 1347
+        },
+        {
+          "day": "20261118",
+          "eventHash": "fad8cb1511e0da96a1c793ba66de13cbd4c067559903a2090b88873f3b63f1d2",
+          "fileSha256": "d4cb87f120ac12a0904c984e70a17ee1f2f2af8b6ab34fbbdc7e99f97a2e115f",
+          "bytes": 1347
+        },
+        {
+          "day": "20261119",
+          "eventHash": "61af83843cb614dcdf303da567585d696f96d1dfc78c55c7ae282aedc3263cdd",
+          "fileSha256": "f1420678340d9d34588b169777ef937d19aaf4ac5e1d2b48d9bc159b8c02634d",
+          "bytes": 1347
+        },
+        {
+          "day": "20261120",
+          "eventHash": "8e6d60bde5a615fdd825e363f170ebb4eb68bdafdca314ff13435911f9be7b3a",
+          "fileSha256": "ae26cd1dc190619ff6183951f669fab1d7310d1f81fb07e2a438ef3aedaa0047",
+          "bytes": 1347
+        },
+        {
+          "day": "20261123",
+          "eventHash": "b3652aaee0b80667849639fd59aed51f7b0723fe15cc1ab95b39fff9f592cdc6",
+          "fileSha256": "293d7580a307769966d6c1142a6bf5c1759f28efb880222ccb6a29bb59ed978d",
+          "bytes": 1347
+        },
+        {
+          "day": "20261124",
+          "eventHash": "39018f01d2248d961083915ab552df3ed5f5977e0b6529e8b4ca1f80028a5813",
+          "fileSha256": "a0781e91094d48e0aa8387728443f23728371df1382b0c932ef79e8b156b7cd5",
+          "bytes": 1347
+        },
+        {
+          "day": "20261125",
+          "eventHash": "70510a5ef5f23c25e37e67f41578820c512c48159d1525b5307acc0f52305875",
+          "fileSha256": "bb5bc3d4b35a5dd55a53e27575c18ed5eebc7494c2be2bfe06078f84a18016c1",
+          "bytes": 1347
+        },
+        {
+          "day": "20261126",
+          "eventHash": "8860290047601c919778d3c26a264338a2d6ef322e8a45c2dbcf93d8e074c1bc",
+          "fileSha256": "792dd3ad0f43fe3a95e59e4af1c1317c5d524b028cfee8aee18e65871aaa0dd8",
+          "bytes": 1347
+        }
+      ],
+      "viewerExcluded": true,
+      "fixtureServerSha256": "5805dce19adc5a6e99f651b1a1dbd09886c05da6b3b6e294045d1f43a2f062bd",
+      "browserInputClock": 1795745100000,
+      "syntheticInputs": true
+    },
+    {
+      "case": "empty",
+      "http": 200,
+      "projection": {
+        "mode": "experimental-same-minute-range",
+        "priorDaysRequired": 20,
+        "priorDaysObserved": 0,
+        "history": {
+          "mode": "sealed-index-minute-history-v1",
+          "status": "empty",
+          "daysLoaded": 0,
+          "archivedDays": 0,
+          "currentSession": "fresh-observation-required",
+          "researchOnly": true,
+          "sourceVerified": false,
+          "canTrain": false,
+          "canTrade": false,
+          "canNotify": false
+        },
+        "events": [],
+        "continuity": [],
+        "canTrade": false
+      },
+      "archive": [],
+      "viewerExcluded": true,
+      "fixtureServerSha256": "bfa63ec87ee0228de809896b14af464de5562ff8080feed1035adeb344e4f58e",
+      "browserInputClock": 1795745100000,
+      "syntheticInputs": true
+    },
+    {
+      "case": "corrupt",
+      "http": 200,
+      "projection": {
+        "mode": "experimental-same-minute-range",
+        "priorDaysRequired": 20,
+        "priorDaysObserved": 0,
+        "history": {
+          "mode": "sealed-index-minute-history-v1",
+          "status": "unavailable",
+          "daysLoaded": 0,
+          "archivedDays": 0,
+          "currentSession": "fresh-observation-required",
+          "researchOnly": true,
+          "sourceVerified": false,
+          "canTrain": false,
+          "canTrade": false,
+          "canNotify": false
+        },
+        "events": [],
+        "continuity": [],
+        "canTrade": false
+      },
+      "archive": [],
+      "viewerExcluded": true,
+      "fixtureServerSha256": "ad3c266893ded1ae69906dcee8a491fc98d63a721d2efdb2c4e3f73101058524",
+      "browserInputClock": 1795745100000,
+      "syntheticInputs": true
+    }
+  ]
+}

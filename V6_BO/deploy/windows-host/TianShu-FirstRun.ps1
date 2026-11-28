@@ -110,14 +110,24 @@ try {
         return ($major -gt 22 -or ($major -eq 22 -and $minor -ge 6))
     }
     if(-not (Node-Ready $chosen)) {
-        if(-not (Consent '没有检测到合格的 Linux Node.js。是否允许从 Node.js 官方网站下载固定版本，并在校验 SHA256 后安装到当前 Ubuntu 用户目录？')) {
-            Notice '未安装 Linux Node.js。可在桌面快捷方式中继续。'
+        $offlineDir=Join-Path $env:LOCALAPPDATA 'TianShuV6\offline-runtime'
+        $installArgs=@()
+        if(Test-Path -LiteralPath $offlineDir -PathType Container) {
+            $offlineLinux=(& $wsl.Source --distribution $chosen --exec wslpath -a -u $offlineDir | Out-String).Trim()
+            if($LASTEXITCODE -ne 0 -or -not $offlineLinux.StartsWith('/')) { throw '离线运行包目录转换失败。' }
+            $installArgs=@('--offline-dir',$offlineLinux)
+            $installPrompt='是否校验本机离线包，并在当前 Ubuntu 用户目录安装 Linux Node.js？'
+        } else {
+            $installPrompt='没有检测到合格的 Linux Node.js。是否允许从 Node.js 官方网站下载固定版本，并在校验 SHA256 后安装到当前 Ubuntu 用户目录？'
+        }
+        if(-not (Consent $installPrompt)) {
+            Notice '可以将官方固定版本及校验清单放入本机 offline-runtime 目录，然后重新打开安装向导。'
             exit 0
         }
         $linux=(& $wsl.Source --distribution $chosen --exec wslpath -a -u $staged | Out-String).Trim()
         if($LASTEXITCODE -ne 0 -or -not $linux.StartsWith('/')) { throw 'Windows 到 Ubuntu 的安装路径转换失败。' }
-        & $wsl.Source --distribution $chosen --exec bash ($linux.TrimEnd('/')+'/install-node.sh')
-        if($LASTEXITCODE -ne 0 -or -not (Node-Ready $chosen)) { throw 'Node.js 官方安装包的下载或校验失败；没有覆盖原版本。' }
+        & $wsl.Source --distribution $chosen --exec bash ($linux.TrimEnd('/')+'/install-node.sh') @installArgs
+        if($LASTEXITCODE -ne 0 -or -not (Node-Ready $chosen)) { throw 'Node.js 安装包读取、校验或安装失败。请核对架构、固定版本和官方校验清单。' }
     }
     # Store the selected Linux distribution only after it is unambiguous.
     if(-not $preferred) {

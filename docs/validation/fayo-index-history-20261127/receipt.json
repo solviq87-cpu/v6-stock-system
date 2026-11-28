@@ -1,0 +1,65 @@
+{
+  "sourceParent": "cb3dfd8b7a86b27edb938e5bbea18d205c6ad9fa",
+  "sourceCommit": "resolved by matching these hashes to the submitted Git tree",
+  "scope": "synthetic isolated original server, original private journals and actual Chromium CSS viewports",
+  "beforeFirstSevenCases": {
+    "tests": 7,
+    "pass": 1,
+    "fail": 6,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "related": {
+    "tests": 58,
+    "pass": 58,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "sourceFull": {
+    "tests": 8129,
+    "pass": 8129,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "kernelDeniedOffline": {
+    "tests": 57,
+    "pass": 57,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "httpCases": 3,
+  "browserFlows": 9,
+  "physicalDevicesVerified": false,
+  "real20DayMarketSamplesVerified": false,
+  "sourceFilesSha256": {
+    "server.js": "f1fee04e9facd27f9946df333b5e8e789de689d03ff5445adc5fb65f917ee95d",
+    "src/core/index-window-research.js": "3b39a4682be88be8b1a5cac9674c05a209b71df04bb8eee564cb558f0cdd5eb0",
+    "src/core/index-window-history.js": "d0156b373069ee3a8e4d1ee116792901527db2cb148a219e00032bceeb211de5",
+    "src/core/research-workspace-store.js": "cd4ff8b5edaa3e5d7ae5acb8a61515abcc360a3a6ffe07d8cb6c158bfb8ee7bb",
+    "src/core/account-process-lock.js": "5ab79944a6e5259f4df9ea150620560f865cdede05b88f5d08fa3738fe69e95c",
+    "public/nova/market.js": "10d506d909bead6c781dd8dd4d58582bfc0c890eb2ebab97765a91f7a0edd2a0",
+    "public/nova/index-continuity-view.mjs": "7fbc48d0aada840308eae92f4afba65132f069ca768077f329029e16bc720112",
+    "tests/index-window-history.test.js": "6a83384ddc29c99bed53571faff53abeb8199f0b1e3cdcec38edfd941b7cd7ff",
+    "tests/index-window-history-http.test.js": "6cbfbb1ac9521d1d0e8b2156de016d77ce80c807e878db1075c59df5440036fa",
+    "../docs/validation/fayo-index-history-20261127/native.cjs": "027b6b69a7de39bd79122d3f14ad2232babc983725f5581d8a2fad53f51d0f7e",
+    "../docs/validation/fayo-index-history-20261127/browser.py": "e52101a93ff0c63bf330b2e1e0ed874c7049bbe04ef6bd4c022362d4df79e46d",
+    "../docs/validation/fayo-index-history-20261127/offline.cjs": "b9c3aa3c3195316713cf704b6b6732b8840c4a750c83a9d10dfa2391cbd16353",
+    "../docs/validation/fayo-index-history-20261127/performance.cjs": "f51c21998b282a8f3b6bfb2ea7ba6ba420a1b08da384b5cfffa7a27247001829"
+  },
+  "receiptSha256": {
+    "native.json": "7d393f845461af4f173e8e2dd6d60bc5536f9582cd23da95b82db831bda3015e",
+    "restored-browser.json": "af241ccecd3f5c6d14a3e7df5416943a7bba67df730b35b8828f2ccdbb56d545",
+    "empty-browser.json": "d96b0e620c4e4e97e5a47af1cc8b262ff49bc6da9b8b430226bc9aa9c8b97acf",
+    "corrupt-browser.json": "bcac440b31704993d9ef9727d6c61b6dc408d6d1bfa85f9aa0a74c4a223481bb",
+    "restored-390.png": "c818e39c6d2ae3cc2e0fb0dd208ab51c76d4901cd5061dc2fe388d3433ff612a",
+    "restored-1366.png": "9eddd76dd02336e244957c50faafd35642eb9765c1d5683c6403cb0278453052",
+    "performance.json": "1e994d52dda649a14c00e338c480b19409bc2e4363518d1e1753c63b00be5d00",
+    "offline-recovery.json": "3eedff565c82a37d89c5c6fbbf9539a13867d9b04211ccc802bb6ef68c150d0e"
+  },
+  "currentSessionRestored": false,
+  "riskPermissionsChanged": false,
+  "deployed": false
+}

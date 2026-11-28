@@ -11511,6 +11511,18 @@ const marketResponseSnapshots=require('./src/core/market-response-snapshot').cre
   onError:code=>console.error('[pool-display-snapshot] '+code)
 });
 const workingDistribution=require('./src/research/shortline-breadth-fallback').createWorkingDistribution();
+const {createIndexWindowResearch}=require('./src/core/index-window-research');
+const {createIndexNewsInvestigator}=require('./src/core/index-news-association');
+const investigateIndexNews=createIndexNewsInvestigator({
+  readNews:()=>S.news,allowsItem:newsEvidenceAllowsItem,currentState:newsEvidenceCurrent,
+  readSectors:()=>S.sectors,explicitSectorMatch:explicitNewsSectorMatch
+});
+const indexWindowResearch=createIndexWindowResearch({
+  historyRoot:path.join(__dirname,'data','index-window-research'),canPersist:()=>!isReplica(),
+  onHistoryError:code=>console.error('['+code+'] 研究基准未恢复或保存，当前报价与原账户不变'),
+  investigate:event=>investigateIndexNews(event),
+  reviewInvestigation:event=>investigateIndexNews(event,event.investigation.evidenceHashes)
+});
 const sessionIndices=require('./src/core/session-index-feed').createSessionIndexFeed({
   primary:()=>em.fetchIdxRt(),onUpdate:indices=>{S.idxRt=indices;}
 });
@@ -11597,6 +11609,8 @@ function sharedMarketRead(kind,edit) {
   state.dabanke=sharedDabanke(session,day);
   state.auctionObservations=sessionAuctionDisplay(session,day,state.marketRecovery);
   const today=require('./src/core/limit-reason-evidence').normalizeDay(session.day);
+  // Reading existing research is independent of dispatching supplier requests.
+  if(edit&&session.trading&&(!day||day===today))state.indexWindowResearch=indexWindowResearch.view(Date.now());
   if((!day||day===today)&&process.env.V6_ISOLATED_BOOT_SMOKE!=='1'){
     const feed=sessionIndices.read(session);
     state.indexChannels=feed.channels;
@@ -19877,7 +19891,11 @@ const _httpBootstrap = createDashboardServer({
     loadSnapshotsOnBoot();
     // 仅隔离集成测试使用：跳过外部行情拉取、推送和定时任务，真实启动仍执行 init()。
     if (process.env.V6_ISOLATED_BOOT_SMOKE !== '1') {
-      const readSessionIndices=()=>sessionIndices.read(marketDisplaySession());
+      const readSessionIndices=()=>{
+        const session=marketDisplaySession();
+        const feed=sessionIndices.read(session);
+        indexWindowResearch.observe(feed,session,Date.now());
+      };
       readSessionIndices();
       setInterval(readSessionIndices,5000).unref();
       setInterval(()=>{void sampleDecisionCrossChecks().catch(()=>{});},30000).unref();

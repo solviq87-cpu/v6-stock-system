@@ -1,0 +1,15 @@
+{
+  "head": "86da6ec5064e5e5eee048f4a17900f2c41d361b9",
+  "baselineRef": "86da6ec5064e5e5eee048f4a17900f2c41d361b9",
+  "baseline": false,
+  "decisionHttp": 200,
+  "noCandidates": true,
+  "syntheticClock": true,
+  "sourceHashes": {
+    "public/nova/decision-view.mjs": "309e82aa27c012d78d8221c4358b6ea6c70cb172d6f1316250f373a7c25410db",
+    "public/nova/app.js": "6d3042d95d50df22ff125e2bcbbfdda96799b9612288e6af188bc3425b313475",
+    "public/nova/ui.js": "eff93ea81677f89b326b6bf6e3efe5841e1b6da970e06f6312e6275ed7d585dd",
+    "public/nova/client.js": "977df6583545fa6a89b8cb4a8defb743f21036cc0a03639eb0335c038993ba85"
+  },
+  "servedViewSha256": "309e82aa27c012d78d8221c4358b6ea6c70cb172d6f1316250f373a7c25410db"
+}

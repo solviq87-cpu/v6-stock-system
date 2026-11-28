@@ -197,9 +197,18 @@ export function createDecisionHome(ctx){
    await ctx.loadDecisionCenter();if(active()){readError='';paint();}
   }catch(error){if(active()){readError='后台决策读取未完成';paint();}}
  }
- paint();ctx.onState?.(()=>{paint();void refreshDecisions();});ctx.onDecisionSelection?.(paintCards);ctx.onDecisionCenter?.(paint);
+ paint();ctx.onState?.(()=>{paint();if(document.visibilityState==='visible')void refreshDecisions();});ctx.onDecisionSelection?.(paintCards);ctx.onDecisionCenter?.(paint);
  void refreshDecisions();
  // Recheck the original quote age even when a transport has stopped updating.
- const timer=setInterval(()=>{paint();if(document.visibilityState==='visible')void refreshDecisions();},5000);timer.unref?.();ctx.signal?.addEventListener('abort',()=>clearInterval(timer),{once:true});
+ // Keep the existing local safety cadence while offline; hidden views need no
+ // periodic DOM work. Initial and successful state reads still reach a local
+ // backend even when the browser's coarse online flag is false.
+ const refreshVisible=()=>{
+  if(!active()||document.visibilityState!=='visible')return;
+  paint();if(globalThis.navigator?.onLine!==false)void refreshDecisions();
+ };
+ const timer=setInterval(refreshVisible,5000);timer.unref?.();
+ document.addEventListener?.('visibilitychange',refreshVisible);globalThis.window?.addEventListener('online',refreshVisible);
+ ctx.signal?.addEventListener('abort',()=>{clearInterval(timer);document.removeEventListener?.('visibilitychange',refreshVisible);globalThis.window?.removeEventListener('online',refreshVisible);},{once:true});
  return host;
 }
