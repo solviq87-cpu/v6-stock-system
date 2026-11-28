@@ -68,3 +68,16 @@ test('F29.3 overlapping frozen groups cannot conceal a missing member or inflate
  }
  assert.equal(run(p).pairedDays,1);assert.equal(calls.length,9);
 });
+
+test('F29.3/F47.4 a partially matured original size cohort cannot hide an omitted member even with five observations per group',()=>{
+ const input=Array.from({length:12},(_,i)=>{const symbol=String(600000+i);return {symbol,signalAt:at,returnPct:i,values:{a:i,b:12-i},sizeEvidence:{symbol,tradeDate:day,source,datasetId:dataset,evidenceId:'cap-'+symbol,basis:'total-market-cap',unit:'CNY',valueYuan:(i+1)*1e9,observedAt:at-1000,knownAt:at-500}};});
+ const p=buildSizePartition(input,options),calls=[];
+ const score=(ds,ids,w)=>{calls.push(ds[0].rows.length);return {days:1,meanIC:.5};};
+ const run=rows=>compareSizeVersions([{day,targetDate:'2026-12-02',rows,sizePartition:p}],['a','b'],weights,score);
+ assert.equal(p.expected,12);
+ for(const missing of [0,5,6,11]){
+  const r=run(input.filter((_,i)=>i!==missing));
+  assert.equal(r.status,'unknown');assert.equal(r.pairedDays,0);assert.equal(r.expectedDays,1);assert.deepEqual(r.rows,[]);assert.equal(calls.length,0);
+ }
+ const r=run(input);assert.equal(r.pairedDays,1);assert.deepEqual(calls,[12,6,6,12,6,6,12,6,6]);assert.equal(r.canTrade,false);
+});

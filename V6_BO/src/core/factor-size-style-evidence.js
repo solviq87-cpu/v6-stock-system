@@ -61,7 +61,7 @@ function compareSizeVersions(days,ids,versions,score){
      p.groups[0].members.length!==Math.floor(members.length/2))continue;
   const groups=p.groups.map(g=>{const members=new Set(g.members.map(m=>m.symbol)),matched=observed.filter(r=>members.has(r.symbol));
    return {id:g.id,expected:members.size,observed:matched.length,meanGrossPriceReturnPct:round(mean(matched.map(r=>r.returnPct))),matched};});
-  if(groups.length!==2||groups.reduce((n,g)=>n+g.observed,0)!==observed.length||groups.some(g=>g.observed<5))continue;
+  if(groups.length!==2||groups.reduce((n,g)=>n+g.observed,0)!==observed.length||groups.some(g=>g.observed<5||g.observed!==g.expected))continue;
   const results={};
   for(const name of names){
    const w=versions[name],overall=score([{...d,rows:observed}],ids,w),perGroup=groups.map(g=>score([{...d,rows:g.matched}],ids,w));
