@@ -405,14 +405,20 @@ function buildUnifiedTaskStatus(evidence = []) {
 
 function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),canWrite=()=>false,collect=async()=>({}),clock=Date.now,running=null,
   calendar=({asOf})=>readResearchCalendar({asOf}),release=({now})=>inspectReleaseProvenanceAsync({appRoot,now,running}),criteria={},env=process.env,taskEvidence=[],liveCollector=false}={}) {
-  privateRoot(root); const profile = criteriaProfile(criteria), profileHash = digest(profile);
+  privateRoot(root); const profile = Object.freeze(criteriaProfile(criteria)), profileHash = digest(profile);
   if (typeof canWrite !== 'function' || typeof collect !== 'function' || typeof clock !== 'function' || typeof calendar !== 'function' || typeof release !== 'function') throw Error('acceptance-invalid-adapter');
   let busy = false, lastTick = null, lastError = null, lastObservedAt = null, cachedRelease=null, releaseCheckedAt=null;
-  function status() { return {running:busy,lastTick,lastObservedAt,lastError,criteria:profile,criteriaHash:profileHash,readOnlyAccount:true,
+  // Cached installation proof belongs to the currently observed write authority.
+  function clearReleaseProof(){cachedRelease=null;releaseCheckedAt=null;}
+  function writeAuthorized(){
+    try{if(canWrite()===true)return true;}catch(error){clearReleaseProof();throw error;}
+    clearReleaseProof();return false;
+  }
+  function status() { return {running:busy,lastTick,lastObservedAt,lastError,criteria:{...profile},criteriaHash:profileHash,readOnlyAccount:true,
     releaseCheckedAt,releaseRecheckIntervalMs:300000}; }
   async function tick() {
     if (busy) return {recorded:false,reason:'busy'};
-    if (canWrite() !== true) return {recorded:false,reason:'replica-or-write-disabled'};
+    if (!writeAuthorized()) return {recorded:false,reason:'replica-or-write-disabled'};
     busy = true;
     try {
       const now = clock(); lastTick = now;
@@ -422,7 +428,13 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
       let snapshot, collectFailed = false; const started = performance.now();
       try { snapshot = await collect({now,day}); } catch { snapshot = {}; collectFailed = true; }
       const metrics = normalizeMetrics(snapshot,now,performance.now()-started), exclusions = [];
-      if (!cachedRelease || releaseCheckedAt > now || now-releaseCheckedAt >= 300000) {cachedRelease=await release({now});releaseCheckedAt=now;}
+      if (!cachedRelease || releaseCheckedAt > now || now-releaseCheckedAt >= 300000) {
+        clearReleaseProof();
+        const result=await release({now}),sourceSha=result?.sourceSha;
+        // Retain only the validated scalar snapshot, never a mutable adapter receipt.
+        cachedRelease=result?Object.freeze({verifiedInstalled:result.verifiedInstalled===true,sourceSha:typeof sourceSha==='string'&&SHA.test(sourceSha)?sourceSha:null}):null;
+        releaseCheckedAt=now;
+      }
       const proof=cachedRelease;
       if(cal.runtimeEligible!==true)exclusions.push('calendar-not-runtime-eligible');
       if (env.V6_ISOLATED_BOOT_SMOKE === '1' || env.NODE_ENV === 'test' || env.NODE_TEST_CONTEXT || !(snapshot?.mode === 'live'||collectFailed&&liveCollector===true)) exclusions.push('isolated-replay-or-unidentified-run');
@@ -438,10 +450,10 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
       if (collectFailed) exclusions.push('collector-failure');
       const collectedAt=clock();
       if(!Number.isSafeInteger(collectedAt)||collectedAt<now||collectedAt-now>15000)exclusions.push('collection-window-exceeded');
-      if (canWrite() !== true) return {recorded:false,reason:'write-authorization-changed'};
+      if (!writeAuthorized()) return {recorded:false,reason:'write-authorization-changed'};
       privateRoot(root,true);
       const receipt = withAccountLock(path.join(root,'observations'),()=>{
-        if (canWrite() !== true) throw Error('acceptance-write-authorization-changed');
+        if (!writeAuthorized()) throw Error('acceptance-write-authorization-changed');
         const days = listDays(root);
         if (days.at(-1) > day) throw Error('acceptance-clock-regressed');
         if (days.length >= MAX_DAYS && !days.includes(day)) throw Error('acceptance-day-limit');
@@ -512,7 +524,7 @@ function createRuntimeAcceptance({root,appRoot=path.resolve(__dirname,'../..'),c
     });
     const segments=[];
     for(const d of days)for(const sha of d.sourceShas){let s=segments.find(x=>x.sourceSha===sha);if(!s){s={sourceSha:sha,firstDay:d.day,lastDay:d.day,observedDays:0};segments.push(s);}s.lastDay=d.day;s.observedDays++;}
-    return {schemaVersion:1,task:78,generatedAt:new Date(now).toISOString(),kind:'real-runtime-acceptance',criteria:profile,criteriaHash:profileHash,
+    return {schemaVersion:1,task:78,generatedAt:new Date(now).toISOString(),kind:'real-runtime-acceptance',criteria:{...profile},criteriaHash:profileHash,
       calendar:{status:!cal.available?'unavailable':cal.runtimeEligible?'available':'research-only',source:cal.source,hash:cal.hash,
         runtimeEligible:cal.runtimeEligible,sourceAuthenticated:cal.sourceAuthenticated,
         windowCoverageConfirmed,omittedAttemptDays,versionMismatchDays,unverifiedVersionDays,

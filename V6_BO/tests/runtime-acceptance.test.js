@@ -277,3 +277,43 @@ test('78 contradictory historical eligibility cannot earn live coverage',async t
  assert.ok(report.days[0].exclusionReasons.includes('legacy-observation-evidence-not-revalidated'));
  assert.equal(fs.readFileSync(file,'utf8'),raw);
 });
+
+// H03.12: keep the original runtime observation journal, proof and criteria immutable.
+test('H03 runtime acceptance returns independent criteria snapshots',async t=>{
+ const f=fixture(t),before=f.ops.status();before.criteria.minimumFreshCoverage=0;
+ const report=await f.ops.report();report.criteria.minimumMatureSamples=0;
+ assert.equal(f.ops.status().criteria.minimumFreshCoverage,.8);
+ assert.equal(f.ops.status().criteria.minimumMatureSamples,20);
+ assert.equal(f.ops.status().criteriaHash,before.criteriaHash);
+});
+test('H03 observed loss of write authority invalidates cached release proof',async t=>{
+ const f=fixture(t);assert.equal((await f.ops.tick()).sourceSha,sha);
+ f.setNow(at(days[0],9,31));f.setEnabled(false);
+ assert.equal((await f.ops.tick()).reason,'replica-or-write-disabled');
+ assert.equal(f.ops.status().releaseCheckedAt,null);
+ f.setSha('c'.repeat(40));f.setEnabled(true);f.setNow(at(days[0],9,32));
+ assert.equal((await f.ops.tick()).sourceSha,'c'.repeat(40));assert.equal(f.calls(),2);
+});
+test('H03 authority lost during collection leaves original journal bytes unchanged and forces fresh release verification',async t=>{
+ let allowed=true,lose=false,source=sha,calls=0;
+ const f=fixture(t,{canWrite:()=>allowed,release:async()=>{calls++;return {verifiedInstalled:true,sourceSha:source};},
+  collect:async({now})=>{if(lose)allowed=false;return {mode:'live',market:{expectedSymbols:1,quotes:[{code:'600001',source:'provider',price:10,quoteAt:now-1000,receivedAt:now}]}};}});
+ assert.equal((await f.ops.tick()).sourceSha,sha);
+ const file=path.join(f.root,days[0]+'.jsonl'),original=fs.readFileSync(file);
+ lose=true;f.setNow(at(days[0],9,31));assert.equal((await f.ops.tick()).reason,'write-authorization-changed');
+ assert.deepEqual(fs.readFileSync(file),original);assert.equal(f.ops.status().releaseCheckedAt,null);
+ lose=false;allowed=true;source='c'.repeat(40);f.setNow(at(days[0],9,32));
+ assert.equal((await f.ops.tick()).sourceSha,source);assert.equal(calls,2);
+});
+test('H03 mutable release receipt cannot rewrite cached verified identity',async t=>{
+ const receipt={verifiedInstalled:true,sourceSha:sha};let calls=0;
+ const f=fixture(t,{release:async()=>{calls++;return receipt;}});
+ assert.equal((await f.ops.tick()).sourceSha,sha);receipt.sourceSha='c'.repeat(40);receipt.verifiedInstalled=false;
+ f.setNow(at(days[0],9,31));const later=await f.ops.tick();assert.equal(later.sourceSha,sha);assert.equal(later.liveEligible,true);assert.equal(calls,1);
+});
+test('H03 failed release recheck cannot resurrect prior cached proof after local clock regresses',async t=>{
+ let fail=false,calls=0,source=sha;const f=fixture(t,{release:async()=>{calls++;if(fail)throw Error('fixture failure');return {verifiedInstalled:true,sourceSha:source};}});
+ await f.ops.tick();fail=true;f.setNow(at(days[0],9,35));assert.equal((await f.ops.tick()).recorded,false);
+ assert.equal(f.ops.status().releaseCheckedAt,null);fail=false;source='c'.repeat(40);f.setNow(at(days[0],9,32));
+ assert.equal((await f.ops.tick()).sourceSha,source);assert.equal(calls,3);
+});
