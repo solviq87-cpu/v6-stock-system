@@ -256,8 +256,16 @@ function evidenceMeaning(nodes,row){
   return n?JSON.stringify(['symbol','field','value','source','sourceTimestamp','periodEnd','status','missingReason'].map(k=>n[k]??null)):JSON.stringify(['unresolved-reference']);
  }))].sort();
 }
+// Overall alignment may change even if every rule and verdict is unchanged.
+function assessmentMeaning(run){
+ const v=run?.decisionAssessment;
+ const text=k=>typeof v?.[k]==='string'?v[k]:null;
+ const set=k=>Array.isArray(v?.[k])&&v[k].every(x=>typeof x==='string')?[...new Set(v[k])].sort():null;
+ return {status:text('status'),action:text('action'),marketRegime:text('marketRegime'),
+  support:set('support'),opposition:set('opposition'),unresolved:set('unresolved'),blockers:set('blockers')};
+}
 function conditionChanges(current,previous){
- if(!previous)return {status:'first-observation',changes:[],systemChanges:[]};
+ if(!previous)return {status:'first-observation',changes:[],systemChanges:[],assessmentChanges:[]};
  if(current.symbol!==previous.symbol||current.provider!==previous.provider||current.priceBasis!==previous.priceBasis)throw Error('不同身份不能直接比较判断');
  const old=new Map(array(previous.conditions).map(r=>[r.id,r])),changes=[];
  const currentNodes=new Map(array(current.evidence).map(n=>[n.id,n])),previousNodes=new Map(array(previous.evidence).map(n=>[n.id,n]));
@@ -272,7 +280,10 @@ function conditionChanges(current,previous){
   old.delete(r.id);
  }
  for(const p of old.values())changes.push({condition:p.id,name:p.name,kind:'removed',before:p.status});
- return {status:'compared',sameTarget:current.targetDate===previous.targetDate,previousAsOf:previous.asOf,
+ const before=assessmentMeaning(previous),after=assessmentMeaning(current);
+ const assessmentChanges=Object.keys(after).filter(field=>JSON.stringify(before[field])!==JSON.stringify(after[field]))
+  .map(field=>({field,before:before[field],after:after[field]}));
+ return {status:'compared',sameTarget:current.targetDate===previous.targetDate,previousAsOf:previous.asOf,assessmentChanges,
   meaning:'字段和证据变化，不推断股票涨跌原因；不同目标日不作相同预测比较',changes,
   systemChanges:array(current.systems).filter(s=>previous.systems?.find(p=>p.id===s.id)?.verdict!==s.verdict).map(s=>({system:s.id,before:previous.systems?.find(p=>p.id===s.id)?.verdict??'unknown',after:s.verdict,version:s.version}))};
 }

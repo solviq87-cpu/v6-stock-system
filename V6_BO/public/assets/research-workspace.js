@@ -189,6 +189,14 @@
   }else if(tab==='timeline'){
    const c=card('判断变化');for(const row of arr(view.timeline)){const d=detail(c,row.tradeDate+' · '+clock(row.asOf));
     line(d,'来源 / 目标日',row.provider+' / '+val(row.targetDate));line(d,'比较状态',label(row.changes?.status));
+    if(typeof row.previousRunId==='string'&&/^[a-f0-9]{64}$/.test(row.previousRunId)){
+     const prior=button(d,'查看上一封存判断',()=>{tab='evidence';navigate({runId:row.previousRunId});});
+     prior.dataset.workspacePreviousRun=row.previousRunId;prior.setAttribute('aria-label','查看上一封存判断 '+row.previousRunId.slice(0,10));
+    }
+    const assessmentLabels={status:'综合状态',action:'研究行动',marketRegime:'市场环境',support:'支持体系',opposition:'反对体系',unresolved:'待复核体系',blockers:'阻塞原因'};
+    const assessmentNames={'aligned-research-only':'研究一致','strategy-disagreement':'策略分歧','opposition-present':'存在反对','insufficient-evidence':'证据不足',observe:'观察',defer:'暂缓'};
+    const assessmentValue=x=>Array.isArray(x)?x.length?x.map(label).join('；'):'无':assessmentNames[x]||label(x);
+    for(const change of arr(row.changes?.assessmentChanges))line(d,assessmentLabels[change.field]||change.field,assessmentValue(change.before)+' → '+assessmentValue(change.after));
     for(const change of arr(row.changes?.systemChanges))line(d,label(change.system),label(change.before)+' → '+label(change.after));
     for(const change of arr(row.changes?.changes)){line(d,change.name||change.condition,label(change.kind)+'：'+val(change.before)+' → '+val(change.after));}
     if(!arr(row.changes?.changes).length)line(d,'条件变化','首次观察或原条件未变');

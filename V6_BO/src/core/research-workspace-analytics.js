@@ -88,7 +88,7 @@ function timeline(events,symbol,asOf){
   const changes=conditionChanges(e.data,prior?.data);
   return {id:e.hash,previousRunId:prior?.hash??null,sequence:e.sequence,recordedAt:e.recordedAt,asOf:e.data.asOf,tradeDate:e.data.tradeDate,provider:e.data.provider,
    targetDate:e.data.targetDate,dueAt:e.data.dueAt,systems:e.data.systems,
-   changes,changeDetected:!!prior&&(changes.changes.length>0||changes.systemChanges.length>0),status:e.data.dueAt&&e.data.dueAt<=asOf?'awaiting-evidence':'observed'};
+   changes,changeDetected:!!prior&&(changes.changes.length>0||changes.systemChanges.length>0||changes.assessmentChanges.length>0),status:e.data.dueAt&&e.data.dueAt<=asOf?'awaiting-evidence':'observed'};
  });
 }
 function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5}={}){
