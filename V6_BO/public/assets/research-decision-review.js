@@ -47,10 +47,19 @@ function render(host,r){
  line(rules,'满足 / 未满足 / 缺证据 / 未启用',[counts.research_candidate,counts.not_matched,counts.insufficient_data,counts.disabled].map(val).join(' / '));
  rules.append(node('p',conditions.mixedConditions?'存在条件分歧；不同策略分别查看，不合成买卖票数。':'暂无已知条件分歧；缺数据不表示一致认可。'));
  rules.append(node('p',conditions.meaning||'等待规则条件'));
+ if(conditions.independenceNote)rules.append(node('p',conditions.independenceNote));
+ for(const group of arr(conditions.sharedEvidenceGroups)){
+  const d=disclosure(rules,'共用证据 · '+arr(group.strategies).length+' 个策略');
+  line(d,'证据引用',group.evidenceId);line(d,'策略',arr(group.strategies).join('、'));line(d,'字段',arr(group.fields).join('、'));
+ }
  for(const row of arr(conditions.rows)){
   const d=disclosure(rules,row.name+' · '+label(row.status));
   for(const [key,title]of [['support','已满足'],['opposition','未满足'],['missing','待补证据']]){
-   for(const c of arr(row[key]))line(d,title,val(fieldNames[c.field]||c.field)+' · '+(key==='missing'?val(c.reason):val(c.value)+' '+val(c.op)+' '+val(c.threshold))+' · 来源 '+val(c.source));
+   for(const c of arr(row[key])){
+    line(d,title,val(fieldNames[c.field]||c.field)+' · '+(key==='missing'?val(c.reason):val(c.value)+' '+val(c.op)+' '+val(c.threshold))+' · 来源 '+val(c.source));
+    if(c.evidenceId)line(d,'证据引用',c.evidenceId);
+    if(c.recordedAt!=null)line(d,'原始 / 可知 / 记录',time(c.observedAt)+' / '+time(c.availableAt)+' / '+time(c.recordedAt));
+   }
   }
   line(d,'失效 / 复查条件',row.invalidation);
  }
