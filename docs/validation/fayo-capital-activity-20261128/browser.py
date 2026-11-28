@@ -23,10 +23,14 @@ with sync_playwright() as p:
    assert pending.value.status==200
    target=page.get_by_text(label,exact=False).first;target.wait_for();target.scroll_into_view_if_needed()
    if case=='actual-buyback':
+    assert page.get_by_text('2026-11-11',exact=True).count()>0
+    assert page.get_by_text('未知，未由其他日期补全',exact=True).count()>0
     for text in ['3,000 万元 · 人民币','5,000 万元 · 人民币','34,789,896.38 元 · 人民币','2,620,000 股']:
      assert page.get_by_text(text,exact=True).count()>0,text
     assert page.get_by_role('heading',name='累计执行声明',exact=True).count()==1
    if case=='actual-disposal':
+    assert page.get_by_text('2025-11-12',exact=True).count()>0
+    assert page.get_by_text('2025-11-10 至 2025-11-12',exact=True).count()>0
     assert page.get_by_text('40,700,300 股',exact=True).count()>0
     assert page.get_by_role('heading',name='指数调样计划',exact=True).count()==1
    geometry=page.evaluate('({viewport:innerWidth,scrollWidth:document.documentElement.scrollWidth})');assert geometry['scrollWidth']<=geometry['viewport']+1,geometry;assert not errors,errors

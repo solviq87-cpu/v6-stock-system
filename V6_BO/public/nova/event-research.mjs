@@ -48,16 +48,19 @@ export function projectSecurityIdentity(e,{active=true,inactiveReasons=[]}={}){
     note:'仅该版本的原文类型字样；未核实交易所、板块、生效区间或交易资格。摘要/节选须核对完整原文。',...flags};
 }
 
+function sourceCalendarDay(year,month,day){
+  const value=year+'-'+month.padStart(2,'0')+'-'+day.padStart(2,'0');
+  return Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value?value:null;
+}
+const hasReportedShareExecution=text=>/已(?:累计)?(?:回购|增持|减持|解禁)|已通过(?:集中竞价|大宗交易|协议转让)(?:交易)?方式(?:累计)?(?:回购|增持|减持)/.test(text);
+
 // A calendar of source statements, not an index master or a fund-flow estimate.
 // Keep this inside the existing offline module: evidence reads need no new asset or service.
 function projectIndexAdjustment(e,asOf,inactiveReasons){
   if(typeof e.body!=='string'||e.body.length>50000||typeof e.title!=='string'||e.title.length>1000)return null;
   const text=e.title+'\n'+e.body;
   if(!/指数[^\n。]{0,20}(?:样本|成分)[^\n。]{0,12}调整/.test(text))return null;
-  const date=(y,m,d)=>{
-    const value=y+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
-    return Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value?value:null;
-  };
+  const date=sourceCalendarDay;
   const dates=[...e.body.matchAll(/(?:于|自)\s*(\d{4})年(\d{1,2})月(\d{1,2})日\s*(收市后|起)?\s*(?:生效|实施)/g)]
     .map(m=>({date:date(m[1],m[2],m[3]),phase:m[4]==='收市后'?'after-close':'date-only',quote:m[0]}));
   const unique=new Set(dates.map(x=>x.date+'|'+x.phase));
@@ -111,18 +114,31 @@ function projectCapitalActivity(e,asOf,inactiveReasons){
   const symbols=Array.isArray(e.securities)?e.securities:[];
   const codes=[...new Set([...e.body.matchAll(/证券代码[：:][ \t]*(\d{6})(?!\d)/g)].map(m=>m[1]))];
   const bound=symbols.length===1&&/^\d{6}$/.test(symbols[0])&&codes.length===1&&codes[0]===symbols[0]&&actions.length===1;
-  const declaredDates=[...e.body.matchAll(/截至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>{
-    const date=m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
-    return Number.isFinite(Date.parse(date))&&new Date(date).toISOString().slice(0,10)===date?date:null;
-  });
+  const declaredDates=[...e.body.matchAll(/截至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)].map(m=>sourceCalendarDay(m[1],m[2],m[3]));
   const today=new Date(asOf+8*3600000).toISOString().slice(0,10);
   const badDates=declaredDates.some(d=>!d||d>today)||new Set(declaredDates).size>1;
   const reportedThrough=declaredDates.length&&!badDates?declaredDates[0]:null;
+  // A document's declared day is neither publication time nor receipt time.
+  const documentDays=[...e.body.matchAll(/(?:文件落款日期|文件日期)[：:]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g)]
+    .map(m=>sourceCalendarDay(m[1],m[2],m[3]));
+  const badDocument=documentDays.length>8||documentDays.some(d=>!d||d>today)||new Set(documentDays).size>1;
+  const documentDate=documentDays.length&&!badDocument?documentDays[0]:null;
+  const documentDateStatus=badDocument?'conflict':documentDate?'declared-date':'unknown';
+  const periods=[];
+  for(const line of e.body.split(/[。\n]+/).slice(0,100)){
+    if(line.length>1600||/拟|计划|预计|将于|意向/.test(line)||!hasReportedShareExecution(line))continue;
+    for(const m of line.matchAll(/在\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日期间/g))
+      periods.push({start:sourceCalendarDay(m[1],m[2],m[3]),end:sourceCalendarDay(m[4],m[5],m[6])});
+  }
+  const badPeriod=periods.length>8||periods.some(p=>!p.start||!p.end||p.start>p.end||p.end>today||documentDate&&p.end>documentDate||reportedThrough&&p.end>reportedThrough)||new Set(periods.map(p=>p.start+'/'+p.end)).size>1;
+  const executionPeriod=periods.length&&!badPeriod?{...periods[0],precision:'date-only'}:null;
+  const executionPeriodStatus=badPeriod?'conflict':executionPeriod?'declared-range':'unknown';
+  const cutoffAfterDocument=documentDate&&reportedThrough&&reportedThrough>documentDate;
   const noun={buyback:'回购',increase:'增持',disposal:'减持',unlock:'解禁'}[actions[0][0]];
   const completed=bound&&new RegExp(noun+'(?:股份)?(?:计划|方案)?(?:已实施完毕|已完成)|已完成本次'+noun).test(text);
   const unfinished=bound&&new RegExp(noun+'(?:股份)?(?:计划|方案)?(?:尚未|未)实施完毕').test(text);
   const sourceCompletion=completed&&unfinished?'conflict':unfinished?'in-progress':completed?'completed':'unknown';
-  const review=badDates||sourceCompletion==='conflict'||/澄清|否认|不属实/.test(text)||/取消|终止|撤销/.test(e.title);
+  const review=badDates||badDocument||badPeriod||cutoffAfterDocument||sourceCompletion==='conflict'||/澄清|否认|不属实/.test(text)||/取消|终止|撤销/.test(e.title);
   const status=inactiveReasons.length?'inactive':!bound?'ambiguous-subject':review?'manual-review':'source-claims';
   const allLines=[...new Set(e.body.split(/[。\n]+/).map(s=>s.trim()).filter(Boolean))],lines=allLines.slice(0,100),rows=[];
   let truncated=allLines.length>100;
@@ -141,12 +157,14 @@ function projectCapitalActivity(e,asOf,inactiveReasons){
     if(!quantities.length)continue;
     const plan=/计划|拟|上限|下限|不少于|不低于|不超过|额度|意向/.test(quote),cumulative=/累计/.test(quote),period=/本月|本期|当期|报告期内/.test(quote);
     const negative=/(?:尚未|暂未|未)(?:实施|进行|发生|回购|增持|减持|解禁)(?!完毕)/.test(quote);
-    const reported=/已通过|已回购|已增持|已减持|已解禁/.test(quote);
+    const reported=hasReportedShareExecution(quote);
     const role=quantities.length>8?'mixed-or-unknown':negative?'not-executed':Number(plan)+Number(cumulative)+Number(period)>1?'mixed-or-unknown':plan?'plan':cumulative?'cumulative':period?'period':reported?'reported':'mixed-or-unknown';
     rows.push({role,quote,quantities:role==='mixed-or-unknown'?[]:quantities,feeBasis:/不含[^。]{0,30}费用/.test(quote)?'excludes-fees':'unknown'});
     if(rows.length===12){truncated=truncated||lineIndex<lines.length-1;break;}
   }
   return {status,action:actions.length===1?actions[0][0]:null,issuerSymbol:bound?symbols[0]:null,reportedThrough,sourceCompletion,rows,
+    documentDate,documentDateStatus,executionPeriod,executionPeriodStatus,
+    timeWarnings:[badDocument?'材料落款日期冲突、非法或晚于研究截点':null,badPeriod?'执行区间冲突、倒置或晚于材料/研究截点':null,cutoffAfterDocument?'报告截止日晚于材料落款日':null].filter(Boolean),
     inactiveReasons:[...inactiveReasons],truncated,actorVerified:false,periodIncrement:null,actualMarketFlow:null,
     note:'仅本页材料声明；计划、累计、本期及已披露执行分开。金额保留原单位与币种，不加总、不自动差分；不是当日市场净流量或账户成交。',...flags};
 }

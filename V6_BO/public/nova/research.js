@@ -337,9 +337,12 @@ function evidence(ctx){
         const measures={money:'资金字样',price:'每股价格',shares:'股份数量',ratio:'比例',duration:'期限字样'};
         const completion={completed:'材料称已实施完毕','in-progress':'材料称尚未实施完毕',conflict:'材料状态冲突',unknown:'未知'};
         const panel=box('股份与资金事项',val(actions[capital.action])+' · '+(states[capital.status]||'未知'),facts([
-          ['材料证券',capital.issuerSymbol||'未绑定'],['报告截止日（材料声明）',capital.reportedThrough||'未知或冲突'],
+          ['材料证券',capital.issuerSymbol||'未绑定'],['材料落款日（非发布时刻）',capital.documentDate||(capital.documentDateStatus==='conflict'?'日期冲突，待核对':'未知')],
+          ['已披露执行区间（仅日期）',capital.executionPeriod?capital.executionPeriod.start+' 至 '+capital.executionPeriod.end:capital.executionPeriodStatus==='conflict'?'区间冲突，待核对':'未知，未由其他日期补全'],
+          ['报告截止日（材料声明）',capital.reportedThrough||'未知或冲突'],
           ['方案状态（未独立核实）',completion[capital.sourceCompletion]||'未知'],['本期增量推算','未计算，不能对累计值直接相加或差分'],['当日市场净流量','未知']]),n('p',capital.note,'fy-note'));
         if(capital.status==='inactive')panel.append(n('p',arr(event.securityIdentity?.inactiveReasons).map(x=>x.label).join('；'),'fy-note'));
+        if(capital.timeWarnings?.length)panel.append(n('p',capital.timeWarnings.join('；'),'fy-note'));
         if(capital.truncated)panel.append(n('p','本次展示范围受限，请核对正文；未提取部分不视为零。','fy-note'));
         for(const row of capital.rows)panel.append(box(roles[row.role]||'口径未知',row.feeBasis==='excludes-fees'?'材料金额不含费用':'费用口径未知',
           facts(row.quantities.map(x=>[(x.bound==='lower'?'下限 · ':x.bound==='upper'?'上限 · ':'')+(measures[x.measure]||'数量字样'),x.text+' '+x.unit+(x.measure==='money'||x.measure==='price'?' · '+({CNY:'人民币',HKD:'港币'}[x.currency]||'币种未核实'):'')])),detail('查看材料口径片段',n('p',row.quote))));

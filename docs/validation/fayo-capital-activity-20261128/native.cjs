@@ -15,9 +15,11 @@ const out=process.env.FAYO_STUDY_RECEIPTS||__dirname,input=path.join(__dirname,'
  const capitals=projected.rows.filter(x=>x.capitalActivity);assert.equal(capitals.length,2);
  const buyback=capitals.find(x=>x.capitalActivity.action==='buyback').capitalActivity,disposal=capitals.find(x=>x.capitalActivity.action==='disposal').capitalActivity;
  assert.equal(buyback.reportedThrough,'2026-11-10');assert.equal(buyback.sourceCompletion,'completed');
+ assert.equal(buyback.documentDate,'2026-11-11');assert.equal(buyback.executionPeriod,null);
  assert.deepEqual(buyback.rows[0].quantities.map(x=>[x.text,x.unit,x.bound]),[['3,000','万元','lower'],['5,000','万元','upper']]);
  const cumulative=buyback.rows.find(x=>x.role==='cumulative');assert.equal(cumulative.quantities.find(x=>x.measure==='money').text,'34,789,896.38');
  assert.equal(disposal.sourceCompletion,'in-progress');assert.equal(disposal.rows.find(x=>x.role==='reported').quantities[0].text,'40,700,300');assert.equal(disposal.actualMarketFlow,null);
+ assert.equal(disposal.documentDate,'2025-11-12');assert.equal(disposal.executionPeriod.start,'2025-11-10');assert.equal(disposal.executionPeriod.end,'2025-11-12');
  assert.ok(capitals.every(x=>x.row.evidence.publishedAt===null&&!x.capitalActivity.canTrade&&!x.capitalActivity.canTrain&&!x.capitalActivity.canNotify&&!x.capitalActivity.canQualify));
  assert.equal(projected.rows.filter(x=>x.indexAdjustment).length,2,'prior index plan inputs retain their own consumer');
  const first=Math.min(...response.rows.map(x=>x.recordedAt)),early=await f.request(route+'?asOf='+(first-1));assert.equal(early.body.result.rows.length,0);
