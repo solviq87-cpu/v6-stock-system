@@ -1,0 +1,60 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict'),C=require('../public/assets/market-linkage-card');
+const {enrichMarketLinkageHistory}=require('../src/core/market-linkage-history');
+const {buildMarketSectorStockLinkage}=require('../src/core/market-sector-stock-linkage');
+function fixture(){
+ class Element extends EventTarget{
+  constructor(tag){super();this.tagName=tag;this.children=[];this.dataset={};this.attributes={};this.value='';this.hidden=false;this.ownText='';this.ownerDocument=doc;this.classList={add(){}};}
+  append(e){this.children.push(e);}
+  replaceChildren(){this.children=[];this.ownText='';}
+  set textContent(x){this.ownText=x;this.children=[];}
+  get textContent(){return this.ownText+this.children.map(x=>x.textContent).join('');}
+  setAttribute(k,v){this.attributes[k]=v;}
+ }
+ const doc={createElement:tag=>new Element(tag)},host=new Element('section');
+ const all=(tag,parent=host)=>parent.children.flatMap(x=>[...(x.tagName===tag?[x]:[]),...all(tag,x)]);
+ return {host,all,choose:b=>{const s=all('select')[0];s.value=b.value;s.dispatchEvent(new Event('change'));}};
+}
+const dates=['2026-11-06','2026-11-09','2026-11-10','2026-11-11','2026-11-12','2026-11-13'],close=d=>Date.parse(d+'T15:00:00+08:00');
+const symbols=['600000','600001','600002','600003','600004'],other=['600010','600011','600012','600013','600014'];
+function archive(){
+ const events=dates.slice(1).map((tradeDate,i)=>{
+  const start=close(dates[i]),end=close(tradeDate),asOf=end+1000;
+  const board=(code,name,members)=>({code,name,category:'industry',members:[...members],membersKnownAt:start,membersEffectiveAt:start,return:.01,knownAt:asOf});
+  const evidence={provider:'eastmoney',symbol:symbols[0],tradeDate,knownAt:asOf,window:{start,end},returnBasis:'price',benchmark:{provider:'eastmoney',code:'000001',name:'指数',methodologyVersion:'v1',return:.005,knownAt:asOf},classification:{provider:'eastmoney',version:'v1',knownAt:start,effectiveAt:start},methodology:{noCorporateActions:true},boards:[board('A','行业甲',symbols),board('B','行业乙',other)],stocks:[...symbols,...other].map((symbol,j)=>({symbol,return:j===0?(i===4?-.01:.04):j===1&&i===4?.05:.02,knownAt:asOf}))};
+  return {kind:'analysis',sequence:i+1,hash:'fixture-'+i,recordedAt:asOf+1000,data:{asOf,tradeDate,tradeDates:dates.slice(0,i+2),provider:'eastmoney',priceBasis:'unadjusted',symbol:symbols[0],context:{marketLinkageEvidence:evidence}}};
+ });
+ const selectedEvent=events.at(-1),asOf=selectedEvent.recordedAt;
+ const project=()=>enrichMarketLinkageHistory(buildMarketSectorStockLinkage(events,{selectedEvent,asOf}),events,{selectedEvent,asOf});
+ return {events,project};
+}
+test('original card consumes actual backend five-day comparison and migration projection',()=>{
+ const f=fixture(),v=archive().project();C.render(f.host,v);
+ assert.match(f.host.textContent,/同一封存快照行业比较/);assert.match(f.host.textContent,/可比行业 2 \/ 2/);
+ assert.match(f.host.textContent,/第 1 名 · 行业甲/);assert.match(f.host.textContent,/第 1 名 · 行业乙/);
+ assert.match(f.host.textContent,/广泛相对强势/);assert.match(f.host.textContent,/共同有效成员 5 \/ 5/);
+ assert.match(f.host.textContent,/前排迁移：保留 0 · 新进入 1 · 离开 1/);
+ assert.match(f.host.textContent,/非事前信号，不构成买卖建议/);
+});
+test('sector selection redraws only corresponding five-day evidence and does not call inspect',()=>{
+ const f=fixture(),calls=[],v=archive().project();C.render(f.host,v,{onInspect:s=>calls.push(s)});
+ f.choose(f.all('option').find(o=>o.textContent.startsWith('行业乙')));
+ assert.match(f.host.textContent,/前排迁移：保留 5 · 新进入 0 · 离开 0/);assert.doesNotMatch(f.host.textContent,/前排迁移：保留 0/);assert.deepEqual(calls,[]);
+});
+test('insufficient common coverage and late prior archive are explicit unknown, not zero or a winner',()=>{
+ const f=fixture(),a=archive();a.events[0].data.context.marketLinkageEvidence.stocks[0].return=null;C.render(f.host,a.project());
+ assert.match(f.host.textContent,/共同样本覆盖不足/);assert.match(f.host.textContent,/可比行业不足，不排名/);assert.doesNotMatch(f.host.textContent,/前排迁移：保留/);
+ const b=archive();b.events[3].recordedAt=Date.parse('2026-11-13T10:00:00+08:00');C.render(f.host,b.project());assert.match(f.host.textContent,/前排迁移证据不足/);
+});
+test('unknown or malformed comparison and unsafe permissions cannot render research as valid',()=>{
+ for(const mutate of [v=>v.mainlineComparison.canTrade=true,v=>v.mainlineComparison.rows[0].rank=99,v=>v.mainlineComparison.rows[0].code='not-a-board',v=>v.mainlineComparison.dates.pop(),v=>v.mainlineComparison.rows[1]=null]){
+  const f=fixture(),v=archive().project();mutate(v);C.render(f.host,v);assert.doesNotMatch(f.host.textContent,/第 1 名 · 行业/);assert.match(f.host.textContent,/五日行业比较证据不足/);
+ }
+ for(const mutate of [s=>s.canTrade=true,s=>s.daily.pop(),s=>s.commonObserved=6,s=>s.daily[0].up=99]){
+  const f=fixture(),v=archive().project();mutate(v.boards[0].trend.structure);C.render(f.host,v);assert.doesNotMatch(f.host.textContent,/前排迁移：保留/);assert.match(f.host.textContent,/共同样本覆盖不足/);
+ }
+});
+test('old projection and cleared host retain unknown, never reuse previous comparison',()=>{
+ const f=fixture(),v=archive().project();C.render(f.host,v);C.clear(f.host,true);assert.equal(f.host.textContent,'');
+ delete v.mainlineComparison;v.boards.forEach(b=>delete b.trend.structure);C.render(f.host,v);assert.match(f.host.textContent,/五日行业比较证据不足/);assert.doesNotMatch(f.host.textContent,/前排迁移：保留/);
+});
