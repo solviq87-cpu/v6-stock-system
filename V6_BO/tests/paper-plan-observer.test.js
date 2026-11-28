@@ -270,3 +270,104 @@ test('both evidence inputs score the original lot once and sparse intent trigger
   const gap=paperExecutionScore({...inputs,observations:samples.filter((_,i)=>i!==10)});
   assert.equal(gap.score,null);assert.equal(gap.rows[0].coverage.complete,false);
 });
+
+test('F23.3 read-only notice revalidates the exact original quote at publication, including the 15s boundary',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const {accountEpochOf}=require('../src/core/account-equity-evidence');
+  const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const plan=frozen(),state=book(false);
+  Object.assign(state,{schemaVersion:1,initialCash:10000,paperOnly:true,brokerConnected:false});
+  state.account.fingerprint=digest({cash:state.account.cash,positions:state.account.positions,events:state.account.events});
+  state.fingerprint=digest(state);
+  const at=stamp(entryDay,'10:00:00'),origin=observed({state,plan,day:entryDay,now:at});
+  const record=origin.records[0],alert=origin.alerts[0],qAt=at+1000,q=quote(entryDay,qAt,10);
+  const ref={accountEpoch:accountEpochOf(state,'pool'),quoteAt:record.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:record.fingerprint,deliveryId:'b'.repeat(64)};
+  const session=at=>({day:entryDay,continuous:sessions(entryDay).some(([a,b])=>at>=a&&at<b)});
+  const before=JSON.stringify(state);
+  async function run(done,availability=()=>true){
+    let calls=0,reads=0;
+    const clocks=[qAt,qAt,qAt,done];
+    const result=await reviewPlanNotice(ref,{clock:()=>clocks[Math.min(calls++,clocks.length-1)],
+      canRead:()=>true,available:availability,session,store:{read:async()=>origin},
+      readArchive:async()=>({ok:true,state:{plans:[plan]}}),
+      readContext:async(plans,options)=>{
+        reads++;assert.deepEqual(options,{publishReceipts:false});assert.equal(plans[0].id,plan.id);
+        return {now:qAt,book:state,quotes:{[plan.code]:q},calendar,
+          entryEligibilityByPlan:{[plan.id]:{allowed:true,reason:'原预检通过',checkedAt:qAt,quoteAt:qAt}}};
+      }});
+    assert.equal(reads,1);assert.equal(JSON.stringify(state),before);
+    assert.equal(result.canTrade,false);assert.equal(result.accountMutated,false);
+    assert.equal(result.original.price,record.price);assert.equal(result.original.quoteAt,record.quoteAt);
+    return result;
+  }
+  const edge=await run(qAt+15000);assert.equal(edge.status,'observed');assert.equal(edge.current.quoteAt,qAt);
+  const stale=await run(qAt+15001);assert.equal(stale.status,'historical');assert.equal(stale.current,null);
+  const rollback=await run(qAt-1);assert.equal(rollback.status,'unknown');assert.equal(rollback.current,null);
+  let availabilityCalls=0;
+  const revoked=await run(qAt+1,()=>++availabilityCalls<4);
+  assert.equal(revoked.status,'unavailable');assert.equal(revoked.current,null);
+});
+test('F23.3 read begun before lunch cannot revive an old review in the afternoon even with a new valid quote',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const {accountEpochOf}=require('../src/core/account-equity-evidence');
+  const digest=value=>require('node:crypto').createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const plan=frozen(),state=book(false);
+  Object.assign(state,{schemaVersion:1,initialCash:10000,paperOnly:true,brokerConnected:false});
+  state.account.fingerprint=digest({cash:state.account.cash,positions:state.account.positions,events:state.account.events});
+  state.fingerprint=digest(state);
+  const opened=stamp(entryDay,'11:29:59'),afterLunch=stamp(entryDay,'13:00:01');
+  const origin=observed({state,plan,day:entryDay,now:opened}),record=origin.records[0],alert=origin.alerts[0];
+  const ref={accountEpoch:accountEpochOf(state,'pool'),quoteAt:record.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:record.fingerprint,deliveryId:'b'.repeat(64)};
+  let at=opened,reads=0;
+  const result=await reviewPlanNotice(ref,{clock:()=>at,canRead:()=>true,available:()=>true,
+    session:at=>({day:entryDay,continuous:sessions(entryDay).some(([a,b])=>at>=a&&at<b)}),
+    store:{read:async()=>origin},readArchive:async()=>({ok:true,state:{plans:[plan]}}),
+    readContext:async()=>{reads++;at=afterLunch;return {now:at,book:state,calendar,quotes:{[plan.code]:quote(entryDay,at)}};}});
+  assert.equal(reads,1);assert.equal(result.status,'historical');assert.equal(result.current,null);
+  assert.equal(result.original.quoteAt,opened);assert.equal(result.canTrade,false);
+});
+
+test('F23.2 original notice path freezes the actual observed prefix and excludes later prices',async()=>{
+  const {reviewPlanNotice}=require('../src/core/paper-plan-notice-review');
+  const plan=frozen(),state=book(false),at=stamp(entryDay,'10:00:00');
+  const before=observed({state,plan,day:entryDay,now:at-10000,price:10.4});
+  const peak=observed({state,plan,day:entryDay,now:at-5000,price:10.7});
+  const origin=observed({state,plan,day:entryDay,now:at,price:10});
+  const later=observed({state,plan,day:entryDay,now:at+5000,price:9.3});
+  const trigger=origin.records[0],alert=origin.alerts[0],archived={
+    records:[...before.records,...peak.records,...origin.records,...later.records],alerts:origin.alerts};
+  const input=JSON.stringify(archived);
+  const r=await reviewPlanNotice({quoteAt:trigger.quoteAt,code:plan.code,kind:alert.kind,
+    alertId:alert.id,observationId:trigger.fingerprint},{clock:()=>at+10000,canRead:()=>true,available:()=>false,
+    store:{read:async()=>archived},session:()=>assert.fail('historical read must not request current session'),
+    readArchive:()=>assert.fail('no extra archive'),readContext:()=>assert.fail('no new collection')});
+  const p=r.original.sampledPath;assert.equal(r.status,'historical');assert.equal(r.current,null);
+  assert.equal(p.status,'descriptive-only');assert.equal(p.sampleCount,3);assert.equal(p.first.price,10.4);
+  assert.equal(p.peak.price,10.7);assert.equal(p.trough.price,10);assert.equal(p.last.observationId,trigger.fingerprint);
+  assert.equal(p.observedPattern,'sampled-rise-then-entry-range');
+  assert.equal(p.openingGapPct,null);assert.equal(p.originalOpen,null);assert.equal(p.completeIntradayPath,false);
+  assert.equal(p.canTrade,false);assert.equal(JSON.stringify(archived),input);
+});
+test('F23.2 high sampled price followed by a breakdown is not support; same-timestamp conflicts fail closed',()=>{
+  const {frozenSampledPath}=require('../src/core/paper-plan-notice-review');
+  const plan=frozen(),state=book(false),at=stamp(entryDay,'10:00:00');
+  const make=(n,p)=>observed({state,plan,day:entryDay,now:at+n,price:p}).records[0];
+  const high=make(-5000,10.7),end=make(0,9.3);
+  const path=frozenSampledPath([high,end,end],end);
+  assert.equal(path.sampleCount,2);assert.equal(path.observedPattern,'sampled-rise-then-below-entry-range');
+  assert.equal(path.originalOpen,null);assert.equal(path.canTrade,false);
+  assert.equal(frozenSampledPath([high,make(-5000,10.6),end],end).status,'unknown');
+  assert.equal(frozenSampledPath([high],end).status,'unknown');
+});
+test('F23.2 separate sources, sessions and different frozen decisions never add to the original path',()=>{
+  const {frozenSampledPath}=require('../src/core/paper-plan-notice-review');
+  const state=book(false),plan=frozen(),at=stamp(entryDay,'13:00:10');
+  const trigger=observed({state,plan,day:entryDay,now:at,price:10}).records[0];
+  const earlier=observed({state,plan,day:entryDay,now:stamp(entryDay,'11:29:50'),price:10.7}).records[0];
+  const other=observed({state,plan,day:entryDay,now:at-5000,price:10.8}).records[0];
+  const path=frozenSampledPath([earlier,{...other,decisionId:'f'.repeat(64)},trigger],trigger);
+  assert.equal(path.sampleCount,1);assert.equal(path.peak.price,10);assert.equal(path.observedPattern,null);
+  assert.equal(path.maximumSampleGapMs,null);
+});
