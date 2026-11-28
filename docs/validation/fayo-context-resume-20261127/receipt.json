@@ -1,0 +1,28 @@
+{
+  "parent": "35216d05d1142e7e9fceac95586f76e5917979bf",
+  "oldCheckpointChars": 1993,
+  "newCheckpointChars": 1521,
+  "oldCheckpointSha256": "ec24e88043e7acc06b5c169a306387510d6a2e090aa1fcfdc60f6353a75ea5a0",
+  "newCheckpointSha256": "ae183b3b7f2b319464bb42846b192d5b30a6dfec88c524446553f2a1a26c4be3",
+  "preservedOldCheckpoint": true,
+  "preservedOtherContent": true,
+  "scope": "documentation-only",
+  "priorSource": "a3c189692f932915b13f29bf60fadf09a63fd27c",
+  "priorCombination": "5521d49abd51c3a4911976c4228911b4741265d5",
+  "priorPackageSha256": "adcc95f70a0fd453a7b5b135fb8a7789933da135fa973f45a8d815eb8ebb3621",
+  "files": {
+    "before.txt": "81be14a420b84bc9a0a8b860b7d9cb98645dffdd03ff0602dd4ba99a63bc0d93",
+    "after.txt": "bcd36b7862700b54c85eaf4bf8cdab2d31138cca5a7a0c2cefebe256e46403db",
+    "baseline.tap": "cb97e26acef94e2e8a30bded468871ba59a2659ef856b738808435e585638f44",
+    "after.tap": "aa1ce2f753784b7856cf59951e121fcc32b3234b0622fdc6e85ab04e15a0d684"
+  },
+  "resumeScriptSha256": "8b34636e65e7b05f6534781a95c53a9c52a25c9a7c3427ede963b2fdce7b1d38",
+  "beforeTests": {
+    "tests": 3,
+    "passed": 3
+  },
+  "afterTests": {
+    "tests": 3,
+    "passed": 3
+  }
+}

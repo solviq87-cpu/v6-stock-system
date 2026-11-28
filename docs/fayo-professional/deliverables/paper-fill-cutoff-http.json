@@ -1,0 +1,57 @@
+{
+  "mode": "isolated original daily-report store plus authenticated HTTP, synthetic input events",
+  "day": "2026-11-26",
+  "sourceBookEvents": [
+    {
+      "eventId": "isolated-older-buy",
+      "orderId": "a",
+      "side": "buy",
+      "symbol": "600000",
+      "quantity": 100,
+      "tradeDate": "2026-11-26",
+      "timestamp": 1795658400000,
+      "price": 10,
+      "reason": "作战台计划[plan-00000000-0000-4000-8000-000000000001] 隔离样本"
+    },
+    {
+      "eventId": "isolated-next-day-buy",
+      "orderId": "b",
+      "side": "buy",
+      "symbol": "600000",
+      "quantity": 100,
+      "tradeDate": "2026-11-27",
+      "timestamp": 1795744800000,
+      "price": 9.9,
+      "reason": "作战台计划[plan-00000000-0000-4000-8000-000000000001] 隔离样本"
+    }
+  ],
+  "reportRecordedAt": 1795807270347,
+  "reportVersion": 1,
+  "reportHash": "fa8bdae9ffe0c607093c33ed1b49edc3ea4a22c7bbb6c2d4c79d33e19165e9c7",
+  "editorHttp": 200,
+  "viewerHttp": 200,
+  "viewerReceivedReport": false,
+  "visibleEntry": {
+    "eventId": "isolated-older-buy",
+    "executionAt": 1795658400000,
+    "price": 10,
+    "quantity": 100,
+    "source": "original-paper-ledger",
+    "tradeDate": "2026-11-26"
+  },
+  "entryState": "executed",
+  "facts": [
+    {
+      "eventId": "isolated-older-buy",
+      "evidence": "原账本成交 10 元；冻结区间 9.8–10.1 元",
+      "rule": "按计划买入",
+      "status": "符合"
+    },
+    {
+      "evidence": "当日开仓受原 A 股 T+1 限制，不要求当日卖出",
+      "rule": "按计划止损",
+      "status": "不适用"
+    }
+  ],
+  "reportContainsFutureFill": false
+}

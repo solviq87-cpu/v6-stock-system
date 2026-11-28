@@ -1,0 +1,65 @@
+(node:1745561) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/fayo-review-ledger/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/fayo-review-ledger/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ DOM fixture preserves native primitive conversion instead of silently dropping null or zero (2.704441ms)
+✔ a pending model call cannot be invalidated by a configuration click and leave controls locked (14.688885ms)
+✔ changing question cancels the request and does not expose a late answer (0.764564ms)
+✔ a completed label without an actual model call is shown as a failed receipt (0.656591ms)
+✔ an absent optional replay section does not become a visible null placeholder (36.997747ms)
+✔ returning to a replay restores the selected evidence and zoom only after rereading the same identity (25.248589ms)
+✔ replay refuses a receipt for a different sealed version even with the same stock and cutoff (0.905626ms)
+✔ unsupported single-character OR clauses are not interpreted as one industry name (1.369045ms)
+✔ unknown conditions cannot display late values as observations known at the historical cutoff (1.000319ms)
+✔ next-plan review preserves the original incident and same-plan follow-up while exposing a separately bound later fact (2.47159ms)
+✔ unbound, mismatched and future next-plan receipts fail only that disclosure without claiming compliance (13.941015ms)
+✔ a different rule version stays unknown and cannot reuse a positive label or evidence (4.04928ms)
+✔ a bound unknown receipt without a selected later plan preserves its specific archive gap (4.416173ms)
+(node:1745562) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/fayo-review-ledger/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/fayo-review-ledger/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ FAYO server news pagination freezes archive receipt and includes removed associations (18.651193ms)
+✔ FAYO shared templates persist, require fresh authorization and reject unsupported scopes and stale CAS (30.927577ms)
+✔ FAYO replay rejects future knowledge and returns original points without trade permissions (65.091909ms)
+✔ FAYO optional model: unconfigured, grounded ordinal citation and failed citation retain rule-only permissions (42.710427ms)
+✔ FAYO endpoint denies viewer, replica or cross-site writes, rejects unknown actions and revoked reads (4.913333ms)
+✔ shared template commit rechecks authorization inside the original journal lock (5.548357ms)
+✔ FAYO headline paths cannot promote numerical scores or bypass original news risk review (26.120576ms)
+✔ shared template deletion keeps the original CAS and audit, rejects stale devices and permits explicit restoration (37.723812ms)
+✔ canonical complete inventories validate offline with stdlib only and stay read-only (255.479934ms)
+✔ the actual prior stale F12 module-total regression is rejected (365.171434ms)
+✔ new batch columns and appended consumer rows cannot escape the Excel filter (383.548025ms)
+✔ missing or duplicate IDs and unknown status values cannot be hidden by correct row counts (564.088438ms)
+✔ individual batch placement, overview totals and scope sizes are derived from actual task rows (856.626402ms)
+✔ shared catalog IDs, consumer references, headers and all24 efficiency chapters remain checked (935.939039ms)
+✔ formula caches and false worksheet dimensions cannot act as ledger evidence (318.94558ms)
+✔ ordinary evidence hyperlinks are never followed and external data, macros and duplicate ZIP parts fail closed (438.367456ms)
+✔ even a structurally consistent declared complete record is not manager acceptance or release permission (240.08201ms)
+✔ exact version pin binds both workbook and validator plus reused XML guard; writes or stale SHAs are rejected (725.939861ms)
+✔ Git subdirectory discovery cannot certify an untracked same-name copy as the committed file (241.554378ms)
+✔ a structure-only standalone check can run without Git; pinned acceptance cannot silently fall back (211.898382ms)
+✔ the checked-in handoff has a usable current checkpoint (1.52384ms)
+✔ resume reads only one bounded current checkpoint, excluding historical payloads (0.587757ms)
+✔ resume shows actual local SHA and dirty state without claiming remote verification (50.743522ms)
+✔ XLSX preserves text zeroes, numeric full codes, names, deduplication and rejects formulas/short numbers (86.227047ms)
+✔ multiple sheets require explicit selection; hidden/unknown sheets fail and no implicit merge (185.379883ms)
+✔ shared strings and rich text are read without phonetic annotations; sparse rows retain source line (65.172135ms)
+✔ headers cannot be guessed from a portfolio, duplicated or recovered from stock names (267.186035ms)
+✔ row, symbol, byte, archive expansion and cell limits fail as a whole (357.534458ms)
+✔ malicious ZIP paths, duplicates, macros, external relationships, DTD and merged cells are rejected (592.555881ms)
+✔ formula names and Excel errors are visible rejections; unused amounts never leak into response (93.08653ms)
+✔ only one workbook process can run and the slot is reusable after failure (169.74005ms)
+✔ HTTP route requires editor before parsing and bounds requests and methods (14.408116ms)
+✔ unified ledger contains 24 main and 52 unique feature items (2.66483ms)
+✔ gate checks essential project entrypoints (1.781767ms)
+✔ passing structural gate never implies production acceptance (2.150925ms)
+✔ strict mode fails closed without external acceptance (0.400334ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 49
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5657.042208
