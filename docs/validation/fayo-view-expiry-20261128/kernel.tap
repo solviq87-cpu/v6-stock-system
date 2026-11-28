@@ -1,0 +1,54 @@
+✔ the actual sector parser mainInflow/CNY/receipt contract is projected without inventing an upstream clock (4.348895ms)
+✔ unknown unit/source, conflicting days and fields, future evidence and ambiguous duplicates stay missing (0.783403ms)
+✔ a selected stock filters the full same-day response while old/current day data cannot substitute for one another (1.416648ms)
+✔ lazy shared reads reject late previous-day replies and never restore data after abort (7.457185ms)
+✔ a mismatched response day is not accepted as the requested archive (0.877054ms)
+✔ shared snapshot reads run every five seconds, pause hidden and immediately resume visible (3.811913ms)
+✔ slow snapshot reads remain single flight and abort prevents polling or visibility resurrection (0.718875ms)
+✔ an initially hidden session waits for visibility and a failed read does not stop subsequent reads (2.129854ms)
+(node:1461142) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/market.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ system picks refresh in place and keep the source result and display read times separate (20.675236ms)
+✔ default home exposes each index original timestamp and single-source status (5.81063ms)
+✔ aggregate unions pools, deduplicates without grafting quotes, keeps dates and evidence (0.390189ms)
+✔ second-board card excludes higher boards and unknown levels, keeps its own date (0.230808ms)
+✔ default home paints existing candidates before slow APIs; failures do not erase them or request writes (9.24941ms)
+✔ viewer never requests private pools and cannot render private relay rows (1.59684ms)
+✔ daily market review uses market state and original day, never private execution endpoint (4.263856ms)
+✔ more stocks and search do not require choosing strategy pools (4.921108ms)
+✔ relay refresh selects only the pure strategy-card task and reports backend errors (1.76224ms)
+✔ automatic live aggregation does not run the legacy wash scanner with notification side effects (2.126189ms)
+✔ review summary separates board levels, deduplicates codes and does not double-count sector money (0.365672ms)
+✔ review exposes analysis sections, coverage mismatch and rejects stale relay as next-session candidates (0.944586ms)
+✔ review refresh keeps failed requests and unknown dates visibly distinct from a current report (0.641428ms)
+✔ detailed relay shows all evidence and distinct ratio definitions without certifying model probability (0.945958ms)
+✔ sector role cards keep server roles, strong non-limit tags and source date isolation (0.760097ms)
+✔ next plans show reasons risks confirmation and applicability only for matching generation day (0.402687ms)
+✔ review exposes exact same-batch missing names instead of silently calling 33 the total (1.5369ms)
+✔ partial upstream, old metadata and derived additions stay separate in coverage (0.248845ms)
+(node:1461161) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ local expiry keeps the inclusive 15-second boundary and uses one deadline without a read (3.566333ms)
+✔ a hidden view pauses timers and repaints overdue evidence on resume, including offline (0.515128ms)
+✔ resuming before expiry preserves the original deadline instead of renewing quote time (0.531572ms)
+✔ a newer observation replaces the pending deadline; closing or aborting cannot resurrect it (0.504141ms)
+✔ missing, invalid and already historical evidence creates no timer (0.423109ms)
+✔ display reports provider time with strict 15-second bounds and never grants trade certification (1.746677ms)
+✔ missing or malformed original evidence stays unknown despite recent receive times (0.706457ms)
+✔ candidate snapshot never borrows timestamp or source from a different full-A or cached price (26.527224ms)
+✔ fresh list receipt does not mask unknown, old or future per-stock observations in risk view (0.349798ms)
+✔ snapshot regeneration expires original rows without changing their price or strategy ordering (6.779613ms)
+✔ explicit conflicts survive quote snapshots and never grant automatic trade or notification permission (0.953208ms)
+✔ negative quote mode aliases and malformed supplied date survive candidate projection (0.573926ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 179.808614
