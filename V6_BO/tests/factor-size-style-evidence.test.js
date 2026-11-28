@@ -81,3 +81,26 @@ test('F29.3/F47.4 a partially matured original size cohort cannot hide an omitte
  }
  const r=run(input);assert.equal(r.pairedDays,1);assert.deepEqual(calls,[12,6,6,12,6,6,12,6,6]);assert.equal(r.canTrade,false);
 });
+
+test('F29.4/F45 style pressure requires the whole original frozen cohort, including securities not held',()=>{
+ const partition=buildSizePartition(rows(),options),h={eq:2000000,rows:[{symbol:'600000',value:500000},{symbol:'600009',value:300000}]},
+ p={fees:500,rows:[{symbol:'600000',value:100000}]},a={version:'fixed',gapPct:10,liquidityPriceShockPct:5,additionalLiquidationCostBps:300};
+ const [small,large]=partition.groups;
+ const invalid=[
+  {...partition,groups:[{...small,members:small.members.slice(0,-1)},large]},
+  {...partition,groups:[small,{...large,members:large.members.slice(1)}]},
+  {...partition,expected:11},
+  {...partition,observed:9},
+  {...partition,groups:[large,small]},
+  {...partition,groups:[null,large]},
+  {...partition,groups:[{...small,members:[...small.members,large.members[0]]},{...large,members:large.members.slice(1)}]},
+  {...partition,expected:8,observed:8,groups:[{...small,members:small.members.slice(0,3)},large]}
+ ];
+ for(const bad of invalid){
+  const r=styleShock(h,p,bad,a);
+  assert.equal(r.status,'unknown');assert.deepEqual(r.scenarios,[]);assert.equal(r.canTrade,false);
+ }
+ const valid=styleShock(h,p,partition,a);
+ assert.equal(valid.status,'conditional-style-scenarios');assert.equal(valid.scenarios.length,2);
+ assert.equal(valid.scenarios[0].allPendingFillLoss,875);assert.equal(valid.canTrade,false);
+});
