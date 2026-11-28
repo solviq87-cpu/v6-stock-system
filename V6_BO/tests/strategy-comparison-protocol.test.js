@@ -63,3 +63,34 @@ test('interactive evidence is retained completely or the comparison is unavailab
  lab.replayStrategyPortfolios=()=>({systems:{fourteen:{orders:new Array(40001),fills:[],equity:[],positions:[]}}});
  const r=runCompleteWorkbench({history:h,includeStrategyComparison:true});assert.equal(r.strategyComparison.status,'unavailable');assert.match(r.strategyComparison.reason,/未截断/);assert.deepEqual(r.paper,plain.paper);
 });
+
+test('F21.3 paired candidate overlap counts exact common verdicts, unknowns and missing rows',()=>{
+ const h=history(),signals=[signal('fourteen',31),signal('bazi',31),signal('fourteen',33),signal('bazi',33,'fail'),
+  signal('fourteen',34,'fail'),signal('bazi',34),signal('fourteen',35,'fail'),signal('bazi',35,'fail'),
+  signal('fourteen',36),signal('bazi',36,'unknown'),signal('fourteen',37)];
+ const before=JSON.stringify(signals),{view}=compare(h,signals),c=view.complementarity;
+ const p=c.pairs.find(x=>x.a==='fourteen'&&x.b==='bazi');
+ assert.equal(c.pairs.length,6);assert.equal(p.total,26);assert.equal(p.commonEvaluated,4);
+ assert.deepEqual([p.bothPass,p.onlyAPass,p.onlyBPass,p.bothFail],[1,1,1,1]);
+ assert.equal(p.unknownEither,22);assert.equal(p.missingEither,21);assert.equal(p.passOverlap,.333333);
+ assert.equal(p.sharedExactReferences,4);assert.equal(p.sharedPassBothBought,1);assert.equal(p.sharedPassNeitherBought,0);
+ assert.equal(p.fillEvidenceAvailable,true);assert.equal(c.independentEvidenceCertified,false);
+ assert.equal(c.incrementalNetBenefit,null);assert.equal(c.errorCorrelation,null);assert.equal(JSON.stringify(signals),before);
+});
+test('F21.3 blocked duplicate candidates are not fake fills and missing pairs never report perfect independence',()=>{
+ const h=history();h.stocks[0].bars[32].volume=0;
+ const {view}=compare(h,[signal('fourteen'),signal('bazi')]);
+ const p=view.complementarity.pairs.find(x=>x.a==='fourteen'&&x.b==='bazi');
+ assert.equal(p.bothPass,1);assert.equal(p.passOverlap,1);assert.equal(p.sharedPassBothBought,0);
+ assert.equal(p.sharedPassNeitherBought,1);
+ const empty=view.complementarity.pairs.find(x=>x.a==='gpt'&&x.b==='python');
+ assert.equal(empty.commonEvaluated,0);assert.equal(empty.passOverlap,null);assert.equal(empty.missingEither,26);
+});
+test('F21.3 incompatible fill lineage is unknown and mixed evaluator versions are disclosed',()=>{
+ const h=history(),signals=[signal('fourteen',31),signal('bazi',31),{...signal('fourteen',35),evaluatorVersion:'v2'},signal('bazi',35)];
+ const {portfolios,view}=compare(h,signals),p=view.complementarity.pairs[0];assert.equal(p.mixedVersions,true);
+ assert.equal(p.sharedPassBothBought,2);
+ portfolios.systems.fourteen.fills.find(f=>f.side==='buy').signalRef.provenance='wrong';
+ const changed=lab.describeStrategyComparison(h,{signals},portfolios).complementarity.pairs[0];
+ assert.equal(changed.fillEvidenceAvailable,false);assert.equal(changed.sharedPassBothBought,null);assert.equal(changed.bothPass,2);
+});

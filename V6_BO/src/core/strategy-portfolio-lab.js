@@ -166,6 +166,55 @@ function describeStrategyComparison(history,native,portfolios){
  const total=dataset.stocks*windowDates.length;
  let commonEvaluatedSignals=0;
  for(const date of windowDates)for(const symbol of symbols){const key=JSON.stringify([symbol,date]);if(SYSTEMS.every(id=>evaluated(bySystem[id].get(key))))commonEvaluatedSignals++;}
+ // F21.3: pairwise descriptive overlap on the exact shared candidate universe.
+ // Unknown and absent decisions cannot be interpreted as rejections.
+ // Do not infer factor independence, portfolio alpha or realized fill eligibility.
+ const pairRows=[];
+ const buyKeys=Object.fromEntries(SYSTEMS.map(id=>{
+  const account=portfolios.systems?.[id],keys=new Set();
+  let valid=Array.isArray(account?.fills);
+  if(valid)for(const fill of account.fills){
+   if(fill?.side!=='buy')continue;
+   const ref=fill.signalRef,key=JSON.stringify([fill.symbol,fill.signalDate]),signal=bySystem[id].get(key);
+   if(!ref||ref.symbol!==fill.symbol||ref.signalDate!==fill.signalDate||
+    !signal||signal.verdict!=='pass'||ref.evaluatorVersion!==signal.evaluatorVersion||
+    ref.provenance!==signal.provenance||keys.has(key)){valid=false;break;}
+   keys.add(key);
+  }
+  return [id,valid?keys:null];
+ }));
+ const fraction=(n,d)=>d?Number((n/d).toFixed(6)):null;
+ for(let i=0;i<SYSTEMS.length;i++)for(let j=i+1;j<SYSTEMS.length;j++){
+  const a=SYSTEMS[i],b=SYSTEMS[j],p={a,b,total,commonEvaluated:0,bothPass:0,onlyAPass:0,onlyBPass:0,bothFail:0,
+   unknownEither:0,missingEither:0,sharedExactReferences:0,sharedPassBothBought:0,sharedPassOnlyABought:0,sharedPassOnlyBBought:0,sharedPassNeitherBought:0};
+  const versionsA=new Set(),versionsB=new Set();
+  const fillEvidenceAvailable=buyKeys[a]!==null&&buyKeys[b]!==null;
+  for(const date of windowDates)for(const symbol of symbols){
+   const key=JSON.stringify([symbol,date]),x=bySystem[a].get(key),y=bySystem[b].get(key);
+   if(!x||!y)p.missingEither++;
+   if(!evaluated(x)||!evaluated(y)){p.unknownEither++;continue;}
+   p.commonEvaluated++;versionsA.add(x.evaluatorVersion);versionsB.add(y.evaluatorVersion);
+   if(x.provenance===y.provenance)p.sharedExactReferences++;
+   if(x.verdict==='pass'&&y.verdict==='pass'){
+    p.bothPass++;
+    if(fillEvidenceAvailable){
+     const fa=buyKeys[a].has(key),fb=buyKeys[b].has(key);
+     p[fa&&fb?'sharedPassBothBought':fa?'sharedPassOnlyABought':fb?'sharedPassOnlyBBought':'sharedPassNeitherBought']++;
+    }
+   }else if(x.verdict==='pass')p.onlyAPass++;
+   else if(y.verdict==='pass')p.onlyBPass++;
+   else p.bothFail++;
+  }
+  if(!fillEvidenceAvailable)for(const k of ['sharedPassBothBought','sharedPassOnlyABought','sharedPassOnlyBBought','sharedPassNeitherBought'])p[k]=null;
+  const union=p.bothPass+p.onlyAPass+p.onlyBPass;
+  pairRows.push({...p,fillEvidenceAvailable,commonCoverage:fraction(p.commonEvaluated,total),passOverlap:fraction(p.bothPass,union),
+   evaluatorVersionsA:[...versionsA].sort(),evaluatorVersionsB:[...versionsB].sort(),
+   mixedVersions:versionsA.size>1||versionsB.size>1});
+ }
+ const complementarity={status:'descriptive-only',pairs:pairRows,expectedCandidates:total,
+  independentEvidenceCertified:false,incrementalNetBenefit:null,errorCorrelation:null,productionWeightsChanged:false,canTrade:false,
+  basis:'exact-symbol-and-signal-date; common pass/fail only; unknown and missing retained',
+  note:'重复候选不是独立投票；仅统计共同已评估信号，原独立账户的买入份额按封存信号关联，未买入不推断为拒绝或零收益。混合版本不证明单版本表现。增量净收益与错误相关仍待冻结消融及成熟样本。'};
  const digest=x=>require('node:crypto').createHash('sha256').update(JSON.stringify(x)).digest('hex');
  const systems=SYSTEMS.map(id=>{
   const rows=[...bySystem[id].values()],known=rows.filter(evaluated),account=portfolios.systems?.[id];
@@ -185,7 +234,7 @@ function describeStrategyComparison(history,native,portfolios){
   source:history.source,provider:history.provider||null,asOf:history.asOf,retrievedAt:history.retrievedAt??null,
   dataset,protocol:{...cfg,signalStart:windowDates[0],signalEnd:windowDates.at(-1),entryStart:dates[cfg.startDay],valuationThrough:dates.at(-1),
    exitPolicy:'next-eligible-session-open-after-entry; T+1/limit/suspension constraints retained'},
-  commonEvaluatedSignals,totalCandidateSignals:total,systems,
+  commonEvaluatedSignals,totalCandidateSignals:total,systems,complementarity,
   limitations:[...portfolios.limitations,'当前取得的历史版本不等于逐日当时已知的完整股票池、因子与证券状态','共同已评估信号不是独立成熟收益样本；没有选出赢家','无评估或无买入成交时，现金未动不显示为策略零收益胜出'],
   canTrade:false,canTrain:false,canNotify:false,verifiedLive:false,eligibleForPromotion:false,weightsChanged:false,pointInTimeCertified:false};
 }
