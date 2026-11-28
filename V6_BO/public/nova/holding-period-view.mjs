@@ -18,6 +18,12 @@ export function renderHoldingPeriodComparison(data){
   h('details',{class:'fy-details'},h('summary',{},'期限协议与完整证据'),
    h('p',{},'仅比较原研究扫描器，不是原四体系或全部策略的竞技。各期限原委托、成交、未平仓、净值、现金流及原分割指标随本次证据完整导出。'),
    h('p',{},'原默认期限 '+value(p?.baselinePeriod)+'日结果直接复用；本次协议在计算前形成，但未认证独立预注册、试验额度或样本外。'),
+   h('h3',{},'已结算份额净收益经验分布'),
+   h('p',{class:'fy-note'},'只统计原回测已结算份额的净损益/分摊成本；公司行为证券保守排除，未平仓不补零。部分退出不等于独立样本，分位数不是预测区间或胜率。'),
+   h('ul',{},data.periods.map(row=>{const d=row.settledNetDistribution||{},pct=x=>finite(x)?format(x)+'%':'未知';
+    return h('li',{},row.holdDays+'日：可用/结算记录 '+value(d.usableRecords)+'/'+value(d.totalSettledRecords)+
+     '；覆盖 '+pct(d.coveragePct)+'；P10 / P50 / P90 '+[d.p10Pct,d.p50Pct,d.p90Pct].map(pct).join(' / ')+'；宽度 '+pct(d.empiricalWidthPct));
+   })),
    h('ul',{},(data.limitations||[]).map(text=>h('li',{},text))),
    h('p',{class:'fy-muted'},'数据指纹 '+String(data.datasetFingerprint||'未知')),
    h('p',{class:'fy-muted'},'协议指纹 '+String(data.protocolFingerprint||'未知'))));
