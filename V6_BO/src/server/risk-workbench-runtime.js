@@ -22,7 +22,7 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
   const {buildPortfolioStressEvidence}=require('../core/portfolio-stress-evidence');
   const equityStore=createAccountEquityEvidenceStore({root:path.join(root,'equity'),clock,canWrite:isPrimary});
   const notifications=createRiskAlertLifecycle({root:path.join(root,'notifications'),clock,canWrite:isPrimary});
-  let plans=[],plansAt=0,plansError='冻结计划尚未读取',planLoad=null,observedDay='',observationAt=0;
+  let plans=[],plansAt=0,plansError='冻结计划尚未读取',planLoad=null,observedDay='',observationAt=0,planGeneration=0;
   let observations=[],planAlerts=[],observationError=null,busy=false;
   let observationGeneration=0,observationsCachedGeneration=-1,observationRevision=null;
   const status={lastObservedAt:null,lastAttemptAt:null,running:false,attemptSequence:0,completedSequence:null,lastError:null,accountErrors:{pool:null,pre:null},
@@ -49,10 +49,11 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     const observationsDue=observedDay!==day||!observationAt||now<observationAt||now-observationAt>=60000||
       observationsCachedGeneration!==observationGeneration;
     if(!plansDue&&!observationsDue)return;
-    const generation=observationGeneration;
+    const generation=observationGeneration,requestedPlanGeneration=planGeneration;
     planLoad=(async()=>{
       if(plansDue)try{
         const archive=await readPlans();
+        if(requestedPlanGeneration!==planGeneration)throw Error('计划读取期间已失效');
         if(!archive?.ok||!Array.isArray(archive.state?.plans))throw Error('原冻结计划档案不可用');
         plans=archive.state.plans.filter(p=>p?.decisionAuthority==='fayo-decision-center');
         plansAt=clock();plansError=null;
@@ -159,14 +160,17 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     try{notifications.recordReceipt({...key,deliveryId,...normalizeRiskReceipt(result)});}
     catch{status.lastError='投递回执尚未持久确认，原预留保留且不自动重发';}
   }
-  function dispatch(report,risk,{planAlert=false}={}) {
+  function dispatch(report,risk,{planAlert=false,originalAlert=null}={}) {
+    const {alertIdentityMatches,queuedPlanMatches}=require('../core/fayo-queued-plan-evidence');
+    const queuedGeneration=planGeneration;
     if(!report.accountEpoch||!isPrimary()||!privateReady())return false;
     // The aggregate valuation row stays visible in the station. Per-security
     // quote causes and actual rule rows own their existing private reminders;
     // a second summary clearance must not consume their ordinary cooldown.
     if(risk.rootCauseId==='account/valuation')return false;
     const isPlanRisk=Boolean(risk.references?.planId)||risk.rootCauseId.startsWith('plan/');
-    if(isPlanRisk&&(planEnabled()!==true||plansError||observationError))return false;
+    if(isPlanRisk&&(planEnabled()!==true||plansError||observationError||!plansAt||planLoad))return false;
+    if(planAlert&&!alertIdentityMatches(risk,originalAlert,plans.find(p=>p.id===risk.references?.planId),planObserver.planVersion))return false;
     // The original plan observer remains the single owner of active condition
     // alerts. Its callback runs only after its trigger ID has been committed.
     if(isPlanRisk&&risk.status!=='resolved'&&!planAlert)return false;
@@ -185,7 +189,7 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     if(!reservation.reserved)return false;
     const beforeSend=()=>{
       const at=clock();if(!isPrimary()||!privateReady())return {ok:false,why:'原主实例或私密通道条件已变化'};
-      if(isPlanRisk&&(planEnabled()!==true||plansError||observationError))return {ok:false,why:'原计划观察已停用或档案证据不可读'};
+      if(isPlanRisk&&(planEnabled()!==true||plansError||observationError||!plansAt||planLoad||queuedGeneration!==planGeneration))return {ok:false,why:'原计划观察已停用、版本失效或档案证据不可读'};
       try{
         const view=notifications.read(key),latest=view.groups.find(row=>row.rootCauseId===risk.rootCauseId);
         if(!latest||latest.muted||latest.observationGap||latest.status!==risk.status||latest.notificationEventId!==reservation.eventId)
@@ -253,6 +257,8 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
           planObserver.quoteEvidence(quote,plan.code,day,at);
           const context=planObserver.planLedgerContext(book,plan,at);
           if(context.ambiguous||!context.current||quote.quoteAt<Date.parse(plan.frozenAt))return {ok:false,why:'原计划持仓批次或报价尚未核对'};
+          if(planAlert&&!queuedPlanMatches({risk,alert:originalAlert,plan,context,quote,versionOf:planObserver.planVersion,queuedGeneration,currentGeneration:planGeneration,now:at}))return {ok:false,why:'原触发、冻结版本、成交批次或报价已变化'};
+          if(planAlert&&kind!=='entry')planObserver.assertPostEntryQuote(context,quote.quoteAt);
           const stillTriggered=kind==='entry'?context.entry===null&&day===plan.intendedDate&&quote.price>=plan.entryMin&&quote.price<=plan.entryMax:
             context.entry!==null&&context.remaining>0&&(kind==='stop'?quote.price<=plan.stop:quote.price>=plan.target);
           if(risk.status==='active'&&!stillTriggered||risk.status==='resolved'&&stillTriggered)
@@ -341,9 +347,9 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
       planObserver.validateObservation(record,{now,plan,day:alert.day});
       if(!planObserver.alertsForRecord(record).some(row=>digest(row)===digest(alert)))return false;
       const derived=riskForPlanAlert(alert),risk=report.risks.find(r=>r.rootCauseId===derived.rootCauseId)||derived;
-      if(risk.status!=='active')return false;
+      if(risk.status!=='active'||!require('../core/fayo-queued-plan-evidence').alertIdentityMatches(risk,alert,plan,planObserver.planVersion))return false;
       notifications.observe({accountId:'pool',accountEpoch:report.accountEpoch,risks:[risk],observedAt:now,complete:false});
-      return dispatch(report,risk,{planAlert:true});
+      return dispatch(report,risk,{planAlert:true,originalAlert:{...alert}});
     }catch{status.lastError='计划风险提醒证据无法核验，原观察保留且不补发未知条件';return false;}
   }
   async function tick() {
@@ -394,6 +400,6 @@ function createRiskWorkbenchRuntime({root,clock=Date.now,isPrimary,readBook,read
     if(input.action==='view')return notifications.markViewed({...common,rootCauseId:input.rootCauseId});
     return notifications.setMuted({...common,rootCauseId:input.rootCauseId,classification:input.classification,mutedUntil:input.mutedUntil});
   }
-  return {read,tick,update,observePlans,sendPlanAlert,invalidate:()=>{plansAt=0;},status:snapshotStatus};
+  return {read,tick,update,observePlans,sendPlanAlert,invalidate:()=>{plansAt=0;planGeneration++;plansError='原冻结计划已失效，须重新读取';},status:snapshotStatus};
 }
 module.exports={createRiskWorkbenchRuntime};
