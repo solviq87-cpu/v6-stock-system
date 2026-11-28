@@ -34,12 +34,26 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
  const byCode=new Map();
  for(const s of stocks){const code=String(s.symbol||s.code||'').trim();if(!code||byCode.has(code))throw Error('股票代码缺失或重复');byCode.set(code,s);}
  let cash=initialCash,positions=new Map(),lastMarks=new Map(),pending=[],trades=[],orders=[],equity=[],warnings=[];
+ // F20.4: observe the existing scanner and original paper execution, without
+ // adding orders or changing any selection, risk, price or accounting rule.
+ // Memory is bounded by active entry cohorts, not all historical signals.
+ const executionCounts={rankedSignals:0,invalidRanked:0,alreadyHeldAtSignal:0,ineligibleAtSignal:0,slotExcluded:0,
+  scheduledBuySignals:0,blockedBuySignals:0,riskPausedBuySignals:0,alreadyHeldAtExecution:0,
+  fullEntryCohorts:0,partialEntryCohorts:0,fullyExitedCohorts:0,fullyRequestedEntryAndExitCohorts:0,
+  ordinaryPartialExitCohorts:0,ordinaryPartialExitAttempts:0,unknownExitCohorts:0};
+ const entryCohorts=new Map();
+ function invalidateEntryCohort(symbol){
+  if(entryCohorts.delete(symbol))executionCounts.unknownExitCohorts++;
+ }
  const cost=feeBps/10000,slip=slippageBps/10000,tax=sellTaxBps/10000;
  const getBar=(s,d)=>s.bars[d];
  for(let day=start;day<=stop;day++){
   const date=stocks[0].bars[day].date;
   if(settlements?.some(e=>e.effectiveDate===date)){
    if(stocks.some(s=>s.bars[day].corporateAction&&settlements.some(e=>e.symbol===String(s.symbol||s.code)&&e.effectiveDate===date)))throw Error('同日不能混用旧权益和结算表');
+   // Corporate settlement can change the original share denominator.
+   // Retain the authoritative ledger but do not certify ordinary fill coverage.
+   for(const e of settlements)if(e.effectiveDate===date)invalidateEntryCohort(e.symbol);
    const result=applyResearchSettlements({cash,positions,events:settlements,day,date});cash=result.cash;trades.push(...result.realizations);
    orders.push(...result.flows.map(f=>({...f,status:'corporate-settlement'})));
    cashFlows.push(...result.flows);
@@ -48,6 +62,7 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
   for(const s of stocks){
    const action=corporateAction(s.bars[day]);if(!action)continue;
    const symbol=String(s.symbol||s.code),p=positions.get(symbol);if(!p)continue;
+   invalidateEntryCohort(symbol);
    const value=entitlement(p.shares,action);p.shares=value.shares;p.entry=(p.entry-action.netCashPerShare)/action.shareMultiplier;p.costBasis-=value.cash;
    cash+=value.cash;cashFlows.push({day,symbol,kind:'corporate-action',amount:value.cash,balance:cash});
    orders.push({day,symbol,status:'corporate-action',shares:p.shares,cash:value.cash,source:action.source});
@@ -67,6 +82,22 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
    const capacity=executionCapacity(s,prev,p.shares,lotSize,executionRisk);
    if(!capacity.shares){orders.push({day,symbol:o.symbol,side:'sell',status:'blocked',reason:capacity.reason});p.sellPending=true;continue;}
    const sold=capacity.shares,basis=p.costBasis*sold/p.shares;
+   const cohort=entryCohorts.get(o.symbol);
+   if(cohort){
+    if(cohort.remaining!==p.shares||!Number.isSafeInteger(sold)||sold<=0||sold>cohort.remaining){
+     invalidateEntryCohort(o.symbol);
+    }else{
+     if(sold<cohort.remaining){
+      executionCounts.ordinaryPartialExitAttempts++;
+      if(!cohort.hadPartialExit){cohort.hadPartialExit=true;executionCounts.ordinaryPartialExitCohorts++;}
+     }
+     cohort.remaining-=sold;
+     if(cohort.remaining===0){
+      entryCohorts.delete(o.symbol);executionCounts.fullyExitedCohorts++;
+      if(cohort.fullEntry)executionCounts.fullyRequestedEntryAndExitCohorts++;
+     }
+    }
+   }
    const price=Math.max(lock.boundary,bar.open*(1-slip)),gross=price*sold;
    const feeEvidence=feeSchedules?tradingFees({side:'sell',quantity:sold,price,tradeDate:bar.date,schedules:feeSchedules}):null;
    const proceeds=gross-(feeEvidence?feeEvidence.total:gross*(cost+tax));
@@ -78,26 +109,30 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
   }
   const prior=equity.at(-1),beforePrior=equity.at(-2);
   const risk=prior?evaluatePreviousCloseRisk({priorEquity:prior.value,priorPeak:equityPeak,previousEquity:beforePrior?.value??initialCash,maxDrawdownPausePct,maxDailyLossPausePct}):{paused:false};
-  if(risk.paused){riskPauseDays++;orders.push({day,side:'buy',status:'risk-paused',reason:risk.reasons.join('；')});}
+  if(risk.paused){riskPauseDays++;executionCounts.riskPausedBuySignals+=buys.length;orders.push({day,side:'buy',status:'risk-paused',reason:risk.reasons.join('；')});}
   for(const o of (risk.paused?[]:buys)){
-   if(positions.has(o.symbol))continue;
+   if(positions.has(o.symbol)){executionCounts.alreadyHeldAtExecution++;continue;}
    const s=byCode.get(o.symbol),bar=getBar(s,day),prev=getBar(s,day-1);
    const lock=atLockedLimit(bar,prev,s,'buy');
    if(!bar||(bar.suspended??s.suspended)||(bar.isST??s.isST)||(bar.tradable??s.tradable)===false||!good(bar.volume)||!good(bar.open)||lock.blocked){
+    executionCounts.blockedBuySignals++;
     orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:lock.reason||'当日状态限制或无有效成交'});continue;
    }
-   if(entryEligibility){const gate=entryEligibility({symbol:o.symbol,tradeDate:bar.date,decisionAt:Date.parse(bar.date+'T09:30:00+08:00')});if(!gate||typeof gate.eligible!=='boolean')throw Error('开仓证据检查结果无效');if(!gate.eligible){orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:(gate.reasons||['ENTRY_EVIDENCE_REJECTED']).join(',')});continue;}}
-   if(!universeObservation(universeHistory,o.symbol,bar.date,{at:'open'}).eligible){orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:'NO_POINT_IN_TIME_MEMBERSHIP'});continue;}
+   if(entryEligibility){const gate=entryEligibility({symbol:o.symbol,tradeDate:bar.date,decisionAt:Date.parse(bar.date+'T09:30:00+08:00')});if(!gate||typeof gate.eligible!=='boolean')throw Error('开仓证据检查结果无效');if(!gate.eligible){executionCounts.blockedBuySignals++;orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:(gate.reasons||['ENTRY_EVIDENCE_REJECTED']).join(',')});continue;}}
+   if(!universeObservation(universeHistory,o.symbol,bar.date,{at:'open'}).eligible){executionCounts.blockedBuySignals++;orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:'NO_POINT_IN_TIME_MEMBERSHIP'});continue;}
    const price=Math.min(lock.boundary,bar.open*(1+slip)),allocation=Math.min(cash,o.budget);
    const requested=feeSchedules?maxAffordableQuantity({budget:allocation,price,lotSize,tradeDate:bar.date,schedules:feeSchedules}):Math.floor(allocation/(price*(1+cost))/lotSize)*lotSize;
    const capacity=executionCapacity(s,prev,requested,lotSize,executionRisk);
    const shares=capacity.shares;
-   if(shares<=0){orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:capacity.reason||'现金不足一手'});continue;}
+   if(shares<=0){executionCounts.blockedBuySignals++;orders.push({day,symbol:o.symbol,side:'buy',status:'blocked',reason:capacity.reason||'现金不足一手'});continue;}
    const entryRisk=evaluateEntryRisk({policy:riskPolicy,symbol:o.symbol,strategyId:byCode.get(o.symbol).strategyId,sectors:Object.fromEntries([...byCode.keys()].map(symbol=>[symbol,universeObservation(universeHistory,symbol,getBar(byCode.get(symbol),day-1)?.date).sector])),lossStreak:consecutiveLosses(trades.map(t=>({side:'sell',realizedPnl:t.netPnl}))),quantity:shares,price,cash,positions:[...positions.values()].map(p=>({symbol:p.symbol,quantity:p.shares,strategyId:byCode.get(p.symbol).strategyId})),marks:Object.fromEntries([...byCode].map(([symbol,s])=>[symbol,getBar(s,day-1)?.close])),previousClose:equity.length?{priorEquity:equity.at(-1).value,priorPeak:equityPeak,previousEquity:equity.at(-2)?.value??initialCash}:null});
-   if(!entryRisk.allowed){orders.push({day,symbol:o.symbol,side:'buy',status:'risk-paused',reason:entryRisk.reasonCodes.join(','),entryRisk});continue;}
+   if(!entryRisk.allowed){executionCounts.riskPausedBuySignals++;orders.push({day,symbol:o.symbol,side:'buy',status:'risk-paused',reason:entryRisk.reasonCodes.join(','),entryRisk});continue;}
    const feeEvidence=feeSchedules?tradingFees({side:'buy',quantity:shares,price,tradeDate:bar.date,schedules:feeSchedules}):null;
    const spent=shares*price+(feeEvidence?feeEvidence.total:shares*price*cost);cash-=spent;
    positions.set(o.symbol,{symbol:o.symbol,shares,buyDay:day,entry:price,costBasis:spent,sellPending:false});
+   const fullEntry=shares===requested;
+   executionCounts[fullEntry?'fullEntryCohorts':'partialEntryCohorts']++;
+   entryCohorts.set(o.symbol,{remaining:shares,fullEntry,hadPartialExit:false});
    orders.push({day,symbol:o.symbol,side:'buy',status:'filled',shares,price,fees:feeEvidence?feeEvidence.total:shares*price*cost,feeEvidence,entryRisk});
    cashFlows.push({day,symbol:o.symbol,kind:'buy',amount:-spent,balance:cash});
   }
@@ -128,13 +163,41 @@ function ledgerBacktest({stocks=[],start=27,end,initialCash=100000,topN=3,holdDa
    scanUniverse({stocks:input,now,maxAgeMs}).items.filter(x=>x.tradable);
   const slots=Math.max(0,topN-positions.size);
   const eligible=new Set(input.filter(s=>!s.isST&&!s.suspended&&s.tradable!==false).map(s=>String(s.symbol)));
-  const available=[...new Set(ranked.map(x=>x.symbol))].filter(symbol=>byCode.has(symbol)&&!positions.has(symbol)&&eligible.has(symbol)).slice(0,slots);
+  const rankedSymbols=[...new Set(ranked.map(x=>x.symbol))];
+  const available=rankedSymbols.filter(symbol=>byCode.has(symbol)&&!positions.has(symbol)&&eligible.has(symbol)).slice(0,slots);
+  executionCounts.rankedSignals+=rankedSymbols.length;
+  let eligibleRanked=0;
+  for(const symbol of rankedSymbols){
+   if(!byCode.has(symbol))executionCounts.invalidRanked++;
+   else if(positions.has(symbol))executionCounts.alreadyHeldAtSignal++;
+   else if(!eligible.has(symbol))executionCounts.ineligibleAtSignal++;
+   else eligibleRanked++;
+  }
+  executionCounts.slotExcluded+=eligibleRanked-available.length;
+  executionCounts.scheduledBuySignals+=available.length;
   const budget=available.length?Math.min(cash/available.length,(cash+marked)*maxPositionPct/100):0;
   for(const symbol of available)pending.push({side:'buy',symbol,budget});
  }
  let peak=initialCash,maxDD=0;for(const e of equity){peak=Math.max(peak,e.value);maxDD=Math.max(maxDD,1-e.value/peak);}
  const last=equity.at(-1);
- return {dataProvenance:{source,mode:selectCandidates?'test-selector':'strategy-scanner',syntheticOrImported:source==='imported'||source==='simulated'},
+ const c=executionCounts,entered=c.fullEntryCohorts+c.partialEntryCohorts,openEntryCohorts=entryCohorts.size;
+ const complete=c.rankedSignals===c.invalidRanked+c.alreadyHeldAtSignal+c.ineligibleAtSignal+c.slotExcluded+c.scheduledBuySignals&&
+  c.scheduledBuySignals===c.blockedBuySignals+c.riskPausedBuySignals+c.alreadyHeldAtExecution+entered&&
+  entered===c.fullyExitedCohorts+c.unknownExitCohorts+openEntryCohorts;
+ const pct=(n,d)=>complete&&d>0?Number((100*n/d).toFixed(6)):null;
+ const signalExecution={schemaVersion:1,status:complete?'descriptive-only':'unavailable',...c,
+  enteredCohorts:entered,openEntryCohorts,
+  openPartiallyExitedCohorts:[...entryCohorts.values()].filter(x=>x.hadPartialExit).length,
+  allRankedEntryPct:pct(entered,c.rankedSignals),
+  allRankedEntryAndFullExitPct:pct(c.fullyExitedCohorts,c.rankedSignals),
+  allRankedFullRequestedEntryAndExitPct:pct(c.fullyRequestedEntryAndExitCohorts,c.rankedSignals),
+  scheduledEntryPct:pct(entered,c.scheduledBuySignals),
+  enteredFullExitPct:pct(c.fullyExitedCohorts,entered),
+  basis:'distinct original ranked symbol per scanned day before holdings, eligibility and slot filters; final non-scanned day excluded',
+  entryQuantityBasis:'affordable lot-rounded quantity at modeled opening before participation cap; not original brokerage order quantity',
+  coverageNote:'observed paper completion fractions; open or company-action-unknown cohorts retained; no fill or return certification',
+  allMarketSignals:false,partialEntryUsesActualOrderQuantity:false,executionCertified:false,predictiveProbability:null,canTrade:false,canTrain:false};
+ return {signalExecution,dataProvenance:{source,mode:selectCandidates?'test-selector':'strategy-scanner',syntheticOrImported:source==='imported'||source==='simulated'},
   cashFlows,statistics:performanceStatistics(equity,{initialCash,trades}),equity,orders,trades,openPositions:[...positions.values()],cash:+cash.toFixed(2),warnings,
   metrics:{initialCash,finalEquity:last.value,returnPct:+((last.value/initialCash-1)*100).toFixed(4),
    maxDrawdownPct:+(maxDD*100).toFixed(4),riskPauseDays,closedTrades:trades.length,

@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process');
-const {runHoldingPeriodStudy}=require('../src/core/holding-period-comparison');
+const {runHoldingPeriodStudy,summarizeSettledNetReturns,summarizeSettledExcursions,summarizeSettledCosts}=require('../src/core/holding-period-comparison');
 const {runValidatedBacktest}=require('../src/core/historical-validation');
 const {runCompleteWorkbench}=require('../src/core/complete-workbench');
 const fixture=()=>({source:'fixture',asOf:'2026-03-01',stocks:[{symbol:'600000',market:'main',bars:Array.from({length:60},(_,i)=>({date:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),open:10+i*.04,high:10.1+i*.04,low:9.9+i*.04,close:10+i*.04,volume:1000000}))}]});
@@ -67,4 +67,92 @@ test('original holdout is retained separately by period without certifying untou
  assert.ok(v.periods.every(p=>p.report.holdout.status==='evaluated'));
  for(const p of v.periods)assert.deepEqual(p.report.holdout,runValidatedBacktest({...h,holdDays:p.holdDays}).holdout);
  assert.equal(v.independentHoldoutCertified,false);assert.equal(v.workUnits,900);
+});
+
+test('F20.2 original settled portions retain negative, zero and positive net return and disclose exclusions',()=>{
+ const trade=(symbol,pnl,extra={})=>({symbol,buyDay:1,sellDay:2,shares:100,costBasis:1000,netPnl:pnl,...extra});
+ const report={trades:[trade('600000',-100),trade('600000',0),trade('600000',200),trade('000001',1000),trade('600001',10,{costBasis:0})],
+  metrics:{closedTrades:5},orders:[{symbol:'000001',status:'corporate-action'}],cashFlows:[]};
+ const before=JSON.stringify(report),d=summarizeSettledNetReturns(report);
+ assert.equal(d.status,'descriptive-only');assert.equal(d.totalSettledRecords,5);assert.equal(d.usableRecords,3);assert.equal(d.excludedRecords,2);
+ assert.equal(d.coveragePct,60);assert.deepEqual([d.p10Pct,d.p50Pct,d.p90Pct,d.empiricalWidthPct],[-10,0,20,30]);
+ assert.equal(d.predictiveCoverage,null);assert.equal(d.independentSamplesCertified,false);assert.equal(d.canTrade,false);
+ assert.equal(JSON.stringify(report),before);
+});
+test('F20.2 missing, no settlement, and malformed ledger never produce a zero return distribution',()=>{
+ const base={trades:[],metrics:{closedTrades:0},orders:[],cashFlows:[]};
+ const empty=summarizeSettledNetReturns(base);assert.equal(empty.status,'no-usable-settled-records');assert.equal(empty.coveragePct,null);assert.equal(empty.p50Pct,null);
+ assert.equal(summarizeSettledNetReturns({...base,metrics:{closedTrades:1}}).status,'unavailable');
+ assert.equal(summarizeSettledNetReturns({...base,cashFlows:[{kind:'unclassified'}]}).status,'unavailable');
+ const v=runHoldingPeriodStudy(fixture()).comparison;
+ assert.ok(v.periods.every(p=>p.settledNetDistribution.usableRecords===0&&p.settledNetDistribution.p50Pct===null));
+});
+test('F20.2 multi-period output consumes the original ledger distribution without modifying original trade rows',()=>{
+ const r=child(`const scanner=require.resolve('./src/strategy/research-v2-universe-scanner');
+ require(scanner).scanUniverse=({stocks})=>({items:stocks.map(s=>({symbol:s.symbol,tradable:true}))});
+ const {runHoldingPeriodStudy}=require('./src/core/holding-period-comparison');const h=${JSON.stringify(fixture())};h.end=48;
+ console.log(JSON.stringify(runHoldingPeriodStudy(h).comparison));`);
+ assert.ok(r.periods.some(p=>p.settledNetDistribution.usableRecords>0));
+ for(const p of r.periods)assert.deepEqual(p.settledNetDistribution,summarizeSettledNetReturns(p.report));
+});
+
+test('F20.3 modeled opening paths exclude exit-session later extrema and keep net return separate',()=>{
+ const h=fixture(),bars=h.stocks[0].bars;
+ Object.assign(bars[28],{open:10,high:12,low:9,close:11,volume:100});
+ Object.assign(bars[29],{open:11,high:99,low:1,close:11,volume:100});
+ const trade={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:11,costBasis:1005,netPnl:85};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:200,price:10},
+  {symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:11}],cashFlows:[]};
+ const d=summarizeSettledExcursions(h,report),r=d.rows[0];
+ assert.equal(d.usableRecords,1);assert.equal(r.mfePct,20);assert.equal(r.maePct,-10);
+ assert.equal(r.netReturnPct,Number((8500/1005).toFixed(6)));assert.equal(r.extremaOrder,'unknown');
+ assert.equal(d.intradayOrderKnown,false);assert.equal(d.canTrain,false);assert.equal(d.executionCertified,false);
+});
+test('F20.3 incomplete or corporate-action path and mismatched fills remain unknown rather than zero',()=>{
+ const h=fixture(),trade={symbol:'600000',buyDay:28,sellDay:30,shares:100,entry:11.12,exit:11.2,costBasis:1120,netPnl:-5};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:100,price:trade.entry},
+  {symbol:'600000',day:30,side:'sell',status:'filled',shares:100,price:trade.exit}],cashFlows:[]};
+ for(const mutate of [(h,r)=>{h.stocks[0].bars[29].volume=0;},(h,r)=>{h.stocks[0].bars[29].suspended=true;},
+  (h,r)=>{r.orders[1].price+=1;},(h,r)=>{r.cashFlows.push({symbol:'600000',kind:'corporate-action'});},
+  (h,r)=>{delete h.stocks[0].bars[29].date;}]){
+  const x=structuredClone(h),y=structuredClone(report);mutate(x,y);
+  const d=summarizeSettledExcursions(x,y);assert.equal(d.usableRecords,0);assert.equal(d.rows[0].mfePct,null);assert.equal(d.rows[0].maePct,null);
+ }
+ const empty=summarizeSettledExcursions(h,{trades:[],metrics:{closedTrades:0},orders:[],cashFlows:[]});
+ assert.equal(empty.coveragePct,null);assert.equal(empty.meanMfePct,null);
+});
+test('F20.3 original multi-period report links each path to an original settled row without rewriting the ledger',()=>{
+ const result=child(`const scanner=require.resolve('./src/strategy/research-v2-universe-scanner');require(scanner).scanUniverse=({stocks})=>({items:stocks.map(s=>({symbol:s.symbol,tradable:true}))});const {runHoldingPeriodStudy}=require('./src/core/holding-period-comparison');const h=${JSON.stringify(fixture())};h.end=48;console.log(JSON.stringify(runHoldingPeriodStudy(h).comparison));`);
+ assert.ok(result.periods.some(p=>p.settledExcursions.usableRecords>0));
+ for(const p of result.periods){
+  assert.equal(p.settledExcursions.rows.length,p.report.trades.length);
+  for(const row of p.settledExcursions.rows)assert.equal(row.symbol,p.report.trades[row.tradeIndex].symbol);
+ }
+});
+
+test('F20.1 separates the original signal, modeled fills, partial costs and unfilled denominator',()=>{
+ const h=fixture();h.stocks[0].bars[27].close=9.8;
+ const trade={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:11,costBasis:1005,netPnl:85};
+ const report={trades:[trade],metrics:{closedTrades:1},orders:[
+  {symbol:'600000',day:28,side:'buy',status:'filled',shares:200,price:10,fees:10},
+  {symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:11,fees:10}],cashFlows:[],
+  signalExecution:{status:'descriptive-only',scheduledBuySignals:2,enteredCohorts:1},openPositions:[{}]};
+ const before=JSON.stringify(report),d=summarizeSettledCosts(h,report),r=d.rows[0];
+ assert.equal(d.usableRecords,1);assert.equal(r.signalClose,9.8);assert.equal(r.entryPrice,10);assert.equal(r.exitPrice,11);
+ assert.equal(r.allocatedEntryFee,5);assert.equal(r.exitFee,10);assert.equal(r.grossReturnPct,10);assert.equal(r.netReturnPct,Number((8500/1005).toFixed(6)));
+ assert.equal(d.aggregateGrossPnl,100);assert.equal(d.aggregateFees,15);assert.equal(d.aggregateNetPnl,85);
+ assert.equal(d.unfilledScheduledBuySignals,1);assert.equal(d.openPositions,1);assert.equal(d.executionCertified,false);assert.equal(JSON.stringify(report),before);
+ for(const edit of [r=>r.trades[0].costBasis++,r=>delete r.orders[0].fees,r=>r.orders.push({...r.orders[1]}),r=>r.cashFlows.push({kind:'corporate-action',symbol:'600000'})]){
+  const bad=structuredClone(report);edit(bad);const v=summarizeSettledCosts(h,bad);
+  assert.equal(v.usableRecords,0);assert.equal(v.rows[0].netReturnPct,null);assert.equal(v.aggregateNetPnl,null);
+ }
+});
+test('F20.1 no closed records and duplicate settlement cannot create a mature result',()=>{
+ const h=fixture(),empty=summarizeSettledCosts(h,{trades:[],metrics:{closedTrades:0},orders:[],cashFlows:[]});
+ assert.equal(empty.aggregateNetPnl,null);assert.equal(empty.unfilledScheduledBuySignals,null);
+ const t={symbol:'600000',buyDay:28,sellDay:29,shares:100,entry:10,exit:11,costBasis:1005,netPnl:85};
+ const report={trades:[t,t],metrics:{closedTrades:2},orders:[{symbol:'600000',day:28,side:'buy',status:'filled',shares:100,price:10,fees:5},{symbol:'600000',day:29,side:'sell',status:'filled',shares:100,price:11,fees:10}],cashFlows:[]};
+ assert.equal(summarizeSettledCosts(h,report).usableRecords,0);
 });

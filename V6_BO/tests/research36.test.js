@@ -114,3 +114,49 @@ test('bounded evidence keeps endpoints and signed financial values without unive
   for(const value of values){const check=by(analyze({[field]:proof(value,rule.unit)}),strategy.id).checks.find(c=>c.field===field);assert.equal(check.missing,null,field);assert.equal(check.value,value);}
  }
 });
+
+function routeFixture(){
+ const bars=dailyBars(76),stocks=[{symbol:code,market:'main',bars}],evidenceByDate={},marketByDate={};
+ const ids=['ma_trend','news','oversold'],rules=engine.getCatalog().strategies.filter(s=>ids.includes(s.id)).flatMap(s=>s.rules);
+ for(const [i,b] of bars.entries()){
+  const times={observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt};
+  evidenceByDate[b.date]={[code]:Object.fromEntries(rules.map(r=>[r.field,proof(r.op==='between'?(r.value[0]+r.value[1])/2:r.op==='gt'?r.value+.01:r.op==='lt'?r.value-.01:r.value,r.unit,times)]))};
+  marketByDate[b.date]={date:b.date,source:'declared-test-market',evidenceId:'market-'+b.date,...times,
+   scores:i%2?{breadthScore:75,indexTrendScore:80,marketVolumeScore:65,riskScore:20,volatilityScore:30,sentimentScore:75}:
+    {breadthScore:50,indexTrendScore:30,marketVolumeScore:40,riskScore:30,volatilityScore:70,sentimentScore:40}};
+ }
+ return {compareRoutes:true,stocks,evidenceByDate,marketByDate,options:{topN:1,holdDays:1,tradingDates:bars.map(b=>b.date)},
+  windows:[{label:'train',role:'train',start:27,end:39},{label:'validation',role:'validation',start:43,end:55},{label:'test',role:'test',start:59,end:71}]};
+}
+test('F21 original route experiment uses identical input and ledger costs; repeated scans reuse evaluations and switches are bounded',()=>{
+ const input=routeFixture(),before=JSON.stringify(input),r=engine.experimentResearch36(input);
+ assert.equal(r.mode,'fixed-representative-route-research');assert.equal(r.windows.length,3);assert.equal(r.evaluationCalls,36);assert.equal(r.cacheReuses,144);
+ for(const w of r.windows){
+  assert.deepEqual(Object.keys(w.arms),['trend','event','reversal','fixed','dynamic']);assert.equal(w.expectedSymbols,12);assert.equal(w.commonEvaluated,12);assert.equal(w.comparableSymbols,12);
+  assert.ok(w.arms.fixed.buyFills>0);assert.ok(w.arms.dynamic.buyFills>0);
+  for(const a of Object.values(w.arms)){assert.equal(a.report.executionModel,'position-ledger');assert.ok(a.report.trades.every(t=>t.sellDay>t.buyDay));assert.ok(a.additionalMetrics.grossTurnoverRatio>0);}
+  // One security with all representatives passing: changing the route priority
+  // alone cannot manufacture an apparent advantage.
+  assert.deepEqual(w.arms.fixed.report.equity,w.arms.dynamic.report.equity);
+  const switches=w.trace.filter(t=>t.switched);assert.ok(switches.length>0);assert.ok(switches.every((s,i)=>i===0?s.dayIndex-w.trace[0].dayIndex>=5:s.dayIndex-switches[i-1].dayIndex>=5));
+ }
+ assert.equal(r.canTrade,false);assert.equal(r.productionWeightsChanged,false);assert.equal(r.outOfSampleValidated,false);assert.equal(JSON.stringify(input),before);
+});
+test('F21 incomplete or late market receipts cause both arms to abstain, not a neutral substitute or zero-return winner',()=>{
+ const input=routeFixture();
+ for(const row of Object.values(input.marketByDate))row.recordedAt++;
+ const r=engine.experimentResearch36(input);
+ for(const w of r.windows){assert.equal(w.marketUnknownSessions,12);assert.equal(w.commonEvaluated,12);assert.equal(w.comparableSymbols,0);
+  assert.ok(w.trace.every(t=>t.market===null&&t.skipReason==='MARKET_EVIDENCE_UNKNOWN'));
+  for(const a of Object.values(w.arms)){assert.equal(a.buyFills,0);assert.equal(a.markedReturnPct,null);assert.equal(a.closedAccountReturnPct,null);}
+ }
+});
+test('F21 common coverage retains missing evidence, fixed protocol rejects overrides and malformed switches',()=>{
+ const input=routeFixture();const date=input.stocks[0].bars[27].date;delete input.evidenceByDate[date][code].newsOriginalVerified;
+ const r=engine.experimentResearch36(input),day=r.windows[0].trace[0];
+ assert.equal(day.counts.event.unknown,1);assert.equal(day.commonEvaluated,0);assert.ok(Object.values(day.pickCounts).every(n=>n===0));
+ assert.throws(()=>engine.experimentResearch36({...input,options:{...input.options,selectCandidates:()=>[code]}}),/覆盖/);
+ assert.throws(()=>engine.experimentResearch36({...input,compareRoutes:'true'}),/布尔/);
+ assert.throws(()=>engine.experimentResearch36({...input,marketByDate:{...input.marketByDate,'2099-01-01':{}}}),/非输入交易日/);
+ assert.equal(r.trialBudgetVerified,false);assert.equal(r.eligibleForPromotion,false);
+});
