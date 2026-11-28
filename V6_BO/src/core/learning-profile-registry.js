@@ -88,11 +88,11 @@ function validateRegistryHistory(s,plan){
   if(!record(h)||typeof h.eligible!=='boolean'||(selected===null?
      h.eligible!==false||h.reason!=='NO_VALIDATED_CANDIDATE'||own(h,'selectedId'):h.selectedId!==selected))reject();
  }
- let active='baseline';
+ let active='baseline',retired=false;
  for(const [i,e] of s.events.entries()){
   if(!record(e)||e.revision!==4+i||e.from!==active)reject();
   if(e.type==='promote'){
-   if(active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
+   if(retired||active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
    if(plan.marketGateMode==='required-on-promote'){
     const g=e.marketGate;
     if(!record(g)||g.mode!==plan.marketGateMode||g.marketRegime!=='not-systemic-selloff'||
@@ -105,6 +105,7 @@ function validateRegistryHistory(s,plan){
    }else if(own(e,'marketGate'))reject();
   }else if(e.type==='rollback'){
    if(active==='baseline'||e.to!=='baseline'||own(e,'marketGate'))reject();
+   retired=true;
   }else reject();
   active=e.to;
  }
