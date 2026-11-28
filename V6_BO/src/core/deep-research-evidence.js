@@ -13,6 +13,7 @@ const {SYSTEMS} = require('./independent-strategy-attribution');
 const {createTradingCalendar} = require('./trading-calendar');
 const {preEventComparison,eventRegimeOverlay} = require('./event-prewindow-research');
 const {projectEventReview} = require('./event-path-review');
+const {expectationBasis,eventWindowLifecycle,frozenIndustryReaction}=require('./catalyst-window-review');
 const {levelOneReview,microstructureReview,summarizeMicrostructureSessions} = require('./microstructure-evidence-review');
 
 const LIMIT = 10000;
@@ -128,17 +129,18 @@ const EVENT_HORIZONS=Object.freeze([1,5,20,60]);
 // This consumes the existing raw daily archive and its received all-A index
 // bundles. It never infers a session calendar from the observed price rows.
 // Daily outcomes are endpoint price studies, not executable intraday returns.
-function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
+function deriveEventOutcomes({events=[],archive={},calendar,workspaceEvents=[]}={}, options={}) {
   const asOf=clock(options),visible=versions(events,asOf,'事件').rows.filter(e=>symbol(e.symbol)&&e.retracted!==true);
   const selected=visible.slice(-100),pending=[],eventOutcomes=[];
+  let windowLifecycle=selected.map(event=>eventWindowLifecycle({event,asOf}));
   const policy={version:'event-next-open-fixed-horizons-v1',horizons:EVENT_HORIZONS,
     entry:'first-calendar-session-open-after-event-recorded',exit:'horizon-session-close',
     scope:'latest-100-known-event-versions',executableReturn:false};
   const fail=(e,horizon,reason,source=null)=>pending.push({eventId:e.id,eventRevision:e.revision,symbol:e.symbol,horizonSessions:horizon,source,status:'pending',reason});
-  if(!selected.length)return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:0};
+  if(!selected.length)return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:0};
   if(!archive||archive.scope==='demo'||archive.synthetic===true||archive.fixture===true||['test','demo','synthetic'].includes(archive.sampleSet)){
     for(const e of selected)for(const h of EVENT_HORIZONS)fail(e,h,'原真实短线档案不可用');
-    return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+    return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
   }
   let dates=null,calendarAt=null,calendarHash=null,calendarExchanges=[];
   try{
@@ -154,8 +156,10 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
   }catch{dates=null;}
   if(!dates){
     for(const e of selected)for(const h of EVENT_HORIZONS)fail(e,h,'缺少带首次观察时点的完整原交易日历');
-    return {eventOutcomes,pending,policy,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+    return {eventOutcomes,pending,policy,windowLifecycle,status:'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
   }
+  const exchangeOf=s=>/^(4|8|92)/.test(s)?'BSE':/^[569]/.test(s)?'SSE':/^[023]/.test(s)?'SZSE':null;
+  windowLifecycle=selected.map(event=>eventWindowLifecycle({event,asOf,...(calendarExchanges.includes(exchangeOf(event.symbol))?{dates,calendarKnownAt:calendarAt,calendarHash}:{})}));
   const closeOf=d=>Date.parse(d+'T15:00:00+08:00'),openOf=d=>Date.parse(d+'T09:30:00+08:00');
   const prices=new Map(),indices=new Map(),conflicts=new Set();
   function retain(map,key,b){
@@ -192,7 +196,7 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
     const start=dates.findIndex(d=>openOf(d)>e.recordedAt),sources=[...(stockSources.get(e.symbol)||[])].sort().slice(0,4);
     // The original calendar reader's six-digit exchange families. A bundled
     // SSE/SZSE calendar supplies no evidence for a BSE event window.
-    const exchange=/^(4|8|92)/.test(e.symbol)?'BSE':/^[569]/.test(e.symbol)?'SSE':/^[023]/.test(e.symbol)?'SZSE':null;
+    const exchange=exchangeOf(e.symbol);
     if(!exchange||!calendarExchanges.includes(exchange)){for(const h of EVENT_HORIZONS)fail(e,h,'原交易日历未证实覆盖该证券交易所');continue;}
     if(calendarAt>e.recordedAt){for(const h of EVENT_HORIZONS)fail(e,h,'交易日历在事件之后才可知，不倒填事前窗口');continue;}
     if(start<0){for(const h of EVENT_HORIZONS)fail(e,h,'事件之后的交易日历覆盖不足');continue;}
@@ -221,6 +225,8 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         readStock:d=>prices.get(['stock',e.symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const regimeOverlay=h===1?eventRegimeOverlay({event:e,dates,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,
         readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))}):null;
+      const industryReaction=frozenIndustryReaction({event:e,dates,horizon:h,stockSource:source,indexSource:benchmark?.source??null,calendarKnownAt:calendarAt,calendarHash,asOf,workspaceEvents,
+        readStock:(symbol,d)=>prices.get(['stock',symbol,source,d].join('|')),readIndex:d=>indices.get(['index',benchmark?.source,d].join('|'))});
       const id=hash({event:[e.source,e.id,e.revision],source,h,priceEvidence,benchmark,calendarHash});
       eventOutcomes.push({id:'archive-'+id,revision:1,source:'v6-private-archive-event-study',evidenceId:id,
         // This is a newly produced read projection. Original source receipts
@@ -228,11 +234,11 @@ function deriveEventOutcomes({events=[],archive={},calendar}={}, options={}) {
         publishedAt:asOf,firstKnownAt:asOf,recordedAt:asOf,inputOrigin:'read-only-archive-projection',
         eventId:e.id,eventSource:e.source,eventRevision:e.revision,symbol:e.symbol,horizonSessions:h,startAt,endAt,
         stock:{source,startPrice:first.open,endPrice:last.close,currency:'CNY',priceBasis:'unadjusted',corporateAction:false},
-        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy,regimeOverlay});
+        benchmark,priceEvidence,calendarEvidence:{hash:calendarHash,knownAt:calendarAt},policyVersion:policy.version,preEventStudy,regimeOverlay,industryReaction});
       if(!benchmark)fail(e,h,'股票端点已成熟，但缺少同区间实际接收的全A指数，超额收益保持未知',source);
     }
   }
-  return {eventOutcomes,pending,policy,status:eventOutcomes.length?'derived-research':'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
+  return {eventOutcomes,pending,policy,windowLifecycle,status:eventOutcomes.length?'derived-research':'pending',truncatedEvents:Math.max(0,visible.length-selected.length)};
 }
 
 function buildEventImpactStudy(input={}, options={}) {
@@ -259,7 +265,7 @@ function buildEventImpactStudy(input={}, options={}) {
       priceSource:text(o.stock.source,160)?o.stock.source:o.source,
       evidence:[e,computed.proof],priceEvidence:o.inputOrigin==='read-only-archive-projection'?o.priceEvidence:null,
       calendarEvidence:o.inputOrigin==='read-only-archive-projection'?o.calendarEvidence:null,
-      preEventStudy:bound?.preEventStudy??null,regimeOverlay:bound?.regimeOverlay??null,drawdownPct:null});
+      preEventStudy:bound?.preEventStudy??null,regimeOverlay:bound?.regimeOverlay??null,industryReaction:bound?.industryReaction??null,drawdownPct:null});
   }
   rows.sort((a,b)=>a.startAt-b.startAt||a.eventId.localeCompare(b.eventId)||a.horizonSessions-b.horizonSessions||
     a.priceSource.localeCompare(b.priceSource)||a.id.localeCompare(b.id));
@@ -302,7 +308,7 @@ function buildExpectationStudy(input={}, options={}) {
       (e.expectationKind!=='consensus'||Number.isSafeInteger(e.sampleSize)&&e.sampleSize>=1));
     if (!expectations.length) {
       rows.push({id:a.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,actual:a.value,
-        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,
+        expected:null,surprise:null,surprisePct:null,classification:'unknown',priceReaction:null,expectationBasis:expectationBasis(a,null),
         evidence:[provenance(a,asOf)],missing:['没有真实且严格早于原始公告的同口径预期']});continue;
     }
     for (const e of expectations) {
@@ -313,7 +319,7 @@ function buildExpectationStudy(input={}, options={}) {
         [reaction.startPrice,reaction.endPrice].every(x=>finite(x)&&x>0)&&finite(100*(reaction.endPrice/reaction.startPrice-1))&&reaction.priceBasis==='unadjusted'&&reaction.corporateAction===false;
       const priceReaction=validReaction?{returnPct:round(100*(reaction.endPrice/reaction.startPrice-1)),startAt:reaction.startAt,endAt:reaction.endAt,evidence:rp}:null;
       rows.push({id:a.id+'|'+e.source+'|'+e.id,symbol:a.symbol,period:a.period,metric:a.metric,unit:a.unit,
-        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),
+        expectationKind:e.expectationKind,actual:a.value,expected:e.value,surprise:round(delta),expectationBasis:expectationBasis(a,e),
         surprisePct:e.value===0?null:round(delta/Math.abs(e.value)*100),
         classification:sign===null?'direction-unknown':sign>0?'above-expectation':sign<0?'below-expectation':'in-line',
         priceReaction,priceResponseCase:!priceReaction||sign===null?'unknown':sign>0&&priceReaction.returnPct<0?'positive-surprise-negative-response':
@@ -718,7 +724,7 @@ function extractNewsJournalEvents(journalRows, options={}) {
 function buildDeepResearchEvidence(input={}, options={}) {
   const asOf=clock(options), effective={...input};
   if (input.newsJournalRows!==undefined) effective.events=[...array(input.events,'事件'),...extractNewsJournalEvents(input.newsJournalRows,{asOf})];
-  const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar},{asOf});
+  const derived=deriveEventOutcomes({events:effective.events,archive:input.archive,calendar:input.eventCalendar,workspaceEvents:input.workspaceEvents},{asOf});
   effective.eventOutcomes=[...array(input.eventOutcomes,'事件结果'),...derived.eventOutcomes];
   const modules={67:buildEventImpactStudy(effective,{asOf,derivedOutcomes:new Map(derived.eventOutcomes.map(o=>[o.id,o]))}),68:buildExpectationStudy(effective,{asOf}),
     69:buildRelationshipGraph(effective,{asOf}),70:buildDepthResearch(effective,{asOf}),
