@@ -328,6 +328,14 @@ function registerCandidate({manifestFile,outputDir,candidateWeightsFile,
    verifyEpisode(frozen,now);
    return frozen;
   });
+  // The explicit automatic-registration entry uses the SAME global trial
+  // budget as watch evaluation, before any model proposal or outcome access.
+  if(auto){
+   const budget=globalTrialBudget(conf.outputDir,features.map(x=>x.signalDay));
+   if(budget.remainingTrials===0)return {ok:true,status:'skipped-global-trial-budget-exhausted',
+    usedTrials:budget.usedTrials,maxTrials:budget.maxTrials,windowStartDay:budget.windowStartDay,
+    canTrade:false,productionWeightsChanged:false};
+  }
   features=registrationFeatures(manifest,features,conf.captureDir,now);
   const accepted=latestAccepted(conf.outputDir);
   const previousTrial=latestTrial(conf.outputDir,accepted);
