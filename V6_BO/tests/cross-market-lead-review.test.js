@@ -32,3 +32,15 @@ test('foreign holiday never repeats the same observation as two independent sign
 test('no configuration, missing time, future calendar, changed source or overlap cannot certify a relationship',()=>{
  assert.equal(reviewCrossMarketLead({}).status,'not-configured');for(const mutate of [f=>delete f.calendars.US.closeAtByDay[dates[25]],f=>f.plan.registeredAt=openCN(dates[24]),f=>f.plan.testStart=dates[20],f=>f.plan.target.source='other',f=>f.calendars.US.knownAtMs=f.asOf,f=>f.admitted.filter(r=>r.market==='US').forEach(r=>r.supportingSources=['same','same'])]){const f=fixture();mutate(f);const r=reviewCrossMarketLead(f);assert.notEqual(r.status,'descriptive-holdout-comparison');assert.equal(r.leadingConfirmed,false);}
 });
+
+test('F17.4 same-session dual-source admitted joint movement does not establish common causation',()=>{
+ const f=fixture(),date=dates[24],cutoff=closeCN(date)+5000,series=[{code:'000985',kind:'broad-index',source:'cn-provider'},{code:'510300',kind:'industry-etf',source:'cn-provider'}];
+ const plan={date,registeredAt:openCN(date)-1000,thresholdPct:3,series};
+ const admitted=series.map(s=>({market:'CN',code:s.code,day:date,adjustment:'hfq',source:s.source,currency:'CNY',open:100,close:95,consensusKnownAt:closeCN(date)+1000,suspended:false,canTrade:false,supportingSources:['a','b']}));
+ const comparisons=series.map(s=>({market:'CN',code:s.code,day:date,adjustment:'hfq',status:'admitted',independentSources:2}));
+ const read=()=>require('../src/core/cross-market-lead-review').reviewCommonAssetShock({plan,calendar:f.calendars.CN,gate:{admitted,comparisons},asOf:cutoff});
+ let r=read();assert.equal(r.shock,'common-down-observation');assert.equal(r.causalInferenceVerified,false);assert.equal(r.canTrade,false);
+ admitted[1].close=101;assert.equal(read().shock,'no-joint-threshold-observation');
+ comparisons[1].status='source-value-or-time-conflict';r=read();assert.equal(r.shock,null);assert.equal(r.status,'incomplete-source-evidence');
+ comparisons[1].status='admitted';admitted[1].supportingSources=['a','a'];assert.equal(read().shock,null);
+});
