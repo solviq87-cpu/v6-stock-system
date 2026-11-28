@@ -1,6 +1,7 @@
 'use strict';
 const {FLAGS,digest}=require('./research-workspace-store');
 const {conditionChanges}=require('./research-workspace-decision');
+const {describeTail,environmentEvidence}=require('./research-review-metrics');
 const {quoteUseEligibility,quoteObservationView}=require('./quote-observation-view');
 const finite=x=>typeof x==='number'&&Number.isFinite(x),array=x=>Array.isArray(x)?x:[];
 const average=xs=>xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null;
@@ -84,9 +85,10 @@ function timeline(events,symbol,asOf){
  const latestByIdentity=new Map();
  return rows.map(e=>{
   const key=e.data.provider+'|'+e.data.priceBasis,prior=latestByIdentity.get(key);latestByIdentity.set(key,e);
-  return {id:e.hash,sequence:e.sequence,recordedAt:e.recordedAt,asOf:e.data.asOf,tradeDate:e.data.tradeDate,provider:e.data.provider,
+  const changes=conditionChanges(e.data,prior?.data);
+  return {id:e.hash,previousRunId:prior?.hash??null,sequence:e.sequence,recordedAt:e.recordedAt,asOf:e.data.asOf,tradeDate:e.data.tradeDate,provider:e.data.provider,
    targetDate:e.data.targetDate,dueAt:e.data.dueAt,systems:e.data.systems,
-   changes:conditionChanges(e.data,prior?.data),status:e.data.dueAt&&e.data.dueAt<=asOf?'awaiting-evidence':'observed'};
+   changes,changeDetected:!!prior&&(changes.changes.length>0||changes.systemChanges.length>0||changes.assessmentChanges.length>0),status:e.data.dueAt&&e.data.dueAt<=asOf?'awaiting-evidence':'observed'};
  });
 }
 function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5}={}){
@@ -154,7 +156,8 @@ function scorecards(events,{asOf=Date.now(),feeBps=8,slippageBps=10,sellTaxBps=5
   observedPriceCount:b.price.length,modeledCount:b.net.length,independentSignalDays:b.dates.size,nonOverlappingWindows,distinctSymbols:b.symbols.size,
   averagePriceReturnPct:round(average(b.price)),averageNetReturnPct:round(average(b.net)),benchmarkMatched:b.excess.length,
   excessReturnPct:round(average(b.excess)),positiveFractionPct:b.net.length?round(100*b.net.filter(n=>n>0).length/b.net.length):null,
-  status:b.net.length>=30&&nonOverlappingWindows>=10&&b.symbols.size>=10?'descriptive-only':'insufficient-independent-samples'};});
+  tailRisk:describeTail(b.net,b.passed),
+  status:b.net.length>=30&&nonOverlappingWindows>=10&&b.symbols.size>=10?'descriptive-only':'insufficient-independent-samples'};}).map(g=>({...g,environmentEvidence:environmentEvidence(g)}));
  return {groups,observations,systems:systems.map(id=>({id,groups:groups.filter(g=>g.system===id).length,status:groups.some(g=>g.system===id)?'observed':'not-evaluated'})),
   assumptions:{feeBps,slippageBps,sellTaxBps,entry:'next-session-open',exit:'entry-plus-horizon-session-open',quantityMode:'percentage-paper-estimate-not-account-ledger',signalSelection:'first-server-receipt',outcomeSelection:'latest-available-snapshot-containing-date'},
   limitations:['含成本估计不是权威模拟账本收益；不报告没有成交证据的净收益','同股连续信号和重叠周期非独立样本；不按收益自动调权','缺同日期/口径基准时超额保持未知',

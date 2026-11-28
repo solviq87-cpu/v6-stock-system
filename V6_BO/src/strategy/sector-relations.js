@@ -257,9 +257,40 @@ function analyzeSectorRelations(options = {}) {
           sharedMembers, unionMembers, tradeDate: latest.tradeDate, observedAt: latest.observedAt,
           source: latest.source, classificationVersion: latest.classificationVersion };
       }
+      // Fixed descriptive research split; never tune it on these observations.
+      // It is a sector-level precursor, not stock-level tail dependence.
+      const stressThresholdPct = -2, minimumGroupSessions = 5;
+      const stressRows = marketMatched.filter(e => e.a.row.marketChangePct <= stressThresholdPct);
+      const otherRows = marketMatched.filter(e => e.a.row.marketChangePct > stressThresholdPct);
+      const groupEvidence = group => ({
+        matchedSessions: group.length, tradeDates: group.map(e => e.date),
+        bothDownSessions: group.filter(e => e.a.sector.changePct < 0 && e.b.sector.changePct < 0).length,
+        coefficient: null, bothDownFraction: null
+      });
+      const stress = groupEvidence(stressRows), nonStress = groupEvidence(otherRows);
+      let stressReason = reason;
+      if (!stressReason && marketMatched.length !== matched.length) stressReason = 'missing-or-inconsistent-market-return';
+      if (!stressReason && stressRows.length < minimumGroupSessions) stressReason = 'insufficient-stress-sessions';
+      if (!stressReason && otherRows.length < minimumGroupSessions) stressReason = 'insufficient-non-stress-sessions';
+      if (!stressReason) {
+        for (const [group, evidence] of [[stressRows, stress], [otherRows, nonStress]]) {
+          evidence.coefficient = pearson(group.map(e => e.a.sector.changePct), group.map(e => e.b.sector.changePct));
+          evidence.bothDownFraction = evidence.bothDownSessions / evidence.matchedSessions;
+        }
+        if (stress.coefficient === null || nonStress.coefficient === null) stressReason = 'constant-group-return-series';
+      }
+      const stressComparison = {
+        status: stressReason ? 'unknown' : 'descriptive-unverified', reason: stressReason || null,
+        stressThresholdPct, minimumGroupSessions, matchedMarketSessions: marketMatched.length,
+        stress, nonStress,
+        correlationDelta: stressReason ? null : stress.coefficient - nonStress.coefficient,
+        bothDownFractionDelta: stressReason ? null : stress.bothDownFraction - nonStress.bothDownFraction,
+        thresholdBasis: 'fixed-descriptive-research-only-not-calibrated',
+        causalPropagationEstablished: false, canTrade: false
+      };
       result.edges.push({ from: a.id, to: b.id, source: latest.source,
         classificationVersion: latest.classificationVersion, observedAt: latest.observedAt,
-        sameDayCorrelation: correlation, marketResidualCorrelation, membershipOverlap });
+        sameDayCorrelation: correlation, marketResidualCorrelation, membershipOverlap, stressComparison });
       for (const [key, sessions] of [['threeSession', 3], ['fiveSession', 5]]) {
         const af = a.flowContinuity[key], bf = b.flowContinuity[key];
         if (af.status !== 'unknown' && bf.status !== 'unknown' &&

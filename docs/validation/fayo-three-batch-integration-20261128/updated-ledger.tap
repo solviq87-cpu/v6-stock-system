@@ -1,0 +1,20 @@
+✔ canonical complete inventories validate offline with stdlib only and stay read-only (124.683745ms)
+✔ the actual prior stale F12 module-total regression is rejected (327.473517ms)
+✔ new batch columns and appended consumer rows cannot escape the Excel filter (533.691912ms)
+✔ missing or duplicate IDs and unknown status values cannot be hidden by correct row counts (590.575424ms)
+✔ individual batch placement, overview totals and scope sizes are derived from actual task rows (753.442822ms)
+✔ shared catalog IDs, consumer references, headers and all24 efficiency chapters remain checked (1045.285456ms)
+✔ formula caches and false worksheet dimensions cannot act as ledger evidence (344.138021ms)
+✔ ordinary evidence hyperlinks are never followed and external data, macros and duplicate ZIP parts fail closed (402.578336ms)
+✔ even a structurally consistent declared complete record is not manager acceptance or release permission (199.784973ms)
+✔ exact version pin binds both workbook and validator plus reused XML guard; writes or stale SHAs are rejected (847.449264ms)
+✔ Git subdirectory discovery cannot certify an untracked same-name copy as the committed file (315.30812ms)
+✔ a structure-only standalone check can run without Git; pinned acceptance cannot silently fall back (223.265103ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5776.889075

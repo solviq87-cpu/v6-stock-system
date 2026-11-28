@@ -1,0 +1,252 @@
+{
+  "b1": [
+    {
+      "id": 46129130039,
+      "name": "V6 PR Commit Coverage",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129130039"
+    },
+    {
+      "id": 46129129963,
+      "name": "V6 CI",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129129963"
+    },
+    {
+      "id": 46129130058,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129130058"
+    },
+    {
+      "id": 46129125414,
+      "name": "V6 Per-Commit Smoke",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129125414"
+    },
+    {
+      "id": 46129125422,
+      "name": "V6 CI",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129125422"
+    },
+    {
+      "id": 46129125393,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129125393"
+    }
+  ],
+  "b2": [
+    {
+      "id": 46129256175,
+      "name": "V6 PR Commit Coverage",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129256175"
+    },
+    {
+      "id": 46129256142,
+      "name": "V6 CI",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129256142"
+    },
+    {
+      "id": 46129256050,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129256050"
+    },
+    {
+      "id": 46129251512,
+      "name": "V6 Per-Commit Smoke",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129251512"
+    },
+    {
+      "id": 46129251442,
+      "name": "V6 CI",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129251442"
+    },
+    {
+      "id": 46129251463,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129251463"
+    }
+  ],
+  "b3": [
+    {
+      "id": 46115891592,
+      "name": "V6 CI",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115891592"
+    },
+    {
+      "id": 46115891596,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115891596"
+    },
+    {
+      "id": 46115891565,
+      "name": "V6 PR Commit Coverage",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115891565"
+    },
+    {
+      "id": 46115885472,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115885472"
+    },
+    {
+      "id": 46115885416,
+      "name": "V6 CI",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115885416"
+    },
+    {
+      "id": 46115885417,
+      "name": "V6 Per-Commit Smoke",
+      "head_sha": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115885417"
+    }
+  ],
+  "combined": [
+    {
+      "id": 46129315224,
+      "name": "V6 PR Commit Coverage",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129315224"
+    },
+    {
+      "id": 46129315208,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129315208"
+    },
+    {
+      "id": 46129315200,
+      "name": "V6 CI",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129315200"
+    },
+    {
+      "id": 46129310242,
+      "name": "V6 Per-Commit Smoke",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129310242"
+    },
+    {
+      "id": 46129310263,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129310263"
+    },
+    {
+      "id": 46129310261,
+      "name": "V6 CI",
+      "head_sha": "59efd991c22d14174de740934955c131a4521d85",
+      "status": "completed",
+      "conclusion": "failure",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46129310261"
+    }
+  ],
+  "own": [
+    {
+      "id": 46115887746,
+      "name": "V6 PR Commit Coverage",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "cancelled",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115887746"
+    },
+    {
+      "id": 46115887580,
+      "name": "V6 CI",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115887580"
+    },
+    {
+      "id": 46115887597,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115887597"
+    },
+    {
+      "id": 46115883576,
+      "name": "V6 UI Browser Geometry",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115883576"
+    },
+    {
+      "id": 46115883587,
+      "name": "V6 CI",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115883587"
+    },
+    {
+      "id": 46115883581,
+      "name": "V6 Per-Commit Smoke",
+      "head_sha": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46115883581"
+    }
+  ]
+}

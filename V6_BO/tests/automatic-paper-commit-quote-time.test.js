@@ -199,3 +199,58 @@ test('explicit imported or simulated manual research retains its separate 180-se
   assert.equal(result.account.events[0].fillEvidence.quoteAt,initialTime-180000);
  }
 });
+
+test('a nearby legacy fill price cannot hide an original quote at or beyond either price limit',t=>{
+ for(const side of ['buy','sell'])for(const boundary of [
+  {price:10.01,upperLimit:10.01},
+  {price:9.99,lowerLimit:9.99},
+  {price:10.01,upperLimit:10},
+  {price:9.99,lowerLimit:10}
+ ]){
+  const x=setup(t,{side});rejectWithoutFinancialChange(x,{...x.quote(),...boundary});
+  assert.equal(x.make().read().account.events.length,0,'a fresh process sees the unchanged authoritative account');
+ }
+});
+
+test('interior quotes retain the existing legacy price tolerance and committed retries keep their historical evidence',t=>{
+ for(const side of ['buy','sell'])for(const price of [9.99,10.01]){
+  const x=setup(t,{side}),first=x.save({...x.quote(),price});
+  assert.equal(first.account.events[0].price,10);assert.equal(first.account.events[0].fillEvidence.quotePrice,price);
+  x.advance(86400000);
+  const retried=x.make().saveLegacy(x.input,first.revision,{quotes:{'600000':{...x.quote(),price,upperLimit:price}}});
+  assert.deepEqual(retried.account,first.account);assert.deepEqual(retried.orders,first.orders);
+ }
+});
+
+test('a limit quote in a later automatic fill rolls back earlier staged fills',t=>{
+ const x=setup(t),before=fs.readFileSync(x.file),remove=fs.rmSync;let staged=0;
+ t.mock.method(fs,'rmSync',(target,...args)=>{
+  const result=remove(target,...args);
+  if(typeof target==='string'&&path.basename(target).startsWith('.legacy-stage-'))staged++;
+  return result;
+ });
+ const second={...x.trade,code:'600001'},input={...x.input,cash:97990,
+  positions:{...x.input.positions,'600001':{...x.input.positions['600000'],code:'600001'}},trades:[second,x.trade]};
+ assert.throws(()=>x.app.saveLegacy(input,x.app.read().revision,{quotes:{
+  '600000':x.quote(),'600001':{...x.quote(),symbol:'600001',price:10.01,upperLimit:10.01}
+ }}),/自动成交行情/);
+ assert.equal(staged,1);assert.deepEqual(fs.readFileSync(x.file),before);
+ assert.equal(x.make().read().account.cash,100000);
+});
+
+test('an original quote changed to its limit during final snapshot staging cannot publish a fill',t=>{
+ const x=setup(t),quote=x.quote(),open=fs.openSync,sync=fs.fsyncSync;let snapshotFd,changed=false;
+ t.mock.method(fs,'openSync',(file,...args)=>{
+  const fd=open(file,...args);
+  if(typeof file==='string'&&path.dirname(file)===path.dirname(x.file)&&
+    path.basename(file).startsWith('.'+path.basename(x.file)+'.')&&file.endsWith('.tmp'))snapshotFd=fd;
+  return fd;
+ });
+ t.mock.method(fs,'fsyncSync',fd=>{
+  const result=sync(fd);
+  if(fd===snapshotFd&&!changed){changed=true;quote.price=quote.upperLimit;}
+  return result;
+ });
+ rejectWithoutFinancialChange(x,quote);assert.equal(changed,true);assertNoStagedSnapshot(x);
+ assert.deepEqual(x.app.audit().events[0].reasonCodes,['AUTOMATIC_QUOTE_PRICE_LIMIT']);
+});

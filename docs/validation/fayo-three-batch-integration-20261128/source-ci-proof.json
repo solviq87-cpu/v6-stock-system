@@ -1,0 +1,75 @@
+{
+  "sourceLogsVerified": [
+    {
+      "batch": 1,
+      "head": "efd70389dd5637d072612627f5ecdea439d2e2c5",
+      "job": 140930233029,
+      "stats": {
+        "tests": 8380,
+        "pass": 8380,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 216312.72705
+      },
+      "scope": "Exact source job only; independent combined run remains required."
+    },
+    {
+      "batch": 2,
+      "head": "03f05df1f61e7dae325093ad0737e7eda60c2d34",
+      "job": 140930615823,
+      "stats": {
+        "tests": 8337,
+        "pass": 8337,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 264911.012019
+      },
+      "scope": "Exact source job only; independent combined run remains required."
+    },
+    {
+      "batch": 3,
+      "head": "1de0ab867ace77b267652b1f864b587ec4546db9",
+      "job": 140889522950,
+      "stats": {
+        "tests": 8377,
+        "pass": 8377,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "duration_ms": 326428.565783
+      },
+      "scope": "Exact source job only; independent combined run remains required."
+    }
+  ],
+  "combinedBaseline": {
+    "head": "59efd991c22d14174de740934955c131a4521d85",
+    "tests": 8680,
+    "passed": 8677,
+    "failed": 3,
+    "failedCases": [
+      "A35 historical repeated promotion verification",
+      "queue temporary-byte accounting",
+      "queue concurrent directory snapshot"
+    ],
+    "uiFailure": "research discipline recent-quote structure heading timeout",
+    "coverageFailure": "pr-exceeds-verified-commit-cap",
+    "productionAccepted": false
+  },
+  "userHandoffs": {
+    "reportedPartial": [
+      100,
+      76,
+      49
+    ],
+    "conditional": [
+      "F40.3",
+      "F41.4",
+      "F47.3"
+    ],
+    "finalBusinessSignedOff": 0
+  },
+  "latestOwnSource": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+  "note": "These are engineering source receipts, not proof of real-data entitlement, independent strategy value, deployed operation or production approval."
+}

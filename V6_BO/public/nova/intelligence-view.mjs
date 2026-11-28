@@ -209,6 +209,7 @@ function probabilityResearchPanel(value){
 function researchPanels(report,ctx){
  const q=report.quality||{},f=report.factors||{},w=report.walkforward||{},feedback=report.feedback||{},templates=report.templates||{};
  const intake=report.historyIntake||{},execution=report.executionValidation||{},overall=execution.overall||{};
+ const entryCosts=execution.settledEntryCosts;
  const ruleCoverage=f.ruleCoverage||{},approved=f.approvedScoring||{},automation=feedback.automation;
  const qItems=list(q.components),metrics=Object.values(f.descriptive||{}),folds=list(w.folds);
  const environmentRows=[...Object.entries(report.governance?.environments?.byRegime||{}).map(([label,row])=>({kind:'环境',label,...row})),
@@ -259,6 +260,10 @@ function researchPanels(report,ctx){
   panel('L2 · 原账本执行与成本压力',
    paragraph('已接收 '+(execution.acceptedTrades??'未知')+' 笔 · 标准样本 '+(execution.standardTrades??'未知')+' 笔 · 隔离或排除 '+(execution.excludedCount??'未知')+' 笔'),
    paragraph('依据已核对的模拟成交流水评估费用与滑点压力；尚无连续账户权益证据时，不生成账户最大回撤。'),
+   entryCosts?detail('买入决策价与已结算成交',h('div',{},
+    paragraph('有事前报价 '+entryCosts.withBenchmark+' / '+entryCosts.standardSettlements+' 笔标准结算，覆盖 '+(entryCosts.matchedShares??'未知')+' 股。'),
+    entryCosts.withBenchmark?paragraph('已成交买入价差 '+money(entryCosts.entryPriceDifferenceCny)+' 元，分摊买入费用 '+money(entryCosts.matchedEntryFeesCny)+' 元，合计 '+money(entryCosts.filledEntryShortfallCny)+' 元。正价差表示买入价高于决策价。'):paragraph('尚无可核对的事前买入报价与成交配对。'),
+    paragraph('卖出决策价差、未成交机会成本及价差中的等待和冲击成本均待独立证据。'))):null,
    (overall.scenarios?.[0]?.entryPriceEvidence?.fifoAllocationNotReplayed||0)>0?
     paragraph('其中 '+overall.scenarios[0].entryPriceEvidence.fifoAllocationNotReplayed+' 笔含高精度价格的历史FIFO分摊，仅保留原费用与净额勾稽；缺完整批次分摊链，不作为模型升级充分证据。'):null,
    list(overall.scenarios).length?table([
@@ -272,6 +277,7 @@ function researchPanels(report,ctx){
   panel('L2 · 策略健康与模型治理',
    paragraph('研究诊断不改变原生产参数。独立样本、连续权益或执行依据不足时保持未验证。'),
    paragraph('衰减线索：'+((report.governance?.decay?.reasons||[]).map(r=>r.meaning).join('；')||'尚无可用衰减诊断')),
+   detail('模型资料库：源码、权重与数据许可分列',h('div',{},paragraph('源码固定版本 '+(report.governance?.modelLibraryRights?.codeVersionPinned??'未知')+' 项；权重及训练数据许可尚未独立认证，不代表可安装或运行。'),evidenceDetails('原目录及逐项许可声明',report.governance?.modelLibraryRights||{}))),
    list(report.governance?.factors).length?detail('同口径因子体检',table([
     {label:'因子',value:r=>r.factorId},{label:'训练 IC',value:r=>ic(r.trainingIC)},
     {label:'时间外 IC',value:r=>ic(r.validationIC)},{label:'样本外 IC',value:r=>ic(r.holdoutIC)},
@@ -315,26 +321,32 @@ export function createIntelligenceCenter(ctx){
  host.classList.add('fy-intelligence-center');
  let generation=0,loading=false,loaded=false;
  const active=()=>!ctx.signal?.aborted;
- async function load(force=false){
+ async function load(force=false,retainedVisual=null){
   if(!active()||loading||loaded&&!force)return;
   loading=true;const turn=++generation,selection=ctx.decisionSelection;
   status.textContent='正在读取市场原始图谱与研究档案…';
   const query=selection?new URLSearchParams({code:selection.code,day:selection.day}):new URLSearchParams();
-  const tasks=[ctx.api('/api/decision-center/visuals?'+query,{signal:ctx.signal,timeoutMs:15000}),
+  const tasks=[retainedVisual?Promise.resolve(retainedVisual):ctx.api('/api/decision-center/visuals?'+query,{signal:ctx.signal,timeoutMs:15000}),
    ctx.canEdit?ctx.api('/api/decision-center/research',{signal:ctx.signal,timeoutMs:45000}):Promise.resolve(null)];
   const results=await Promise.allSettled(tasks);
   if(!active()||turn!==generation)return;
   loading=false;loaded=true;
   const visual=results[0].status==='fulfilled'?results[0].value:null;
-  if(visual?.ok===true&&visual.authority==='fayo-intelligence-visuals'&&(!selection||visual.day===selection.day&&visual.radar?.code===selection.code)){
-   updateReadout(charts,panel('市场情绪周期',emotionCycle(visual.emotion)),panel('个股九维雷达',nineAxisRadar(visual.radar)),
+  const validVisual=visual?.ok===true&&visual.authority==='fayo-intelligence-visuals'&&(!selection||visual.day===selection.day&&visual.radar?.code===selection.code);
+  if(validVisual){
+   if(!retainedVisual)updateReadout(charts,panel('市场情绪周期',emotionCycle(visual.emotion)),panel('个股九维雷达',nineAxisRadar(visual.radar)),
     panel('全市场热力图',marketHeatmap(visual.heatmap,ctx)),panel('资金桑基图',flowSankey(visual.sankey)));
   }else updateReadout(charts,paragraph(visual?.error||'市场图谱尚未取得同日、可核实的源数据。'));
   const result=results[1].status==='fulfilled'?results[1].value:null,report=result?.result;
   if(report?.authority==='fayo-intelligence-research'&&result.ok===true){
    updateReadout(research,...researchPanels(report,ctx));status.textContent='研究日 '+report.day+' · 计算于 '+dateTime(report.generatedAt)+' · 研究结果不授予交易权限';
   }else{
-   updateReadout(research,paragraph(ctx.canEdit?'研究档案未能读取，缺少结果不会填成零分。':'研究档案沿用原编辑身份权限。'));
+   const failure=results[1].status==='rejected'?results[1].reason?.body:result;
+   if(ctx.canEdit&&failure?.code==='WORKSPACE_BUSY'){
+    updateReadout(research,paragraph('研究队列正忙。'),button('重试研究档案',()=>{
+     if(turn===generation)void load(true,validVisual?visual:null);
+    },'quiet'));
+   }else updateReadout(research,paragraph(ctx.canEdit?'研究档案未能读取，缺少结果不会填成零分。':'研究档案沿用原编辑身份权限。'));
    status.textContent=visual?.day?'市场数据日 '+visual.day:'数据证据尚未齐备';
   }
  }

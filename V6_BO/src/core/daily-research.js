@@ -32,7 +32,7 @@ function dailyResearch(history,{includeBacktest=false}={}){
   rankings,gate:{eligible:false,blockers:['行情未完成在线来源核验','四套策略尚未全部完成独立逐日回放','样本外与模拟盘有效性尚未验收']},
   strategyPerformance:{status:'not-verified',reason:'未对每套独立策略完成可复现的逐日样本外收益归因；禁止虚构胜率'},
   note:'研究排名与模拟账户基于相同历史数据；策略证据缺失标记为未评估；禁止真实下单'};
- if(includeBacktest){const result=runValidatedBacktest(history);out.backtest={status:result.status,metrics:result.metrics,holdout:result.holdout,releaseEligible:false};}
+ if(includeBacktest){const result=runValidatedBacktest(history);out.backtest={status:result.status,metrics:result.metrics,holdout:result.holdout,institutionalReview:result.institutionalReview,releaseEligible:false};}
  return out;
 }
 module.exports={dailyResearch};

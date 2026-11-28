@@ -95,7 +95,8 @@ function updateLifecycle({items=[],previous=[],now=Date.now(),expiryDays=7,archi
   let streak=carry?.streak||0,misses=carry?.misses||0,stage='archived';
   if(had){
    // Multiple checks in the same session never count as consecutive-day confirmation.
-   const continuous=eligiblePrior(carry)&&dayDiff(sourceDate,prevDate)<=7;
+   const continuous=eligiblePrior(carry)&&dayDiff(sourceDate,prevDate)<=7&&
+    (oldDiscovery?.continuousMatched||ruleSet(carry.matched)).some(id=>matched.includes(id));
    streak=blocked||hasRisk?0:continuous?(dayChanged?Math.min(10000,streak+1):Math.max(1,streak)):1;
    misses=0;
    stage=blocked||hasRisk?'risk-review':streak>=2?'focus':'observe';
@@ -113,6 +114,15 @@ function updateLifecycle({items=[],previous=[],now=Date.now(),expiryDays=7,archi
     stage==='focus'?'不同交易日连续确认，仍属研究关注':stage==='observe'?'任意一套完整战法命中即入观察':
     stage==='weakening'?'有效数据连续未命中，转弱观察':stage==='archived'?'无研究命中或达到归档阈值':''});
  }
+ // A partial scan does not establish failure or absence of the prior signal.
+ // Keep the last dated state without exposing it in the current watch pools.
+ for(const [symbol,prior] of prevMap){
+  if(seen.has(symbol)||ambiguousPrior.has(symbol))continue;
+  states.push({symbol,name:String(prior.name||'').slice(0,90),stage:prior.stage,lastSeen:prior.lastSeen,
+   streak:prior.streak,misses:prior.misses,matched:[],riskIds:[],confirmed:false,dataStatus:'unavailable',
+   evaluatedAt:Math.max(now,prior.evaluatedAt||0,readDiscovery(prior)?.lastObservedAt||0),discovery:null,reason:'本轮未覆盖该证券；保留历史状态，不升级、不计缺席'});
+ }
+ if(states.length>10000)throw Error('本轮与历史证券合并超过研究池上限，拒绝静默丢弃历史');
  const pools={'新发现观察池':[],'持续确认重点池':[],'风险核对池':[],'转弱跟踪池':[]};
  for(const x of states){
   if(x.dataStatus!=='observed-research-only')continue;

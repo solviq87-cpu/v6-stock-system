@@ -101,4 +101,41 @@ async function inspectLearningRuntime({probeModel=false,now=Date.now(),env=proce
  else{report.overall='ready-for-research';report.nextAction=report.current.nextAction;}
  return report;
 }
-module.exports={inspectLearningRuntime};
+// Read only the original configured private daily capture. No directory
+// scanning, remote calls, agent execution, account writes or inferred dates.
+function readPortfolioSizeCapture({now=Date.now(),env=process.env,calendar}={}){
+ const file=env?.V6_FACTOR_AGENT_CONFIG_FILE;
+ if(typeof file!=='string'||!path.isAbsolute(file)||!Number.isSafeInteger(now)||now<=0)return null;
+ try{
+  const config=validateConfig(readConfig(file)),output=path.resolve(config.outputDir);
+  const rel=path.relative(output,path.resolve(file));
+  if(!rel||(!rel.startsWith('..'+path.sep)&&!path.isAbsolute(rel)))return null;
+  if(env.V6_FACTOR_AGENT_DIR&&(!path.isAbsolute(env.V6_FACTOR_AGENT_DIR)||safeNew(env.V6_FACTOR_AGENT_DIR)!==output))return null;
+  const {sizeReferenceDays,buildSizePartition}=require('./factor-size-style-evidence');
+  const {verifyDailyCapture}=require('./factor-maturity-manifest');
+  const {verifyEpisode}=require('./factor-shadow-evolution');
+  for(const day of sizeReferenceDays(calendar,now)){
+   const receipt=safeNew(path.join(config.cycle.captureDir,'receipt-'+day+'.json'));
+   // A missing current receipt can use the known adjacent prior session.
+   // A corrupt current receipt is not a reason to silently fall back.
+   if(!fs.existsSync(receipt))continue;
+   const files=[receipt,...['cohort','features'].map(k=>safeNew(path.join(config.cycle.captureDir,k+'-'+day+'.json')))];
+   const stats=files.map(p=>fs.lstatSync(p));
+   if(stats.some(s=>!s.isFile()||(s.mode&0o7777)!==0o600||s.size<=0||s.size>4*1024*1024))return null;
+   const captured=verifyDailyCapture(receipt,{now}),e=verifyEpisode(captured.features,now),cohort=captured.cohort;
+   if(e.signalDay!==day||JSON.stringify(e.priceFeed)!==JSON.stringify(cohort.feed)||e.features.length!==cohort.signals.length)return null;
+   const originals=new Map(cohort.signals.map(s=>[s.signalId,s]));
+   if(originals.size!==e.features.length||e.features.some(x=>{const s=originals.get(x.signalId);
+     return !s||['symbol','signalDate','signalAt','baselineClose'].some(k=>s[k]!==x[k]);}))return null;
+   for(let i=0;i<files.length;i++){
+    const after=fs.lstatSync(safeNew(files[i])),before=stats[i];
+    if(!after.isFile()||after.dev!==before.dev||after.ino!==before.ino||after.mode!==before.mode||
+     after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs)return null;
+   }
+   const partition=buildSizePartition(e.features,{provider:e.feed.provider,datasetId:e.feed.datasetId,signalDay:day});
+   return partition.status==='declared-point-in-time-partition'?captured.features:null;
+  }
+ }catch{/* Optional research archive cannot block the original account read. */}
+ return null;
+}
+module.exports={inspectLearningRuntime,readPortfolioSizeCapture};

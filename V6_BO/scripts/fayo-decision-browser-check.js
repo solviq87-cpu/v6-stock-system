@@ -7,6 +7,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 const assert=require('node:assert/strict'),{chromium}=require('playwright');
 const {createFixture}=require('../tests/helpers/v6-studio-fixture');
+const {atomicWrite}=require('../src/core/market-data-center');
 const root=path.resolve(__dirname,'..'),day='2026-11-16',now=Date.parse(day+'T14:00:00+08:00');
 const output=process.env.FAYO_DECISION_QA_DIR||(process.env.V6_UI_QA_DIR?path.join(process.env.V6_UI_QA_DIR,'decision-center'):
  fs.mkdtempSync(path.join(os.tmpdir(),'fayo-decision-browser-')));
@@ -87,7 +88,8 @@ async function run(){
   function setFixtureTime(at){
    assert.ok(at>=fixtureNow,'the shared fixture clock never runs backwards');
    for(const card of expected.values())assert.ok(at-card.quoteBasis.quoteAt<=15000,'original quote timestamps remain inside the unchanged 15 s gate');
-   fixtureNow=at;fs.writeFileSync(clockFile,String(at));
+   // Server and workers read this file concurrently. Publish a complete timestamp.
+   atomicWrite(clockFile,String(at));fixtureNow=at;
   }
   async function advanceReadClock(page){
    assert.equal(await page.evaluate(()=>Date.now()),fixtureNow,'browser and server use the same causal clock');

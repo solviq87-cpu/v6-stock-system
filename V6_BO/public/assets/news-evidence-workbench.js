@@ -45,6 +45,7 @@
    if(!active())return;
    render(doc,rows,data.result);const s=data.result.summary;
    status.textContent=s.currentEvents?'当前事件 '+s.currentEvents+' · 已撤稿 '+s.retractedEvents+' · 未知 '+s.unknownEvents+' · 完整来源声明 '+s.eligibleForResearchSupport:'暂无已归档新闻；不能据此断言无风险';
+   const a=data.result.attention;if(a&&Number.isSafeInteger(a.activeRecords)&&Number.isSafeInteger(a.exactTextDuplicateRecords))status.textContent+='；本地活动档案 '+a.activeRecords+' · 同文重复 '+a.exactTextDuplicateRecords+' · 独立确认未知（非资金流）';
   }catch(e){if(active()){rows.replaceChildren();status.textContent='证据未知：'+e.message;}}
   finally{if(active())button.disabled=false;}
  });

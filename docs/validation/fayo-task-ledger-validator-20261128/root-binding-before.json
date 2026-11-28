@@ -1,0 +1,9 @@
+{
+  "validatorHead": "34eed34227afe5f938afe61c1c2370d9fbdea63f",
+  "observedFalseBinding": true,
+  "temporaryInputRepoHead": "6e4107ad7141cdd15f1d315034aac22082e803e7",
+  "untrackedCopyListedByGit": false,
+  "cliExit": 0,
+  "versionBound": true,
+  "note": "No production authority was granted; this reproduces an identity boundary in the new developer tool."
+}

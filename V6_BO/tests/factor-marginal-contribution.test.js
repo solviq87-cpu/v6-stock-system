@@ -147,3 +147,30 @@ test('date-only legacy diagnostics remain descriptive, with missing label dates 
  assert.equal(r.status,'paired-evaluated');assert.equal(r.canTrade,false);
  assert.equal(r.productionWeightsChanged,false);
 });
+
+test('F26 disposition separates non-triggered, blocked, negative and inconclusive experiments',()=>{
+ const positive=run();
+ assert.deepEqual(positive.dispositions.map(x=>x.status),['positive-ic-unverified','positive-ic-unverified','not-triggered']);
+ const blocked=run({holdout:days('2026-03-01',4)});
+ assert.deepEqual(blocked.dispositions.map(x=>x.status),['data-blocked','data-blocked','not-triggered']);
+ const negative=run({validation:days('2026-02-01',8,-.08,0),holdout:days('2026-03-01',10,-.08,0)});
+ assert.deepEqual(negative.dispositions.map(x=>x.status),['negative-ic-evidence','inconclusive-ic','not-triggered']);
+ for(const x of negative.dispositions){
+  assert.equal(x.permanentlyInvalid,false);
+  assert.equal(x.canPromote,false);
+  assert.deepEqual(x.approvedUses,[]);
+  assert.equal(x.economicValue.netReturnDelta,null);
+  assert.equal(x.economicValue.latencyDeltaMs,null);
+ }
+ assert.equal(negative.independentEconomicValueVerified,false);
+ assert.equal(negative.automaticPromotionAuthorized,false);
+});
+
+test('F26.3 paired market scenarios are review scope, never formal approval',()=>{
+ const inputs=timed();inputs.holdout.forEach((r,i)=>r.regime=i===0?'systemic-selloff':i===1?'bad-regime':'not-systemic-selloff');
+ const d=run(inputs).dispositions[0];
+ assert.equal(d.reviewScope.holdout.comparedDays,10);
+ assert.deepEqual(d.reviewScope.marketScenarios.map(x=>[x.regime,x.comparedDays]),[['systemic-selloff',1],['unknown',1],['not-systemic-selloff',8]]);
+ assert.ok(d.reviewScope.marketScenarios.every(x=>x.applicabilityCertified===false));
+ assert.deepEqual(d.approvedUses,[]);assert.equal(d.canPromote,false);
+});

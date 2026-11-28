@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const {proposeFromSealedResearch}=require('../src/core/factor-shadow-candidate-proposer');
+const {assessFactorRedundancy}=require('../src/core/factor-redundancy');
 const {preregisterCandidate,verifyPreregisteredCandidate}=require('../src/core/factor-candidate-prereg');
 const hash=x=>crypto.createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const pack='a'.repeat(64);
@@ -19,6 +20,30 @@ function sealed(overrides={}){
 const args=(source=sealed())=>({
  source,definitions:defs,acceptedWeights,packFingerprint:pack,
  latestFrozenDay:'2026-06-05'
+});
+test('F11/F47.4 actual frozen redundancy evidence flows into a bounded prospectively sealed candidate without production authority',()=>{
+ const train=Array.from({length:25},(_,i)=>({day:new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10),
+  rows:Array.from({length:6},(_,j)=>({values:{a:10+j*13,b:10+j*13}}))}));
+ const redundancy=assessFactorRedundancy(train,['a','b'],{a:{reliable:true,meanIC:.33},b:{reliable:true,meanIC:.21}});
+ assert.deepEqual(redundancy.suppressedFactorIds,['b']);assert.equal(redundancy.exactValueDuplicatePairs[0].exactEqualRows,150);
+ const source=sealed({lastObservationDay:train.at(-1).day,factorRedundancy:redundancy});
+ const frozen=Array.from({length:37},(_,i)=>{const day=new Date(Date.UTC(2026,0,i+1)).toISOString().slice(0,10);
+  const body={signalDay:day,capturedAt:Date.parse(day+'T03:00:00Z'),factors:defs,packFingerprint:pack};return {...body,fingerprint:hash(body)};});
+ const prefix=frozen.slice(0,36),future=frozen.at(-1),before=JSON.stringify({source,frozen,acceptedWeights});
+ const proposal=proposeFromSealedResearch({...args(source),latestFrozenDay:prefix.at(-1).signalDay});
+ assert.equal(proposal.candidateWeights.a,1.08);assert.equal(proposal.candidateWeights.b,.98);
+ const entry=preregisterCandidate({features:prefix,candidateWeights:proposal.candidateWeights,acceptedWeights,
+  registeredAt:prefix.at(-1).capturedAt+60000,packFingerprint:pack,parentAcceptedFingerprint:source.fingerprint,autoSourceFingerprint:source.fingerprint});
+ const context={sorted:frozen.map(f=>({day:f.signalDay,featureFingerprint:f.fingerprint,featureCapturedAt:f.capturedAt})),
+  ids:['a','b'],packFingerprint:pack,oldWeights:acceptedWeights,previousFingerprint:source.fingerprint,previousTrialFingerprint:null,
+  freshTest:[{day:future.signalDay,featureCapturedAt:future.capturedAt}]};
+ const verified=verifyPreregisteredCandidate(entry,context);
+ assert.equal(verified.status,'candidate-committed-before-new-signal');assert.equal(entry.autoSourceFingerprint,source.fingerprint);
+ for(const result of [redundancy,proposal,verified]){assert.equal(result.canTrade,false);assert.equal(result.productionWeightsChanged,false);}
+ assert.equal(proposal.evidenceReview.independenceCertified,false);assert.equal(proposal.evidenceReview.sourceAuthenticated,false);
+ const changed={...entry,candidateWeights:{...entry.candidateWeights,b:1.08}};
+ assert.throws(()=>verifyPreregisteredCandidate(changed,context),/不一致/);
+ assert.equal(JSON.stringify({source,frozen,acceptedWeights}),before,'shared evidence and accepted weights stay immutable');
 });
 test('positive but redundant factor is conservatively shrunk while independent one is capped at eight percent',()=>{
  const out=proposeFromSealedResearch(args());

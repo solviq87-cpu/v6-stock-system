@@ -176,3 +176,33 @@ test('bounded malformed input fails closed without network or implicit clocks', 
   assert.equal(bounded.nodes.length, 30); assert.equal(bounded.edges.length, 120);
   assert.equal(bounded.coverage.omittedEdges, 315);
 });
+
+test('stress co-decline comparison discloses both sample counts and remains research only',()=>{
+ const history=fixture();
+ for(let i=0;i<history.length;i++){
+  const row=history[i];
+  row.marketChangePct=i<6?-2-i*.1:0.2+i*.01;
+  row.sectors[0].changePct=i<6?-1-i*.1:Math.sin(i);
+  row.sectors[1].changePct=i<6?-2-i*.2:-Math.sin(i);
+ }
+ const x=pair(run(history)).stressComparison;
+ assert.equal(x.status,'descriptive-unverified');
+ assert.equal(x.stress.matchedSessions,6);
+ assert.equal(x.nonStress.matchedSessions,18);
+ assert.equal(x.stress.bothDownFraction,1);
+ assert.equal(x.nonStress.bothDownFraction,0);
+ assert.ok(Math.abs(x.correlationDelta-2)<1e-10);
+ assert.equal(x.causalPropagationEstablished,false);
+ assert.equal(x.canTrade,false);
+});
+test('sparse stress sessions, missing benchmark and changed members do not produce comparable tail metrics',()=>{
+ const input=fixture();
+ const x=pair(run(input)).stressComparison;
+ assert.equal(x.reason,'insufficient-stress-sessions');
+ assert.equal(x.stress.matchedSessions,0);
+ assert.equal(x.correlationDelta,null);
+ input[0].marketChangePct=null;
+ assert.equal(pair(run(input)).stressComparison.reason,'missing-or-inconsistent-market-return');
+ input[0].sectors[0].members=['600001'];
+ assert.equal(pair(run(input)).stressComparison.reason,'membership-changed');
+});

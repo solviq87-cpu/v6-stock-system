@@ -68,7 +68,7 @@ test('attempt files are immutable, corruption is rejected and uncommitted crash 
  await processQueue(root,{capture:async()=>captured()});const file=path.join(dir,'000001.json'),raw=fs.readFileSync(file);assert.equal(fs.statSync(file).mode&0o777,0o600);const result=JSON.parse(raw);result.result.observation.revision=2;fs.writeFileSync(file,JSON.stringify(result));assert.throws(()=>read(root),/校验/);
 }));
 test('unpublished temporary bytes count toward quota and oversized committed files are rejected',()=>temporary(root=>{
- enqueue(root,intent());const before=read(root).bytes,temp=path.join(root,'intents','000002.json.0123456789abcdef.tmp');fs.writeFileSync(temp,'partial',{mode:0o600});assert.equal(read(root).bytes,before+7);
+ enqueue(root,intent());const before=read(root).bytes,temp=path.join(root,'intents','000002.json.0123456789abcdef.tmp');fs.writeFileSync(temp,'partial',{mode:0o600});const live=read(root);assert.equal(live.bytes,before+7);assert.equal(live.byteScope,'current-storage-including-temporary-at-read');const historical=read(root,{now:Date.now()});assert.equal(historical.bytes,before);assert.equal(historical.byteScope,'committed-records-visible-at-cutoff');
  fs.unlinkSync(temp);const file=archiveFiles(root)[0];fs.writeFileSync(file,'x'.repeat(8193));assert.throws(()=>read(root),/校验/);
 }));
 test('snapshot accepts a strictly named stage disappearing after readdir before lstat',()=>temporary(root=>{
@@ -88,20 +88,21 @@ test('snapshot still rejects a committed or illegal entry disappearing before ls
 test('snapshot rejects a genuine orphan attempt directory',()=>temporary(root=>{
  enqueue(root,intent());fs.mkdirSync(path.join(root,'attempts','f'.repeat(64)),{mode:0o700});assert.throws(()=>read(root),/校验/);
 }));
-test('snapshot rereads a legally appended parent and published child between directory snapshots',async()=>temporary(async root=>{
+test('snapshot rereads a legally appended parent and published child between directory snapshots',async t=>temporary(async root=>{
+ const initial=Date.now(),publishedAt=initial+1000;let wall=initial;t.mock.method(Date,'now',()=>wall);
  enqueue(root,intent());const appended=intent({decisionAt:epoch+1});
  await temporary(async fixture=>{
-  const prepared=enqueue(fixture,appended);await processQueue(fixture,{now:()=>Date.now()+60000,capture:async()=>captured()});
+  const prepared=enqueue(fixture,appended);await processQueue(fixture,{now:()=>publishedAt,capture:async()=>captured()});
   const childBytes=fs.readFileSync(path.join(fixture,'attempts',prepared.id,'000001.json'));
   const original=fs.readdirSync;let inserted=false;
   fs.readdirSync=function(dir,...args){
    if(dir===path.join(root,'attempts')&&!inserted){
-    inserted=true;const result=enqueue(root,appended);assert.equal(result.id,prepared.id);
+    inserted=true;wall=publishedAt;const result=enqueue(root,appended);assert.equal(result.id,prepared.id);
     const childDir=path.join(root,'attempts',result.id);fs.mkdirSync(childDir,{mode:0o700});fs.writeFileSync(path.join(childDir,'000001.json'),childBytes,{mode:0o600});
    }
    return original.call(fs,dir,...args);
   };
-  try{const result=read(root);assert.equal(inserted,true);assert.equal(result.counts.total,2);assert.equal(result.counts.completed,1);assert.equal(result.completed[0].id,prepared.id);}finally{fs.readdirSync=original;}
+  try{const result=read(root);assert.equal(inserted,true);assert.equal(result.counts.total,2);assert.equal(result.counts.completed,1);assert.equal(result.completed[0].id,prepared.id);const past=read(root,{now:initial});assert.equal(past.counts.total,1);assert.equal(past.counts.completed,0);assert.equal(past.asOf,initial);}finally{fs.readdirSync=original;}
  });
 }));
 test('snapshot append refresh cannot hide an actual orphan or remove prior history',()=>temporary(root=>{
@@ -164,4 +165,7 @@ test('cross-process racing capture may execute twice but publishes exactly one a
  }
  try{await Promise.all(workers.map(w=>w.ready));fs.writeFileSync(barrier,'go');const results=await Promise.all(workers.map(w=>w.done));assert.equal(results.filter(r=>r.results[0].published).length,1);assert.equal(results.every(r=>r.exactlyOnce===false),true);assert.equal(read(root).counts.attempts,1);assert.equal(read(root).completed[0].id,item.id);}
  finally{try{fs.unlinkSync(barrier);}catch{}for(const w of workers)if(w.child.exitCode===null)w.child.kill();}
+}));
+test('future attempts stay invisible until their explicit completion time',async t=>temporary(async root=>{
+ const initial=Date.now();let wall=initial;t.mock.method(Date,'now',()=>wall);enqueue(root,intent());await processQueue(root,{now:()=>initial+60000,capture:async()=>captured()});assert.equal(read(root).counts.completed,0);assert.equal(read(root,{now:initial}).counts.pending,1);wall=initial+60000;assert.equal(read(root).counts.completed,1);assert.equal(read(root,{now:initial}).counts.pending,1);
 }));

@@ -1,0 +1,38 @@
+[
+  {
+    "schemaVersion": 1,
+    "source": "public-cninfo-capital",
+    "eventId": "capital-buyback-003025",
+    "sourceRevisionId": "excerpt-3b1581cf5ba81422829309a285653229ab3c12baf1c35c33c149ec3dc3c8dc34",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://static.cninfo.com.cn/finalpage/2026-11-11/1225664838.PDF",
+    "title": "思进智能回购计划及累计实施材料节选",
+    "body": "证券代码：003025\n文件落款日期：2026年11月11日\n回购计划资金不低于人民币3,000万元，且不超过人民币5,000万元。\n回购价格上限调整为人民币20.53元/股，材料所述调整日为2026年6月11日。\n回购计划实施期限为股东大会审议通过起12个月。\n截至2026年11月10日，公司累计回购2,620,000股，成交金额人民币34,789,896.38元（不含印花税、交易佣金等交易费用）。\n本次回购方案已实施完毕。",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "003025"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795827117191,
+    "revisedAt": null
+  },
+  {
+    "schemaVersion": 1,
+    "source": "public-cninfo-capital",
+    "eventId": "capital-disposal-600050",
+    "sourceRevisionId": "excerpt-48cf09b91533d5547634c5eaafeb6c137f9b00899c2218b11a7039f17dbab9ac",
+    "kind": "original",
+    "supersedes": null,
+    "url": "https://static.cninfo.com.cn/finalpage/2025-11-13/1224802231.PDF",
+    "title": "中国联通股东减持计划与已披露执行材料节选",
+    "body": "证券代码：600050\n文件落款日期：2025年11月12日\n减持主体材料字样：中国国有企业结构调整基金股份有限公司。\n材料提到此前于2025年10月11日披露减持计划。\n在2025年11月10日至2025年11月12日期间，已通过集中竞价方式减持40,700,300股。\n本次减持股份计划尚未实施完毕。",
+    "bodyScope": "provider-summary",
+    "securities": [
+      "600050"
+    ],
+    "publishedAt": null,
+    "receivedAt": 1795827123251,
+    "revisedAt": null
+  }
+]

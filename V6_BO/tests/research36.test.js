@@ -114,3 +114,76 @@ test('bounded evidence keeps endpoints and signed financial values without unive
   for(const value of values){const check=by(analyze({[field]:proof(value,rule.unit)}),strategy.id).checks.find(c=>c.field===field);assert.equal(check.missing,null,field);assert.equal(check.value,value);}
  }
 });
+
+test('F09 compare invokes original ledger for stock trend, sector and native reversal under both cost scenarios',()=>{
+ const bars=dailyBars(62),stocks=[{symbol:code,market:'main',bars}],evidenceByDate={};
+ for(const b of bars)evidenceByDate[b.date]={[code]:{
+  ma5Over10:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt}),
+  ma10Over20:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt}),
+  closeOver20:proof(1.1,'ratio',{observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt})}};
+ const r=engine.compareResearch36({strategyIds:['ma_trend','sector_resonance','quality:rsv14_reversal_confirmation'],stocks,evidenceByDate,options:{start:45,end:56,topN:1,holdDays:1,tradingDates:bars.map(b=>b.date)}});
+ assert.equal(r.status,'descriptive-only');assert.equal(r.rows.length,6);assert.equal(r.canTrade,false);assert.equal(r.rows.find(x=>x.strategyId==='sector_resonance').summary.markedReturnPct,null);
+ const original=r.rows.find(x=>x.strategyId==='ma_trend'&&x.scenario==='original-cost');
+ assert.ok(original.report.trades.length>0);assert.ok(original.report.trades.every(t=>t.sellDay>t.buyDay));
+ const native=r.rows.find(x=>x.strategyId==='quality:rsv14_reversal_confirmation');assert.equal(native.report.research36.nativeRule,'quality-volume-reversal-research/rsv14_reversal_confirmation');assert.ok(native.report.research36.signals.some(s=>s.nativeEvidence?.id==='rsv14_reversal_confirmation'));
+});
+test('F09 original fixed-window experiment rejects role inversion even if date gaps satisfy the purge',()=>{
+ const bars=dailyBars(70),input={strategyId:'price_volume',stocks:[{symbol:code,market:'main',bars}],evidenceByDate:{},
+  windows:[{label:'test-first',role:'test',start:27,end:35},{label:'train-late',role:'train',start:39,end:48},{label:'validation-late',role:'validation',start:52,end:62}]};
+ assert.throws(()=>engine.experimentResearch36(input),/角色顺序/);
+});
+
+
+function routeFixture(){
+ const bars=dailyBars(76),stocks=[{symbol:code,market:'main',bars}],evidenceByDate={},marketByDate={};
+ const ids=['ma_trend','news','oversold'],rules=engine.getCatalog().strategies.filter(s=>ids.includes(s.id)).flatMap(s=>s.rules);
+ for(const [i,b] of bars.entries()){
+  const times={observedAt:b.availableAt,availableAt:b.availableAt,recordedAt:b.availableAt};
+  evidenceByDate[b.date]={[code]:Object.fromEntries(rules.map(r=>[r.field,proof(r.op==='between'?(r.value[0]+r.value[1])/2:r.op==='gt'?r.value+.01:r.op==='lt'?r.value-.01:r.value,r.unit,times)]))};
+  marketByDate[b.date]={date:b.date,source:'declared-test-market',evidenceId:'market-'+b.date,...times,
+   scores:i%2?{breadthScore:75,indexTrendScore:80,marketVolumeScore:65,riskScore:20,volatilityScore:30,sentimentScore:75}:
+    {breadthScore:50,indexTrendScore:30,marketVolumeScore:40,riskScore:30,volatilityScore:70,sentimentScore:40}};
+ }
+ return {compareRoutes:true,stocks,evidenceByDate,marketByDate,options:{topN:1,holdDays:1,tradingDates:bars.map(b=>b.date)},
+  windows:[{label:'train',role:'train',start:27,end:39},{label:'validation',role:'validation',start:43,end:55},{label:'test',role:'test',start:59,end:71}]};
+}
+test('F21 original route experiment uses identical input and ledger costs; repeated scans reuse evaluations and switches are bounded',()=>{
+ const input=routeFixture(),before=JSON.stringify(input),r=engine.experimentResearch36(input);
+ assert.equal(r.mode,'fixed-representative-route-research');assert.equal(r.windows.length,3);assert.equal(r.evaluationCalls,36);assert.equal(r.cacheReuses,144);
+ for(const w of r.windows){
+  assert.deepEqual(Object.keys(w.arms),['trend','event','reversal','fixed','dynamic']);assert.equal(w.expectedSymbols,12);assert.equal(w.commonEvaluated,12);assert.equal(w.comparableSymbols,12);
+  assert.ok(w.arms.fixed.buyFills>0);assert.ok(w.arms.dynamic.buyFills>0);
+  for(const a of Object.values(w.arms)){assert.equal(a.report.executionModel,'position-ledger');assert.ok(a.report.trades.every(t=>t.sellDay>t.buyDay));assert.ok(a.additionalMetrics.grossTurnoverRatio>0);}
+  // One security with all representatives passing: changing the route priority
+  // alone cannot manufacture an apparent advantage.
+  assert.deepEqual(w.arms.fixed.report.equity,w.arms.dynamic.report.equity);
+  const switches=w.trace.filter(t=>t.switched);assert.ok(switches.length>0);assert.ok(switches.every((s,i)=>i===0?s.dayIndex-w.trace[0].dayIndex>=5:s.dayIndex-switches[i-1].dayIndex>=5));
+ }
+ assert.equal(r.canTrade,false);assert.equal(r.productionWeightsChanged,false);assert.equal(r.outOfSampleValidated,false);assert.equal(JSON.stringify(input),before);
+});
+test('F21 incomplete or late market receipts cause both arms to abstain, not a neutral substitute or zero-return winner',()=>{
+ const input=routeFixture();
+ for(const row of Object.values(input.marketByDate))row.recordedAt++;
+ const r=engine.experimentResearch36(input);
+ for(const w of r.windows){assert.equal(w.marketUnknownSessions,12);assert.equal(w.commonEvaluated,12);assert.equal(w.comparableSymbols,0);
+  assert.ok(w.trace.every(t=>t.market===null&&t.skipReason==='MARKET_EVIDENCE_UNKNOWN'));
+  for(const a of Object.values(w.arms)){assert.equal(a.buyFills,0);assert.equal(a.markedReturnPct,null);assert.equal(a.closedAccountReturnPct,null);}
+ }
+});
+test('F21 common coverage retains missing evidence, fixed protocol rejects overrides and malformed switches',()=>{
+ const input=routeFixture();const date=input.stocks[0].bars[27].date;delete input.evidenceByDate[date][code].newsOriginalVerified;
+ const r=engine.experimentResearch36(input),day=r.windows[0].trace[0];
+ assert.equal(day.counts.event.unknown,1);assert.equal(day.commonEvaluated,0);assert.ok(Object.values(day.pickCounts).every(n=>n===0));
+ assert.throws(()=>engine.experimentResearch36({...input,options:{...input.options,selectCandidates:()=>[code]}}),/覆盖/);
+ assert.throws(()=>engine.experimentResearch36({...input,compareRoutes:'true'}),/布尔/);
+ assert.throws(()=>engine.experimentResearch36({...input,marketByDate:{...input.marketByDate,'2099-01-01':{}}}),/非输入交易日/);
+ assert.equal(r.trialBudgetVerified,false);assert.equal(r.eligibleForPromotion,false);
+});
+
+test('F26 F35 same-window net marked equity, fees and risk comparisons use the original ledger and do not double-charge fees',()=>{
+ const mk=(value,fee)=>({buyFills:1,report:{equity:[{day:1,value:100,unpriced:[]},{day:2,value,unpriced:[]}],metrics:{initialCash:100,returnPct:value-100,maxDrawdownPct:value<100?100-value:0},orders:[{status:'filled',fees:fee,price:10,shares:1}],openPositions:[]}});
+ const x=engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:mk(103,2)}).rows.dynamic;
+ assert.equal(x.status,'descriptive-only');assert.equal(x.netMarkedReturnDeltaPct,2);assert.equal(x.feeDeltaCny,1);assert.equal(x.meanDailyReturnDeltaPct,2);assert.equal(x.actualLatencyMs,null);
+ const missing=mk(103,2);missing.report.equity[1].unpriced=['600000'];assert.equal(engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:missing}).rows.dynamic.status,'unknown');
+ const zero=mk(100,0);zero.buyFills=0;assert.equal(engine.summarizeRouteEconomics({fixed:mk(101,1),dynamic:zero}).rows.dynamic.status,'unknown');
+});

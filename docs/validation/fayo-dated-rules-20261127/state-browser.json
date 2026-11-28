@@ -1,0 +1,422 @@
+[
+  {
+    "case": "incomplete",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "本页修订链不完整，待核对",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "superseded",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "该截点已被后续版本替代",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "retracted",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "来源已撤稿",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "association",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "本次查询的证券关联已移除",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "complete",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "conflict",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "类型冲突，待核对",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "historical",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-stock",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "普通股A股 · 原文字样",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-preferred",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "优先股 · 原文字样",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-etf",
+    "viewport": [
+      1366,
+      900
+    ],
+    "http": 200,
+    "label": "ETF基金 · 原文字样",
+    "geometry": {
+      "viewport": 1366,
+      "scrollWidth": 1366
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "incomplete",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "本页修订链不完整，待核对",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "superseded",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "该截点已被后续版本替代",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "retracted",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "来源已撤稿",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "association",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "本次查询的证券关联已移除",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "complete",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "conflict",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "类型冲突，待核对",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "historical",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-stock",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "普通股A股 · 原文字样",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-preferred",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "优先股 · 原文字样",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-etf",
+    "viewport": [
+      390,
+      844
+    ],
+    "http": 200,
+    "label": "ETF基金 · 原文字样",
+    "geometry": {
+      "viewport": 390,
+      "scrollWidth": 390
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "incomplete",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "本页修订链不完整，待核对",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "superseded",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "该截点已被后续版本替代",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "retracted",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "来源已撤稿",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "association",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "本次查询的证券关联已移除",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "complete",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "conflict",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "类型冲突，待核对",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "historical",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "原文字样",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-stock",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "普通股A股 · 原文字样",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-preferred",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "优先股 · 原文字样",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  },
+  {
+    "case": "actual-etf",
+    "viewport": [
+      320,
+      740
+    ],
+    "http": 200,
+    "label": "ETF基金 · 原文字样",
+    "geometry": {
+      "viewport": 320,
+      "scrollWidth": 320
+    },
+    "pageErrors": []
+  }
+]

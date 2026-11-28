@@ -199,8 +199,36 @@ group('[9] 只读身份的可见性边界：私密数据不能从「一锅端」
 // 里面混着模拟盘双账户的现金 / 权益 / 逐票持仓 / 成交记录 —— 同一个私密等级，一个口子挡着、
 // 另一个口子敞开。这类泄露不会报错，只读设备的面板只是"照常显示"，没有任何异常迹象。
 const ST = segOf('/api/state');
+// Both reviewed routes pass the actual role. Unknown projections and literal
+// booleans fail closed; accepting the shared reader must not weaken this check.
+function dashboardRoleProjection(code) {
+  const calls = [...code.matchAll(/return\s+json\(\s*res\s*,\s*((?:buildDashboardState\(\s*isEditorReq\(\s*req\s*,\s*''\s*\)\s*\)|sharedMarketRead\(\s*'state'\s*,\s*isEditorReq\(\s*req\s*,\s*''\s*\)\s*\)))\s*\)\s*;/g)];
+  return calls.length === 1 ? calls[0][1] : null;
+}
+const dashboardCall = dashboardRoleProjection(ST.code);
 ok('/api/state 将编辑身份传入仪表盘数据投影',
-  /buildDashboardState\(isEditorReq\(req,\s*''\)\)/.test(ST.code), '段起始行 ' + ST.start);
+  !!dashboardCall, '段起始行 ' + ST.start);
+ok('/api/state 实际投影表达式分别传递只读和编辑身份', !!dashboardCall && [false, true].every(edit => {
+  let roles = 0, targets = 0;
+  const project = new Function('req', 'isEditorReq', 'sharedMarketRead', 'buildDashboardState', 'return ' + dashboardCall);
+  const value = project({}, () => { roles++; return edit; }, (kind, role) => { targets++; return {kind, role}; },
+    role => { targets++; return {kind:'state', role}; });
+  return roles === 1 && targets === 1 && value.kind === 'state' && value.role === edit;
+}));
+ok('/api/state 反证：硬编码私密或只读身份均不满足真实角色传递', [false, true].every(edit =>
+  dashboardRoleProjection(ST.code.replace(/isEditorReq\(\s*req\s*,\s*''\s*\)/g, String(edit))) === null));
+const sharedReader = SVK.slice(SVK.indexOf('function sharedMarketRead('), SVK.indexOf('const {createQuoteCrossCheck'));
+function sharedProjection(code) {
+  const calls = [...code.matchAll(/const\s+state\s*=\s*(marketCardState\(\s*kind\s*,\s*kind\s*===\s*'state'\s*\?\s*buildDashboardState\(\s*edit\s*\)\s*:\s*buildMobileDigest\(\s*edit\s*\)\s*\))\s*;/g)];
+  return calls.length === 1 ? calls[0][1] : null;
+}
+const forwarded = sharedProjection(sharedReader);
+ok('共享读取层将实际身份继续传入原仪表盘，不提升只读权限', !!forwarded && [false, true].every(edit => {
+  const project = new Function('kind', 'edit', 'marketCardState', 'buildDashboardState', 'buildMobileDigest', 'return ' + forwarded);
+  return project('state', edit, (_kind, value) => value, role => role, () => { throw Error('state不得读取手机分支'); }) === edit;
+}));
+ok('共享读取层反证：把原投影身份硬编码后检查必红', [false, true].every(edit =>
+  sharedProjection(sharedReader.replace(/buildDashboardState\(\s*edit\s*\)/g, 'buildDashboardState(' + edit + ')')) === null));
 const dashboard = SVK.slice(SVK.indexOf('function buildDashboardState('), SVK.indexOf('function buildMobileDigest('));
 const paperSource = (dashboard.match(/^\s*paper:\s*([^\n]+),$/m) || [])[1];
 ok('读取仪表盘的模拟盘投影', !!paperSource);

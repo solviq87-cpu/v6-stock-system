@@ -1,0 +1,8 @@
+{
+  "head": "aacc775e912bd5acecb6ef51b87105040e40fe01",
+  "run": 46115887746,
+  "attempt": 2,
+  "conclusion": "success",
+  "job": 140940037901,
+  "scope": "Retry only previously cancelled original read-only coverage job; no original smoke or gate changed."
+}

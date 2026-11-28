@@ -8,8 +8,8 @@ import {explainSealedResearch} from '../public/nova/research-review.mjs';
 // account writer or network. The browser suite checks the same native nodes.
 class El {
  constructor(tag){this.tagName=tag;this.children=[];this.attributes={};this.listeners={};this.dataset={};this.value='';this.text='';this.disabled=false;this.clientWidth=320;}
- set textContent(value){this.text=String(value);this.children=[];}get textContent(){return this.text+this.children.map(c=>c.textContent).join('');}
- append(...children){this.children.push(...children);}replaceChildren(...children){this.text='';this.children=[];this.append(...children);}
+ set textContent(value){this.text=value==null?'':String(value);this.children=[];}get textContent(){return this.text+this.children.map(c=>c.textContent).join('');}
+ append(...children){this.children.push(...children.map(child=>child instanceof El?child:Object.assign(new El('#text'),{textContent:String(child)})));}replaceChildren(...children){this.text='';this.children=[];this.append(...children);}
  setAttribute(k,v){this.attributes[k]=String(v);}addEventListener(k,fn){this.listeners[k]=fn;}
 }
 function dom(t){const prior={Node:globalThis.Node,document:globalThis.document};globalThis.Node=El;
@@ -20,6 +20,12 @@ const byButton=(node,label)=>walk(node).find(e=>e.tagName==='button'&&e.textCont
 const byLabel=(node,label)=>walk(node).find(e=>e.attributes['aria-label']===label);
 const trigger=(node,type='click')=>!node.disabled&&node.listeners[type]?.({preventDefault(){}});
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+test('DOM fixture preserves native primitive conversion instead of silently dropping null or zero',t=>{
+ dom(t);const host=new El('div');host.append(null,undefined,0,false,['a','b']);
+ assert.equal(host.textContent,'nullundefined0falsea,b');assert.ok(host.children.every(child=>child instanceof El));
+ host.textContent=null;assert.equal(host.textContent,'');host.textContent=undefined;assert.equal(host.textContent,'');
+ host.replaceChildren(null);assert.equal(host.textContent,'null');assert.equal(host.children[0].tagName,'#text');
+});
 const flags={researchOnly:true,canTrade:false,canNotify:false,accountMutated:false,productionWeightsChanged:false};
 const cutoff=Date.parse('2026-11-10T15:30:00+08:00'),run={id:'a'.repeat(64),symbol:'600000'};
 const modelResult=(overrides={})=>({ok:true,result:{...flags,...run,runId:run.id,asOf:cutoff,question:'support',status:'completed',modelCalled:true,
@@ -54,6 +60,12 @@ function replayResult(query,overrides={}){
  rows:['2026-11-08','2026-11-09','2026-11-10'].map(date=>({date,stock:point,sector:null,index:null})),boards:[],selectedBoard:null,missing:[],
  markers:[{...flags,kind:'news',at:cutoff-1000,knownAt:cutoff-500,ref:'news-original',source:'isolated-original',detail:{title:'合成原始证据'}}],...overrides}};
 }
+test('an absent optional replay section does not become a visible null placeholder',async t=>{
+ dom(t);let calls=0;const ctx={role:'edit',api:async p=>{calls++;return replayResult(new URL(p,'http://localhost').searchParams);}};
+ const view=createResearchReplay(ctx,{symbol:run.symbol,runId:run.id,asOf:cutoff});await trigger(byButton(view,'读取联动回放'));
+ assert.equal(calls,1);assert.match(view.textContent,/逐日数值/);
+ assert.equal(walk(view).filter(node=>node.tagName==='#text'&&['null','undefined'].includes(node.textContent)).length,0,'missing optional content must omit a node, not render a converted null string');
+});
 test('returning to a replay restores the selected evidence and zoom only after rereading the same identity',async t=>{
  dom(t);const memory={};let calls=0;const ctx={role:'edit',api:async p=>{calls++;return replayResult(new URL(p,'http://localhost').searchParams);}};
  const view=createResearchReplay(ctx,{symbol:run.symbol,runId:run.id,asOf:cutoff,memory});
@@ -149,4 +161,16 @@ test('a bound unknown receipt without a selected later plan preserves its specif
  assert.doesNotMatch(next.textContent,/后续计划原核验符合|未通过核对/);assert.match(view.textContent,/原日止损纪律触发事实/);
  const wrongAccount=await readDisciplineCase(incident,{...empty,accountId:'pre'});
  assert.equal(wrongAccount.next.dataset.nextPlanCheck,'not-ready','an empty result still needs the original account identity');
+});
+
+test('optional attention evidence never inserts a null child or keeps a previous disclosure on reread',async t=>{
+ dom(t);let attention=true,calls=0;
+ const ctx={role:'edit',api:async p=>{calls++;const q=new URL(p,'http://localhost').searchParams;return replayResult(q,attention?{attentionPair:{status:'paired-local-observations',expectedSecurities:5,validSecurities:5,pairedSecurities:5,turnoverHHI:.4,attentionHHI:.5,counterexamples:['600001']}}:{});}};
+ const view=createResearchReplay(ctx,{symbol:run.symbol,runId:run.id,asOf:cutoff});
+ await trigger(byButton(view,'读取联动回放'));
+ assert.match(view.textContent,/本地新闻与同期成交额配对/);assert.match(view.textContent,/高关注低成交反例600001/);
+ assert.ok(walk(view).every(node=>node instanceof El));
+ attention=false;await trigger(byButton(view,'读取联动回放'));
+ assert.doesNotMatch(view.textContent,/本地新闻与同期成交额配对|高关注低成交反例/);
+ assert.match(view.textContent,/逐日数值/);assert.ok(walk(view).every(node=>node instanceof El));assert.equal(calls,2);
 });

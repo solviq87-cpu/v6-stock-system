@@ -16,7 +16,7 @@ function fixture(t){
 }
 test('all existing registry routes retain a declaration stage without claiming actual use',()=>{
  const r=auditRegisteredSourceReadiness({asOf:start});
- assert.equal(r.routes.length,122);assert.deepEqual(r.summary.byDeclaredIntegrationKind,{'named-adapter':19,candidate:98,'operator-import':3,'authorized-gateway':2});
+ assert.equal(r.routes.length,122);assert.deepEqual(r.summary.byDeclaredIntegrationKind,{'named-adapter':20,candidate:97,'operator-import':3,'authorized-gateway':2});
  assert.ok(r.routes.every(x=>x.declaredAdapter&&x.runtimeUsage.status==='not-checked'&&x.runtimeUsage.adapterInvocationVerified===false));
  assert.equal(r.runtimeUsage.matchedSourceLabels,null);
  const eia=route(r,'us-eia');

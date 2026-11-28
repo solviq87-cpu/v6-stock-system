@@ -61,7 +61,7 @@ function holdout(input,plan,evaluation){if(!evaluation.selectedId)return {eligib
 function executionContract(input){const simulation={...input.simulation};for(const key of ['start','end','settlements','universeHistory'])delete simulation[key];return hash({simulation,excludedSectors:input.selectionPolicy?.excludedSectors??null,nativeEvidenceMode:input.nativeEvidence!==undefined});}
 // A checksum detects accidental corruption, not an authenticated audit trail.
 // Reconcile the existing lifecycle before allowing any read or mutation.
-function validateRegistryHistory(s,plan){
+function validateRegistryHistory(s,plan,input){
  const record=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
  const own=(o,k)=>Object.hasOwn(o,k);
  const reject=()=>{throw Error('参数注册历史或激活指针不满足冻结样本外门禁');};
@@ -88,11 +88,12 @@ function validateRegistryHistory(s,plan){
   if(!record(h)||typeof h.eligible!=='boolean'||(selected===null?
      h.eligible!==false||h.reason!=='NO_VALIDATED_CANDIDATE'||own(h,'selectedId'):h.selectedId!==selected))reject();
  }
- let active='baseline';
+ let active='baseline',retired=false,repeatedPromotion=false;
  for(const [i,e] of s.events.entries()){
   if(!record(e)||e.revision!==4+i||e.from!==active)reject();
   if(e.type==='promote'){
    if(active!=='baseline'||!selected||s.holdout?.eligible!==true||e.to!==selected)reject();
+   if(retired)repeatedPromotion=true;
    if(plan.marketGateMode==='required-on-promote'){
     const g=e.marketGate;
     if(!record(g)||g.mode!==plan.marketGateMode||g.marketRegime!=='not-systemic-selloff'||
@@ -105,18 +106,27 @@ function validateRegistryHistory(s,plan){
    }else if(own(e,'marketGate'))reject();
   }else if(e.type==='rollback'){
    if(active==='baseline'||e.to!=='baseline'||own(e,'marketGate'))reject();
+   retired=true;
   }else reject();
   active=e.to;
  }
  if(s.active!==active)reject();
+ // Older registry versions allowed repeated promotion after rollback. Preserve
+ // their history only if the full frozen validation and holdout replay match.
+ // The current promote() gate still forbids creating a new such transition.
+ if(repeatedPromotion){
+  let matched=false;
+  try{matched=hash(validation(input,plan))===hash(s.evaluation)&&hash(holdout(input,plan,s.evaluation))===hash(s.holdout);}catch{}
+  if(!matched)reject();
+ }
 }
 function createRegistry(root){
  root=safe(root);const file=path.join(root,'state.json'),inputFile=path.join(root,'input.json'),planFile=path.join(root,'plan.json');
- function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan);return {s,input,plan};}
+ function load(){const s=unseal(read(file,16*1024*1024)),input=read(inputFile),plan=read(planFile);if(s.schemaVersion!==1||s.mode!=='research-learning-registry'||s.inputFingerprint!==hash(input)||s.planFingerprint!==hash(plan)||!Number.isSafeInteger(s.revision)||s.revision<1||s.canTrade!==false)throw Error('参数注册来源或版本不符');validatePlan(input,plan);validateRegistryHistory(s,plan,input);return {s,input,plan};}
  function mutate(expected,fn,{beforePublish}={}){return withAccountLock(file,()=>{
   const {s,input,plan}=load();if(s.revision!==expected)throw Error('参数注册修订冲突');
   const original=hash(s),next=fn(s,input,plan);if(next===null)return seal(s);
-  next.revision=s.revision+1;validateRegistryHistory(next,plan);
+  next.revision=s.revision+1;validateRegistryHistory(next,plan,input);
   // Under the existing lock, recheck the authoritative files after staging I/O.
   // Do not replace a damaged or unexpectedly changed snapshot with an old view.
   atomicWrite(file,JSON.stringify(seal(next))+'\n',{beforeRename:()=>{
@@ -168,5 +178,10 @@ function createRegistry(root){
 
  return {freeze,evaluate,testHoldout,promote,rollback,verify,status:()=>seal(load().s),activeProfile};
 }
-function applyActiveProfile(input,root,expectedRevision){const profile=createRegistry(root).activeProfile(expectedRevision);if(!validDate(input.asOf)||typeof input.version!=='string'||!input.version.trim()||input.version.length>160||input.source!==profile.source||input.provider!==profile.provider||input.asOf<=profile.holdoutEnd)throw Error('激活参数仅用于同来源、冻结样本外之后的新研究数据');if(!input.simulation||input.simulation.feeSchedules||executionContract(input)!==profile.executionContract||(input.learningCostBps??41)!==profile.learningCostBps||Object.entries(profile.costs).some(([k,v])=>(input.simulation?.[k]??({feeBps:8,slippageBps:10,sellTaxBps:5}[k]))!==v))throw Error('研究成本协议发生变化，须重新验证');const result=applyParameters(input,profile.parameters);const dates=result.stocks?.[0]?.bars?.map(b=>b.date)||[],cut=dates.findIndex(d=>d>profile.holdoutEnd);if(cut<0)throw Error('激活后的独立账本缺少冻结区间之后的数据');const first=Math.max(27,cut),start=result.simulation.start??first,end=result.simulation.end??dates.length-1;if(!Number.isSafeInteger(start)||start<first||!Number.isSafeInteger(end)||end<=start||end>=dates.length)throw Error('激活后的独立账本须从冻结区间之后开始，且至少覆盖两个交易日');result.simulation={...result.simulation,start,end};result.parameterProfile={...profile,originalInputVersion:input.version};result.version=String(input.version).slice(0,100)+'@profile-'+profile.fingerprint.slice(0,16)+'-r'+profile.registryRevision;return result;}
+function assertFreshProfileInput(input){
+ if(!input||typeof input!=='object'||Array.isArray(input))throw Error('原研究输入无效');
+ if(Object.hasOwn(input,'parameterProfile')||typeof input.version==='string'&&/@profile-[a-f0-9]{16}-r\d+$/.test(input.version))
+  throw Error('已绑定参数版本的历史研究不得重新套用当前激活或回退版本；使用新冻结输入');
+}
+function applyActiveProfile(input,root,expectedRevision){assertFreshProfileInput(input);const profile=createRegistry(root).activeProfile(expectedRevision);if(!validDate(input.asOf)||typeof input.version!=='string'||!input.version.trim()||input.version.length>160||input.source!==profile.source||input.provider!==profile.provider||input.asOf<=profile.holdoutEnd)throw Error('激活参数仅用于同来源、冻结样本外之后的新研究数据');if(!input.simulation||input.simulation.feeSchedules||executionContract(input)!==profile.executionContract||(input.learningCostBps??41)!==profile.learningCostBps||Object.entries(profile.costs).some(([k,v])=>(input.simulation?.[k]??({feeBps:8,slippageBps:10,sellTaxBps:5}[k]))!==v))throw Error('研究成本协议发生变化，须重新验证');const result=applyParameters(input,profile.parameters);const dates=result.stocks?.[0]?.bars?.map(b=>b.date)||[],cut=dates.findIndex(d=>d>profile.holdoutEnd);if(cut<0)throw Error('激活后的独立账本缺少冻结区间之后的数据');const first=Math.max(27,cut),start=result.simulation.start??first,end=result.simulation.end??dates.length-1;if(!Number.isSafeInteger(start)||start<first||!Number.isSafeInteger(end)||end<=start||end>=dates.length)throw Error('激活后的独立账本须从冻结区间之后开始，且至少覆盖两个交易日');result.simulation={...result.simulation,start,end};result.parameterProfile={...profile,originalInputVersion:input.version};result.version=String(input.version).slice(0,100)+'@profile-'+profile.fingerprint.slice(0,16)+'-r'+profile.registryRevision;return result;}
 module.exports={createRegistry,applyActiveProfile,config,validation,holdout};

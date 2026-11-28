@@ -210,6 +210,26 @@ function pathStatistics(series) {
     limitations: ['仅使用按日期选择的非重叠共同区间，未纳入区间内逐日估值，回撤可能低估盘中及日内风险',
       '这是纸面暴露路径而非权威账户净值；不把非重叠等同于统计独立，也不年化不规则区间收益'] });
 }
+function opportunityReviewFor(group,system){
+  const select=r=>r.verdicts[system]==='pass',baseline=seriesFor(group,()=>1),reviewed=seriesFor(group,select);
+  const selected=group.rows.filter(select),rejected=group.rows.filter(r=>!select(r));
+  const selectedLoss=selected.filter(r=>r.netReturnPct<0),missedGain=rejected.filter(r=>r.netReturnPct>0);
+  const avoided=rejected.filter(r=>r.netReturnPct<0),n=group.rows.length;
+  const tail=rows=>{const count=Math.ceil(rows.length*.05);return {samples:rows.length,tailCount:count,meanWorstNetReturnPct:count>=10?mean(rows.map(r=>r.netReturnPct).sort((a,b)=>a-b).slice(0,count)):null};};
+  const sum=(rows,fn)=>rows.reduce((a,x)=>a+fn(x),0);
+  return report({status:n?'paper-counterfactual-only':'not-evaluated',system,commonMatureModeledCandidates:n,
+    directAllCandidate:{meanNetReturnPct:mean(baseline.map(x=>x.value)),meanCostDragPct:mean(baseline.map(x=>x.costDragPct)),tail:tail(group.rows)},
+    reviewedCandidate:{meanNetReturnPct:mean(reviewed.map(x=>x.value)),meanCostDragPct:mean(reviewed.map(x=>x.costDragPct)),tail:tail(selected)},
+    selectedCount:selected.length,rejectedCount:rejected.length,
+    netMeanDifferencePct:n?mean(reviewed.map(x=>x.value))-mean(baseline.map(x=>x.value)):null,
+    errorCostSensitivity:{thresholdNetReturnPct:0,selectedNegativeCount:selectedLoss.length,rejectedPositiveCount:missedGain.length,
+      selectedLossPerCommonCandidatePct:n?sum(selectedLoss,r=>-r.netReturnPct)/n:null,
+      missedGainPerCommonCandidatePct:n?sum(missedGain,r=>r.netReturnPct)/n:null,
+      avoidedLossPerCommonCandidatePct:n?sum(avoided,r=>-r.netReturnPct)/n:null,unfillableCostPct:null,actualDecisionErrors:null,
+      protocol:'fixed-zero-net-outcome-diagnostic; not a preregistered error budget'},
+    actualSettlementVerified:false,actualPushCoverage:null,independentCostCertified:false,
+    note:'同版本、同窗、同成本且原共同成熟纸面标签；拒绝按现金对照，不冒充实际推送/拒单/成交。不可成交与未知样本独立排除，不能估算其代价。'});
+}
 function strategyCompetition(rows, options = {}) {
   const common = commonCohorts(rows, options);
   const groups = common.groups.map(group => {
@@ -230,6 +250,7 @@ function strategyCompetition(rows, options = {}) {
         exposurePct: 100 * selected.length / group.rows.length, commonDateCount: series.length,
         meanNetReturnPct: mean(series.map(x => x.value)), selectedOutcome, rejectedOutcome, outcomeReview,
         series, nonOverlappingPeriods: nonOverlapping(series).length, pathStatistics: pathStatistics(series),
+        opportunityReview:opportunityReviewFor(group,system),
         meanCostDragPct: mean(series.map(x => x.costDragPct)) };
     });
     const enough = group.rows.length >= 30 && dates.size >= 10 && group.regime !== 'unknown';
@@ -666,13 +687,17 @@ function sensitivityStudy(history, { scenarios } = {}) {
     return { ...ledgerSummary(s.id, result), perturbation: s, modelFingerprint: hash(strategies) };
   });
   const eligible = variants.filter(v => v.filled > 0), numbers = eligible.map(v => v.metrics.returnPct);
+  const observationDay=base.end,observationTime=Date.UTC(2020,0,1)+observationDay*86400000;
+  const frozenStocks=history.stocks.filter(s=>universeObservation(base.universeHistory,String(s.symbol||s.code),s.bars[observationDay].date).eligible)
+   .map(s=>historicalStock(s,observationDay,history.source,observationTime)).filter(s=>validateFeed(s,{now:observationTime,maxAgeMs:86400000}).usable);
+  const rankSensitivity=require('./fayo-final-model-review').rankPerturbations({stocks:frozenStocks,strategies:pack.strategies,evaluate:(stock,strategies)=>evaluateCandidate({stock,strategies})});
   return report({ status: eligible.length ? 'research-only' : 'not-evaluated', variants,
     reason: eligible.length ? null : '全部扰动均无通过原门禁的模拟成交，不能宣称稳健',
     robustness: { evaluatedVariants: variants.length, variantsWithFills: eligible.length, minimumReturnPct: numbers.length ? Math.min(...numbers) : null,
       maximumReturnPct: numbers.length ? Math.max(...numbers) : null, medianReturnPct: numbers.length ? numbers.slice().sort((a, b) => a - b)[Math.floor(numbers.length / 2)] : null,
       nonNegativeFraction: numbers.length ? numbers.filter(x => x >= 0).length / numbers.length : null,
       worstDrawdownPct: eligible.length ? Math.max(...eligible.map(v => v.metrics.maxDrawdownPct)) : null },
-    inspectedConfigurations: variants.length, selection: 'all-predeclared-variants-no-winner-selection',
+    inspectedConfigurations: variants.length, rankSensitivity, additionalRankDiagnosticConfigurations:rankSensitivity.evaluatedConfigurations, selection: 'all-predeclared-variants-no-winner-selection',
     engine: 'existing-ledger-and-native-evaluateCandidate', limitations: ['范围描述不等于稳健性证明，不选最优参数或修改生产权重',
       '敏感度检查本身暴露结果，必须作为候选试验计入研究披露', '延迟改变决策观察日，成交仍走次日开盘和既有全部门禁'] });
 }
@@ -686,7 +711,11 @@ function overfittingStudy({ trialReports = [], signalDays = [], packFingerprint,
   if (!trialReturns) return report({ status: 'not-evaluated', budget, dsr: missing, pbo: missing, bootstrap: missing });
   const { matrix, dates, intervals, outcomeKnownAt, trialFingerprints, selectedColumn = 0, blocks = 8 } = trialReturns;
   const cutoff = new Date(asOf + 28800000).toISOString().slice(0, 10);
-  if (!Array.isArray(matrix) || !Array.isArray(dates) || matrix.length !== dates.length || !Array.isArray(intervals) || intervals.length !== matrix.length ||
+  if (!Array.isArray(matrix) || !matrix.length || matrix.length>10000 || !Array.isArray(matrix[0]) || !matrix[0].length || matrix[0].length>100 ||
+      matrix.some(r=>!Array.isArray(r)||r.length!==matrix[0].length||Array.from({length:r.length},(_,i)=>r[i]).some(x=>!finite(x))) ||
+      !Number.isSafeInteger(independentTrials)||independentTrials<1||independentTrials>matrix[0].length||
+      !Number.isInteger(blocks)||blocks<4||blocks>10||blocks%2||
+      !Array.isArray(dates) || matrix.length !== dates.length || !Array.isArray(intervals) || intervals.length !== matrix.length ||
       !Array.isArray(outcomeKnownAt) || outcomeKnownAt.length !== matrix.length || outcomeKnownAt.some((t, i) => !stamp(t) || t > asOf || t < Date.parse(dates[i] + 'T15:10:00+08:00')) ||
       dates.some((d, i) => !date(d) || d > cutoff || i > 0 && d <= dates[i - 1]) || intervals.some((r, i) => !date(r?.entryDate) || !date(r?.exitDate) || r.entryDate >= r.exitDate || r.exitDate !== dates[i] || i > 0 && r.entryDate <= intervals[i - 1].exitDate) ||
       !Number.isInteger(selectedColumn) || selectedColumn < 0 || !matrix.length || selectedColumn >= matrix[0]?.length) return report({ status: 'not-evaluated', budget, dsr: missing, pbo: missing, bootstrap: missing });

@@ -3,7 +3,7 @@
 // writer, notification sender or alternative execution path lives here.
 const Store=require('./research-workspace-store');
 const {positionAvailability,boundQuoteValuationMark}=require('./account-equity-evidence');
-const TYPES=['events','eventOutcomes','expectations','actuals','relations','depth','themes','portfolio'];
+const TYPES=['events','eventOutcomes','expectations','actuals','relations','depth','themes','portfolio','macroEvidence','policyEvidence','assetObservations'];
 const finite=value=>typeof value==='number'&&Number.isFinite(value);
 const SUBTYPE='deep-research-evidence-v1';
 const cleanText=value=>typeof value==='string'&&value.length<=2000&&!/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(value);
@@ -41,6 +41,7 @@ function importDeepEvidence(root,input,{now=Date.now(),authorize=()=>false}={}){
     !TYPES.includes(input.type)||!Array.isArray(input.records)||!input.records.length||input.records.length>100||
     !Number.isSafeInteger(input.revision)||input.revision<0)throw Error('请选择支持的证据类型、1至100条记录及当前档案版本');
  const records=safeMaterial(input.records);
+ if(['macroEvidence','policyEvidence'].includes(input.type))for(const row of records)require('./fayo-policy-macro-study').validateDeclaration(input.type,row);
  const inputFingerprint=Store.digest({subtype:SUBTYPE,type:input.type,records});
  const saved=()=>{
   const old=Store.readEvents(root).find(event=>event.requestId===input.requestId);
@@ -199,9 +200,13 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
  if(['missing-archive','unavailable','partial'].includes(background.status))missing.push('官方背景档案未全部取得或校验，保留未知');
  const {input:portfolio,...archiveEvidence}=D.derivePortfolioArchiveEvidence(archive||{},stored.events,
   deepPortfolioInput(materials,snapshot),{asOf:now});
+ const eventCalendar=require('./research-calendar-source').readResearchCalendar({asOf:now});
  const research=E.buildDeepResearchEvidence({...materials,archive,newsJournalRows:news,workspaceEvents:stored.events,
-  eventCalendar:require('./research-calendar-source').readResearchCalendar({asOf:now}),
+  eventCalendar,background,
   account:snapshot.account,positions:snapshot.account?.positions||[],depth:[...materials.depth,...(snapshot.depth||[])],themes:[...materials.themes,...(snapshot.themes||[])]},{asOf:now});
+ // Reuse the private journal and its actual server receipts; this extension
+ // cannot fetch or confer any new execution or publication permission.
+ research.modules[69].assetTransmission=require('./asset-transmission-review').reviewAssetTransmission(materials.assetObservations,{asOf:now,calendar:eventCalendar,background,forecastEvaluation:()=>require('./model-forward-evaluation').evaluationView(root,stored.events,{asOf:now,offset:0,limit:100})});
  // A research declaration cannot assert that the original compulsory risk
  // process has fired. That process remains independently authoritative.
  const {forcedRisk:ignoredForcedRisk,...rebalance}=portfolio.rebalance||{};
@@ -212,7 +217,8 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
   const symbols=[...new Set([...(record.sourceSnapshot?.account?.positions||[]).filter(p=>p.quantity>0).map(p=>p.symbol),
    ...record.alternatives.flatMap(a=>a.weights.filter(w=>w.weight>0).map(w=>w.symbol))])];
   const history=D.deriveDecisionReplayHistory(archive||{},stored.events,{asOf:now,informationCutoff:record.informationCutoff,symbols});
-  return {...D.replayDecisionAlternatives(record,history,{asOf:now}),historyEvidence:{status:history.status,counts:history.counts,
+  const result=D.replayDecisionAlternatives(record,history,{asOf:now});
+  return {...result,riskBudget:require('./fayo-risk-replay-review').riskBudget(record,result,stored.events),historyEvidence:{status:history.status,counts:history.counts,
    sourceRefs:history.sourceRefs,missing:history.missing},readOnly:true};
  });
  const decisionRisks=[];

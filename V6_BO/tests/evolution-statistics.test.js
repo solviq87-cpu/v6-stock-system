@@ -427,3 +427,18 @@ test('existing global immutable trial archives include rejected candidates and d
   assert.throws(() => S.readEvolutionTrialInputs({ modelDir: dir, signalDays: Array.from({ length: 60 }, (_, i) => day(i)), asOf: at(80) }), /完整性/);
   assert.equal(S.readEvolutionTrialInputs().status, 'not-evaluated');
 });
+
+test('F31 and F37 mature common modeled labels distinguish cost, missed gains and avoided losses without calling rejections errors',()=>{
+ const input=rows(),r=S.strategyCompetition(input,{asOf:at(80)});
+ const x=r.groups[0].systems[0].opportunityReview;
+ assert.equal(x.commonMatureModeledCandidates,40);assert.equal(x.selectedCount+x.rejectedCount,40);
+ assert.equal(x.reviewedCandidate.meanNetReturnPct,r.groups[0].systems[0].meanNetReturnPct);
+ assert.ok(x.errorCostSensitivity.selectedLossPerCommonCandidatePct>=0);assert.ok(x.errorCostSensitivity.missedGainPerCommonCandidatePct>=0);
+ assert.equal(x.errorCostSensitivity.actualDecisionErrors,null);assert.equal(x.errorCostSensitivity.unfillableCostPct,null);assert.equal(x.actualSettlementVerified,false);
+});
+test('F35 incomplete or malformed trial return matrix fails closed rather than crashing the research report',()=>{
+ const r=S.overfittingStudy({trialReturns:{matrix:[[.1,.2],[.1]],dates:[],intervals:[],outcomeKnownAt:[]},independentTrials:2,asOf:at(80)});
+ assert.equal(r.status,'not-evaluated');assert.equal(r.dsr.status,'not-evaluated');
+ const r2=S.overfittingStudy({trialReturns:{matrix:[[.1,.2],[.1,.2]],dates:[],intervals:[],outcomeKnownAt:[]},independentTrials:3,asOf:at(80)});
+ assert.equal(r2.status,'not-evaluated');assert.equal(r2.dsr.status,'not-evaluated');
+});

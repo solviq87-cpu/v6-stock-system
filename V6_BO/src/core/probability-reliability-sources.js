@@ -47,9 +47,13 @@ function archivedPrediction(plan, ref, {signalRoot, now}) {
     now >= e.triggerAt && now - e.triggerAt <= 60000, '原信号时点无效或已错过冻结窗口');
   const observedAt = Math.max(e.quote.receivedAt, ...e.conditions.map(c => c.updatedAt));
   assert(integer(observedAt) && observedAt <= e.triggerAt, '原信号包含晚到或未知条件');
+  // Only an explicitly captured field in the original immutable signal may
+  // enter the cohort; a client-supplied regime or hindsight reconstruction may not.
+  const archivedRegime=e.inputs?.regimeEvidence;
   return {scope:'formal', source:'production-signal-journal', sourceFingerprint:record.archiveHash,
     id:e.signalId, code:e.code, target:plan.target, modelVersion:plan.modelVersion,
-    modelFingerprint:plan.modelFingerprint, value:model.value / 100, predictedAt:e.triggerAt, observedAt};
+    modelFingerprint:plan.modelFingerprint, value:model.value / 100, predictedAt:e.triggerAt, observedAt,
+    ...(archivedRegime==null?{}:{regimeEvidence:archivedRegime})};
 }
 
 function archivedOutcome(plan, prediction, ref, {observationRoot, now, sourceCache}) {

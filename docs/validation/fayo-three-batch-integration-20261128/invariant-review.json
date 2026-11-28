@@ -1,0 +1,67 @@
+{
+  "base": "704891afa21e90f4d18c59eb66a784c40fe124f5",
+  "unchangedCriticalFiles": [
+    {
+      "path": "V6_BO/src/core/paper-order-state-machine.js",
+      "sha256": "9d374a9e516e91ea6c1e70894d1b12abbb6e8002a346a89a5e3f08b40bfe0b71",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/src/core/paper-account-ledger.js",
+      "sha256": "34449be4d824da7e1be85c23df266fd2011352092654122d55a6a50ba8efe7d5",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/src/core/paper-durable-order-service.js",
+      "sha256": "5b6895260cc31c9096efc3c961f92aa9562138d040a17a23032872f16309625b",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/src/core/a-share-calendar.js",
+      "sha256": "7f1e8b48ec2edf11f5125c1fa89c280b8aca70038554a7c2ab557d029909d7a9",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/src/core/market-data-center.js",
+      "sha256": "b6aef0e09d87788db09087858330f8ea5971829e56b3ac08876d2f70cd6a2469",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/config/repository-auto-update-owner.json",
+      "sha256": "67045be62639fde6ea02da8645f957ebf9f6239bc1d0034031e7c99d131221b5",
+      "unchanged": true
+    },
+    {
+      "path": ".github/workflows/v6-per-commit-smoke.yml",
+      "sha256": "069c7019c8eeabd89ca8d31b7c461bdddd085cb47dc3ac7b04f87ef655d711d6",
+      "unchanged": true
+    },
+    {
+      "path": ".github/workflows/v6-pr-commit-coverage.yml",
+      "sha256": "b4499fa52ccf993d7bd86b04d7cae7a0c8d25c8141656f8b319f199948d7ba1d",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/scripts/verify-pr-commit-statuses.js",
+      "sha256": "996bf1ef41f1503d11973627414df619357779c720363c0f62be3d76850d24a2",
+      "unchanged": true
+    },
+    {
+      "path": "package.json",
+      "sha256": "11f5da31b46c77053eb277e4b105dfa5b8fe99b62d708eeede950fb75723d5ed",
+      "unchanged": true
+    },
+    {
+      "path": "V6_BO/package.json",
+      "sha256": "c9d9174c723b413bd99f578b0368cabc16752ab18c8ffde8e52f40604febb2f8",
+      "unchanged": true
+    }
+  ],
+  "commitCap": 64,
+  "smokeOrdinaryPushCap": 32,
+  "smokeDirectMergeCap": 65,
+  "noGateChanged": true,
+  "dependencyManifestsUnchanged": true,
+  "registryOnlyChange": "szse-etf-monthly candidate -> manual-monthly-etf-publication, access remains permission-review; no new API enabled",
+  "finalProductionPermissionChanged": false
+}

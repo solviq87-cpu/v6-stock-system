@@ -1,0 +1,176 @@
+{
+  "scope": "controlled CPU workers with original admission leases, actual reserved risk worker, isolated cash-only paper account, unreadable peer, declared closed session",
+  "node": "v24.22.3",
+  "cpu": "AMD EPYC 9V74 80-Core Processor",
+  "sourceTree": "9664bec371fab72f99b92633006500f3deda0704",
+  "rejections": [
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.832
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.228
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.282
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.229
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.197
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.205
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.258
+    },
+    {
+      "code": "WORKSPACE_BUSY",
+      "ms": 0.264
+    }
+  ],
+  "workerLoops": [
+    7251,
+    5291,
+    3321,
+    2345,
+    4765,
+    3608,
+    3449,
+    2261,
+    4510,
+    3183,
+    4367,
+    3396,
+    4865,
+    3191,
+    3005,
+    2196
+  ],
+  "samples": {
+    "idle": [
+      {
+        "ms": 104.412,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 77.844,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 74.023,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 85.08,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 71.45,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 68.581,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 75.801,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 80.83,
+        "riskSlots": 1,
+        "backgroundSlots": 0,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      }
+    ],
+    "loaded": [
+      {
+        "ms": 119.05,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 79.155,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 80.573,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 82.55,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 70.066,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 76.683,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 78.054,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      },
+      {
+        "ms": 81.307,
+        "riskSlots": 1,
+        "backgroundSlots": 2,
+        "peer": "ORIGINAL_READ_REJECTED_OR_UNAVAILABLE"
+      }
+    ]
+  },
+  "latencyMs": {
+    "idle": {
+      "p50": 75.801,
+      "p95": 104.412,
+      "n": 8
+    },
+    "loaded": {
+      "p50": 79.155,
+      "p95": 119.05,
+      "n": 8
+    }
+  },
+  "unchangedAccount": true,
+  "published": false,
+  "realTraining": false,
+  "realMarket": false
+}

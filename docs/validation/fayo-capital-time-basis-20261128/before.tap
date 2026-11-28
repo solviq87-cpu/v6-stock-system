@@ -1,0 +1,200 @@
+✖ 历史减持材料落款、执行区间与本次接收分别保留，不取URL路径当发布日 (7.007895ms)
+✖ 回购落款与累计截止日不同，缺少起止区间时不补全 (1.795429ms)
+✖ 缺少明确文件日期时不从接收、URL、已有发布时间或其他日期推断 (0.714107ms)
+✖ 非法、冲突或未来材料日期要求复核，不能滚动到下一月或取最后一个 (0.643431ms)
+✖ 执行区间倒置、非法、未来或晚于材料日期时不形成有效区间 (0.549489ms)
+✖ 拟定计划窗口不是已披露执行区间 (0.704312ms)
+✖ 多个不同执行区间不合并，重复同一区间可保留 (0.887369ms)
+✖ 历史日期可以展示但不能解除事件停用或授予交易时点资格 (0.578403ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109.050865
+
+✖ failing tests:
+
+test at tests/fayo-capital-time-basis.test.mjs:9:1
+✖ 历史减持材料落款、执行区间与本次接收分别保留，不取URL路径当发布日 (7.007895ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - '2025-11-12'
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:11:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2025-11-12',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:16:1
+✖ 回购落款与累计截止日不同，缺少起止区间时不补全 (1.795429ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - '2026-11-11'
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:18:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2026-11-11',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:21:1
+✖ 缺少明确文件日期时不从接收、URL、已有发布时间或其他日期推断 (0.714107ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:23:32)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:25:1
+✖ 非法、冲突或未来材料日期要求复核，不能滚动到下一月或取最后一个 (0.643431ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:28:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:31:1
+✖ 执行区间倒置、非法、未来或晚于材料日期时不形成有效区间 (0.549489ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:34:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:37:1
+✖ 拟定计划窗口不是已披露执行区间 (0.704312ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:39:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:41:1
+✖ 多个不同执行区间不合并，重复同一区间可保留 (0.887369ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - null
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:43:69)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/fayo-capital-time-basis.test.mjs:47:1
+✖ 历史日期可以展示但不能解除事件停用或授予交易时点资格 (0.578403ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + undefined
+  - '2025-11-12'
+
+      at TestContext.<anonymous> (file:///workspace/fayo-dated-rules/V6_BO/tests/fayo-capital-time-basis.test.mjs:49:43)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: '2025-11-12',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

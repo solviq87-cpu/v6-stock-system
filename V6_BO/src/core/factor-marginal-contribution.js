@@ -19,7 +19,7 @@ function evaluateScope(days,ids,proposal,without,score,required){
   betterDayPct:null,worseDayPct:null,worstDeltaIC:null,
   supportsIncrement:false,stronglyHarmful:false};
  if(days.length<required)return sample;
- const delta=[];
+ const delta=[],regimeDeltas=new Map();
  for(const d of days){
   const withIt=score([d],ids,proposal);
   const withoutIt=score([d],ids,without);
@@ -28,7 +28,11 @@ function evaluateScope(days,ids,proposal,without,score,required){
   if(!finite(withIt.meanIC)||!finite(withoutIt.meanIC)||
      Math.abs(withIt.meanIC)>1||Math.abs(withoutIt.meanIC)>1)
    throw Error('因子反事实IC证据超出有限相关范围');
-  delta.push(withIt.meanIC-withoutIt.meanIC);
+  const diff=withIt.meanIC-withoutIt.meanIC;
+  delta.push(diff);
+  const regime=['systemic-selloff','not-systemic-selloff'].includes(d.regime)?d.regime:'unknown';
+  if(!regimeDeltas.has(regime))regimeDeltas.set(regime,[]);
+  regimeDeltas.get(regime).push(diff);
  }
  const mid=Math.floor(delta.length/2);
  const mean=average(delta),early=average(delta.slice(0,mid)),
@@ -37,6 +41,7 @@ function evaluateScope(days,ids,proposal,without,score,required){
   minus=delta.filter(x=>x<-.00000001).length/delta.length;
  return {...sample,status:'paired-unverified',comparedDays:delta.length,
   meanDeltaIC:round(mean),earlyDeltaIC:round(early),recentDeltaIC:round(recent),
+  marketScenarios:[...regimeDeltas].map(([regime,values])=>({regime,comparedDays:values.length,meanDeltaIC:round(average(values)),applicabilityCertified:false})),
   betterDayPct:round(plus*100,2),worseDayPct:round(minus*100,2),
   worstDeltaIC:round(Math.min(...delta)),
   supportsIncrement:mean>.002&&plus>=.6&&early>=-.001&&recent>=-.001,
@@ -106,6 +111,24 @@ function assessFactorMarginalContribution({
    status:!comparable?'incomparable':harmful?'harmful-adjustment':
     supported?'supported-unverified':'increment-unconfirmed'});
  }
+ // Classify the declared experiment without treating absence of a weight
+ // change, missing observations or an inconclusive IC as permanent invalidity.
+ const evaluations=new Map(factors.map(x=>[x.factorId,x]));
+ const dispositions=ids.map(factorId=>{
+  const evaluated=evaluations.get(factorId);
+  return {factorId,
+   status:!evaluated?'not-triggered':!evaluated.comparable?'data-blocked':
+    evaluated.confirmedHarm?'negative-ic-evidence':
+    evaluated.supportedIncrement?'positive-ic-unverified':'inconclusive-ic',
+   applicability:'not-assessed',permanentlyInvalid:false,
+   reviewScope:evaluated?{training:{firstDay:evaluated.training.firstDay,lastDay:evaluated.training.lastDay,comparedDays:evaluated.training.comparedDays},
+    validation:{firstDay:evaluated.validation.firstDay,lastDay:evaluated.validation.lastDay,comparedDays:evaluated.validation.comparedDays},
+    holdout:{firstDay:evaluated.holdout.firstDay,lastDay:evaluated.holdout.lastDay,comparedDays:evaluated.holdout.comparedDays},
+    marketScenarios:evaluated.holdout.marketScenarios??[],researchUse:'same-frozen-cross-section-rank-ic-only',requiresOriginalHumanApproval:true}:null,
+   approvedUses:[],canPromote:false,
+   economicValue:{netReturnDelta:null,tailLossDelta:null,latencyDeltaMs:null,resourceDelta:null,
+    status:'not-observed-by-ic-scorer'}};
+ });
  const harmfulFactorIds=factors.filter(x=>x.confirmedHarm).map(x=>x.factorId),
   supportedFactorIds=factors.filter(x=>x.supportedIncrement).map(x=>x.factorId),
   incomparableFactorIds=factors.filter(x=>!x.comparable).map(x=>x.factorId);
@@ -115,7 +138,9 @@ function assessFactorMarginalContribution({
   evidenceBasis:'frozen-factor-training-and-time-isolated-forward-observation',
   labelTimeEvidence:hasLabelDates?'provided-and-checked':'not-provided',
   counterfactual:'revert-one-factor-to-accepted-weight-others-stay-proposed',
-  changedFactorCount:factors.length,factors,
+  changedFactorCount:factors.length,factors,dispositions,
+  valueScope:'paired-rank-ic-only',independentEconomicValueVerified:false,
+  automaticPromotionAuthorized:false,
   harmfulFactorIds,supportedFactorIds,incomparableFactorIds,
   blocksPromotion:harmfulFactorIds.length>0||incomparableFactorIds.length>0,
   canTrade:false,productionWeightsChanged:false};
