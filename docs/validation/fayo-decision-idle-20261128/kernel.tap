@@ -1,0 +1,242 @@
+TAP version 13
+# Subtest: the actual sector parser mainInflow/CNY/receipt contract is projected without inventing an upstream clock
+ok 1 - the actual sector parser mainInflow/CNY/receipt contract is projected without inventing an upstream clock
+  ---
+  duration_ms: 13.642722
+  type: 'test'
+  ...
+# Subtest: unknown unit/source, conflicting days and fields, future evidence and ambiguous duplicates stay missing
+ok 2 - unknown unit/source, conflicting days and fields, future evidence and ambiguous duplicates stay missing
+  ---
+  duration_ms: 2.008211
+  type: 'test'
+  ...
+# Subtest: a selected stock filters the full same-day response while old/current day data cannot substitute for one another
+ok 3 - a selected stock filters the full same-day response while old/current day data cannot substitute for one another
+  ---
+  duration_ms: 2.326752
+  type: 'test'
+  ...
+# Subtest: lazy shared reads reject late previous-day replies and never restore data after abort
+ok 4 - lazy shared reads reject late previous-day replies and never restore data after abort
+  ---
+  duration_ms: 14.102266
+  type: 'test'
+  ...
+# Subtest: a mismatched response day is not accepted as the requested archive
+ok 5 - a mismatched response day is not accepted as the requested archive
+  ---
+  duration_ms: 1.361505
+  type: 'test'
+  ...
+# Subtest: decision cards retain real plan values, expose sources and cap the list at three
+ok 6 - decision cards retain real plan values, expose sources and cap the list at three
+  ---
+  duration_ms: 16.56941
+  type: 'test'
+  ...
+# Subtest: resonance counts independent same-day strategies and takes priority over score
+ok 7 - resonance counts independent same-day strategies and takes priority over score
+  ---
+  duration_ms: 5.746984
+  type: 'test'
+  ...
+# Subtest: observations, proxy auction inputs, failed responses, future receipts and old strategy lists do not become resonance
+ok 8 - observations, proxy auction inputs, failed responses, future receipts and old strategy lists do not become resonance
+  ---
+  duration_ms: 6.53312
+  type: 'test'
+  ...
+# Subtest: the original quote gate includes 15 seconds and rejects 15001 ms without refreshing time
+ok 9 - the original quote gate includes 15 seconds and rejects 15001 ms without refreshing time
+  ---
+  duration_ms: 11.185873
+  type: 'test'
+  ...
+# Subtest: missing, future, cross-day, mismatched and reception-only quotes cannot produce cards
+ok 10 - missing, future, cross-day, mismatched and reception-only quotes cannot produce cards
+  ---
+  duration_ms: 2.767027
+  type: 'test'
+  ...
+# Subtest: risk exclusions, prior holdings, sealed quotes and contradictory duplicate prices block cards
+ok 11 - risk exclusions, prior holdings, sealed quotes and contradictory duplicate prices block cards
+  ---
+  duration_ms: 3.721627
+  type: 'test'
+  ...
+# Subtest: incomplete and inverted plans stay unknown and never fill synthetic plan numbers
+ok 12 - incomplete and inverted plans stay unknown and never fill synthetic plan numbers
+  ---
+  duration_ms: 1.992207
+  type: 'test'
+  ...
+# Subtest: position plans respect actual cash, suspended accounts and the existing position cap
+ok 13 - position plans respect actual cash, suspended accounts and the existing position cap
+  ---
+  duration_ms: 3.441915
+  type: 'test'
+  ...
+# Subtest: weather missing data and zero denominators remain explicit, without fake bearish zeros
+ok 14 - weather missing data and zero denominators remain explicit, without fake bearish zeros
+  ---
+  duration_ms: 2.226401
+  type: 'test'
+  ...
+# Subtest: mixed source, scope, day or timestamp limit counts cannot make a valid ratio
+ok 15 - mixed source, scope, day or timestamp limit counts cannot make a valid ratio
+  ---
+  duration_ms: 1.115874
+  type: 'test'
+  ...
+# Subtest: weather rejects invalid coverage sums, negative counts, future and cross-day evidence
+ok 16 - weather rejects invalid coverage sums, negative counts, future and cross-day evidence
+  ---
+  duration_ms: 0.831665
+  type: 'test'
+  ...
+# Subtest: red weather withholds cards, caution allows complete plans, and no-signal wording is stable
+ok 17 - red weather withholds cards, caution allows complete plans, and no-signal wording is stable
+  ---
+  duration_ms: 0.763282
+  type: 'test'
+  ...
+# Subtest: market close, stale session, lunch and both auctions cannot turn same-day observations into a current plan
+ok 18 - market close, stale session, lunch and both auctions cannot turn same-day observations into a current plan
+  ---
+  duration_ms: 1.545032
+  type: 'test'
+  ...
+# Subtest: details conclusion has four attributed evidence classes and clearly marks unknown evidence
+ok 19 - details conclusion has four attributed evidence classes and clearly marks unknown evidence
+  ---
+  duration_ms: 1.547306
+  type: 'test'
+  ...
+# Subtest: display-only dashboard rows never become buy cards and a real zero score remains a score
+ok 20 - display-only dashboard rows never become buy cards and a real zero score remains a score
+  ---
+  duration_ms: 0.355086
+  type: 'test'
+  ...
+# Subtest: server authority owns plan arithmetic; the browser exports only receipt validation
+ok 21 - server authority owns plan arithmetic; the browser exports only receipt validation
+  ---
+  duration_ms: 61.948944
+  type: 'test'
+  ...
+# Subtest: the real scanner quote projection can produce a decision without manufacturing canTrade=true
+ok 22 - the real scanner quote projection can produce a decision without manufacturing canTrade=true
+  ---
+  duration_ms: 1.542478
+  type: 'test'
+  ...
+# Subtest: current candidates keep strategy lineage separate and replace a whole original quote group
+ok 23 - current candidates keep strategy lineage separate and replace a whole original quote group
+  ---
+  duration_ms: 1.456388
+  type: 'test'
+  ...
+# Subtest: a fresh quote cannot revive a forbidden source, wrong strategy day or unverified K-line plan
+ok 24 - a fresh quote cannot revive a forbidden source, wrong strategy day or unverified K-line plan
+  ---
+  duration_ms: 25.755204
+  type: 'test'
+  ...
+# Subtest: weather caps cannot silently resize the existing account; caution suppresses over-budget cards
+ok 25 - weather caps cannot silently resize the existing account; caution suppresses over-budget cards
+  ---
+  duration_ms: 3.011326
+  type: 'test'
+  ...
+# Subtest: four rule perspectives report missing source evidence, without pretending an LLM or a win rate
+ok 26 - four rule perspectives report missing source evidence, without pretending an LLM or a win rate
+  ---
+  duration_ms: 2.662909
+  type: 'test'
+  ...
+# Subtest: authority identifiers survive same-price quote refreshes but change when the actual plan changes
+ok 27 - authority identifiers survive same-price quote refreshes but change when the actual plan changes
+  ---
+  duration_ms: 4.515426
+  type: 'test'
+  ...
+# Subtest: browser validation rejects stale packages, missing authority and inconsistent plan or quote metadata
+ok 28 - browser validation rejects stale packages, missing authority and inconsistent plan or quote metadata
+  ---
+  duration_ms: 3.882219
+  type: 'test'
+  ...
+# Subtest: server plans require attributed K-line and account snapshots for every numeric plan field
+ok 29 - server plans require attributed K-line and account snapshots for every numeric plan field
+  ---
+  duration_ms: 5.330635
+  type: 'test'
+  ...
+# Subtest: fresh, original cross-source conflicts add a centre exclusion without generating a quote or a perfect Q
+ok 30 - fresh, original cross-source conflicts add a centre exclusion without generating a quote or a perfect Q
+  ---
+  duration_ms: 18.723161
+  type: 'test'
+  ...
+# Subtest: shared snapshot reads run every five seconds, pause hidden and immediately resume visible
+ok 31 - shared snapshot reads run every five seconds, pause hidden and immediately resume visible
+  ---
+  duration_ms: 4.301722
+  type: 'test'
+  ...
+# Subtest: slow snapshot reads remain single flight and abort prevents polling or visibility resurrection
+ok 32 - slow snapshot reads remain single flight and abort prevents polling or visibility resurrection
+  ---
+  duration_ms: 0.966899
+  type: 'test'
+  ...
+# Subtest: an initially hidden session waits for visibility and a failed read does not stop subsequent reads
+ok 33 - an initially hidden session waits for visibility and a failed read does not stop subsequent reads
+  ---
+  duration_ms: 0.64262
+  type: 'test'
+  ...
+# (node:1528421) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/v6/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+# Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+# To eliminate this warning, add "type": "module" to /workspace/v6/V6_BO/package.json.
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: local expiry keeps the inclusive 15-second boundary and uses one deadline without a read
+ok 34 - local expiry keeps the inclusive 15-second boundary and uses one deadline without a read
+  ---
+  duration_ms: 6.305577
+  type: 'test'
+  ...
+# Subtest: a hidden view pauses timers and repaints overdue evidence on resume, including offline
+ok 35 - a hidden view pauses timers and repaints overdue evidence on resume, including offline
+  ---
+  duration_ms: 0.594006
+  type: 'test'
+  ...
+# Subtest: resuming before expiry preserves the original deadline instead of renewing quote time
+ok 36 - resuming before expiry preserves the original deadline instead of renewing quote time
+  ---
+  duration_ms: 0.539925
+  type: 'test'
+  ...
+# Subtest: a newer observation replaces the pending deadline; closing or aborting cannot resurrect it
+ok 37 - a newer observation replaces the pending deadline; closing or aborting cannot resurrect it
+  ---
+  duration_ms: 0.51655
+  type: 'test'
+  ...
+# Subtest: missing, invalid and already historical evidence creates no timer
+ok 38 - missing, invalid and already historical evidence creates no timer
+  ---
+  duration_ms: 0.818576
+  type: 'test'
+  ...
+1..38
+# tests 38
+# suites 0
+# pass 38
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 466.130105
