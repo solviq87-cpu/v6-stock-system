@@ -2,6 +2,8 @@
 // Existing private research journal only. Source/licence declarations are not
 // independently certified. No fetching, trading, notifications or account writes.
 const {sessionMinute,PRIOR_DAYS}=require('./index-window-research').sameMinuteResearchPolicy;
+const {reviewConditionalMarkets}=require('./conditional-market-research');
+const {reviewFoundationReadiness}=require('./conditional-model-research');
 const MIN=60000,MAX=500,WIDTH=5;
 const flags={researchOnly:true,canTrade:false,canNotify:false,independentlyVerified:false,independentValueVerified:false};
 const finite=x=>typeof x==='number'&&Number.isFinite(x),pos=x=>finite(x)&&x>0;
@@ -65,12 +67,14 @@ function industry(r,rows){
  if(![basket,fund-index,basket-index].every(finite))return null;
  return {fund:m.fund,industryIndex:m.index,memberCount:m.weights.length,weightSum:1,fundReturnPct:round(fund),weightedPriceReturnPct:round(basket),indexReturnPct:round(index),fundMinusIndexPct:round(fund-index),basketMinusIndexPct:round(basket-index),trackingErrorVerified:false,evidence:[evidence(m),evidence(r)]};
 }
-function reviewAssetTransmission(records,{asOf,calendar,background}={}){
+function reviewAssetTransmission(records,{asOf,calendar,background,forecastEvaluation}={}){
  const report=(task,title)=>({task,title,status:'unknown',attempted:0,computed:0,rows:[],rejected:0,...flags});
  const reports={F022:report('F02.2','ETF同分钟成交异常'),F083:report('F08.3','商品合约与企业敞口'),F085:report('F08.5','A/H同步相对价格'),F171:report('F17.1','行业ETF与冻结权重'),F172:report('F17.2','宽基与行业ETF成交分化')};
  const result={mode:'existing-private-asset-transmission-v1',...flags,reports,officialEtfBackground:Array.isArray(background?.rows)&&background.rows.some(r=>r?.provider==='szse-fund'&&r.status==='verified-latest-receipt')?'monthly-receipt-only':'not-observed',monthlyOrDailySubstitutesForMinutes:false,sourcePermissionCertified:false};
  if(!time(asOf)||!Array.isArray(records)||records.length>MAX)return {...result,status:'unavailable-input-budget-or-clock'};
  const rows=visible(records,asOf),windows=new Map();
+ result.conditionalMarkets=reviewConditionalMarkets(rows,{asOf,calendar});
+ result.foundationModel=reviewFoundationReadiness(rows,{asOf,forecastEvaluation});
  for(const r of rows){if(r.kind==='etf-window'){const w=fundWindow(r,rows);const a=r.points?.[0]?.quoteAt;const k=time(a)&&id(r.fund)&&sessionMinute(a)!==null?key(r.fund,day(a),sessionMinute(a)):null;reports.F022.attempted++;if(!k){reports.F022.rejected++;continue;}windows.set(k,windows.has(k)?null:w);continue;}
   const defs={ 'commodity-window':['F083',commodity], 'ah-snapshot':['F085',ah], 'industry-window':['F171',industry]};if(!Object.hasOwn(defs,r.kind))continue;const def=defs[r.kind];
   const a=r.kind==='ah-snapshot'?r.at:r.startAt,b=r.kind==='ah-snapshot'?r.at:r.endAt;

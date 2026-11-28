@@ -205,7 +205,7 @@ async function runDeepResearch({root,shortlineRoot,newsRoot,backgroundRoot,now=D
   account:snapshot.account,positions:snapshot.account?.positions||[],depth:[...materials.depth,...(snapshot.depth||[])],themes:[...materials.themes,...(snapshot.themes||[])]},{asOf:now});
  // Reuse the private journal and its actual server receipts; this extension
  // cannot fetch or confer any new execution or publication permission.
- research.modules[69].assetTransmission=require('./asset-transmission-review').reviewAssetTransmission(materials.assetObservations,{asOf:now,calendar:eventCalendar,background});
+ research.modules[69].assetTransmission=require('./asset-transmission-review').reviewAssetTransmission(materials.assetObservations,{asOf:now,calendar:eventCalendar,background,forecastEvaluation:()=>require('./model-forward-evaluation').evaluationView(root,stored.events,{asOf:now,offset:0,limit:100})});
  // A research declaration cannot assert that the original compulsory risk
  // process has fired. That process remains independently authoritative.
  const {forcedRisk:ignoredForcedRisk,...rebalance}=portfolio.rebalance||{};

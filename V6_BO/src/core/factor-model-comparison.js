@@ -110,4 +110,26 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility(rawAcceptedDeltas)},
   originalGatePassed};
 }
-module.exports={compareShadowVersions};
+// Forecast research: select chronological non-overlapping origin/target windows
+// without using the result to choose dates. Equal dates share the same block.
+// This is a descriptive price-error comparison, not independent proof or promotion.
+function compareFoundationWindows(rows){
+ const base={mode:'nonoverlapping-forecast-blocks-v1',status:'unknown',attempted:Array.isArray(rows)?rows.length:0,selected:0,omitted:0,windows:0,blocks:[],bothBlocksImproved:null,independenceCertified:false,canTrade:false,autoPromotion:false};
+ if(!Array.isArray(rows)||rows.length>10000||!rows.length)return base;
+ const good=r=>r&&date(r.originDate)&&date(r.targetDate)&&r.originDate<r.targetDate&&typeof r.symbol==='string'&&/^\d{6}$/.test(r.symbol)&&[r.absoluteError,r.naiveError,r.driftError].every(x=>finite(x)&&x>=0)&&r.corporateActionEvidence==='declared-no-action'&&r.latestCorporateActionEvidence==='declared-no-action'&&r.revisedOutcome===false&&r.outcomeConflictSeen===false;
+ if(!rows.every(good))return {...base,status:'incomparable-outcomes'};
+ const groups=new Map(),seen=new Set();
+ for(const r of rows){const key=JSON.stringify([r.originDate,r.targetDate]),identity=JSON.stringify([r.symbol,r.originDate,r.targetDate]);if(seen.has(identity))return {...base,status:'duplicate-outcomes'};seen.add(identity);const g=groups.get(key)||{from:r.originDate,to:r.targetDate,rows:[]};g.rows.push(r);groups.set(key,g);}
+ const windows=[];let through='';for(const w of [...groups.values()].sort((a,b)=>a.to.localeCompare(b.to)||a.from.localeCompare(b.from))){if(w.from>through){windows.push(w);through=w.to;}}
+ const selected=windows.flatMap(w=>w.rows),common={...base,selected:selected.length,omitted:rows.length-selected.length,windows:windows.length};
+ if(windows.length<10||selected.length<30||new Set(selected.map(r=>r.symbol)).size<5)return {...common,status:'insufficient-nonoverlapping-windows'};
+ const split=Math.floor(windows.length/2),blocks=[];let improved=true;
+ for(const ws of [windows.slice(0,split),windows.slice(split)]){
+  const rs=ws.flatMap(w=>w.rows),model=mean(rs.map(r=>r.absoluteError)),naive=mean(rs.map(r=>r.naiveError)),drift=mean(rs.map(r=>r.driftError));
+  if(![model,naive,drift].every(finite))return {...common,status:'incomparable-outcomes'};
+  const tolerance=1e-8*Math.max(1,model,naive,drift),better=model<naive-tolerance&&model<drift-tolerance;improved=improved&&better;
+  blocks.push({from:ws[0].from,to:ws.at(-1).to,windows:ws.length,samples:rs.length,modelMae:round(model),naiveMae:round(naive),driftMae:round(drift),bothBaselinesBeaten:better});
+ }
+ return {...common,status:'descriptive-two-blocks',blocks,bothBlocksImproved:improved};
+}
+module.exports={compareShadowVersions,compareFoundationWindows};

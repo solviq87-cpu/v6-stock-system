@@ -3,6 +3,7 @@
 // treats a model-generated candle as a price, a fill, or a realized return.
 const path=require('node:path');
 const S=require('./research-workspace-store');
+const {compareFoundationWindows}=require('./factor-model-comparison');
 const VERSION='frozen-close-forecast-v1',HORIZONS=[1,5,20,60];
 const MODEL_IDENTITY_FIELDS=['id','revision','weightsHash','tokenizerRevision','trainingCutoff','seed','temperature','topP','sampleCount'];
 const modelIdentity=model=>Object.fromEntries(MODEL_IDENTITY_FIELDS.map(k=>[k,model[k]??null]));
@@ -244,7 +245,7 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
    if(!groups.has(key))groups.set(key,{key,model:d.model,provider:d.provider,horizon:f.horizon,pointKind:f.pointKind,quantileLevels:f.quantiles.map(q=>q.level),total:0,pending:0,missing:0,invalid:0,repeated:0,dueUnique:0,invalidDue:0,values:[],days:new Set(),symbols:new Set(),windows:[]});
    const group=groups.get(key);group.total++;
    const row={id:event.hash,runId:d.runId,inputFingerprint:d.inputFingerprint,symbol:d.symbol,provider:d.provider,modelKey,model,modelId:d.model.id,revision:d.model.revision,
-    horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null};
+    horizon:f.horizon,originDate:d.originDate,targetDate:f.targetDate,recordedAt:event.recordedAt,point:f.point,pointKind:f.pointKind,quantiles:f.quantiles,status:'pending',actual:null,absoluteError:null,naiveError:null,driftError:null,pinballLoss:null,covered:null,resourceDeclaration:{latencyMs:d.model.latencyMs??null,peakMemoryMb:d.model.peakMemoryMb??null}};
    const unique=[modelKey,d.symbol,d.provider,d.originDate,f.horizon].join('|');
    if(dedup.has(unique)){row.status='repeated-origin';group.repeated++;rows.push(row);continue;}dedup.add(unique);
    const due=asOf>=close(f.targetDate);if(due)group.dueUnique++;
@@ -272,7 +273,9 @@ function evaluateForecasts(forecasts,events,{asOf=Date.now(),symbol,runId,offset
  }
  const summaries=[...groups.values()].map(g=>{let end='',windows=0;for(const w of g.windows.sort((a,b)=>a.to.localeCompare(b.to)))if(w.from>end){windows++;end=w.to;}
   const n=g.values.length,intervals=g.values.filter(r=>r.covered!==null),drift=g.values.map(r=>r.driftError).filter(finite),pinball=g.values.map(r=>r.pinballLoss).filter(finite),baseline=mean(g.values.map(r=>r.naiveError)),mae=mean(g.values.map(r=>r.absoluteError));
-  return {model:g.model,provider:g.provider,horizon:g.horizon,pointKind:g.pointKind,quantileLevels:g.quantileLevels,total:g.total,matured:n,pending:g.pending,missing:g.missing,invalid:g.invalid,repeated:g.repeated,
+  const resourceRows=g.values.filter(r=>[r.resourceDeclaration.latencyMs,r.resourceDeclaration.peakMemoryMb].every(x=>finite(x)&&x>0));
+  const resourceEvidence={samples:resourceRows.length,maxLatencyMs:resourceRows.length?Math.max(...resourceRows.map(r=>r.resourceDeclaration.latencyMs)):null,maxPeakMemoryMb:resourceRows.length?Math.max(...resourceRows.map(r=>r.resourceDeclaration.peakMemoryMb)):null,firstForecastRecordedAt:n?Math.min(...g.values.map(r=>r.recordedAt)):null,lastForecastRecordedAt:n?Math.max(...g.values.map(r=>r.recordedAt)):null,independentlyVerified:false};
+  return {model:g.model,provider:g.provider,horizon:g.horizon,pointKind:g.pointKind,quantileLevels:g.quantileLevels,total:g.total,matured:n,pending:g.pending,missing:g.missing,invalid:g.invalid,repeated:g.repeated,foundationWindows:compareFoundationWindows(g.values),resourceEvidence,
    expectedUnique:g.total-g.repeated,dueUnique:g.dueUnique,notYetDueUnique:g.total-g.repeated-g.dueUnique,invalidDue:g.invalidDue,
    dueOutcomeCoverage:g.dueUnique?round(n/g.dueUnique):null,completeDueOutcomeEvidence:g.dueUnique>0&&n===g.dueUnique,
    signalDays:g.days.size,symbols:g.symbols.size,nonOverlappingWindows:windows,mae:round(mae),naiveMae:round(baseline),driftMae:round(mean(drift)),driftSamples:drift.length,
