@@ -420,6 +420,17 @@ function planNoticeDetails(ctx,row) {
           old.kind==='stop'?'原止损观察价 '+old.stop+' 元':'原目标观察价 '+old.target+' 元'),
         old && el('p',{},'原预检 · '+old.reason),
         old && el('small',{},'决策 ID '+old.decisionId),
+        old?.sampledPath&&el('details',{class:'fy-details'},el('summary',{},'原触发前已观察价格路径'),
+          el('p',{},old.sampledPath.reason),
+          old.sampledPath.status==='descriptive-only'&&el('p',{},'采样 '+old.sampledPath.sampleCount+
+            ' 次；首笔 '+old.sampledPath.first.price+' 元；已观察最高 '+old.sampledPath.peak.price+
+            ' 元；已观察最低 '+old.sampledPath.trough.price+' 元；原触发 '+old.sampledPath.last.price+' 元'),
+          old.sampledPath.observedPattern&&el('p',{},({
+            'sampled-rise-then-below-entry-range':'采样冲高后跌破原买入区间，不能视作回踩支撑',
+            'sampled-rise-then-entry-range':'采样冲高后回到原买入区间，仍需重新核对风险',
+            'sampled-retreat-above-entry-range':'采样回落但仍高于原买入区间'
+          })[old.sampledPath.observedPattern]||'路径待核对'),
+          el('small',{},'实际高低开未知；历史采样不是当前报价或成交保证')),
         status, point && el('p',{},'本次报价 · '+point.price+' 元 · '+date(point.quoteAt)+' · '+point.source),
         point && el('p',{},'模拟预检 · '+point.reason),
         el('small',{},'查看时点 '+date(result.checkedAt)+(point?' · 报价有效至 '+date(point.validUntil):'')),
