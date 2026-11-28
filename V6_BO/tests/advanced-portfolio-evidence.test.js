@@ -67,3 +67,20 @@ test("F33 capacity compares bounded participation rates without new source or tr
  equal(x.participationSensitivity[0].rows[0].estimatedShares,1000);equal(x.participationSensitivity[2].rows[0].estimatedShares,4000);
  equal(x.actualFillVerified,false);equal(x.canTrade,false);
 });
+
+
+test("F34.4 bounded equal notional uses reconciled existing receipts and fails closed",()=>{
+ const snapshot={evidenceRef:"account-1",cash:6000,availableCash:5000,equity:10000,positions:[{symbol:"600001",marketValue:4000}]};
+ const plan=(symbol,quantity,id)=>({symbol,quantity,price:10,planId:id,gateEvidenceRef:"gate-"+id,accountEvidenceRef:"account-1",accountRevision:7,originalGateStatus:"allowed",previewBlocked:false,status:"estimated-unverified",estimatedFee:5,planAllocationBudgetAfter:{policyScope:"original-plan-effective-position-cap",estimatedConstraintsSatisfied:true,originalEquityBasis:10000,afterFeeEquity:9995,budgets:[{kind:"single",limitPct:40,exposureAfter:quantity*10}]}});
+ const plans=[plan("600002",200,"p1"),plan("600003",100,"p2")];
+ const input={snapshot,plans,accountRevision:7};
+ const out=api.previewPlanBatch(input);
+ assert.equal(out.equalNotionalReference.status,"descriptive-reference");
+ assert.equal(out.equalNotionalReference.notionalPerPlan,1000);
+ assert.equal(out.equalNotionalReference.unusedAvailableCash,2990);
+ assert.equal(out.equalNotionalReference.executionFeasibleCertified,false);
+ assert.equal(out.canTrade,false);
+ assert.equal(api.previewPlanBatch({...input,policy:{version:"v1",maxSectorPct:30}}).equalNotionalReference.status,"unknown");
+ assert.equal(api.previewPlanBatch({...input,snapshot:{...snapshot,availableCash:2500}}).equalNotionalReference.status,"unknown");
+ assert.equal(api.previewPlanBatch({...input,plans:[plans[0],plans[0]]}).status,"unknown");
+});
