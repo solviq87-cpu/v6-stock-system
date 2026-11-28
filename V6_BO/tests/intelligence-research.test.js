@@ -425,3 +425,12 @@ test('three-to-four observed failed conditions stay distinct from unknown and do
   assert.equal(result.evaluations[0].validationStatus, 'not-oos-validated');
   assert.equal(Object.hasOwn(result, 'winRate'), false);
 });
+
+test('F08/F10/F11 optional lead review and attempt coverage retain missing evidence',()=>{
+ const report=buildIntelligenceResearch({day,now,archive:null});
+ assert.equal(report.factors.attemptCoverage.status,'no-observations');
+ assert.equal(report.factors.attemptCoverage.attempts,0);
+ assert.equal(report.factors.attemptCoverage.coverage,null);
+ assert.equal(report.crossMarket.leadReview.status,'not-configured');
+ assert.equal(report.crossMarket.leadReview.canTrade,false);
+});
