@@ -214,7 +214,62 @@ function createIndexWindowResearch({ investigate, reviewInvestigation, historyRo
     copy.investigation.initialEvidenceCount = priorCount;
     return copy;
   }
-  return {observe, view(asOf) {
+  // F27.4: opt-in offline research using the existing complete F03 windows.
+  // The caller must supply a point-in-time calendar from the original archive;
+  // this projection never certifies its authorization or changes detection.
+  function reviewSpecialWindow({code,width,asOf,calendar}={}) {
+    const out={status:'unknown',reason:'INCOMPLETE_POINT_IN_TIME_WINDOW_EVIDENCE',groups:[],referenceDays:0,
+      currentKind:null,originalHistoricalMaxAbsPct:null,conditionalGroupMaxAbsPct:null,
+      originalExceeds:null,conditionalExceeds:null,falsePositiveRate:null,
+      calendarIndependentlyVerified:false,calibrationApproved:false,canTrade:false,canTrain:false,canNotify:false};
+    const text=v=>typeof v==='string'&&v.trim()===v&&v.length>0&&v.length<=200;
+    const hash=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
+    const bad=v=>['synthetic','simulated','fixture','mock','conflict','retracted','sourceConflict'].some(k=>v?.[k]===true);
+    if(!validTime(asOf)||asOf!==lastClock||!INDEX_CODES.has(code)||!WINDOWS.includes(width)||
+      calendar?.schemaVersion!==1||calendar.code!==code||calendar.coverage!=='explicit-window-classification'||
+      !text(calendar.provider)||!text(calendar.datasetId)||!text(calendar.permissionRef)||bad(calendar)||
+      !Array.isArray(calendar.rows)||calendar.rows.length!==PRIOR_DAYS+1)return out;
+    const slot=sessionMinute(asOf),day=new Date(asOf+28800000).toISOString().slice(0,10).replaceAll('-','');
+    if(slot===null||sessionMinute(asOf-width*MINUTE)!==slot-width)return out;
+    const dates=[...days.keys()].filter(d=>d<day).sort().slice(-PRIOR_DAYS).concat(day);
+    if(dates.length!==PRIOR_DAYS+1||!days.has(day))return out;
+    const declared=new Map();
+    for(const r of calendar.rows){
+      if(!r||bad(r)||r.code!==code||!dates.includes(r.day)||declared.has(r.day)||
+        !['ordinary','rebalance','expiry'].includes(r.kind)||r.startMinute!==slot-width||r.endMinute!==slot||
+        !validTime(r.knownAt)||!hash(r.receiptHash))return out;
+      declared.set(r.day,r);
+    }
+    const samples=[];
+    for(const date of dates){
+      const p=days.get(date)?.get(code),w=p&&windowChange(p,slot,width),r=declared.get(date);
+      if(!w||!r||!Number.isFinite(w.returnPct)||r.knownAt>w.first.quoteAt||
+        !validTime(w.first.quoteAt)||!validTime(w.last.quoteAt)||
+        !validTime(w.last.receivedAt)||w.last.receivedAt>asOf||
+        samples.length&&w.last.quoteSource!==samples[0].source)return out;
+      if(date===day&&(asOf-w.last.quoteAt>15000||w.last.quoteAt>asOf))return out;
+      samples.push({day:date,kind:r.kind,source:w.last.quoteSource,returnPct:w.returnPct,
+        calendarReceiptHash:r.receiptHash,calendarKnownAt:r.knownAt,baseAt:w.first.quoteAt,quoteAt:w.last.quoteAt,
+        archiveHash:w.first.historyHash&&w.first.historyHash===w.last.historyHash?w.last.historyHash:null});
+    }
+    const current=samples.at(-1),history=samples.slice(0,-1);
+    const groups=['ordinary','rebalance','expiry'].map(kind=>{
+      const rows=history.filter(r=>r.kind===kind);
+      return {kind,count:rows.length,maxAbsPct:rows.length>=5?Math.max(...rows.map(r=>Math.abs(r.returnPct))):null,rows};
+    });
+    const selected=groups.find(g=>g.kind===current.kind);
+    if(groups[0].count<5||!groups.slice(1).some(g=>g.count>=5)||selected.count<5)
+      return {...out,reason:'INSUFFICIENT_EXPLICIT_COMPARATORS',referenceDays:history.length,currentKind:current.kind,
+        groups:groups.map(({rows,...g})=>g)};
+    const overall=Math.max(...history.map(r=>Math.abs(r.returnPct)));
+    return {...out,status:'conditional-calendar-stratified-research',reason:null,referenceDays:history.length,
+      code,width,slot,current,groups,currentKind:current.kind,originalHistoricalMaxAbsPct:overall,
+      conditionalGroupMaxAbsPct:selected.maxAbsPct,originalExceeds:Math.abs(current.returnPct)>overall,
+      conditionalExceeds:Math.abs(current.returnPct)>selected.maxAbsPct,
+      allPriorWindowsArchived:history.every(r=>hash(r.archiveHash)),calendarSource:calendar.provider,
+      note:'仅对完整原F03同源同窗按事前明确日历分类作描述性比较；没有独立误报标签，不调整生产阈值。'};
+  }
+  return {observe, reviewSpecialWindow, view(asOf) {
     return {mode:'experimental-same-minute-range', priorDaysRequired:PRIOR_DAYS,
       priorDaysObserved:validTime(asOf)&&asOf>=lastClock?Math.min(PRIOR_DAYS,[...days.keys()].filter(day=>day<new Date(asOf+28800000).toISOString().slice(0,10).replaceAll('-','')).length):0,
       ...(history?{history:history.status()}:{}),

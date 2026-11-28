@@ -118,3 +118,34 @@ test('same-source invalid newer receipt withdraws the disputed minute',()=>{
   assert.deepEqual(tick(20,5,110,'sina-index',1000,r=>[{...r,quoteAt:r.quoteAt+2000}]).events,[]);
   assert.deepEqual(tick(20,5,110,'sina-index',2000).events,[]);
 });
+
+test('F27.4 compares original ordinary and special same-minute windows without changing detection',()=>{
+ const {tick,radar,sessions}=fixture();
+ for(let m=0;m<=5;m++)tick(20,m,100+m/10);
+ const asOf=sessions[20]+5*60000;
+ const calendar={schemaVersion:1,code:'1.000001',coverage:'explicit-window-classification',provider:'calendar-receipt',datasetId:'index-calendar',permissionRef:'private-research-scope',
+  rows:sessions.map((at,i)=>({code:'1.000001',day:new Date(at).toISOString().slice(0,10).replaceAll('-',''),kind:i<10?'ordinary':i<15?'rebalance':'expiry',startMinute:600,endMinute:605,knownAt:at-1,receiptHash:'a'.repeat(64)}))};
+ const input={code:'1.000001',width:5,asOf,calendar};
+ const r=radar.reviewSpecialWindow(input);
+ assert.equal(r.status,'conditional-calendar-stratified-research');
+ assert.equal(r.referenceDays,20);assert.equal(r.currentKind,'expiry');
+ assert.deepEqual(r.groups.map(g=>g.count),[10,5,5]);assert.equal(r.originalExceeds,false);assert.equal(r.conditionalExceeds,false);
+ assert.equal(r.falsePositiveRate,null);assert.equal(r.calibrationApproved,false);assert.equal(r.canTrade,false);
+ assert.deepEqual(radar.view(asOf).events,[]);
+ for(const mutate of [
+  c=>c.rows.pop(),c=>c.rows[0].kind='unknown',c=>c.rows[0].knownAt=sessions[0]+1,
+  c=>c.rows[0].receiptHash='bad',c=>c.rows[0].retracted=true,
+  c=>c.rows[0].startMinute=601,c=>c.rows[0].day=c.rows[1].day,
+  c=>c.rows[0].code='0.399001',c=>delete c.permissionRef,
+  c=>c.rows.forEach(x=>x.kind='ordinary')
+ ]){
+  const c=structuredClone(calendar);mutate(c);
+  const bad=radar.reviewSpecialWindow({...input,calendar:c});
+  assert.equal(bad.status,'unknown');assert.equal(bad.conditionalExceeds,null);assert.equal(bad.canTrade,false);
+ }
+ r.groups[0].rows[0].returnPct=999;
+ assert.notEqual(radar.reviewSpecialWindow(input).groups[0].rows[0].returnPct,999);
+ assert.equal(radar.reviewSpecialWindow({...input,asOf:asOf+1}).status,'unknown');
+ tick(20,5,null);
+ assert.equal(radar.reviewSpecialWindow(input).status,'unknown');
+});
