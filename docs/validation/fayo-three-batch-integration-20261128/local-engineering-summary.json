@@ -1,0 +1,44 @@
+{
+  "reviewHeadBeforeNewSharedRegression": "8925604b9220622750a546c85b4920233897c63e",
+  "stats": {
+    "tests": 8721,
+    "pass": 8721,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 165504.762865,
+  "rawLogSha256": "9407b03785def0d86db3090b220275f4991ada8d1170f3ec7d66d8931eb2a7b7",
+  "codeBoundary": {
+    "reviewHead": "8925604b9220622750a546c85b4920233897c63e",
+    "trackedCodeAndConfigContentSha256": "e11c9f07e8f5973f9dec4d4ae921567e3c72d6dcf3ba7e22958e023d67208149",
+    "trackedPaths": 3510,
+    "dirtyPaths": [
+      "V6_BO/tests/factor-shadow-candidate-proposer.test.js"
+    ],
+    "workbookSha256": "592af7ce04b8d8405b574f9404de5eceb2e0be1e63652fb71aaf198f143b29df",
+    "fullLog": "/tmp/fayo-three-batch-combined-full.log"
+  },
+  "codeAndConfigContentStillIdentical": false,
+  "workbookUpdateAfterFullRun": {
+    "previous": "592af7ce04b8d8405b574f9404de5eceb2e0be1e63652fb71aaf198f143b29df",
+    "current": "adf378c2d7dd88cbca21dc9ed493d7bc15fbdb5ba32a57e850cc405041eb656c",
+    "change": "Source declarations and exact CI intake only; original item statuses retained. Revalidated with exact validator12/12; final committed CI must run the updated input."
+  },
+  "sourceLocalRelated": 241,
+  "sharedChainRelated": 107,
+  "sharedChainKernelNetworkDenied": 91,
+  "ledgerAfterMetadataUpdate": 12,
+  "remoteFinalCI": "not yet run",
+  "businessAcceptanceVerified": false,
+  "releaseReady": false,
+  "postFullChange": {
+    "path": "V6_BO/_test_auth_matrix.js",
+    "scope": "Pre-existing legacy source-text test recognized only the old direct projection; base704 already uses authenticated sharedMarketRead. Original identity assertion retained with actual-role forwarding checks and literal-boolean negative controls. Production sources and dependency/config/CI untouched.",
+    "oldCounts": "70 passed / 1 failed",
+    "newCounts": "75 passed / 0 failed",
+    "reconstructedPreGuardDigest": "e11c9f07e8f5973f9dec4d4ae921567e3c72d6dcf3ba7e22958e023d67208149",
+    "guardSha256": "2f32adb63f73df7c78518e592b362d660e2e770a70bc3c1ef947de427b7eed0a",
+    "finalExactHeadFullCIRequired": true
+  }
+}

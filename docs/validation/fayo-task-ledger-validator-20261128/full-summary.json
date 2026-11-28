@@ -1,0 +1,24 @@
+{
+  "parent": "34eed34227afe5f938afe61c1c2370d9fbdea63f",
+  "stats": {
+    "tests": 8172,
+    "pass": 8172,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 154651.950938,
+  "sha256": {
+    "V6_BO/scripts/validate-fayo-ledger.py": "c2074bc33443f579649fb818fdb272bbf4c02cb347ea7246f3966b7ee0551f8c",
+    "V6_BO/tests/fayo-task-ledger-validator.test.js": "4b88f47764fa5e6b7e3ab8c47f30edfdff117a98a134d1419e68a725e85fc2ca",
+    "V6_BO/tests/fayo-evidence-continuation-client.test.mjs": "3c6aeaacd840dc0351746344f818f7fe81f39e6fc61682d8aa5c265779696ba2",
+    "V6_BO/scripts/stock-workbook.py": "504fa7ca0c496046f4e1e3de8ac7aef4202d385147bc177fa3790fac136b39a2",
+    "docs/fayo-professional/deliverables/checklist.xlsx": "592af7ce04b8d8405b574f9404de5eceb2e0be1e63652fb71aaf198f143b29df"
+  },
+  "rawLogSha256": "8d5d6588894ab3d723810097fb6e5d83e9f85a7b9c12b60b22158b1144a6a2dc",
+  "related": 49,
+  "kernelDenyNetwork": 49,
+  "newValidatorTests": 12,
+  "sharedClientTests": 13,
+  "note": "Fresh native run for the actual root identity fix and faithful DOM fixture. Same runtime src/public/account/risk as parent. Exact committed pin and remote CI are separate; queued CI is not success."
+}

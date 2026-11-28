@@ -1,0 +1,25 @@
+(node:1743794) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///workspace/fayo-review-ledger/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /workspace/fayo-review-ledger/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ DOM fixture preserves native primitive conversion instead of silently dropping null or zero (2.009412ms)
+✔ a pending model call cannot be invalidated by a configuration click and leave controls locked (9.119111ms)
+✔ changing question cancels the request and does not expose a late answer (0.672044ms)
+✔ a completed label without an actual model call is shown as a failed receipt (0.64922ms)
+✔ an absent optional replay section does not become a visible null placeholder (25.738217ms)
+✔ returning to a replay restores the selected evidence and zoom only after rereading the same identity (15.465096ms)
+✔ replay refuses a receipt for a different sealed version even with the same stock and cutoff (0.659886ms)
+✔ unsupported single-character OR clauses are not interpreted as one industry name (0.873177ms)
+✔ unknown conditions cannot display late values as observations known at the historical cutoff (0.661037ms)
+✔ next-plan review preserves the original incident and same-plan follow-up while exposing a separately bound later fact (1.757262ms)
+✔ unbound, mismatched and future next-plan receipts fail only that disclosure without claiming compliance (8.158671ms)
+✔ a different rule version stays unknown and cannot reuse a positive label or evidence (2.30606ms)
+✔ a bound unknown receipt without a selected later plan preserves its specific archive gap (3.470717ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 141.15112

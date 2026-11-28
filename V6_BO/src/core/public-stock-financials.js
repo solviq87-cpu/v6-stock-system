@@ -93,7 +93,7 @@ async function fetchPublicStockFinancials({symbol}={},dependencies={}){
 function financialFeatures(financials,{code,asOf}){
  if(!codeOK(code)||!validTime(asOf)||financials?.symbol!==code||financials.source!=='eastmoney-financials'||financials.simulated===true||financials.retracted===true)return {};
  const output={};
- const units={operatingCashToProfit:'ratio',basicEps:'CNY/share',operatingCashPerShare:'CNY/share',receivableDays:'days',inventoryDays:'days',currentRatio:'ratio',quickRatio:'ratio'};
+ const units={operatingCashToProfit:'ratio',basicEps:'CNY/share',operatingCashPerShare:'CNY/share',operatingCashPerSharePriorYear:'CNY/share',receivableDays:'days',inventoryDays:'days',receivableDaysPriorYear:'days',inventoryDaysPriorYear:'days',currentRatio:'ratio',quickRatio:'ratio'};
  const put=(field,value,d,r)=>{if(finite(value))output[field]={code,value,unit:units[field]||'percent',source:'eastmoney-financials',
   evidenceId:d.rawHash+':'+(d.periodRawHash||'')+':'+r.reportDate+':'+field,observedAt:Date.parse(r.reportDate+'T23:59:59+08:00'),availableAt:d.receivedAt,recordedAt:d.receivedAt,
   reportDate:r.reportDate,publicationDate:r.publicationDate,updatedDate:r.updatedDate,periodKind:d.kind,verifiedExternal:false};};
@@ -102,7 +102,12 @@ function financialFeatures(financials,{code,asOf}){
   const r=period.records.at(-1),prior=period.records.find(p=>p.reportDate===String(Number(r.reportDate.slice(0,4))-1)+r.reportDate.slice(4));
   put('roePct',r.values.ROEJQ,period,r);put('debtAssetsPct',r.values.ZCFZL,period,r);
   for(const [field,raw] of [['grossMarginPct','XSMLL'],['netMarginPct','XSJLL'],['basicEps','EPSJB'],['operatingCashPerShare','MGJYXJJE'],['receivableDays','YSZKZZTS'],['inventoryDays','CHZZTS'],['currentRatio','LD'],['quickRatio','SD']])put(field,r.values[raw],period,r);
-  if(prior)put('roePriorYearPct',prior.values.ROEJQ,period,prior);
+  if(prior){
+   put('roePriorYearPct',prior.values.ROEJQ,period,prior);
+   // Cumulative report-period cash flow per share: compare only the same quarter last year.
+   put('operatingCashPerSharePriorYear',prior.values.MGJYXJJE,period,prior);
+   for(const [field,raw] of [['grossMarginPctPriorYear','XSMLL'],['netMarginPctPriorYear','XSJLL'],['receivableDaysPriorYear','YSZKZZTS'],['inventoryDaysPriorYear','CHZZTS']])put(field,prior.values[raw],period,prior);
+  }
   // ROE is the actual report-period cumulative percentage, never annualized.
   // NCO_NETPROFIT and FCFF fields remain unmapped until source unit semantics are verified.
  }

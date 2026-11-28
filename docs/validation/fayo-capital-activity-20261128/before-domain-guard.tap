@@ -1,0 +1,104 @@
+✔ 计划边界与累计执行分开，保留金额和股份原单位而不加总 (5.867585ms)
+✔ 本月与累计属于不同口径，不把累计当日流量或自动推算本期增量 (0.845657ms)
+✔ 价格每股单位不当作回购总金额，未知币种不默认人民币 (0.452162ms)
+✔ 未实施与尚未实施完毕不同，后者不抹掉已披露执行股数 (0.757914ms)
+✔ 同句混合本期累计、计划与执行时保留未知，不把数字强行分配 (0.620546ms)
+✔ 持股前后数量与表格不推断减持流量 (0.463119ms)
+✔ 不跨主体绑定金额；未登记、重复证券或缺少代码字段不形成金额行 (1.88783ms)
+✔ 报告截止日期不取网页路径日期，冲突、非法和未来截止需要复核 (0.445974ms)
+✔ 撤稿、关联移除、旧版及缺链停用，不能复活旧金额 (0.605935ms)
+✔ 澄清、取消或终止显示复核，不能自动从计划形成执行 (0.557521ms)
+✔ 重复累计声明不相加，港币等单位不换算为人民币 (0.267263ms)
+✔ 文本不能授予权限，未知值不补零，无相关材料不创建功能 (0.469979ms)
+✔ 其他事项完成不能替回购或减持计划确认完成 (0.187323ms)
+✔ 畸形数字、负号及异常币种不截取尾数变成有效资金 (0.177729ms)
+✔ 长材料受限展示并保留缺口，单段过多数字不展示为完整财务口径 (0.464982ms)
+✖ 公开市场逆回购与债券回购不成为公司股份回购 (1.66299ms)
+✖ 同份股份材料中的宏观与债券金额不混入股份执行口径 (0.355086ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 15
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 107.144168
+
+✖ failing tests:
+
+test at ../../tmp/fayo-capital-pre-guard-3dc7ijqu/test.mjs:84:1
+✖ 公开市场逆回购与债券回购不成为公司股份回购 (1.66299ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + {
+  +   action: 'buyback',
+  +   actorVerified: false,
+  +   actualMarketFlow: null,
+  +   canNotify: false,
+  +   canQualify: false,
+  +   canTrade: false,
+  +   canTrain: false,
+  +   inactiveReasons: [],
+  +   independentlyVerified: false,
+  +   issuerSymbol: '003025',
+  +   note: '仅本页材料声明；计划、累计、本期及已披露执行分开。金额保留原单位与币种，不加总、不自动差分；不是当日市场净流量或账户成交。',
+  +   periodIncrement: null,
+  +   reportedThrough: null,
+  +   rows: [
+  +     {
+  +       feeBasis: 'unknown',
+  +       quantities: [
+  +         {
+  +           bound: null,
+  +           currency: null,
+  +           measure: 'money',
+  +           text: '500',
+  +           unit: '亿元'
+  +         }
+  +       ],
+  +       quote: '本月开展逆回购500亿元',
+  +       role: 'period'
+  +     }
+  +   ],
+  +   sourceCompletion: 'unknown',
+  +   status: 'source-claims',
+  +   truncated: false
+  + }
+  - null
+
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-pre-guard-3dc7ijqu/test.mjs:86:92)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { status: 'source-claims', action: 'buyback', issuerSymbol: '003025', reportedThrough: null, sourceCompletion: 'unknown', rows: [ [Object] ], inactiveReasons: [], truncated: false, actorVerified: false, periodIncrement: null, actualMarketFlow: null, note: '仅本页材料声明；计划、累计、本期及已披露执行分开。金额保留原单位与币种，不加总、不自动差分；不是当日市场净流量或账户成交。', independentlyVerified: false, canQualify: false, canTrade: false, canTrain: false, canNotify: false },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../tmp/fayo-capital-pre-guard-3dc7ijqu/test.mjs:89:1
+✖ 同份股份材料中的宏观与债券金额不混入股份执行口径 (0.355086ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  2 !== 1
+
+      at TestContext.<anonymous> (file:///tmp/fayo-capital-pre-guard-3dc7ijqu/test.mjs:91:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

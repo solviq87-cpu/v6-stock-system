@@ -1,0 +1,55 @@
+✔ application version never fills missing frozen signal strategy version (21.93666ms)
+✔ current probability gate and invented zero/70 gates cannot judge old signal or candidate (1.058387ms)
+✔ only recorded numeric condition evidence with a source and causal time is evaluated (3.700173ms)
+✔ retained push history is not silently limited to 20 and matching receipt is still found behind newer logs (1.538642ms)
+✔ logs for stocks outside current pool and signals remain visible as history, without invented quote or active signal (0.295416ms)
+✔ all distinct strategy signals remain available, including older than the previous 12-row limit (0.327665ms)
+✔ history deduplication keeps records with distinct signal identities at the same timestamp (0.357199ms)
+✔ frontend fallback never synthesizes a production factor threshold (1.545873ms)
+✔ index-linked market scope includes STAR in Shanghai without calling the STAR board the STAR50 constituents (0.973769ms)
+✔ frontend keeps all supplied histories and does not replace absent signal version with current app version (2.00123ms)
+✔ a failed or unknown second channel cannot erase the matching successful delivery (0.749841ms)
+✔ each historical signal preserves its own frozen version, conditions and quote provenance (0.388816ms)
+✔ old delivery and future delivery cannot acknowledge a new signal (18.876173ms)
+✔ unknown delivery remains pending, and unrelated global receipt cannot acknowledge this stock (0.774769ms)
+✔ current quote price and timestamp come from the same row (0.361095ms)
+✔ missing quote provenance is never filled from state reception time or signal trigger time (0.850684ms)
+✔ independent strategies are preserved in history and do not inflate repeat count (1.058707ms)
+✔ delivery failure does not invalidate a recent market signal (0.451241ms)
+✔ old delivered signal is no longer active even when current candidate quote exists (0.342467ms)
+✔ missing or future signal time cannot establish active validity or delivery (0.737963ms)
+✔ same-code receipt for another strategy or legacy uncorrelated log stays history only (0.656982ms)
+✔ candidate quote without provider time stays unknown despite current state timestamp (0.424881ms)
+✔ real batch sender persists exact signal references only for included rows, without external delivery (32.065423ms)
+✖ real state and mobile routes hide private push history from viewers and preserve it for editors (5511.359333ms)
+✔ real public push callbacks retain QQ outcomes with exact signal identity without external sends (24.068728ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 24
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5597.010709
+
+✖ failing tests:
+
+test at tests/dashboard-push-privacy.test.js:22:1
+✖ real state and mobile routes hide private push history from viewers and preserve it for editors (5511.359333ms)
+  AssertionError [ERR_ASSERTION]: fixture server did not start: [learn] 统计方法升级 v1 → v3，已按新方法重算全部历史样本
+  [pushlog] 已载入历史推送流水 1 条
+  [paper] 账户与流水对账通过
+  [holdings] 风控去重状态载入失败（按空表启动，可能重启后重推一次）: ENOENT: no such file or directory, open '/tmp/v6-dashboard-privacy-8gFoZx/.holdings_push.json'
+  [phone] ⚠️ 未配置找回手机号（环境变量 QD_BOUND_PHONE 或 config.boundPhone）——「忘记密码」通道不可用。号码不写死在源码里是刻意的：源码包一旦外发就等于交出找回通道。
+  量化看盘平台: http://127.0.0.1:44733
+  
+      at TestContext.<anonymous> (/workspace/fayo-three-batch-review/V6_BO/tests/dashboard-push-privacy.test.js:65:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

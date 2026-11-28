@@ -2,7 +2,9 @@
 
 // This adapter never changes sizing, exits, cash or positions. A confirmed plan
 // can only call the existing paperBuy path, then report its committed fill.
+const {quoteSourceAllowsUse,quoteObservationView} = require('./quote-observation-view');
 const {aShareCalendarDate} = require('./a-share-calendar');
+const {observedPlanPath}=require('./research-opportunity-review');
 const {executionTimeOf} = require('./paper-fill-evidence');
 const {digest}=require('./research-workspace-store');
 const PLAN_PREFIX = '作战台计划[';
@@ -23,6 +25,29 @@ function validatePlan(plan, now) {
       !(plan.stop > 0 && plan.stop < plan.entryMin && plan.entryMin <= plan.entryMax && plan.entryMax < plan.target) ||
       !(plan.maxPosition > 0 && plan.maxPosition <= 100)) throw Error('条件计划缺少有效的事前冻结价格、日期或仓位');
   return plan;
+}
+
+// Re-evaluate the frozen quotation on the decision clock. Old plans may lack
+// price or receipt fields; their optional linkage and monetary uses differ.
+function frozenFeedbackQuote(plan, entryAt) {
+  const stamp = value => Number.isSafeInteger(value) && value > 0 && value <= 8e15;
+  if (!stamp(entryAt)) return null;
+  try { validatePlan(plan, entryAt); } catch { return null; }
+  const frozenAt = Date.parse(plan.frozenAt), basis = plan.decisionEvidence, q = basis.quoteBasis;
+  if (aShareCalendarDate(frozenAt) !== plan.intendedDate || !stamp(basis.calculatedAt) || basis.calculatedAt > frozenAt ||
+      !stamp(basis.strategyAt) || basis.strategyAt > basis.calculatedAt ||
+      !stamp(q?.quoteAt) || q.quoteAt > basis.calculatedAt || basis.calculatedAt - q.quoteAt > 15000 ||
+      aShareCalendarDate(q.quoteAt) !== plan.intendedDate || typeof q.source !== 'string' || !q.source.trim() ||
+      /mock|synthetic|fixture|demo/i.test(q.source) || /demo/i.test(q.mode || '')) return null;
+  const row = {...q, quoteSource:q.source};
+  if (!quoteSourceAllowsUse(row) || quoteObservationView(row,basis.calculatedAt).missingReason === 'conflicting-quote-evidence' ||
+      [q.quoteStatus,q.quoteFreshness,q.freshness].some(status => ['stale','future','unknown','conflict'].includes(status)) ||
+      q.symbol != null && q.symbol !== plan.code || q.quoteSource != null && q.quoteSource !== q.source ||
+      q.provider != null && q.provider !== q.source || q.timestamp != null && q.timestamp !== q.quoteAt ||
+      q.code !== undefined && q.code !== plan.code || q.price !== undefined && (!finite(q.price) || q.price <= 0) ||
+      q.receivedAt !== undefined && (!stamp(q.receivedAt) || q.receivedAt < q.quoteAt || q.receivedAt > basis.calculatedAt) ||
+      basis.strategyBasis?.day !== undefined && basis.strategyBasis.day !== plan.intendedDate) return null;
+  return q;
 }
 
 function decisionPlanPayload(card) {
@@ -233,7 +258,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
   const rows=[], index=new Map(plans.filter(p=>{
     try{validatePlan(p,now);return p.intendedDate<=day;}catch{return false;}
   }).map(p=>[p.id,p]));
-  const events=observer.ledgerEvents(book);
+  const events=observer.ledgerEvents(book,cutoff);
   const reference=record=>({id:record.fingerprint,source:record.source,quoteAt:record.quoteAt,
     receivedAt:record.receivedAt,observedAt:record.observedAt,price:record.price});
   for(const plan of index.values()){
@@ -266,6 +291,7 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
     else facts.push({rule:'按计划买入',status:entry.price>=plan.entryMin&&entry.price<=plan.entryMax?'符合':'触发',
       evidence:`原账本成交 ${entry.price} 元；冻结区间 ${plan.entryMin}–${plan.entryMax} 元`,eventId:entry.eventId});
     if(!entry)facts.push({rule:'按计划止损',status:'不适用',evidence:'该计划没有买入成交'});
+    else if(!at)facts.push({rule:'按计划止损',status:'资料不足',evidence:'原账本买入成交时点未知，待核对该截点的持仓及退出约束'});
     else if(entry.tradeDate===day)facts.push({rule:'按计划止损',status:'不适用',evidence:'当日开仓受原 A 股 T+1 限制，不要求当日卖出'});
     else {
       const active=samples.filter(r=>r.entryEventId===entry.eventId&&r.remainingQuantity>0);
@@ -306,8 +332,8 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
       else facts.push({rule:'按计划止损',status:'资料不足',evidence:'已出现止损价触及或部分卖出，但可用窗口、完整离场或时点证据不足；不推断漏止损',
         observations:touches.slice(-1).map(reference),eventIds:context.sells.map(s=>s.eventId)});
     }
-    rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:entry?.tradeDate||null,
-      remainingQuantity:context.remaining,coverage,facts});
+    rows.push({planId:plan.id,planVersion:observer.planVersion(plan),code:plan.code,name:plan.name,day,entryDay:at?entry.tradeDate:null,
+      remainingQuantity:context.remaining,coverage,facts,observedPath:observedPlanPath(plan,samples,{day,cutoff})});
   }
   const facts=rows.flatMap(r=>r.facts),assessed=facts.filter(f=>['符合','触发'].includes(f.status));
   const unknown=facts.filter(f=>f.status==='资料不足').length,passed=assessed.filter(f=>f.status==='符合').length;
@@ -319,4 +345,4 @@ function paperExecutionScore({book,plans=[],observations=[],conditionalOrders=[]
     note:'评分核对事前冻结计划、原账户持久成交及独立报价观察；采样缺口不归责漏买或漏止损，原交易规则保持。'};
 }
 
-module.exports={executeDecisionPlan,paperExecutionScore,validatePlan,planFill,planIdOf,decisionPlanPayload,authoritativePlanMatches,bindAuthoritativePlan};
+module.exports={executeDecisionPlan,paperExecutionScore,validatePlan,frozenFeedbackQuote,planFill,planIdOf,decisionPlanPayload,authoritativePlanMatches,bindAuthoritativePlan};

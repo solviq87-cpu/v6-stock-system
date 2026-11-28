@@ -4,6 +4,8 @@
  * scorecard. All three versions see IDENTICAL matured cross-sections.
  * It is not a return forecast, portfolio P&L or authorization to trade.
  */
+const {researchScorecard}=require('./fayo-model-evidence-audit');
+const {routeDiagnostic}=require('./fayo-final-model-review');
 const MIN_DAYS=5,MAX_WINDOW=20;
 const finite=x=>typeof x==='number'&&Number.isFinite(x);
 const round=(n,d=6)=>n===null?null:+n.toFixed(d);
@@ -104,10 +106,34 @@ function compareShadowVersions(days,ids,originalWeights,acceptedWeights,proposed
   rawOriginalDeltas.filter(x=>x>0).length/rawOriginalDeltas.length*100>=60&&
   mean(rawOriginalDeltas.slice(0,split))>=-.001&&
   mean(rawOriginalDeltas.slice(split))>=-.001;
+ const evidenceBreakdown=researchScorecard(window,rows.map((r,i)=>({...r,originalIC:rawICs[0][i],acceptedIC:rawICs[1][i],proposedIC:rawICs[2][i]})),ids,[originalWeights,acceptedWeights,proposedWeights]);
  return {...base,status:'paired-scorecard-unverified',
   assessedDays:rows.length,perDay:rows,...Object.fromEntries(summaries),
+  evidenceBreakdown,routeDiagnostic:routeDiagnostic(evidenceBreakdown),
   proposedVsOriginal:{...relativeOriginal,fragility:pairedFragility(rawOriginalDeltas)},
   proposedVsAccepted:{...relativeAccepted,fragility:pairedFragility(rawAcceptedDeltas)},
   originalGatePassed};
 }
-module.exports={compareShadowVersions};
+// Forecast research: select chronological non-overlapping origin/target windows
+// without using the result to choose dates. Equal dates share the same block.
+// This is a descriptive price-error comparison, not independent proof or promotion.
+function compareFoundationWindows(rows){
+ const base={mode:'nonoverlapping-forecast-blocks-v1',status:'unknown',attempted:Array.isArray(rows)?rows.length:0,selected:0,omitted:0,windows:0,blocks:[],bothBlocksImproved:null,independenceCertified:false,canTrade:false,autoPromotion:false};
+ if(!Array.isArray(rows)||rows.length>10000||!rows.length)return base;
+ const good=r=>r&&date(r.originDate)&&date(r.targetDate)&&r.originDate<r.targetDate&&typeof r.symbol==='string'&&/^\d{6}$/.test(r.symbol)&&[r.absoluteError,r.naiveError,r.driftError].every(x=>finite(x)&&x>=0)&&r.corporateActionEvidence==='declared-no-action'&&r.latestCorporateActionEvidence==='declared-no-action'&&r.revisedOutcome===false&&r.outcomeConflictSeen===false;
+ if(!rows.every(good))return {...base,status:'incomparable-outcomes'};
+ const groups=new Map(),seen=new Set();
+ for(const r of rows){const key=JSON.stringify([r.originDate,r.targetDate]),identity=JSON.stringify([r.symbol,r.originDate,r.targetDate]);if(seen.has(identity))return {...base,status:'duplicate-outcomes'};seen.add(identity);const g=groups.get(key)||{from:r.originDate,to:r.targetDate,rows:[]};g.rows.push(r);groups.set(key,g);}
+ const windows=[];let through='';for(const w of [...groups.values()].sort((a,b)=>a.to.localeCompare(b.to)||a.from.localeCompare(b.from))){if(w.from>through){windows.push(w);through=w.to;}}
+ const selected=windows.flatMap(w=>w.rows),common={...base,selected:selected.length,omitted:rows.length-selected.length,windows:windows.length};
+ if(windows.length<10||selected.length<30||new Set(selected.map(r=>r.symbol)).size<5)return {...common,status:'insufficient-nonoverlapping-windows'};
+ const split=Math.floor(windows.length/2),blocks=[];let improved=true;
+ for(const ws of [windows.slice(0,split),windows.slice(split)]){
+  const rs=ws.flatMap(w=>w.rows),model=mean(rs.map(r=>r.absoluteError)),naive=mean(rs.map(r=>r.naiveError)),drift=mean(rs.map(r=>r.driftError));
+  if(![model,naive,drift].every(finite))return {...common,status:'incomparable-outcomes'};
+  const tolerance=1e-8*Math.max(1,model,naive,drift),better=model<naive-tolerance&&model<drift-tolerance;improved=improved&&better;
+  blocks.push({from:ws[0].from,to:ws.at(-1).to,windows:ws.length,samples:rs.length,modelMae:round(model),naiveMae:round(naive),driftMae:round(drift),bothBaselinesBeaten:better});
+ }
+ return {...common,status:'descriptive-two-blocks',blocks,bothBlocksImproved:improved};
+}
+module.exports={compareShadowVersions,compareFoundationWindows};

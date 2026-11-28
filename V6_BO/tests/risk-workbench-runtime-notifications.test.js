@@ -350,3 +350,5 @@ test('an editor revoked while awaiting evidence cannot mark viewed or mute after
   await assert.rejects(()=>h.runtime.update({action:'mute',...h.key,rootCauseId,expectedRevision:before.revision,mutedUntil:h.f.now+60000},
     {actor:'editor'}),/编辑授权已失效/);
 });
+
+test('F49.3 invalidating a plan archive cancels an old reservation even after a new successful read',async t=>{const h=await harness(t),{alert}=await h.commitObservation();assert.ok(alert);assert.equal(await h.runtime.sendPlanAlert(alert),true);const queued=h.sent[0].options;assert.equal(queued.beforeSend().ok,true);h.runtime.invalidate();assert.equal(queued.beforeSend().ok,false);await h.runtime.read({accountId:'pool'});assert.equal(queued.beforeSend().ok,false);assert.equal(await h.runtime.sendPlanAlert(alert),false);assert.equal(h.sent.length,1);});

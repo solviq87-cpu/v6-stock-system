@@ -1,0 +1,33 @@
+{
+  "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375",
+  "componentSha256": "faa3f3eb6107aa689e454bcafc6ebaf458a9f0a73eb2641d6975ce1d4a612fd8",
+  "rows": [
+    {
+      "nullPlaceholders": [],
+      "apiCalls": [
+        {
+          "path": "/api/research/evidence-workbench?mode=replay&symbol=600000&asOf=1794295800000&window=14&runId=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "method": "GET"
+        }
+      ],
+      "hasOriginalDetails": true,
+      "width": 1366,
+      "externalRequests": [],
+      "pageErrors": []
+    },
+    {
+      "nullPlaceholders": [],
+      "apiCalls": [
+        {
+          "path": "/api/research/evidence-workbench?mode=replay&symbol=600000&asOf=1794295800000&window=14&runId=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "method": "GET"
+        }
+      ],
+      "hasOriginalDetails": true,
+      "width": 390,
+      "externalRequests": [],
+      "pageErrors": []
+    }
+  ],
+  "scope": "Actual native component in Chromium with explicitly synthetic read-only API; no account, live market, physical device or product-wide acceptance."
+}

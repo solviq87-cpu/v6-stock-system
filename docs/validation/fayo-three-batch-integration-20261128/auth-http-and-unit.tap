@@ -1,0 +1,33 @@
+✔ application version never fills missing frozen signal strategy version (24.310341ms)
+✔ current probability gate and invented zero/70 gates cannot judge old signal or candidate (0.963043ms)
+✔ only recorded numeric condition evidence with a source and causal time is evaluated (1.967468ms)
+✔ retained push history is not silently limited to 20 and matching receipt is still found behind newer logs (1.114711ms)
+✔ logs for stocks outside current pool and signals remain visible as history, without invented quote or active signal (0.315546ms)
+✔ all distinct strategy signals remain available, including older than the previous 12-row limit (0.296467ms)
+✔ history deduplication keeps records with distinct signal identities at the same timestamp (0.305161ms)
+✔ frontend fallback never synthesizes a production factor threshold (2.567123ms)
+✔ index-linked market scope includes STAR in Shanghai without calling the STAR board the STAR50 constituents (1.964374ms)
+✔ frontend keeps all supplied histories and does not replace absent signal version with current app version (3.651389ms)
+✔ a failed or unknown second channel cannot erase the matching successful delivery (0.968782ms)
+✔ each historical signal preserves its own frozen version, conditions and quote provenance (0.413314ms)
+✔ old delivery and future delivery cannot acknowledge a new signal (20.461123ms)
+✔ unknown delivery remains pending, and unrelated global receipt cannot acknowledge this stock (0.910975ms)
+✔ current quote price and timestamp come from the same row (0.436719ms)
+✔ missing quote provenance is never filled from state reception time or signal trigger time (0.482799ms)
+✔ independent strategies are preserved in history and do not inflate repeat count (1.852846ms)
+✔ delivery failure does not invalidate a recent market signal (0.680106ms)
+✔ old delivered signal is no longer active even when current candidate quote exists (0.325832ms)
+✔ missing or future signal time cannot establish active validity or delivery (0.732495ms)
+✔ same-code receipt for another strategy or legacy uncorrelated log stays history only (0.490781ms)
+✔ candidate quote without provider time stays unknown despite current state timestamp (0.559424ms)
+✔ real batch sender persists exact signal references only for included rows, without external delivery (42.986211ms)
+✔ real state and mobile routes hide private push history from viewers and preserve it for editors (759.09487ms)
+✔ real public push callbacks retain QQ outcomes with exact signal identity without external sends (27.89189ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 864.91864

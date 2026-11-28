@@ -11,6 +11,7 @@ const {auditForwardRules}=require('./forward-rule-audit');
 const {assessMarketShock}=require('./market-shock-learning-gate');
 const {assessFactorReliability,pairedStability,assessShadowDecay,assessShadowRecovery}=require('./factor-learning-reliability');
 const {compareShadowVersions}=require('./factor-model-comparison');
+const {normalizeSizeEvidence,buildSizePartition,compareSizeVersions}=require('./factor-size-style-evidence');
 const {assessFactorRedundancy}=require('./factor-redundancy');
 const {assessFactorMarginalContribution}=require('./factor-marginal-contribution');
 const {verifyPreregisteredCandidate,SEED_MODE}=require('./factor-candidate-prereg');
@@ -96,9 +97,11 @@ function freezeFeatureEpisode({cohort,factorIds,rows,feed,marketContext}={}, {no
    industry={code:e.code,source:e.source,
     classificationVersion:e.classificationVersion,observedAt:e.observedAt};
   }
+  const size=row.sizeEvidence===undefined?null:normalizeSizeEvidence(row.sizeEvidence,{symbol:s.symbol,tradeDate:s.signalDate,signalAt:s.signalAt,provider:feed.provider,datasetId:feed.datasetId});
+  if(row.sizeEvidence!==undefined&&!size)throw Error('冻结市值证据身份、单位、来源或可知时间无效');
   return {signalId:s.signalId,symbol:s.symbol,signalDate:s.signalDate,
    signalAt:s.signalAt,baselineClose:s.baselineClose,values,
-   ...(industry?{industry}:{})};
+   ...(industry?{industry}:{}),...(size?{sizeEvidence:size}:{})};
  });
  // Classify regime using only evidence already observed when the signal was
  // frozen. Future shocks must never retroactively label historic features.
@@ -159,6 +162,10 @@ function verifyEpisode(frozen,now){
       industry.observedAt>row.signalAt||row.signalAt-industry.observedAt>86400000||
       chinaDay(industry.observedAt)!==data.signalDay)
     throw Error('冻结行业分类来源或信号时间无效');
+  }
+  if(row.sizeEvidence!==undefined){
+   const size=normalizeSizeEvidence(row.sizeEvidence,{symbol:row.symbol,tradeDate:row.signalDate,signalAt:row.signalAt,provider:data.feed.provider,datasetId:data.feed.datasetId});
+   if(!size||hash(size)!==hash(row.sizeEvidence))throw Error('冻结市值证据身份、单位、来源或可知时间无效');
   }
   for(const f of defs)
    if(!finite(row.values?.[f.id])||row.values[f.id]<0||row.values[f.id]>100)
@@ -304,7 +311,8 @@ function selectNonOverlappingMaturedCrossSections(sorted){
   used.add(e.day);
   observed.push({day:e.day,rows:candidates,targetDate:candidates[0].targetDate,
    featureCapturedAt:e.features.capturedAt,
-   regime:e.features.marketRegime?.regime||'unknown'});
+   regime:e.features.marketRegime?.regime||'unknown',
+   sizePartition:buildSizePartition(e.rows,{provider:e.features.feed?.provider,datasetId:e.features.feed?.datasetId,signalDay:e.day})});
  }
  return {used,observed,excludedOverlappingRows,excludedDuplicateSameDayRows};
 }
@@ -637,6 +645,7 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
  // recovery days are not eligible for renewed baseline certification.
  const modelComparison=compareShadowVersions(postRecoveryTest,ids,
   officialWeights,oldWeights,proposal,dailyIC);
+ const sizeStyleComparison=compareSizeVersions(postRecoveryTest,ids,{original:officialWeights,accepted:oldWeights,proposed:proposal},dailyIC);
  // Do not infer that a changed factor added independent value merely
  // because the whole proposed model beat its predecessor. Paired
  // counterfactuals leave every other proposed weight fixed and revert
@@ -728,7 +737,15 @@ function evolveShadowFactors(episodes,{now=Date.now(),previous=null,
   shadowWeightsChanged:accepted,pausedForMarketShock:paused,
   pausedForShadowDecay:activeCooldown||shadowDecay.alert,
   rollbackReviewSuggested:activeCooldown||shadowDecay.rollbackReviewSuggested,
-  shadowDecay,cooldown,modelComparison,factorMarginalContribution,trialAudit,
+  shadowDecay,cooldown,modelComparison,sizeStyleComparison,factorMarginalContribution,trialAudit,
+  factorPromotionReview:{candidateFingerprint:trialAudit.candidateFingerprint,packFingerprint:PACK_HASH,
+   preregistrationStatus:preregistration.status,trialStatus:trialAudit.status,
+   holdoutFirstDay:trialAudit.firstHoldoutDay,holdoutLastDay:trialAudit.lastHoldoutDay,
+   originalShadowOutcome:accepted?'shadow-updated':'shadow-unchanged',
+   shadowResearchUse:accepted?'original-shadow-research-only':'not-approved-for-new-shadow-weights',
+   approvedUses:[],independentEconomicValueVerified:false,requiresOriginalHumanApproval:true,
+   canTrade:false,canNotify:false,productionWeightsChanged:false,
+   note:'原影子晋级不等同正式批准；不复制权重到正式四体系。'},
   globalTrialBudget,preregistration,
   postRecoveryHoldoutDays,postRecoveryGainIC:postRecoveryGain,
   observedFingerprints:sorted.map(e=>[e.featureFingerprint,e.marketFingerprint]),

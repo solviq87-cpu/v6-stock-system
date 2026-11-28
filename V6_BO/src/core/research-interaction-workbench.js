@@ -9,6 +9,8 @@ const {normalizeMarketLinkageEvidence}=require('./market-sector-stock-linkage');
 const {scorecards}=require('./research-workspace-analytics');
 const {createSingleModelInterface}=require('./single-model-interface');
 const Journal=require('./news-evidence-journal');
+const Feedback=require('./fayo-review-feedback');
+const {projectMatchedAttention}=require('./fayo-attention-pair');
 const Signal=require('./production-signal-journal');
 const {createPaperExecutionReportStore,MAX_VERSIONS}=require('./paper-execution-report-store');
 const {validatePlan}=require('./paper-decision-plan');
@@ -212,17 +214,18 @@ async function readReplay(roots,query,{now=Date.now(),readShortline}={}){
  only(query,['symbol','runId','asOf','window','board']);
  const {symbol,runId,board}=query,asOf=query.asOf??now,window=query.window??14;
  if(!time(asOf,now)||![7,14,30].includes(window)||board!==undefined&&(!text(board)||board.length>64))throw Error('回放范围无效');
- const {own,selected}=readRuns(roots.root,symbol,runId,asOf);
+ const {events:analysis,own,selected}=readRuns(roots.root,symbol,runId,asOf);
  const first=day(asOf-(window-1)*86400000),last=day(asOf);
  const dates=Array.from({length:window},(_,i)=>day(asOf-(window-1-i)*86400000));
  const series=dailySeries(own,selected,dates,asOf,board);
- const markers=[],missing=[...series.missing],readFailures=[],holdings=[];
+ const markers=[],missing=[...series.missing],readFailures=[],holdings=[];let attentionPair=projectMatchedAttention(analysis,null,{selected,asOf});
   const add=m=>{if(m&&(day(m.at)>=first&&day(m.at)<=last||day(m.knownAt)>=first&&day(m.knownAt)<=last))markers.push(m);};
  for(const e of own)if(day(e.recordedAt)>=first){
   add(marker('research',e.hash,e.recordedAt,e.recordedAt,e.data.provider,{tradeDate:e.data.tradeDate,systems:list(e.data.systems).map(s=>({id:s.id,version:s.version,verdict:s.verdict})),note:'原封存研究判断，非交易指令'},asOf));
  }
  try{const n=Journal.queryAt(roots.newsRoot,{symbol,asOf,now,limit:200});for(const m of newsMarkers(n.rows,symbol,asOf))add(m);
   if(n.nextOffset!==null)missing.push('新闻回放仅显示最近200条版本，完整原文档案可分页查询');
+  if(attentionPair.status==='news-unavailable')attentionPair=projectMatchedAttention(analysis,Journal.readJournal(roots.newsRoot,{now}),{selected,asOf});
  }catch{readFailures.push('新闻档案未就绪');}
  let archive=null;
  try{const read=readShortline||((r)=>import('../research/shortline/store.mjs').then(m=>m.shortlineJob({root:r,book:'main',replica:true})));
@@ -295,7 +298,7 @@ async function readReplay(roots,query,{now=Date.now(),readShortline}={}){
  }
  if(all.length>500)missing.push('标记超出500条，仅显示最近500条；原档案保留');
  return {protocol:'fayo-evidence-replay-v1',symbol,asOf,from:first,to:last,window,runId:selected?.hash??null,
-   ...series,markers:all.slice(-500),missing:[...new Set([...missing,...readFailures,'成交以持久日报、原结算或实际手工记录可知时点为限；无当时证据不回填'])],
+   ...series,attentionPair,markers:all.slice(-500),missing:[...new Set([...missing,...readFailures,'成交以持久日报、原结算或实际手工记录可知时点为限；无当时证据不回填'])],
    scope:'historical-readonly',...flags};
 }
 function ruleSignature(conditions,system){
@@ -627,7 +630,8 @@ async function explain(root,input,{authorize=()=>false,adapter=localAdapter()}={
  }catch{return {...base,status:'failed',modelCalled:true,model:model.status().model,reason:'模型调用或引用核验失败，保留原规则解释'};}
 }
 async function run(roots,query,input,{authorize=()=>false}={}){
- if(input){if(input.action==='save-template')return saveTemplate(roots.root,input,{authorize});if(input.action==='delete-template')return deleteTemplate(roots.root,input,{authorize});if(input.action==='explain')return explain(roots.root,input,{authorize});throw Error('未知研究操作');}
+ if(input){if(input.action==='save-feedback')return Feedback.saveFeedback(roots.root,input,{authorize});if(input.action==='save-template')return saveTemplate(roots.root,input,{authorize});if(input.action==='delete-template')return deleteTemplate(roots.root,input,{authorize});if(input.action==='explain')return explain(roots.root,input,{authorize});throw Error('未知研究操作');}
+ if(query.mode==='feedback'){only(query,['mode','symbol','runId','asOf']);return Feedback.readFeedback(roots.root,{symbol:query.symbol,runId:query.runId,...(query.asOf===undefined?{}:{asOf:query.asOf})});}
  if(query.mode==='templates'){only(query,['mode']);return readTemplates(roots.root);}
  if(query.mode==='model-status'){only(query,['mode']);return modelStatus();}
  const {mode,...q}=query;

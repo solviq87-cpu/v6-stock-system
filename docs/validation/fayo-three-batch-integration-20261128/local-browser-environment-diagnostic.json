@@ -1,0 +1,401 @@
+{
+  "scope": "Original 40 UI workflow commands, native local Chromium and explicitly isolated fixtures; no physical device or mainland-network acceptance.",
+  "driver": {
+    "node": "v24.22.3",
+    "playwright": "1.57.0"
+  },
+  "workflowSha256": "9f928c79d071d919f925448950fc828a02e769ad412c6170cec7704975af5f13",
+  "commands": [
+    {
+      "command": [
+        "node",
+        "scripts/verify-browser-clock.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.065,
+      "log": "/tmp/fayo-three-batch-ui-evidence/01-verify-browser-clock.js.log",
+      "logSha256": "8854095668c8d5690085509689eb46469624abf3a2712e6ef9eec43cf81ec5ea"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 134.901,
+      "log": "/tmp/fayo-three-batch-ui-evidence/02-fayo-browser-check.js.log",
+      "logSha256": "1adade1725b2eaad67a5e03b9b67747e089b846cb780c1f42c0f058c468c1ffc"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-command-evidence-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 6.929,
+      "log": "/tmp/fayo-three-batch-ui-evidence/03-fayo-command-evidence-browser-check.js.log",
+      "logSha256": "07d9bd49c775cf8d6eccd9c6f793407d8fde787f525e5d97f351b64d595734a9"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-replay-boundaries-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 9.271,
+      "log": "/tmp/fayo-three-batch-ui-evidence/04-fayo-replay-boundaries-browser-check.js.log",
+      "logSha256": "927c5561ba79d5b9451469b62f8ad93bc16e1ccf76e8b1e6c4557bc09144454e"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-research-discipline-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.955,
+      "log": "/tmp/fayo-three-batch-ui-evidence/05-fayo-research-discipline-browser-check.js.log",
+      "logSha256": "b053e1aa8f90e48e972d831350b94dd402cccd6785af5e8674709232e90fde0d"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-decision-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 31.531,
+      "log": "/tmp/fayo-three-batch-ui-evidence/06-fayo-decision-browser-check.js.log",
+      "logSha256": "d613d6094a11c22a0b6f487aed9c19fab2f6b01f54d016083fff8b6f8cb63e2c"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-execution-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.902,
+      "log": "/tmp/fayo-three-batch-ui-evidence/07-fayo-execution-browser-check.js.log",
+      "logSha256": "594a1223fd2e43d1de8098014de5f050c3760833f59d87844b847d0c1731db3d"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-risk-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 12.235,
+      "log": "/tmp/fayo-three-batch-ui-evidence/08-fayo-risk-browser-check.js.log",
+      "logSha256": "6a874c0b80b1e92faf598abbe3a45ec242c9cede7803a8f109247aca0da1a464"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-advanced-safety-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 13.12,
+      "log": "/tmp/fayo-three-batch-ui-evidence/09-fayo-advanced-safety-browser-check.js.log",
+      "logSha256": "088af031601858c39cd7988f3b0a89879296f49a91de5cecd865fd19affb05c0"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-intelligence-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 8.191,
+      "log": "/tmp/fayo-three-batch-ui-evidence/10-fayo-intelligence-browser-check.js.log",
+      "logSha256": "2dab451f3c37bd37fc2ac6abfc2c3ca9cc9bfe87d13ef4d52c4d60b544f3a809"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-deep-research-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.303,
+      "log": "/tmp/fayo-three-batch-ui-evidence/11-fayo-deep-research-browser-check.js.log",
+      "logSha256": "40732066b05e05256472ebc31b08be7f926e70a4e89a7404d8ba4a533f835500"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-evolution-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 24.551,
+      "log": "/tmp/fayo-three-batch-ui-evidence/12-fayo-evolution-browser-check.js.log",
+      "logSha256": "26cb956e2e9fbee1b454eb84c146284ce232b6bdf93e45259d2df9552c115957"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-operations-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 4.585,
+      "log": "/tmp/fayo-three-batch-ui-evidence/13-fayo-operations-browser-check.js.log",
+      "logSha256": "9c740310ae29b2b2be5160018e5357fee4b9ee96a00b4471b2865d287877d29b"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-source-review-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 12.838,
+      "log": "/tmp/fayo-three-batch-ui-evidence/14-fayo-source-review-browser-check.js.log",
+      "logSha256": "2fdd10ec4c1c6c72cc238c0a1d9bdc0591c85bef1ddb3ec449a8c7c16602a98a"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-manual-loop-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 27.905,
+      "log": "/tmp/fayo-three-batch-ui-evidence/15-fayo-manual-loop-browser-check.js.log",
+      "logSha256": "a615cc995c4ec460525ed540b04925394371340528519fc5a0ba61f71f0c12f2"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-kline-learning-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 32.273,
+      "log": "/tmp/fayo-three-batch-ui-evidence/16-fayo-kline-learning-browser-check.js.log",
+      "logSha256": "c382461ced49e92ade267262a1e514c2a1ea14e448f8bd2ec14fb97655c23291"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/fayo-close-freeze-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 4.112,
+      "log": "/tmp/fayo-three-batch-ui-evidence/17-fayo-close-freeze-browser-check.js.log",
+      "logSha256": "eebadfd3c4e66efd099b8f9fd11670e4e9bdf8bd2bcf8b2f7131118d90c14c6a"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-unified-workspace-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 57.024,
+      "log": "/tmp/fayo-three-batch-ui-evidence/18-ui-unified-workspace-browser-check.js.log",
+      "logSha256": "dfa3e93aef1f81c2596ecd3479b0f51ea3321d886e450ce6fa4d88ebacc178fb"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-original-workspace-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.422,
+      "log": "/tmp/fayo-three-batch-ui-evidence/19-ui-original-workspace-browser-check.js.log",
+      "logSha256": "ba4a3e6f0a060844343634c6c921f68fe8dce8999fae0e57d8eb588301973a1a"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-mobile-roles-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 6.105,
+      "log": "/tmp/fayo-three-batch-ui-evidence/20-ui-mobile-roles-browser-check.js.log",
+      "logSha256": "970a5227893b927ab2a47a6e4aaaf6bc1088aeaffa8bd57f3d739588230ccd91"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-cache-upgrade-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 3.735,
+      "log": "/tmp/fayo-three-batch-ui-evidence/21-ui-cache-upgrade-browser-check.js.log",
+      "logSha256": "09dbd32e4c4a010fa1def8bca99b9c09a6d7858b06771daa1a086c6690d7151c"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-reference-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.732,
+      "log": "/tmp/fayo-three-batch-ui-evidence/22-ui-reference-browser-check.js.log",
+      "logSha256": "10567df0d1e80f3345bccd79b5015437fc94cba59ec1d31d3758a9bb2014349a"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-picks-three-k-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 13.341,
+      "log": "/tmp/fayo-three-batch-ui-evidence/23-ui-picks-three-k-browser-check.js.log",
+      "logSha256": "1805bd63cc5a40d27fb30f9634d843852cc0cae2b052b6cc457d89e810d9e548"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-stream-recovery-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 4.338,
+      "log": "/tmp/fayo-three-batch-ui-evidence/24-ui-stream-recovery-browser-check.js.log",
+      "logSha256": "dc2a9d20d9eb7bc2bf46bdf268d95b89e1673b8ef3b97b1f946030c5b256c1a9"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-stock-list-import-browser-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.413,
+      "log": "/tmp/fayo-three-batch-ui-evidence/25-ui-stock-list-import-browser-check.js.log",
+      "logSha256": "8c96aaa46c4d3db3a10d527c19082acdee5c3f5397bcb7154005198bfce76abf"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-decision-review-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 4.692,
+      "log": "/tmp/fayo-three-batch-ui-evidence/26-ui-research-decision-review-check.js.log",
+      "logSha256": "e5cd6cf56694f4f81040d0f627f57ce9ff23c826ffad47ff9bf9496efeb2b31d"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-workspace-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 12.743,
+      "log": "/tmp/fayo-three-batch-ui-evidence/27-ui-research-workspace-check.js.log",
+      "logSha256": "d30f23e9b902300ba62d52c19f276c14b727ee8a6d4020b05319bf11debb64be"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-model-forecast-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 5.85,
+      "log": "/tmp/fayo-three-batch-ui-evidence/28-ui-model-forecast-check.js.log",
+      "logSha256": "abca9ddf53bb04e6379a85dbcc6d1c3c37a4ff4bda5a483ff6ac22b21d3ad9a8"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-model-library-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 11.24,
+      "log": "/tmp/fayo-three-batch-ui-evidence/29-ui-model-library-check.js.log",
+      "logSha256": "3bc3fbcbb2aaa4462a55db5a6af2c1b1a897eae2c8ff4d146611abc31bdbb20b"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-summary-cards-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 16.392,
+      "log": "/tmp/fayo-three-batch-ui-evidence/30-ui-research-summary-cards-check.js.log",
+      "logSha256": "0858633a3e5e4df7f0a807b1e97229d4f2a933a4fded0a80739f619cb17c70c5"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-selection-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 29.098,
+      "log": "/tmp/fayo-three-batch-ui-evidence/31-ui-research-selection-check.js.log",
+      "logSha256": "c72158309f7b00d5c4e9d58c3a1eaa0ba14a1865ecdb7716250eb4eeacaf4b86"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-navigation-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 13.048,
+      "log": "/tmp/fayo-three-batch-ui-evidence/32-ui-research-navigation-check.js.log",
+      "logSha256": "2117ae9b1874804a11ef0681f6b26b0ae2c857687a86a7f0546fa6f1d47d2bf4"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-tab-race-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 10.505,
+      "log": "/tmp/fayo-three-batch-ui-evidence/33-ui-research-tab-race-check.js.log",
+      "logSha256": "e66bb051aa539627de916b04392640b804cd4b12a30ed0ee8a13ec090a569b26"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-recovery-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 20.809,
+      "log": "/tmp/fayo-three-batch-ui-evidence/34-ui-research-recovery-check.js.log",
+      "logSha256": "02f2eb776300cede86b0745e90f7d63a651b63432434ac440ce39b0f9ac1ef83"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research-context-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 9.572,
+      "log": "/tmp/fayo-three-batch-ui-evidence/35-ui-research-context-check.js.log",
+      "logSha256": "c98efc2d927be01a8b209c362e7e34e2197e51ae9350ee3261892f9c4aaa9252"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-market-linkage-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 7.869,
+      "log": "/tmp/fayo-three-batch-ui-evidence/36-ui-market-linkage-check.js.log",
+      "logSha256": "0caf6fde2f2f767e824594ca30bb122b4e530439d989f507f87bb2299d0dd281"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-learning-workbench-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 16.502,
+      "log": "/tmp/fayo-three-batch-ui-evidence/37-ui-learning-workbench-check.js.log",
+      "logSha256": "6a94ab779433e146fa37ce8db4295b0bfd26fc77ddb61383625e22cf33c291be"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-model-library-context-check.js"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 6.92,
+      "log": "/tmp/fayo-three-batch-ui-evidence/38-ui-model-library-context-check.js.log",
+      "logSha256": "226305fabeb69eff32acfaab7ebed178064cfe37af7fc83466164c08930b580f"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/ui-research36-check.js"
+      ],
+      "exit": 1,
+      "elapsedSeconds": 0.265,
+      "log": "/tmp/fayo-three-batch-ui-evidence/39-ui-research36-check.js.log",
+      "logSha256": "81147494a93ce4473edb18a4cdc3865c25f5890bc9855d3d98819a0badbd712d"
+    }
+  ],
+  "passed": false
+}

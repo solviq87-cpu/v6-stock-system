@@ -1,0 +1,44 @@
+(node:1743441) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///tmp/fayo-pr601-fixture-check/V6_BO/public/nova/ui.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /tmp/fayo-pr601-fixture-check/V6_BO/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ DOM fixture preserves native primitive conversion instead of silently dropping null or zero (2.216544ms)
+✔ a pending model call cannot be invalidated by a configuration click and leave controls locked (8.6699ms)
+✔ changing question cancels the request and does not expose a late answer (1.585242ms)
+✔ a completed label without an actual model call is shown as a failed receipt (0.997144ms)
+✖ an absent optional replay section does not become a visible null placeholder (29.371251ms)
+✔ returning to a replay restores the selected evidence and zoom only after rereading the same identity (17.780475ms)
+✔ replay refuses a receipt for a different sealed version even with the same stock and cutoff (0.953398ms)
+✔ unsupported single-character OR clauses are not interpreted as one industry name (1.291549ms)
+✔ unknown conditions cannot display late values as observations known at the historical cutoff (0.806597ms)
+✔ next-plan review preserves the original incident and same-plan follow-up while exposing a separately bound later fact (2.582035ms)
+✔ unbound, mismatched and future next-plan receipts fail only that disclosure without claiming compliance (11.801705ms)
+✔ a different rule version stays unknown and cannot reuse a positive label or evidence (3.38729ms)
+✔ a bound unknown receipt without a selected later plan preserves its specific archive gap (8.142444ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 12
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 199.073708
+
+✖ failing tests:
+
+test at tests/fayo-evidence-continuation-client.test.mjs:63:1
+✖ an absent optional replay section does not become a visible null placeholder (29.371251ms)
+  AssertionError [ERR_ASSERTION]: missing optional content must omit a node, not render a converted null string
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///tmp/fayo-pr601-fixture-check/V6_BO/tests/fayo-evidence-continuation-client.test.mjs:67:9)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

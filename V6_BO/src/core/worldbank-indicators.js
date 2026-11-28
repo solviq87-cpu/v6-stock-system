@@ -95,4 +95,18 @@ async function collectWorldBankIndicator({country,indicator,startYear,endYear,cl
  const result={...parseWorldBankResponse(JSON.parse(bytes),{country,indicator,startYear,endYear,observedAt}),requestStartedAt:now,observationTimeBasis:'local-body-receipt'};
  return archiveRoot===undefined?result:require('./market-data-evidence').archiveBackgroundResult(result,{root:archiveRoot,raw:rawBytes,byteBasis,scope:{country,indicator,startYear,endYear}});
 }
-module.exports={validate,parseWorldBankResponse,collectWorldBankIndicator};
+function annualBackgroundComparison(snapshot){
+ const currentYear=snapshot.endYear,previousYear=currentYear-1;
+ const valueFor=year=>{
+  const rows=snapshot.rows.filter(r=>r.year===year);
+  return rows.length===1&&typeof rows[0].value==='number'&&Number.isFinite(rows[0].value)?rows[0].value:null;
+ };
+ const currentValue=valueFor(currentYear),previousValue=previousYear>=snapshot.startYear?valueFor(previousYear):null;
+ const difference=currentValue!==null&&previousValue!==null?currentValue-previousValue:null;
+ const delta=Number.isFinite(difference)?difference:null;
+ return {status:delta===null?'unknown':'descriptive-local-snapshot',currentYear,previousYear,currentValue,previousValue,delta,
+  direction:delta===null?'unknown':delta>0?'increase':delta<0?'decrease':'unchanged',unit:null,creditEconomicState:null,expectationGap:null,
+  sourcePublicationVintageVerified:false,pointInTimeBacktestReady:false,canTrade:false,
+  note:'同一已归档年度指标的原数值差，不是同比增长率、实时资金或经济状态；历史首次公布及修订时间未知'};
+}
+module.exports={validate,parseWorldBankResponse,collectWorldBankIndicator,annualBackgroundComparison};

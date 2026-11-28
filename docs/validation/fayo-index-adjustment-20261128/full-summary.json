@@ -1,0 +1,12 @@
+{
+  "command": "PATH=<existing PowerShell> V6_MODEL_PYTHON=<existing local environment> OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 npm test",
+  "scope": "source a3c1896 + increment; native.json production file hashes bind final commit",
+  "stats": {
+    "tests": 8071,
+    "pass": 8071,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0
+  },
+  "durationMs": 151573.463192
+}

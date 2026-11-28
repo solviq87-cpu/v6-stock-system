@@ -198,3 +198,8 @@ test('older out-of-span archives and sparse but valid holdouts remain counted co
  assert.equal(result.canTrade,false);
  assert.equal(result.productionWeightsChanged,false);
 });
+
+test('F26.4 retained and market-shock inspections are disclosed and consume the original budget',()=>{
+ const ds=days(120),a=record(ds,0),b=record(ds,1,{status:'shadow-updated'}),c=record(ds,2,{status:'paused-market-shock'}),r=assessGlobalTrialBudget([a,b,c],ds.slice(0,90),pack);
+ assert.equal(r.usedTrials,3);assert.equal(r.remainingTrials,3);assert.equal(r.historicalTrialDisposition['shadow-retained'],1);assert.equal(r.historicalTrialDisposition['paused-market-shock'],1);assert.equal(r.historicalTrialDisposition.retainedOrShockInspections,2);assert.equal(r.historicalTrialDisposition.independentNetReturnMatrixCertified,false);
+});

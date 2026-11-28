@@ -27,7 +27,7 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
   }
   async function tick() {
     const now = clock(), current = session();
-    if (pending || now < nextAt || !enabled() || !isPrimary() || !current?.openDay) return null;
+    if (!Number.isSafeInteger(now)||now<=0||now>8e15||pending || now < nextAt || !enabled() || !isPrimary() || !current?.openDay) return null;
     const currentDay = normalizeDay(current.day);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(currentDay)) return null;
     if (day !== currentDay) { day=currentDay;attempts.clear();historyCache={day:'',at:0,codes:[],cursor:historyCache.cursor}; }
@@ -39,9 +39,15 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
     // signal still needs its outcome after it leaves today's candidate pool.
     nextAt=now+60000;pending=true;state.running=true;
     return trace.async('task.decision-background',async root=>{
-    const stillEligible=()=>{const live=session();return enabled()&&isPrimary()&&live?.openDay&&
-      normalizeDay(live.day)===currentDay&&Number.isSafeInteger(clock())&&clock()>=now&&
+    const stillEligible=(at=clock(),notBefore=now)=>{const live=session();return enabled()&&isPrimary()&&live?.openDay&&
+      normalizeDay(live.day)===currentDay&&Number.isSafeInteger(at)&&at>=notBefore&&at<=8e15&&
       (live.minute>=960)===afterClose&&(afterClose||live.trading);};
+    const lateResult=(at,dispatchAt)=>{
+      root.mark('blocked','BUSINESS_REJECTED');
+      state.lastResult={...state.lastAttempt,completedAt:Number.isSafeInteger(at)&&at>=dispatchAt&&at<=8e15?at:null,
+        status:'superseded',reason:'采集回执到达时原交易日、时段、时钟或授权已变化；仅保留原采集档案，不认作当前成功'};
+      return state.lastResult;
+    };
     try {
       if(afterClose&&(historyCache.day!==day||now<historyCache.at||now-historyCache.at>=5*60000)){
         try{
@@ -69,14 +75,25 @@ function createDecisionCenterBackground({enabled, isPrimary, session, candidates
       const dispatchAt=clock();
       const row={at:dispatchAt,count:(prior?.success?0:prior?.count||0)+1,success:false};
       attempts.set(key,row);state.lastAttempt={kind:task.kind,code:task.code,day,at:dispatchAt};
+      let receiptAt=null,admitted=false;
       await trace.async(task.kind==='history'?'market.history':'market.financials',async span=>{
-        const result=await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now:dispatchAt});
-        row.success=successful(task.kind,result,task,clock());
-        if(!row.success)span.mark('unknown','SOURCE_UNAVAILABLE');
+        try{
+          const result=await (task.kind === 'history' ? collectHistory : collectFinancials)({code:task.code,day,now:dispatchAt});
+          receiptAt=clock();
+          if(!stillEligible(receiptAt,dispatchAt)){span.mark('blocked','BUSINESS_REJECTED');return;}
+          admitted=true;row.success=successful(task.kind,result,task,receiptAt);
+          if(!row.success)span.mark('unknown','SOURCE_UNAVAILABLE');
+        }catch(error){
+          receiptAt=clock();
+          if(!stillEligible(receiptAt,dispatchAt)){span.mark('blocked','BUSINESS_REJECTED');return;}
+          throw error;
+        }
       });
+      const completedAt=clock();
+      if(!admitted||!stillEligible(completedAt,receiptAt)){row.success=false;return lateResult(completedAt,dispatchAt);}
       if(!row.success)root.mark('unknown','SOURCE_UNAVAILABLE');
       if(task.kind==='history'&&row.success)historyCache.codes=historyCache.codes.filter(code=>code!==task.code);
-      state.lastResult={...state.lastAttempt,completedAt:clock(),status:row.success?'collected':'incomplete',
+      state.lastResult={...state.lastAttempt,completedAt,status:row.success?'collected':'incomplete',
         reason:row.success?null:task.kind==='history'?'后复权独立来源或原时点证据未齐，保留原回执并退避重试':'财报原始回执未齐，保留缺项并退避重试'};
       if(row.success)state.lastSuccessAt=state.lastResult.completedAt;
       return state.lastResult;

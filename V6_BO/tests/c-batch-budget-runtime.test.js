@@ -26,3 +26,16 @@ test('C16.5 original runtime multi-session estimate cannot present a single-orde
  }
  assert.equal(JSON.stringify(f.book),before);assert.equal(r.canTrade,false);
 });
+
+test('F24.3 pending purchases occupy the same cash budget as new candidates and cannot be counted as free cash',()=>{
+ const f=fixtures(),day=f.input.day;
+ f.book.feePolicy={...f.book.feePolicy,feeBps:0,commissionScope:'order-day'};
+ f.book.orders.pending={order:{orderId:'pending',symbol:'600002',side:'buy',quantity:100,tradeDate:day,limitPrice:10},
+  state:{terminal:false,remainingQuantity:100},events:[{type:'not-a-fill',date:day,feeEvidence:{
+   version:f.book.feePolicy.version,gross:1000,commission:5,tax:0,transfer:0,total:5}}]};
+ const before=JSON.stringify(f.book),r=accountExitDiagnostics(f.book,f.input),p=r.portfolioEvidence;
+ assert.equal(r.reservedCash,1005);assert.equal(r.availableCash,8995);
+ assert.equal(p.cashBaseline.reservedCash,1005);assert.equal(p.cashBaseline.availableCash,8995);
+ assert.equal(p.previews[0].previewBlocked,true);assert.equal(p.cashComparisons[0].status,'unknown');
+ assert.equal(p.opportunityComparisons.length,0);assert.equal(r.canTrade,false);assert.equal(JSON.stringify(f.book),before);
+});

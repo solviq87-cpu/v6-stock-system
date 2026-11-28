@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "mode": "V6-unified-release-preflight",
+  "generatedAt": "2026-11-28T09:48:12.780Z",
+  "nodeVersion": "v24.22.3",
+  "platform": "linux",
+  "staticAcceptance": {
+    "requiredFilesPresent": true,
+    "featureLedgerCount": true,
+    "featureIdsUnique": true,
+    "mainTaskCount": true,
+    "mainIdsUnique": true
+  },
+  "structurePassed": true,
+  "workstreams": [
+    {
+      "id": "01-market",
+      "name": "行情与多源数据治理",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/market-data-center.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/market-data-quality.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/market-feed-consensus.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/eastmoney-historical-feed.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "a7e9ac3ac8bf2589e6d1dfc0bf70d16b84d2ff708e04a28cfe2f87b54d8704f5",
+      "productionAccepted": false,
+      "externalBlocker": "行情供应商授权、真实联网、除权除息和交易日历核验"
+    },
+    {
+      "id": "02-strategies",
+      "name": "四策略逐日原生执行",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/native-strategy-daily-runner.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/python-native-bridge.js",
+          "exists": true
+        },
+        {
+          "path": "myrules.js",
+          "exists": true
+        },
+        {
+          "path": "bazi.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "b5565a7080559b545bbe56263a7085432fc93691871865bb5049b293671b9471",
+      "productionAccepted": false,
+      "externalBlocker": "原始 Python 三轮策略程序及真实同日因子"
+    },
+    {
+      "id": "03-backtest",
+      "name": "专业历史回测",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/historical-validation.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/strategy-evidence-replay.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/strategy-portfolio-lab.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "1c7dbe86cd8155ab2d51c1e1d732cefdccc9aac356defa9bacc9129d8c8bdf7a",
+      "productionAccepted": false,
+      "externalBlocker": "真实历史样本与交易可成交性复核"
+    },
+    {
+      "id": "04-arena",
+      "name": "策略竞技场与失效监控",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/independent-strategy-attribution.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/strategy-health-monitor.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "fd07ed288c540446d12a0edd9f459174d0dda789f784cced6e4d8794daf0ae66",
+      "productionAccepted": false,
+      "externalBlocker": "预先指定样本外窗口及足量真实交易样本"
+    },
+    {
+      "id": "05-paper",
+      "name": "持续模拟账户",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/paper-session.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/paper-monitor.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/continuous-research-ops.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "20b5f17c74c244a175b50c770b52f7d811d7d65160bc74ac45f6265bc1a5f710",
+      "productionAccepted": false,
+      "externalBlocker": "多交易日连续值守及模拟成交对账"
+    },
+    {
+      "id": "06-risk",
+      "name": "风控与交易约束",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/research-risk-gate.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/strategy-portfolio-lab.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "874c290a0f53c2b72f33120cc7fd671e10ac2288cbe5264472f9c4a7213b8808",
+      "productionAccepted": false,
+      "externalBlocker": "异常行情、资金、公司行为的生产风险演练"
+    },
+    {
+      "id": "07-auth",
+      "name": "账户与设备安全",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "server.js",
+          "exists": true
+        },
+        {
+          "path": "src/server/bootstrap.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "afec9035102c7a6566bd214423dd039f708f85275f447a17d8eafcf97243c5c7",
+      "productionAccepted": false,
+      "externalBlocker": "真实账户、设备撤权、权限边界及安全复核"
+    },
+    {
+      "id": "08-http",
+      "name": "HTTP与云端稳定性",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/continuous-research-ops.js",
+          "exists": true
+        },
+        {
+          "path": "server.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "aab467c1503afe0fd572613ddec9f8487f8852b3bff994a8e3545f7773d05855",
+      "productionAccepted": false,
+      "externalBlocker": "生产 HTTPS、并发、断网、凭证轮换与可用性压测"
+    },
+    {
+      "id": "09-recovery",
+      "name": "灾备与恢复",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "scripts/disaster-recovery.js",
+          "exists": true
+        },
+        {
+          "path": "tests/disaster-recovery.test.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "9ad0a2c2ff039299f642fee489339db2ec9a63f893a265f1f92216a1ee2f2bcb",
+      "productionAccepted": false,
+      "externalBlocker": "独立主机与生产数据恢复演练"
+    },
+    {
+      "id": "10-ui",
+      "name": "电脑手机统一界面",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "src/core/paper-monitor.js",
+          "exists": true
+        },
+        {
+          "path": "src/core/continuous-research-ops.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "412d9a660ead6cebe7f09495ab8f744b80e0432dbefd453482620ac1d43a9308",
+      "productionAccepted": false,
+      "externalBlocker": "真实 iOS/Android 与桌面浏览器人工验收"
+    },
+    {
+      "id": "11-release",
+      "name": "工程部署与自动验收",
+      "codeFilesPresent": true,
+      "files": [
+        {
+          "path": "scripts/unified-acceptance-gate.js",
+          "exists": true
+        },
+        {
+          "path": "scripts/integrated-run-bundle.js",
+          "exists": true
+        },
+        {
+          "path": "scripts/v6-release-preflight.js",
+          "exists": true
+        }
+      ],
+      "codeEvidenceSha256": "fe7c434ef0075f49298c876493b999bd417176e5a230a74f4563d7e0251e147e",
+      "productionAccepted": false,
+      "externalBlocker": "外部签署的最终上线验收证据"
+    }
+  ],
+  "workstreamsWithCodeEvidence": 11,
+  "offlineRuntime": null,
+  "codeChecksPassed": true,
+  "productionReady": false,
+  "canTrade": false,
+  "warnings": [
+    "源码存在、离线回归和运行档案可重放，不等于十一大工程生产验收完成",
+    "真实行情授权、原始Python三轮程序、长期模拟盘、真实设备、生产安全与灾备演练仍需外部条件和证据"
+  ]
+}

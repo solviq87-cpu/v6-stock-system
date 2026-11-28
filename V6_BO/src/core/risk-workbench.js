@@ -4,6 +4,7 @@
 // caller of this module can submit an order, change a rule, or repair a ledger.
 const crypto = require('node:crypto');
 const {validateEquityEvidence} = require('./account-equity-evidence');
+const {recoveryReview}=require('./fayo-risk-replay-review');
 const {riskState,copyStateEvidence,resolutionCheck,reductionCheck,recoveryBaseline}=require('./risk-state-contract');
 const VERSION = 'fayo-risk-workbench-20261126-v1';
 const list = value => Array.isArray(value) ? value : [];
@@ -434,6 +435,7 @@ function buildRiskWorkbench({accountId='pool',now=Date.now(),equity=null,equityH
         notTriggered:rows.filter(r=>r.assessmentState==='not-triggered').length,unable:rows.filter(r=>r.assessmentState==='unable-to-assess').length},
       categories:CATEGORIES.map(id=>({id,count:active.filter(r=>r.category===id).length}))},
     risks:rows,equity,equityHistory,rules,actions,stress,alerts,
+    recoveryReview:recoveryReview({equity,rules,actions,rows,now}),
     equityMissingMessages:list(equity?.missing).map(missingText),stressMissingMessages:list(stress?.missing).map(missingText),
     manualHoldings:research?.manualHoldings?{...research.manualHoldings,accountAuthority:false,label:'手工申报持仓，非权威账户'}:null,
     strategy:strategyEvidence,classifications,instance:{role:system.replica?'replica':'primary'},

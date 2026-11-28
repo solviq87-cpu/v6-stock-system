@@ -124,3 +124,52 @@ test('labels cannot contradict the original frozen security, model, calendar or 
  assert.equal(evaluate(plan,[f],[label(f,true,identity)],calendar,{now:time(70)}).validationRaw.samples,1);
  assert.equal(evaluate(plan,[f],[label(f)],calendar,{now:time(70)}).validationRaw.samples,1);
 });
+
+test('unlabeled frozen holdout forecasts stay in the full-population coverage denominator',()=>{
+ const {fs,ys}=pairedFixture();
+ for(let i=32;i<52;i++)fs.push(prediction(i,5));
+ const r=evaluate(plan,fs,ys,calendar,{now:time(70)});
+ assert.equal(r.calibratedCoverage,1);
+ assert.deepEqual(r.holdoutCoverage,{frozen:120,eligible:100,calibrated:100,
+  eligibleFraction:100/120,calibratedFraction:100/120});
+ assert.equal(r.pairedComparison.status,'partial-descriptive');
+ assert.equal(evaluate(plan,fs,ys,calendar,{now:time(55)}).holdoutCoverage,null);
+});
+
+test('sealed coverage retains zero counts and withholds ratios for missing or conflicting historical counts',()=>{
+ const {frozenHoldoutCoverage}=require('../src/core/probability-reliability');
+ const report={validationWindowClosed:true,expectedValidation:2,validationRaw:{samples:0},validationCalibrated:{samples:0}};
+ assert.equal(frozenHoldoutCoverage(report).calibratedFraction,0);
+ assert.deepEqual(frozenHoldoutCoverage({...report,expectedValidation:0}),{frozen:0,eligible:0,calibrated:0,eligibleFraction:null,calibratedFraction:null});
+ assert.equal(frozenHoldoutCoverage({...report,expectedValidation:undefined}),null);
+ assert.equal(frozenHoldoutCoverage({...report,validationCalibrated:{samples:1}}),null);
+ assert.equal(frozenHoldoutCoverage({...report,pairedComparison:{expectedValidation:4}}),null);
+});
+
+test('F36 frozen regime cohorts fit only their own earlier labels and never report before the holdout closes',()=>{
+ const fs=[];
+ for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++){
+  const t=time(i,'10:00');
+  fs.push(prediction(i,j,{regimeEvidence:{regime:'risk_on',source:'test-fixture',version:'v1',fingerprint:sourceFingerprint,knownAt:t,date:dates[i],usable:true}}));
+ }
+ const ys=fs.map(f=>label(f,f.phase==='calibration'?f.code!=='000005':f.code==='000001'));
+ const r=evaluate(plan,fs,ys,calendar,{now:time(70)}),c=r.regimeReliability.cohorts[0];
+ assert.equal(c.expectedValidation,100);assert.equal(c.pairedSamples,100);assert.equal(c.coverage,1);
+ assert.ok(c.calibratedBrier>c.rawBrier);assert.equal(c.completePairedComparison,true);
+ assert.equal(r.regimeReliability.automaticCalibrationUpdated,false);
+ assert.ok(r.reliabilityDrift.eventRateShift<0);
+ const early=evaluate(plan,fs.filter(f=>f.predictedAt<=time(45)),ys.filter(y=>fs.find(f=>f.id===y.predictionId).predictedAt<=time(45)),calendar,{now:time(45)});
+ assert.deepEqual(early.regimeReliability.cohorts,[]);assert.equal(early.reliabilityDrift.validationEventRate,null);
+ assert.throws(()=>prediction(5,0,{regimeEvidence:{regime:'risk_on',source:'test-fixture',version:'v1',fingerprint:sourceFingerprint,knownAt:time(6),date:dates[5],usable:true}}),/行情分类证据/);
+});
+test('F36 unknown or changed regime versions cannot borrow calibration sample coverage',()=>{
+ const fs=[];
+ for(const start of [2,32])for(let i=start;i<start+20;i++)for(let j=0;j<5;j++){
+  const t=time(i,'10:00');
+  fs.push(prediction(i,j,{...(j===0?{}:{regimeEvidence:{regime:'risk_off',source:'test-fixture',version:start===2?'v1':'v2',fingerprint:sourceFingerprint,knownAt:t,date:dates[i],usable:true}})}));
+ }
+ const r=evaluate(plan,fs,fs.map(f=>label(f,f.code==='000001')),calendar,{now:time(70)});
+ assert.equal(r.regimeReliability.unknownValidation,20);
+ assert.ok(r.regimeReliability.cohorts.every(x=>x.pairedSamples===0&&x.calibratedBrier===null));
+ assert.equal(r.regimeReliability.independentCalibrationCertified,false);
+});

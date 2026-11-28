@@ -1,0 +1,62 @@
+{
+  "visual-geometry": {
+    "count": 2,
+    "examples": [
+      {
+        "pr": 596,
+        "head": "d6ae6a5c295799e2087a735b983dfddce8738164",
+        "conclusion": "FAILURE",
+        "run": 46109518520,
+        "job": 140869694130,
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46109518520/job/140869694130",
+        "headMatches": true
+      },
+      {
+        "pr": 581,
+        "head": "d0ebce655275e32838ce54779e920b9e43178935",
+        "conclusion": "FAILURE",
+        "run": 46106715736,
+        "job": 140860999550,
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46106715736/job/140860999550",
+        "headMatches": true
+      }
+    ]
+  },
+  "commit-status-coverage": {
+    "count": 13,
+    "examples": [
+      {
+        "pr": 601,
+        "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375",
+        "conclusion": "FAILURE",
+        "run": 46110768725,
+        "job": 140873569661,
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46110768725/job/140873569661",
+        "headMatches": true
+      },
+      {
+        "pr": 600,
+        "head": "ef50d1a42ea5b07bcf20ef13ab0dcf822154d20e",
+        "conclusion": "FAILURE",
+        "run": 46110007070,
+        "job": 140871225673,
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46110007070/job/140871225673",
+        "headMatches": true
+      }
+    ]
+  },
+  "verify": {
+    "count": 1,
+    "examples": [
+      {
+        "pr": 601,
+        "head": "bacdec0cbf7afe16a7d8963ad85fe0c2b8d71375",
+        "conclusion": "FAILURE",
+        "run": 46110768742,
+        "job": 140873569920,
+        "url": "https://github.com/solviq87-cpu/v6-stock-system/actions/runs/46110768742/job/140873569920",
+        "headMatches": true
+      }
+    ]
+  }
+}
