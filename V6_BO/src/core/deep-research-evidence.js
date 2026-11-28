@@ -14,6 +14,7 @@ const {createTradingCalendar} = require('./trading-calendar');
 const {preEventComparison,eventRegimeOverlay} = require('./event-prewindow-research');
 const {projectEventReview} = require('./event-path-review');
 const {expectationBasis,eventWindowLifecycle,frozenIndustryReaction}=require('./catalyst-window-review');
+const {trackEventCandidates}=require('./event-candidate-tracking');
 const {levelOneReview,microstructureReview,summarizeMicrostructureSessions} = require('./microstructure-evidence-review');
 
 const LIMIT = 10000;
@@ -733,6 +734,7 @@ function buildDeepResearchEvidence(input={}, options={}) {
   // Existing version reader and original account projection remain authoritative.
   modules[67].eventReview=projectEventReview({events:versions(effective.events,asOf,'事件').rows,relations:versions(effective.relations,asOf,'关系证据',2000).rows,
     journalRows:input.newsJournalRows??[],account:modules[69].account,asOf});
+  modules[67].eventTracking=trackEventCandidates({journalRows:input.newsJournalRows??[],workspaceEvents:input.workspaceEvents??[],asOf});
   modules[67].missing=[...new Set([...modules[67].missing,...derived.pending.map(r=>r.reason)])];
   return {schemaVersion:1,asOf,modules,riskObservations:Object.values(modules).flatMap(m=>m.riskObservations),
     missing:Object.values(modules).flatMap(m=>m.missing.map(reason=>({task:m.task,reason}))),...FLAGS};
